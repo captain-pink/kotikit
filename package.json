@@ -1,0 +1,21 @@
+{
+  "name": "kotikit",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "kotikit-mcp": "./src/mcp/server.ts"
+  },
+  "scripts": {
+    "mcp": "bun run src/mcp/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "latest",
+    "zod": "^3.23.0",
+    "simple-git": "^3.27.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}
