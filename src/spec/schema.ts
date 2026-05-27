@@ -1,0 +1,164 @@
+import { z } from "zod";
+import { uuid, nowIso } from "../util/ids";
+
+// Helper: a field that is either the string "inherits" or an object with overrides
+const InheritOr = <T extends z.ZodTypeAny>(overrides: T) =>
+  z.union([z.literal("inherits"), z.object({ overrides })]);
+
+// ─── Screen Spec ─────────────────────────────────────────────────────────────
+
+export const ScreenSpecSchema = z.object({
+  id: z.string().uuid(),
+  version: z.string().default("1.0.0"),
+  status: z.enum(["draft", "active"]).default("draft"),
+  title: z.string().min(1, "title is required"),
+  type: z.literal("screen"),
+  flowRef: z.string().optional(),
+  context: z.object({
+    description: z.string().min(1, "context.description is required"),
+    userTypes: z.array(z.string()).default([]),
+    entryPoints: z.array(z.string()).default([]),
+  }),
+  requirements: z.object({
+    functional: z.array(z.string()).default([]),
+    states: z.record(z.string(), z.string()),
+    responsive: InheritOr(
+      z.object({ breakpoints: z.array(z.number().int().positive()) })
+    ),
+    themes: InheritOr(z.object({ themes: z.array(z.string()) })),
+  }),
+  components: z
+    .array(
+      z.object({
+        name: z.string(),
+        dsKey: z.string().optional(),
+        usage: z.string().optional(),
+      })
+    )
+    .default([]),
+  acceptanceCriteria: z.array(z.string()).default([]),
+  metadata: z.object({
+    createdAt: z.string(),
+    updatedAt: z.string(),
+  }),
+});
+
+export type ScreenSpec = z.infer<typeof ScreenSpecSchema>;
+
+// ─── Flow Manifest ────────────────────────────────────────────────────────────
+
+export const FlowManifestSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string().min(1, "title is required"),
+  description: z.string().min(1, "description is required"),
+  screens: z
+    .array(
+      z.object({
+        id: z.string(),
+        path: z.string(),
+        title: z.string(),
+      })
+    )
+    .min(1, "a flow must have at least one screen"),
+  transitions: z
+    .array(
+      z.object({
+        from: z.string(),
+        to: z.string(),
+        trigger: z.string(),
+      })
+    )
+    .default([]),
+  sharedState: z.array(z.string()).default([]),
+  metadata: z.object({
+    createdAt: z.string(),
+    updatedAt: z.string(),
+  }),
+});
+
+export type FlowManifest = z.infer<typeof FlowManifestSchema>;
+
+// ─── Factories ────────────────────────────────────────────────────────────────
+
+export function newScreenSpec(input: {
+  title: string;
+  description: string;
+  flowRef?: string;
+}): ScreenSpec {
+  const now = nowIso();
+  return ScreenSpecSchema.parse({
+    id: uuid(),
+    version: "1.0.0",
+    status: "draft",
+    title: input.title,
+    type: "screen",
+    flowRef: input.flowRef,
+    context: {
+      description: input.description,
+      userTypes: [],
+      entryPoints: [],
+    },
+    requirements: {
+      functional: [],
+      states: {},
+      responsive: "inherits",
+      themes: "inherits",
+    },
+    components: [],
+    acceptanceCriteria: [],
+    metadata: {
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
+}
+
+export function newFlowManifest(input: {
+  title: string;
+  description: string;
+  screens: { id: string; path: string; title: string }[];
+}): FlowManifest {
+  const now = nowIso();
+  return FlowManifestSchema.parse({
+    id: uuid(),
+    title: input.title,
+    description: input.description,
+    screens: input.screens,
+    transitions: [],
+    sharedState: [],
+    metadata: {
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
+}
+
+// ─── Parse helpers ────────────────────────────────────────────────────────────
+
+export function parseScreenSpec(raw: unknown): ScreenSpec {
+  const result = ScreenSpecSchema.safeParse(raw);
+  if (!result.success) {
+    const fields = result.error.issues
+      .map((i) => i.path.join(".") || "root")
+      .join(", ");
+    throw new Error(
+      `This spec file has an invalid format. Problem with: ${fields}. ` +
+        `The file may have been edited manually and become malformed.`
+    );
+  }
+  return result.data;
+}
+
+export function parseFlowManifest(raw: unknown): FlowManifest {
+  const result = FlowManifestSchema.safeParse(raw);
+  if (!result.success) {
+    const fields = result.error.issues
+      .map((i) => i.path.join(".") || "root")
+      .join(", ");
+    throw new Error(
+      `This flow manifest has an invalid format. Problem with: ${fields}. ` +
+        `The file may have been edited manually and become malformed.`
+    );
+  }
+  return result.data;
+}
