@@ -1,0 +1,104 @@
+import { describe, it, expect, afterAll } from "bun:test";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync, readFileSync } from "fs";
+import { tmpdir } from "os";
+import { join, dirname } from "path";
+import {
+  readCheckpoint,
+  writeCheckpoint,
+  clearCheckpoint,
+  hasCheckpoint,
+  type Checkpoint,
+} from "./checkpoint.js";
+import { checkpointPath } from "../util/paths.js";
+
+const tmpDirs: string[] = [];
+
+function mkTmp(): string {
+  const d = mkdtempSync(join(tmpdir(), "kotikit-checkpoint-"));
+  tmpDirs.push(d);
+  return d;
+}
+
+afterAll(() => {
+  for (const d of tmpDirs) rmSync(d, { recursive: true, force: true });
+});
+
+const sampleCheckpoint: Checkpoint = {
+  version: 1,
+  startedAt: "2026-05-28T12:00:00.000Z",
+  files: [
+    { fileKey: "fileA", stage: "components" },
+    { fileKey: "fileB", stage: "node_details", cursor: { processed: 100, batchSize: 100 } },
+  ],
+};
+
+describe("checkpoint", () => {
+  it("readCheckpoint returns null when no file exists", async () => {
+    const root = mkTmp();
+    expect(await readCheckpoint(root)).toBeNull();
+    expect(await hasCheckpoint(root)).toBe(false);
+  });
+
+  it("write then read round-trips", async () => {
+    const root = mkTmp();
+    await writeCheckpoint(root, sampleCheckpoint);
+    expect(await hasCheckpoint(root)).toBe(true);
+    const got = await readCheckpoint(root);
+    expect(got).toEqual(sampleCheckpoint);
+  });
+
+  it("writes to <path>.tmp first, then renames (atomic)", async () => {
+    const root = mkTmp();
+    // Pre-seed a sentinel to ensure the real file is replaced, not appended
+    const path = checkpointPath(root);
+    // Create parent dir manually before writing
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, "{}");  // garbage to be overwritten
+    await writeCheckpoint(root, sampleCheckpoint);
+    // No leftover .tmp
+    expect(existsSync(path + ".tmp")).toBe(false);
+    // Real file has the new content
+    const onDisk = JSON.parse(readFileSync(path, "utf-8"));
+    expect(onDisk.startedAt).toBe(sampleCheckpoint.startedAt);
+  });
+
+  it("readCheckpoint returns null on malformed JSON", async () => {
+    const root = mkTmp();
+    // Manually drop garbage
+    const path = checkpointPath(root);
+    // Make sure the design-system dir exists first
+    await writeCheckpoint(root, sampleCheckpoint);
+    writeFileSync(path, "not valid json{{{");
+    expect(await readCheckpoint(root)).toBeNull();
+    // File is untouched (we don't delete on parse failure — just return null)
+    expect(existsSync(path)).toBe(true);
+  });
+
+  it("readCheckpoint returns null on schema mismatch", async () => {
+    const root = mkTmp();
+    await writeCheckpoint(root, sampleCheckpoint);
+    const path = checkpointPath(root);
+    writeFileSync(path, JSON.stringify({ version: 999, files: [] }));
+    expect(await readCheckpoint(root)).toBeNull();
+  });
+
+  it("clearCheckpoint removes the file", async () => {
+    const root = mkTmp();
+    await writeCheckpoint(root, sampleCheckpoint);
+    expect(await hasCheckpoint(root)).toBe(true);
+    await clearCheckpoint(root);
+    expect(await hasCheckpoint(root)).toBe(false);
+  });
+
+  it("clearCheckpoint is a no-op when no file exists", async () => {
+    const root = mkTmp();
+    await clearCheckpoint(root);  // should not throw
+    expect(await hasCheckpoint(root)).toBe(false);
+  });
+
+  it("writeCheckpoint validates with zod and throws on invalid input", async () => {
+    const root = mkTmp();
+    // @ts-expect-error - intentionally bad shape
+    await expect(writeCheckpoint(root, { version: 2, files: [] })).rejects.toThrow();
+  });
+});
