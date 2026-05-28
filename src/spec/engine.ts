@@ -30,6 +30,15 @@ export async function writeScreenSpec(
     : singleSpecPath(root, scope);
   await writeFile(path, JSON.stringify(spec, null, 2) + "\n", "utf-8");
 
+  // For flow screens (screenSlug != null), preserve the flow-level index entry.
+  // writeFlowManifest owns the scope's index record for flows.
+  if (screenSlug !== null) {
+    const existing = (await readIndex(root)).find((e) => e.scope === scope);
+    if (existing?.kind === "flow") {
+      return path;
+    }
+  }
+
   // Update index — for single-screen scopes, the "screens" list is [screenSlug ?? scope]
   await upsertIndexEntry(root, {
     scope,
