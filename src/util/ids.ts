@@ -19,3 +19,25 @@ export const slugify = (input: string): string => {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 };
+
+/**
+ * Convert a component name to a kebab-case slug suitable for filenames.
+ * "Pie Chart"   → "pie-chart"
+ * "TextField"   → "text-field"
+ * "ic_arrow"    → "ic-arrow"
+ * "Button"      → "button"
+ * "HTTPSConfig" → "https-config"
+ * "PieChart3D"  → "pie-chart-3d"
+ */
+export function slugifyComponentName(name: string): string {
+  // Insert a space before each transition:
+  //   lowercase/digit → uppercase        e.g. "textField" → "text Field"
+  //   uppercase run → uppercase+lower    e.g. "HTTPSConfig" → "HTTPS Config"
+  //   letter → digit                     e.g. "Chart3D" → "Chart 3D"
+  //   digit → letter                     e.g. "3D" → "3 D" (handled via slugify)
+  const spaced = name
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+    .replace(/([a-zA-Z])(\d)/g, "$1 $2");
+  return slugify(spaced);
+}

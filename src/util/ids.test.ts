@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { uuid, nowIso, slugify } from "./ids";
+import { uuid, nowIso, slugify, slugifyComponentName } from "./ids";
 
 describe("ids", () => {
   it("uuid returns a valid v4 UUID", () => {
@@ -32,5 +32,31 @@ describe("ids", () => {
 
   it("slugify strips leading/trailing hyphens", () => {
     expect(slugify("--hello--")).toBe("hello");
+  });
+
+  describe("slugifyComponentName", () => {
+    it('"Pie Chart" → "pie-chart"', () => {
+      expect(slugifyComponentName("Pie Chart")).toBe("pie-chart");
+    });
+
+    it('"TextField" → "text-field"', () => {
+      expect(slugifyComponentName("TextField")).toBe("text-field");
+    });
+
+    it('"ic_arrow" → "ic-arrow"', () => {
+      expect(slugifyComponentName("ic_arrow")).toBe("ic-arrow");
+    });
+
+    it('"Button" → "button"', () => {
+      expect(slugifyComponentName("Button")).toBe("button");
+    });
+
+    it('"HTTPSConfig" → "https-config"', () => {
+      expect(slugifyComponentName("HTTPSConfig")).toBe("https-config");
+    });
+
+    it('"PieChart3D" → "pie-chart-3d"', () => {
+      expect(slugifyComponentName("PieChart3D")).toBe("pie-chart-3d");
+    });
   });
 });

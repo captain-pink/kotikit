@@ -3,6 +3,32 @@ import { resolve, dirname } from "path";
 
 export const KOTIKIT_DIR = ".kotikit";
 
+export const DESIGN_SYSTEM_DIR = "design-system";
+
+export const designSystemDir = (root: string): string =>
+  `${root}/design-system`;
+
+export const componentsDbPath = (root: string): string =>
+  `${root}/design-system/components.db`;
+
+export const iconsDbPath = (root: string): string =>
+  `${root}/design-system/icons.db`;
+
+export const variablesJsonPath = (root: string): string =>
+  `${root}/design-system/variables.json`;
+
+export const manifestPath = (root: string): string =>
+  `${root}/design-system/manifest.json`;
+
+export const componentJsonPath = (root: string, slug: string): string =>
+  `${root}/design-system/components/${slug}.json`;
+
+export const checkpointPath = (root: string): string =>
+  `${root}/design-system/.sync-checkpoint.json`;
+
+export const syncReportPath = (root: string): string =>
+  `${root}/design-system/.sync-report.json`;
+
 export const configPath = (root: string): string =>
   `${root}/.kotikit/config.json`;
 
