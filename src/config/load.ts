@@ -35,18 +35,57 @@ export async function writeConfig(root: string, config: Config): Promise<void> {
   await writeFile(path, JSON.stringify(config, null, 2) + "\n", "utf-8");
 }
 
+type SpawnFn = (cmd: string[]) => Promise<{ stdout: string; exitCode: number }>;
+
+/**
+ * Internal helper — exported only so tests can inject a stub spawn function.
+ * Resolve secret references in a token string:
+ * - "${ENV_VAR}" → process.env.ENV_VAR (undefined if not set)
+ * - "op://…"    → shells out to `op read <value>`, strips trailing newline
+ * - Plain string → returned unchanged
+ * - undefined   → undefined
+ */
+export async function resolveSecretImpl(
+  value: string | undefined,
+  spawn: SpawnFn
+): Promise<string | undefined> {
+  if (value === undefined) return undefined;
+
+  const envMatch = value.match(/^\$\{([^}]+)\}$/);
+  if (envMatch) return process.env[envMatch[1]];
+
+  if (value.startsWith("op://")) {
+    try {
+      const result = await spawn(["op", "read", value]);
+      if (result.exitCode !== 0) return undefined;
+      return result.stdout.replace(/\r?\n$/, ""); // strip trailing newline
+    } catch {
+      return undefined; // op not installed / failed — graceful fallback
+    }
+  }
+
+  return value; // plain string
+}
+
+/** Default spawn implementation using Bun.spawn. */
+async function bunSpawn(
+  cmd: string[]
+): Promise<{ stdout: string; exitCode: number }> {
+  const proc = Bun.spawn({ cmd, stdout: "pipe", stderr: "pipe" });
+  const exitCode = await proc.exited;
+  const stdout = await new Response(proc.stdout).text();
+  return { stdout, exitCode };
+}
+
 /**
  * Resolve secret references in a token string.
  * - "${ENV_VAR}" → process.env.ENV_VAR (undefined if not set)
- * - "op://…" → returned unchanged (Phase 2 wires `op read`)
+ * - "op://…"    → resolved via `op read` CLI
  * - Plain string → returned unchanged
- * - undefined → undefined
+ * - undefined   → undefined
  */
-export function resolveSecret(value: string | undefined): string | undefined {
-  if (value === undefined) return undefined;
-  const envMatch = value.match(/^\$\{([^}]+)\}$/);
-  if (envMatch) {
-    return process.env[envMatch[1]];
-  }
-  return value; // op:// or plain string: return as-is
+export async function resolveSecret(
+  value: string | undefined
+): Promise<string | undefined> {
+  return resolveSecretImpl(value, bunSpawn);
 }

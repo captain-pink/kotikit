@@ -159,7 +159,7 @@ function registerConfigGet(registry: ToolRegistry, ctx: ToolContext): void {
       }
 
       // Build a safe copy — never echo the actual token value
-      const resolvedToken = resolveSecret(config.figma.token);
+      const resolvedToken = await resolveSecret(config.figma.token);
       const safeConfig = {
         ...config,
         figma: {

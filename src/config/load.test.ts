@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { loadConfig, configExists, writeConfig, resolveSecret } from "./load";
+import { loadConfig, configExists, writeConfig, resolveSecret, resolveSecretImpl } from "./load";
 import { buildConfig } from "./init";
 import { defaultConfig } from "./schema";
 
@@ -60,27 +60,60 @@ describe("writeConfig + loadConfig round-trip", () => {
 });
 
 describe("resolveSecret", () => {
-  it("returns undefined for undefined input", () => {
-    expect(resolveSecret(undefined)).toBeUndefined();
+  it("returns undefined for undefined input", async () => {
+    expect(await resolveSecret(undefined)).toBeUndefined();
   });
 
-  it("resolves ${ENV_VAR} from environment", () => {
+  it("resolves ${ENV_VAR} from environment", async () => {
     process.env["TEST_SECRET_VAR"] = "mytoken";
-    expect(resolveSecret("${TEST_SECRET_VAR}")).toBe("mytoken");
+    expect(await resolveSecret("${TEST_SECRET_VAR}")).toBe("mytoken");
     delete process.env["TEST_SECRET_VAR"];
   });
 
-  it("returns undefined for unset env var", () => {
+  it("returns undefined for unset env var", async () => {
     delete process.env["DEFINITELY_NOT_SET_12345"];
-    expect(resolveSecret("${DEFINITELY_NOT_SET_12345}")).toBeUndefined();
+    expect(await resolveSecret("${DEFINITELY_NOT_SET_12345}")).toBeUndefined();
   });
 
-  it("passes through op:// strings unchanged", () => {
-    expect(resolveSecret("op://vault/item/field")).toBe("op://vault/item/field");
+  it("passes through plain strings unchanged", async () => {
+    expect(await resolveSecret("myplaintoken")).toBe("myplaintoken");
+  });
+});
+
+describe("resolveSecretImpl — op:// handling", () => {
+  it("resolves op:// via spawn and strips trailing newline", async () => {
+    const mockSpawn = async (_cmd: string[]) => ({
+      stdout: "secret-value\n",
+      exitCode: 0,
+    });
+    const result = await resolveSecretImpl("op://vault/item/field", mockSpawn);
+    expect(result).toBe("secret-value");
   });
 
-  it("passes through plain strings unchanged", () => {
-    expect(resolveSecret("myplaintoken")).toBe("myplaintoken");
+  it("returns undefined when spawn exits with non-zero code", async () => {
+    const mockSpawn = async (_cmd: string[]) => ({
+      stdout: "",
+      exitCode: 1,
+    });
+    const result = await resolveSecretImpl("op://vault/item/field", mockSpawn);
+    expect(result).toBeUndefined();
+  });
+
+  it("returns undefined when spawn throws (op not installed)", async () => {
+    const mockSpawn = async (_cmd: string[]): Promise<{ stdout: string; exitCode: number }> => {
+      throw new Error("op: command not found");
+    };
+    const result = await resolveSecretImpl("op://vault/item/field", mockSpawn);
+    expect(result).toBeUndefined();
+  });
+
+  it("strips trailing Windows-style CRLF newline", async () => {
+    const mockSpawn = async (_cmd: string[]) => ({
+      stdout: "secret-value\r\n",
+      exitCode: 0,
+    });
+    const result = await resolveSecretImpl("op://vault/item/field", mockSpawn);
+    expect(result).toBe("secret-value");
   });
 });
 
