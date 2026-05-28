@@ -15,6 +15,9 @@ import { registerSpecTools } from "./tools/spec.js";
 import { registerConfigTools } from "./tools/config.js";
 import { registerFlowTools } from "./tools/flow.js";
 import { registerBrainstormTools } from "./tools/brainstorm.js";
+import { registerDsSearchTools } from "./tools/ds-search.js";
+import { registerIconsSearchTools } from "./tools/icons-search.js";
+import { registerSyncTools } from "./tools/sync.js";
 
 /** The return type every tool handler must produce. */
 type ToolResult = {
@@ -54,6 +57,9 @@ export function buildServer(): { server: Server; registry: ToolRegistry } {
   registerConfigTools(registry, ctx);
   registerFlowTools(registry, ctx);
   registerBrainstormTools(registry, ctx);
+  registerDsSearchTools(registry, ctx);
+  registerIconsSearchTools(registry, ctx);
+  registerSyncTools(registry, ctx);
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
 
