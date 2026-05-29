@@ -174,13 +174,14 @@ describe("Phase 3 E2E — happy path", () => {
       targetPath: string;
       testPath?: string;
       systemPrompt: string;
+      systemPromptRef: string;
       testScaffold: string;
     };
     expect(startDetail.componentName).toBe("ProfilePage");
-    // The system-prompt carries the quality-bar sentence (case-insensitive match)
-    expect(startDetail.systemPrompt.toLowerCase()).toContain(
-      "any developer or designer could build this identically from the spec alone"
-    );
+    // Phase 6: full prompt is fetched via kotikit_get_system_prompt; systemPromptRef indicates which
+    expect(startDetail.systemPromptRef).toBe("react");
+    // systemPrompt is now a stub mentioning the new tool
+    expect(startDetail.systemPrompt).toContain("kotikit_get_system_prompt");
     expect(startDetail.testScaffold).toContain("describe");
 
     // The targetPath returned by start is an absolute path

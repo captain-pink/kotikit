@@ -32,6 +32,11 @@ import { nowIso } from "../../util/ids.js";
 import { toolText, toolError, KotikitError } from "../../util/result.js";
 import type { AdapterContext, GateKind } from "../../codegen/adapter.js";
 
+// ─── Stub system prompt text ──────────────────────────────────────────────────
+
+const SYSTEM_PROMPT_STUB =
+  "For the full React adapter prompt, call kotikit_get_system_prompt({ kind: 'react' }). Append this screen's context below.";
+
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 export interface RegisterImplementCodeToolsOpts {
@@ -63,6 +68,7 @@ function registerStart(registry: ToolRegistry, ctx: ToolContext): void {
       properties: {
         scope: { type: "string" },
         screen: { type: "string" },
+        expand: { type: "boolean" },
       },
       required: ["scope"],
     },
@@ -71,7 +77,7 @@ function registerStart(registry: ToolRegistry, ctx: ToolContext): void {
   registry.tools.push(tool);
 
   registry.handlers.set("kotikit_implement_code_start", async (args) => {
-    const { scope, screen: screenArg } = args as { scope: string; screen?: string };
+    const { scope, screen: screenArg, expand = false } = args as { scope: string; screen?: string; expand?: boolean };
     const screen = screenArg ?? null;
     const root = ctx.root;
 
@@ -126,10 +132,13 @@ function registerStart(registry: ToolRegistry, ctx: ToolContext): void {
         await writeCodePlan(root, scope, screen, plan);
       }
 
-      // 6. Load DS component JSONs
+      // 6. Load DS component JSONs (always loaded; returned inline or as refs based on `expand`)
       const dsComponents: Record<string, ComponentJson> = {};
       const dsDir = designSystemDir(root);
       const dbPath = componentsDbPath(root);
+
+      // Track path + key per component so we can build refs
+      const dsComponentMeta: Record<string, { path: string; key: string }> = {};
 
       if (existsSync(dsDir)) {
         // Try to search each dsRef in components.db first, then fall back to componentJsonPath
@@ -140,12 +149,17 @@ function registerStart(registry: ToolRegistry, ctx: ToolContext): void {
               try {
                 const hits = searchComponents(db, dsRef.name, 1);
                 if (hits.length > 0) {
-                  const jsonPath = `${dsDir}/${hits[0]!.path}`;
+                  const hit = hits[0]!;
+                  const jsonPath = `${dsDir}/${hit.path}`;
                   if (existsSync(jsonPath)) {
                     const raw = JSON.parse(await readFile(jsonPath, "utf-8"));
                     const parsed = ComponentJsonSchema.safeParse(raw);
                     if (parsed.success) {
                       dsComponents[dsRef.name] = parsed.data;
+                      dsComponentMeta[dsRef.name] = {
+                        path: hit.path,
+                        key: parsed.data.key,
+                      };
                       continue;
                     }
                   }
@@ -162,6 +176,10 @@ function registerStart(registry: ToolRegistry, ctx: ToolContext): void {
               const parsed = ComponentJsonSchema.safeParse(raw);
               if (parsed.success) {
                 dsComponents[dsRef.name] = parsed.data;
+                dsComponentMeta[dsRef.name] = {
+                  path: `components/${slug}.json`,
+                  key: parsed.data.key,
+                };
               }
             }
           } catch {
@@ -207,7 +225,7 @@ function registerStart(registry: ToolRegistry, ctx: ToolContext): void {
           )
         : undefined;
 
-      // 9. Build the AdapterContext, then call systemPrompt + testScaffold
+      // 9. Build the AdapterContext, then call testScaffold
       const adapterCtx: AdapterContext = {
         root,
         config,
@@ -216,28 +234,85 @@ function registerStart(registry: ToolRegistry, ctx: ToolContext): void {
         dsComponents,
       };
 
-      const systemPrompt = reactAdapter.systemPrompt(adapterCtx);
       const testScaffold = reactAdapter.testScaffold(adapterCtx);
 
-      // 10. Return context bundle
-      return toolText(`Ready to implement ${componentName}.`, {
+      // 10. Build per-screen context (spec excerpt only — no §7 baseline preamble)
+      const breakpoints = config.defaults.breakpoints;
+      const themes = config.defaults.themes;
+      const dsComponentNames = Object.keys(dsComponents);
+
+      // For specs with no loaded DS components, include names from spec.components
+      const allDsNames =
+        dsComponentNames.length > 0
+          ? dsComponentNames
+          : (spec.components ?? []).map((c: { name: string }) => c.name);
+
+      const screenContextLines: string[] = [];
+      screenContextLines.push(`## Screen: ${spec.title}`);
+      screenContextLines.push(`**Description:** ${spec.context.description}`);
+      if (spec.requirements.functional.length > 0) {
+        screenContextLines.push("**Functional requirements:** " + spec.requirements.functional.join("; "));
+      }
+      const stateEntries = Object.entries(spec.requirements.states);
+      if (stateEntries.length > 0) {
+        screenContextLines.push("**States:** " + stateEntries.map(([k, v]) => `${k}: ${v}`).join("; "));
+      }
+      if (spec.acceptanceCriteria.length > 0) {
+        screenContextLines.push("**Acceptance criteria:** " + spec.acceptanceCriteria.join("; "));
+      }
+      screenContextLines.push(`**Breakpoints (px):** ${breakpoints.join(", ")}`);
+      screenContextLines.push(`**Themes:** ${themes.join(", ")}`);
+      if (allDsNames.length > 0) {
+        screenContextLines.push("**Available DS components:** " + allDsNames.join(", "));
+      }
+      if (flowManifest) {
+        screenContextLines.push(`**Part of flow:** ${flowManifest.title}`);
+      }
+      const screenContext = screenContextLines.join("\n");
+
+      // 11. Build the component refs or full dsComponents depending on `expand`
+      type ComponentRef = { name: string; path: string; key: string };
+      const componentRefs: ComponentRef[] = plan.dsComponentRefs.map((dsRef) => {
+        const meta = dsComponentMeta[dsRef.name];
+        return {
+          name: dsRef.name,
+          path: meta?.path ?? `components/${dsRef.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.json`,
+          key: meta?.key ?? (dsRef.dsKey ?? ""),
+        };
+      });
+
+      // 12. Return context bundle
+      const baseDetail = {
         componentName,
         targetPath: componentTargetPath,
         testPath: testTargetPath,
-        systemPrompt,
+        systemPromptRef: "react" as const,
+        systemPrompt: SYSTEM_PROMPT_STUB,
+        screenContext,
         spec,
         flow: flowManifest,
-        dsComponents,
         config: {
-          breakpoints: config.defaults.breakpoints,
-          themes: config.defaults.themes,
+          breakpoints,
+          themes,
           codeComponentsDir: config.project.codeComponentsDir,
         },
         registryHits,
         testFramework: config.project.testFramework,
         testScaffold,
         plan,
-      });
+      };
+
+      if (expand) {
+        return toolText(`Ready to implement ${componentName}.`, {
+          ...baseDetail,
+          dsComponents,
+        });
+      } else {
+        return toolText(`Ready to implement ${componentName}.`, {
+          ...baseDetail,
+          componentRefs,
+        });
+      }
     } catch (err) {
       if (err instanceof KotikitError) return toolError(err);
       return toolError(err);

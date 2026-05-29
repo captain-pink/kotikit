@@ -206,8 +206,9 @@ describe("kotikit_implement_code_start", () => {
     expect(text).toContain("testScaffold");
     expect(text).toContain("plan");
 
-    // system prompt should contain quality bar sentence (check case-insensitively by searching for key phrase)
-    expect(text.toLowerCase()).toContain("any developer or designer could build this identically");
+    // systemPromptRef should be "react" — full prompt is fetched via kotikit_get_system_prompt
+    const detail = JSON.parse(text.slice(text.indexOf("\n\n") + 2));
+    expect(detail.systemPromptRef).toBe("react");
   });
 
   it("test 2: missing spec returns friendly error", async () => {
@@ -266,7 +267,8 @@ describe("kotikit_implement_code_start", () => {
       components: [{ name: "Button", dsKey: "btn-key" }],
     });
 
-    const result = await call("kotikit_implement_code_start", { scope: "profile-page" });
+    // Use expand:true to get the full dsComponents dict (legacy behavior)
+    const result = await call("kotikit_implement_code_start", { scope: "profile-page", expand: true });
     expect(result.isError).toBeUndefined();
 
     const text = getText(result);
@@ -275,7 +277,7 @@ describe("kotikit_implement_code_start", () => {
     expect(text).toContain("Button");
   });
 
-  it("test 5: without design-system, dsComponents is {} and tool does NOT error", async () => {
+  it("test 5: without design-system, componentRefs is [] and tool does NOT error", async () => {
     await seedSpec(tmp, "profile-page", null, {
       components: [{ name: "Button" }],
     });
@@ -284,8 +286,180 @@ describe("kotikit_implement_code_start", () => {
     expect(result.isError).toBeUndefined();
 
     const text = getText(result);
-    // dsComponents should be empty object
-    expect(text).toContain('"dsComponents": {}');
+    // With expand=false (default), componentRefs is present (may have one ref for Button)
+    expect(text).toContain("componentRefs");
+    // dsComponents should NOT be present in the default (lazy) response
+    expect(text).not.toContain('"dsComponents"');
+  });
+});
+
+// ─── implement_code_start lazy expansion (Phase 6) ───────────────────────────
+
+describe("implement_code_start lazy expansion (Phase 6)", () => {
+  it("default (expand=false): response has componentRefs not dsComponents", async () => {
+    const { ComponentJsonSchema } = await import("../../sync/component-shape");
+    const { nowIso } = await import("../../util/ids");
+
+    // Seed two DS components on disk
+    const dsDir = join(tmp, "design-system", "components");
+    mkdirSync(dsDir, { recursive: true });
+    for (const [name, slug] of [["Button", "button"], ["Input", "input"]] as [string, string][]) {
+      const json = ComponentJsonSchema.parse({
+        name,
+        key: `${slug}-key`,
+        fileKey: "file-key",
+        path: `components/${slug}.json`,
+        variants: [],
+        properties: {},
+        updatedAt: nowIso(),
+      });
+      writeFileSync(join(dsDir, `${slug}.json`), JSON.stringify(json, null, 2));
+    }
+
+    await seedSpec(tmp, "profile-page", null, {
+      components: [
+        { name: "Button", dsKey: "button-key" },
+        { name: "Input", dsKey: "input-key" },
+      ],
+    });
+
+    const result = await call("kotikit_implement_code_start", { scope: "profile-page" });
+    expect(result.isError).toBeUndefined();
+
+    const text = getText(result);
+    const detail = JSON.parse(text.slice(text.indexOf("\n\n") + 2)) as Record<string, unknown>;
+
+    expect(Array.isArray(detail.componentRefs)).toBe(true);
+    expect(detail.dsComponents).toBeUndefined();
+  });
+
+  it("expand=true: response has dsComponents not componentRefs", async () => {
+    const { ComponentJsonSchema } = await import("../../sync/component-shape");
+    const { nowIso } = await import("../../util/ids");
+
+    const dsDir = join(tmp, "design-system", "components");
+    mkdirSync(dsDir, { recursive: true });
+    const json = ComponentJsonSchema.parse({
+      name: "Button",
+      key: "btn-key",
+      fileKey: "file-key",
+      path: "components/button.json",
+      variants: [],
+      properties: {},
+      updatedAt: nowIso(),
+    });
+    writeFileSync(join(dsDir, "button.json"), JSON.stringify(json, null, 2));
+
+    await seedSpec(tmp, "profile-page", null, {
+      components: [{ name: "Button", dsKey: "btn-key" }],
+    });
+
+    const result = await call("kotikit_implement_code_start", { scope: "profile-page", expand: true });
+    expect(result.isError).toBeUndefined();
+
+    const text = getText(result);
+    const detail = JSON.parse(text.slice(text.indexOf("\n\n") + 2)) as Record<string, unknown>;
+
+    expect(detail.dsComponents).toBeDefined();
+    expect(typeof detail.dsComponents).toBe("object");
+    expect(detail.componentRefs).toBeUndefined();
+  });
+
+  it("systemPromptRef === 'react' is present; systemPrompt is a stub", async () => {
+    await seedSpec(tmp, "profile-page", null);
+
+    const result = await call("kotikit_implement_code_start", { scope: "profile-page" });
+    expect(result.isError).toBeUndefined();
+
+    const text = getText(result);
+    const detail = JSON.parse(text.slice(text.indexOf("\n\n") + 2)) as Record<string, unknown>;
+
+    expect(detail.systemPromptRef).toBe("react");
+    expect(typeof detail.systemPrompt).toBe("string");
+    expect((detail.systemPrompt as string)).toContain("kotikit_get_system_prompt");
+    expect((detail.systemPrompt as string).length).toBeLessThan(300);
+  });
+
+  it("screenContext carries spec-specific content", async () => {
+    await seedSpec(tmp, "profile-page", null, {
+      requirements: {
+        functional: ["Show user name"],
+        states: { loading: "Spinner" },
+        responsive: "inherits",
+        themes: "inherits",
+      },
+    });
+
+    const result = await call("kotikit_implement_code_start", { scope: "profile-page" });
+    expect(result.isError).toBeUndefined();
+
+    const text = getText(result);
+    const detail = JSON.parse(text.slice(text.indexOf("\n\n") + 2)) as Record<string, unknown>;
+
+    expect(typeof detail.screenContext).toBe("string");
+    // screenContext must contain the spec title
+    expect((detail.screenContext as string)).toContain("Profile Page");
+  });
+
+  it("componentRefs carry name + path + key for each spec component", async () => {
+    const { ComponentJsonSchema } = await import("../../sync/component-shape");
+    const { nowIso } = await import("../../util/ids");
+
+    // Seed two DS component files
+    const dsDir = join(tmp, "design-system", "components");
+    mkdirSync(dsDir, { recursive: true });
+    const btnJson = ComponentJsonSchema.parse({
+      name: "Button",
+      key: "btn-figma-key",
+      fileKey: "file-key",
+      path: "components/button.json",
+      variants: [],
+      properties: {},
+      updatedAt: nowIso(),
+    });
+    const inputJson = ComponentJsonSchema.parse({
+      name: "Input",
+      key: "k1",
+      fileKey: "file-key",
+      path: "components/input.json",
+      variants: [],
+      properties: {},
+      updatedAt: nowIso(),
+    });
+    writeFileSync(join(dsDir, "button.json"), JSON.stringify(btnJson, null, 2));
+    writeFileSync(join(dsDir, "input.json"), JSON.stringify(inputJson, null, 2));
+
+    await seedSpec(tmp, "profile-page", null, {
+      components: [
+        { name: "Button" },
+        { name: "Input", dsKey: "k1" },
+      ],
+    });
+
+    const result = await call("kotikit_implement_code_start", { scope: "profile-page" });
+    expect(result.isError).toBeUndefined();
+
+    const text = getText(result);
+    const detail = JSON.parse(text.slice(text.indexOf("\n\n") + 2)) as {
+      componentRefs: { name: string; path: string; key: string }[];
+    };
+
+    expect(Array.isArray(detail.componentRefs)).toBe(true);
+    expect(detail.componentRefs.length).toBe(2);
+
+    for (const ref of detail.componentRefs) {
+      expect(typeof ref.name).toBe("string");
+      expect(typeof ref.path).toBe("string");
+      expect(typeof ref.key).toBe("string");
+    }
+
+    const btnRef = detail.componentRefs.find((r) => r.name === "Button");
+    const inputRef = detail.componentRefs.find((r) => r.name === "Input");
+    expect(btnRef).toBeDefined();
+    expect(inputRef).toBeDefined();
+    // key should come from the DS JSON file
+    expect(btnRef?.key).toBe("btn-figma-key");
+    expect(inputRef?.key).toBe("k1");
   });
 });
 
