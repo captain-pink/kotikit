@@ -10,18 +10,26 @@ export interface CommitResult {
   message: string;
 }
 
-/**
- * Stage the given files and create a local conventional commit.
- * Never pushes. Never creates or switches branches.
- */
-export async function autoCommitSpec(opts: {
+export interface AutoCommitOpts {
   root: string;
   scope: string;
   kind: CommitKind;
   files: string[];
   enabled: boolean;
-}): Promise<CommitResult> {
-  const subject = `feat(spec): ${opts.kind} ${opts.scope}`;
+  /** Subject prefix scope. Defaults to "spec". */
+  subjectScope?: "spec" | "code";
+  /** Optional subject suffix appended after `scope`. E.g. "/cart" → "feat(code): create checkout-flow/cart". */
+  subjectSuffix?: string;
+}
+
+/**
+ * Generic auto-commit. Stages the given files and creates a local
+ * conventional commit. Never pushes. Never creates or switches branches.
+ */
+export async function autoCommit(opts: AutoCommitOpts): Promise<CommitResult> {
+  const scopePrefix = opts.subjectScope ?? "spec";
+  const suffix = opts.subjectSuffix ?? "";
+  const subject = `feat(${scopePrefix}): ${opts.kind} ${opts.scope}${suffix}`;
   const body = `\n\nCo-authored-by: Claude Code <noreply@anthropic.com>`;
   const fullMessage = subject + body;
 
@@ -56,6 +64,17 @@ export async function autoCommitSpec(opts: {
   const sha = result.commit;
 
   return { committed: true, sha, message: subject };
+}
+
+/** Backwards-compatible alias — calls autoCommit with subjectScope: "spec". */
+export async function autoCommitSpec(opts: {
+  root: string;
+  scope: string;
+  kind: CommitKind;
+  files: string[];
+  enabled: boolean;
+}): Promise<CommitResult> {
+  return autoCommit(opts); // defaults to subjectScope: "spec"
 }
 
 /** Returns true if `root` is inside a git repository. */

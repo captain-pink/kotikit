@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import simpleGit from "simple-git";
-import { autoCommitSpec, isGitRepo, gitInit } from "./auto-commit";
+import { autoCommit, autoCommitSpec, isGitRepo, gitInit } from "./auto-commit";
 
 let tmp: string;
 
@@ -155,5 +155,92 @@ describe("gitInit", () => {
     } finally {
       rmSync(plain, { recursive: true, force: true });
     }
+  });
+});
+
+describe("autoCommit (code-scoped)", () => {
+  const writeCodeFile = (dir: string, name: string, content = "// placeholder") => {
+    mkdirSync(join(dir, "src", "components", "checkout-flow"), { recursive: true });
+    writeFileSync(join(dir, "src", "components", "checkout-flow", name), content);
+    return `src/components/checkout-flow/${name}`;
+  };
+
+  it("subjectScope='code' + subjectSuffix='/cart' produces 'feat(code): create checkout-flow/cart'", async () => {
+    const relPath = writeCodeFile(tmp, "Cart.tsx");
+    const result = await autoCommit({
+      root: tmp,
+      scope: "checkout-flow",
+      kind: "create",
+      files: [relPath],
+      enabled: true,
+      subjectScope: "code",
+      subjectSuffix: "/cart",
+    });
+    expect(result.committed).toBe(true);
+    expect(result.message).toBe("feat(code): create checkout-flow/cart");
+
+    const git = simpleGit({ baseDir: tmp });
+    const log = await git.log();
+    expect(log.latest?.message).toBe("feat(code): create checkout-flow/cart");
+  });
+
+  it("subjectScope='code' on update produces 'feat(code): update checkout-flow/cart'", async () => {
+    // First commit
+    const relPath = writeCodeFile(tmp, "Cart.tsx", "// v1");
+    await autoCommit({
+      root: tmp,
+      scope: "checkout-flow",
+      kind: "create",
+      files: [relPath],
+      enabled: true,
+      subjectScope: "code",
+      subjectSuffix: "/cart",
+    });
+
+    // Modify and update-commit
+    writeFileSync(join(tmp, relPath), "// v2");
+    const result = await autoCommit({
+      root: tmp,
+      scope: "checkout-flow",
+      kind: "update",
+      files: [relPath],
+      enabled: true,
+      subjectScope: "code",
+      subjectSuffix: "/cart",
+    });
+    expect(result.committed).toBe(true);
+    expect(result.message).toBe("feat(code): update checkout-flow/cart");
+
+    const git = simpleGit({ baseDir: tmp });
+    const log = await git.log();
+    expect(log.latest?.message).toBe("feat(code): update checkout-flow/cart");
+  });
+
+  it("omitting subjectScope produces the unchanged feat(spec) subject (backwards compat)", async () => {
+    const relPath = writeCodeFile(tmp, "Shipping.tsx");
+    const result = await autoCommit({
+      root: tmp,
+      scope: "checkout-flow",
+      kind: "create",
+      files: [relPath],
+      enabled: true,
+    });
+    expect(result.committed).toBe(true);
+    expect(result.message).toBe("feat(spec): create checkout-flow");
+  });
+
+  it("autoCommitSpec still produces feat(spec) (backwards compat)", async () => {
+    mkdirSync(join(tmp, ".kotikit", "specs", "checkout-flow"), { recursive: true });
+    writeFileSync(join(tmp, ".kotikit", "specs", "checkout-flow", "spec.json"), "{}");
+    const relPath = ".kotikit/specs/checkout-flow/spec.json";
+    const result = await autoCommitSpec({
+      root: tmp,
+      scope: "checkout-flow",
+      kind: "create",
+      files: [relPath],
+      enabled: true,
+    });
+    expect(result.committed).toBe(true);
+    expect(result.message).toBe("feat(spec): create checkout-flow");
   });
 });
