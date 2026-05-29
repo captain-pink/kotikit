@@ -60,6 +60,32 @@ export const codePlanPath = (
   return `${root}/.kotikit/specs/${scope}/${name}`;
 };
 
+/** Path to <screen>.design.plan.json next to the spec.
+ *  Single-screen scope (screen === null) → design.plan.json.
+ *  Multi-screen → <screen>.design.plan.json. */
+export const designPlanPath = (
+  root: string,
+  scope: string,
+  screen: string | null
+): string => {
+  const name = screen ? `${screen}.design.plan.json` : "design.plan.json";
+  return `${root}/.kotikit/specs/${scope}/${name}`;
+};
+
+/** Path to the per-screen apply log (JSONL). */
+export const designApplyLogPath = (
+  root: string,
+  scope: string,
+  screen: string | null
+): string => {
+  const name = screen ? `${screen}.design.apply.log` : "design.apply.log";
+  return `${root}/.kotikit/specs/${scope}/${name}`;
+};
+
+/** Path to the bridge config file written when the bridge starts. */
+export const bridgeConfigPath = (root: string): string =>
+  `${root}/.kotikit/bridge.json`;
+
 /** Path to the Phase 3 minimal registry DB. */
 export const registryDbPath = (root: string): string =>
   `${root}/.kotikit/registry.db`;

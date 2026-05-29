@@ -10,6 +10,7 @@ import {
   checkpointPath, syncReportPath,
   codePlanPath, registryDbPath, codeComponentDir, codeComponentFile,
   uiDir, uiComponentFile, uiStoryFile,
+  designPlanPath, designApplyLogPath, bridgeConfigPath,
 } from "./paths";
 
 let tmp: string;
@@ -162,6 +163,36 @@ describe("paths", () => {
     it("works with a non-default codeComponentsDir", () => {
       expect(uiDir("/proj", "app/ui")).toBe("/proj/app/ui/ui");
       expect(uiComponentFile("/proj", "app/ui", "card")).toBe("/proj/app/ui/ui/card.tsx");
+    });
+  });
+
+  describe("Phase 5 path helpers", () => {
+    it("designPlanPath single-screen", () => {
+      expect(designPlanPath("/p", "profile-page", null)).toBe(
+        "/p/.kotikit/specs/profile-page/design.plan.json"
+      );
+    });
+
+    it("designPlanPath multi-screen", () => {
+      expect(designPlanPath("/p", "checkout-flow", "cart")).toBe(
+        "/p/.kotikit/specs/checkout-flow/cart.design.plan.json"
+      );
+    });
+
+    it("designApplyLogPath single-screen", () => {
+      expect(designApplyLogPath("/p", "profile-page", null)).toBe(
+        "/p/.kotikit/specs/profile-page/design.apply.log"
+      );
+    });
+
+    it("designApplyLogPath multi-screen", () => {
+      expect(designApplyLogPath("/p", "checkout-flow", "cart")).toBe(
+        "/p/.kotikit/specs/checkout-flow/cart.design.apply.log"
+      );
+    });
+
+    it("bridgeConfigPath", () => {
+      expect(bridgeConfigPath("/p")).toBe("/p/.kotikit/bridge.json");
     });
   });
 });
