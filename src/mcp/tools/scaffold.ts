@@ -75,7 +75,9 @@ function registerScaffoldStart(registry: ToolRegistry, ctx: ToolContext): void {
   const tool: Tool = {
     name: "kotikit_scaffold_start",
     description:
-      "Gather scaffolding context for one or more DS components — returns up to pageSize (default 3) component skeletons per page.",
+      "Scaffold DS components into React. Returns up to pageSize (default 3) component skeletons per page — call with cursor=nextCursor for the next page. " +
+      "systemPromptRef points at the React doctrine; call kotikit_get_system_prompt({kind:'scaffold'}) once per session to fetch it. " +
+      "Default compact dsJson is sufficient for codegen; pass compact: false only if you need the full DS metadata.",
     inputSchema: {
       type: "object",
       properties: {

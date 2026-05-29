@@ -22,8 +22,29 @@ You do not need to know React, git commands, or anything about the terminal beyo
   [Install it from the VS Code Marketplace.](https://marketplace.visualstudio.com/items?itemName=Anthropic.claude-code)
 - **A Figma personal access token** — open Figma, go to Settings → Account → Personal access
   tokens, and create one with the "File read" scope. Copy it somewhere safe.
+- **A target React project** — kotikit generates code into a React project on your machine.
+  If you do not have one yet, create it now:
+
+  ```bash
+  bun create vite my-app --template react-ts
+  cd my-app && bun install
+  ```
+
+  Your target project also needs Tailwind CSS configured and the following runtime deps
+  installed (kotikit's generated components use them):
+
+  ```bash
+  bun add class-variance-authority clsx tailwind-merge
+  ```
+
+  If you already have a React project, just add those three packages to it.
 - **Your project should be a folder tracked by version control** — if you are not sure, open
   your project folder in Terminal and run `git init`. That is all you need.
+  If version control asks you for a name and email (e.g. "Please tell me who you are"), run:
+
+  ```bash
+  git config user.email "you@example.com" && git config user.name "Your Name"
+  ```
 
 ---
 
@@ -53,8 +74,10 @@ cd ~/kotikit && bun install
 
 **4. Add kotikit to Claude Code's MCP config.**
 
-Create (or open) the file `.claude/mcp.json` in your project folder and add the block below.
-If the `.claude/` folder does not exist yet, create it first.
+This file goes in YOUR TARGET PROJECT (the React app you are building), not in `~/kotikit`.
+
+Create (or open) the file `.claude/mcp.json` inside your target project folder and add the
+block below. If the `.claude/` folder does not exist yet, create it first.
 
 ```json
 {
@@ -70,9 +93,27 @@ If the `.claude/` folder does not exist yet, create it first.
 
 Replace `YOUR_USERNAME` with your macOS username (run `whoami` in Terminal if unsure).
 
-**5. Restart Claude Code** (Cmd+Shift+P → "Developer: Reload Window" in VS Code).
+MCP config file paths vary between Claude Code versions. If the block above does not work,
+see the [Claude Code MCP documentation](https://docs.anthropic.com/claude-code/mcp) for the
+canonical location for your version.
 
-That is it. Open your project in VS Code and Claude Code will now have kotikit available.
+**5. Set up your Figma token.**
+
+Create a file named `.env` in your target project root (the same folder as `package.json`)
+with this one line:
+
+```
+FIGMA_TOKEN=figd_...your_token_here...
+```
+
+Replace the value with the token you copied from Figma. This file is automatically ignored
+by git so your token stays private.
+
+**6. Restart Claude Code** (Cmd+Shift+P → "Developer: Reload Window" in VS Code).
+
+After restarting, type "list kotikit tools" in Claude Code to confirm setup — you should see
+26 tools listed. If nothing appears, double-check the path in `mcp.json` and consult the
+[MCP docs](https://docs.anthropic.com/claude-code/mcp).
 
 ---
 
@@ -130,12 +171,12 @@ a save-point automatically.
 
 ---
 
-### 1 minute: scaffold your design system as code
+### 1 minute: generate React versions of my Figma components
 
 If you want React component files generated directly from your Figma components (without
 designing a full screen first), type:
 
-> *"Scaffold my design system components."*
+> *"Generate React versions of my Figma components."*
 
 Claude will walk through your unscaffolded Figma components in small batches, generate a
 TypeScript + CVA component file for each one, and save them to your components folder.
@@ -162,6 +203,9 @@ Audit complete: 14 entries
 but not the other — the report tells you exactly which axis. "Design-only" means kotikit has
 not scaffolded those components yet.
 
+For each `synced-mismatched` row, open the named component file, add or rename the variant
+prop to match what the report says Figma has, then re-run the audit to confirm the fix.
+
 ---
 
 ## Working with the Figma plugin
@@ -184,9 +228,18 @@ Then in Figma: Plugins → Development → Import plugin from manifest → pick
 cd ~/kotikit && bun run bridge
 ```
 
-This prints a URL like `ws://localhost:53124?token=abc123`. Copy it.
+Your terminal will print a one-time connection address. Copy it exactly as printed.
 
-In Figma: Plugins → Development → kotikit → paste the URL into the Connect dialog.
+In Figma: Plugins → Development → kotikit → paste that address into the Connect dialog.
+
+<details>
+<summary>What's actually happening (for the curious)</summary>
+
+The bridge runs a local WebSocket server. The address it prints looks like
+`ws://localhost:53124?token=abc123` — a secure, local-only URL that includes a one-time
+token so only your Figma session can connect. Nothing leaves your machine.
+
+</details>
 
 **What the plugin currently does:**
 
@@ -237,22 +290,32 @@ Neither one depends on the other.
 
 kotikit could not find or use your Figma personal access token.
 
-Fix: create a file named `.env` in your project folder with this line:
-
-```
-FIGMA_TOKEN=your_token_here
-```
-
-Replace `your_token_here` with the token you copied from Figma Settings → Account → Personal
-access tokens. Make sure the token has the "File read" scope. The `.env` file is never
-committed to your repository.
+Fix: make sure you completed Install step 5 — a `.env` file in your target project root
+(next to `package.json`) containing `FIGMA_TOKEN=figd_...your_token_here...`. The token
+needs the "File read" scope from Figma Settings → Account → Personal access tokens.
 
 If your team uses 1Password, you can instead set the token field in `.kotikit/config.json`
 to `op://vault-name/item-name/field-name` and kotikit will fetch it via the 1Password CLI.
 
 ---
 
-**2. "Some required gate tools aren't installed in your project."**
+**2. "Cannot find module 'class-variance-authority'" (or clsx / tailwind-merge)**
+
+The runtime dependencies kotikit's generated components rely on are not installed in your
+target project.
+
+Fix: in your target project folder, run:
+
+```bash
+bun add class-variance-authority clsx tailwind-merge
+```
+
+This is covered in the Prerequisites section — if you skipped it, add these three packages
+and the generated components will compile.
+
+---
+
+**3. "Some required gate tools aren't installed in your project."**
 
 The code quality checks kotikit runs before saving code need a few dev tools in your project.
 
@@ -266,7 +329,7 @@ Then try again.
 
 ---
 
-**3. "No registry yet — run sync_ds first."**
+**4. "No registry yet — run sync_ds first."**
 
 kotikit tried to audit or scaffold but has not synced your design system yet.
 
@@ -275,7 +338,7 @@ audit or scaffold command again.
 
 ---
 
-**4. "Storybook not detected — story files skipped."**
+**5. "Storybook not detected — story files skipped."**
 
 This is a notice, not an error. kotikit looked for Storybook in your project and did not
 find it, so it skipped generating `.stories.tsx` files.
@@ -285,7 +348,7 @@ scaffold command again. If you do not use Storybook, you can ignore this message
 
 ---
 
-**5. "That file path is outside your scaffold directory."**
+**6. "That file path is outside your scaffold directory."**
 
 kotikit refused to write a file outside the components folder it is configured to use.
 

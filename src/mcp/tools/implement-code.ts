@@ -62,7 +62,11 @@ function registerStart(registry: ToolRegistry, ctx: ToolContext): void {
   const tool: Tool = {
     name: "kotikit_implement_code_start",
     description:
-      "Gather the context bundle Claude needs to write code for one screen.",
+      "Gather the context bundle for writing code for one screen. " +
+      "Default response returns componentRefs (name + path + key) — " +
+      "call kotikit_ds_get_component({path}) for each ref whose JSON you need before generating code. " +
+      "systemPromptRef points at the React doctrine; call kotikit_get_system_prompt({kind:'react'}) once per session to fetch it. " +
+      "Pass expand: true to inline all DS component JSONs in this response instead (uses more tokens).",
     inputSchema: {
       type: "object",
       properties: {

@@ -27,11 +27,11 @@ The mcp module is the boundary between kotikit's engines and the AI model. It ow
 
 See [docs/tools.md](../tools.md) for the complete cheat-sheet. The 26 tools are grouped here by phase:
 
-- Phase 1: `kotikit_config_status`, `kotikit_config_init`, `kotikit_spec_create`, `kotikit_spec_update`, `kotikit_spec_list`, `kotikit_flow_create`, `kotikit_brainstorm_start`, `kotikit_brainstorm_assess`
+- Phase 1: `kotikit_config_status`, `kotikit_config_init`, `kotikit_config_get`, `kotikit_spec_create`, `kotikit_spec_get`, `kotikit_spec_list`, `kotikit_spec_update`, `kotikit_flow_create`, `kotikit_brainstorm_start`, `kotikit_brainstorm_assess`
 - Phase 2: `kotikit_sync_ds`, `kotikit_ds_search`, `kotikit_ds_get_component`, `kotikit_icons_search`
-- Phase 3: `kotikit_plan_code`, `kotikit_implement_code_start`, `kotikit_implement_code_gate`
-- Phase 4: `kotikit_registry_status`, `kotikit_scaffold_start`, `kotikit_scaffold_commit`
-- Phase 5: `kotikit_plan_design`, `kotikit_design_get_screen`, `kotikit_design_apply`, `kotikit_design_commit`, `kotikit_bridge_status`
+- Phase 3: `kotikit_plan_code`, `kotikit_implement_code_start`, `kotikit_implement_code_save`, `kotikit_implement_code_gate`, `kotikit_registry_search`
+- Phase 4: `kotikit_scaffold_start`, `kotikit_scaffold_save`
+- Phase 5: `kotikit_plan_design`, `kotikit_design_get_screen`, `kotikit_design_apply_step`
 - Phase 6: `kotikit_audit`, `kotikit_get_system_prompt`
 
 ## How it works
