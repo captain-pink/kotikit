@@ -1,0 +1,351 @@
+import { describe, it, expect, afterAll, afterEach } from "bun:test";
+import { rm } from "fs/promises";
+import { existsSync, mkdtempSync, readFileSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
+import simpleGit from "simple-git";
+
+import { registerSpecTools } from "../../src/mcp/tools/spec.js";
+import { registerConfigTools } from "../../src/mcp/tools/config.js";
+import { registerFlowTools } from "../../src/mcp/tools/flow.js";
+import { registerBrainstormTools } from "../../src/mcp/tools/brainstorm.js";
+import { registerPlanDesignTools } from "../../src/mcp/tools/plan-design.js";
+import { registerDesignScreenTools } from "../../src/mcp/tools/design-screen.js";
+import { registerDesignApplyTools } from "../../src/mcp/tools/design-apply.js";
+import { loadConfig, writeConfig } from "../../src/config/load.js";
+import { defaultConfig } from "../../src/config/schema.js";
+import type { ToolContext } from "../../src/mcp/context.js";
+import type { ToolRegistry } from "../../src/mcp/server.js";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { DesignPlanSchema } from "../../src/planning/design-plan-schema.js";
+import { designPlanPath, designApplyLogPath } from "../../src/util/paths.js";
+import { startBridgeServer, type BridgeServer } from "../../src/mcp/bridge/server.js";
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const tmpDirs: string[] = [];
+
+function mkTmp(): string {
+  const d = mkdtempSync(join(tmpdir(), "kotikit-phase5-"));
+  tmpDirs.push(d);
+  return d;
+}
+
+afterAll(async () => {
+  for (const d of tmpDirs)
+    await rm(d, { recursive: true, force: true }).catch(() => {});
+});
+
+type McpContent = { type: "text"; text: string };
+type ToolResult = { content: McpContent[]; isError?: boolean };
+
+function buildPhase5Registry(root: string): ToolRegistry {
+  const tools: Tool[] = [];
+  const handlers = new Map<string, (args: unknown) => Promise<ToolResult>>();
+  const registry: ToolRegistry = { tools, handlers };
+  const ctx: ToolContext = { root, loadConfig: () => loadConfig(root) };
+  registerConfigTools(registry, ctx);
+  registerSpecTools(registry, ctx);
+  registerFlowTools(registry, ctx);
+  registerBrainstormTools(registry, ctx);
+  registerPlanDesignTools(registry, ctx);
+  registerDesignScreenTools(registry, ctx);
+  registerDesignApplyTools(registry, ctx);
+  return registry;
+}
+
+async function callTool(
+  registry: ToolRegistry,
+  name: string,
+  args: unknown
+): Promise<ToolResult> {
+  const handler = registry.handlers.get(name);
+  if (!handler) throw new Error(`Tool not found: ${name}`);
+  return handler(args);
+}
+
+function parseDetail(text: string): unknown {
+  const i = text.indexOf("\n\n");
+  if (i === -1) return {};
+  return JSON.parse(text.slice(i + 2));
+}
+
+async function setupRepoWithConfig(): Promise<string> {
+  const tmp = mkTmp();
+  const git = simpleGit(tmp);
+  await git.init();
+  await git.addConfig("user.email", "test@example.com");
+  await git.addConfig("user.name", "Test Runner");
+  const cfg = defaultConfig();
+  cfg.git.autoCommit = true;
+  await writeConfig(tmp, cfg);
+  return tmp;
+}
+
+// ─── Test 1: happy path spec → plan → get → apply log ────────────────────────
+
+describe("Phase 5 E2E — design plan happy path", () => {
+  it("spec_create → plan_design → design_get_screen → design_apply_step", async () => {
+    const root = await setupRepoWithConfig();
+    const registry = buildPhase5Registry(root);
+
+    // 1. Create a single-screen spec via spec_create
+    const draft = {
+      scope: "profile-page",
+      screen: {
+        slug: "profile",
+        title: "Profile Page",
+        description: "User profile screen.",
+        functional: ["Show avatar"],
+        states: { default: "x" },
+        components: [{ name: "Button" }, { name: "Input" }],
+        acceptanceCriteria: ["renders"],
+      },
+    };
+    const createResult = await callTool(registry, "kotikit_spec_create", { draft });
+    expect(createResult.isError).toBeFalsy();
+
+    // 2. plan_design
+    const planResult = await callTool(registry, "kotikit_plan_design", { scope: "profile-page" });
+    expect(planResult.isError).toBeFalsy();
+    expect(existsSync(designPlanPath(root, "profile-page", null))).toBe(true);
+    const plan = DesignPlanSchema.parse(
+      JSON.parse(readFileSync(designPlanPath(root, "profile-page", null), "utf-8"))
+    );
+    expect(plan.pageName).toBe("ProfilePage");
+    expect(plan.steps.length).toBeGreaterThan(0);
+
+    // 3. design_get_screen — returns plan + spec + (empty) dsComponents + skipped
+    const getResult = await callTool(registry, "kotikit_design_get_screen", { scope: "profile-page" });
+    expect(getResult.isError).toBeFalsy();
+    const getDetail = parseDetail(getResult.content[0]!.text) as {
+      plan: { pageName: string };
+      spec: { title: string };
+      dsComponents: Record<string, unknown>;
+      skipped: { name: string }[];
+    };
+    expect(getDetail.plan.pageName).toBe("ProfilePage");
+    expect(getDetail.spec.title).toBe("Profile Page");
+    // No design-system synced, so dsComponents is empty and skipped has 2 entries
+    expect(Object.keys(getDetail.dsComponents)).toEqual([]);
+    expect(getDetail.skipped.map((s) => s.name).sort()).toEqual(["Button", "Input"]);
+
+    // 4. design_apply_step — record three applications
+    await callTool(registry, "kotikit_design_apply_step", {
+      scope: "profile-page",
+      stepIndex: 0,
+      outcome: "ok",
+    });
+    await callTool(registry, "kotikit_design_apply_step", {
+      scope: "profile-page",
+      stepIndex: 1,
+      outcome: "ok",
+    });
+    await callTool(registry, "kotikit_design_apply_step", {
+      scope: "profile-page",
+      stepIndex: 2,
+      outcome: "warned",
+      note: "dsKey missing",
+    });
+
+    expect(existsSync(designApplyLogPath(root, "profile-page", null))).toBe(true);
+    const logText = readFileSync(designApplyLogPath(root, "profile-page", null), "utf-8");
+    const lines = logText.trim().split("\n");
+    expect(lines).toHaveLength(3);
+    const last = JSON.parse(lines[2]!);
+    expect(last.outcome).toBe("warned");
+    expect(last.note).toBe("dsKey missing");
+
+    // 5. Commit history shows the design plan commit
+    const git = simpleGit(root);
+    const log = await git.log();
+    const subjects = log.all.map((c) => c.message);
+    expect(
+      subjects.some((s) => s.includes("feat(spec): create design plan profile-page"))
+    ).toBe(true);
+  });
+});
+
+// ─── Test 2: multi-screen flow ────────────────────────────────────────────────
+
+describe("Phase 5 E2E — multi-screen flow", () => {
+  it("plan_design for a flow screen writes <screen>.design.plan.json", async () => {
+    const root = await setupRepoWithConfig();
+    const registry = buildPhase5Registry(root);
+
+    const draft = {
+      scope: "checkout-flow",
+      title: "Checkout Flow",
+      description: "Purchase flow.",
+      screens: [
+        {
+          slug: "cart",
+          title: "Cart",
+          description: "x",
+          functional: ["x"],
+          states: { loading: "x", filled: "y" },
+          components: [{ name: "Header" }],
+          acceptanceCriteria: [],
+        },
+      ],
+      transitions: [],
+      sharedState: [],
+    };
+    await callTool(registry, "kotikit_flow_create", { draft });
+
+    const planResult = await callTool(registry, "kotikit_plan_design", {
+      scope: "checkout-flow",
+      screen: "cart",
+    });
+    expect(planResult.isError).toBeFalsy();
+    expect(existsSync(designPlanPath(root, "checkout-flow", "cart"))).toBe(true);
+
+    const plan = DesignPlanSchema.parse(
+      JSON.parse(readFileSync(designPlanPath(root, "checkout-flow", "cart"), "utf-8"))
+    );
+    expect(plan.pageName).toBe("Cart");
+    expect(plan.states.sort()).toEqual(["filled", "loading"]);
+    // 2 states × (1 frame + 1 auto-layout + 1 component) = 6 steps
+    expect(plan.steps).toHaveLength(6);
+  });
+});
+
+// ─── Test 3: bridge — connect + tools/list over WebSocket ────────────────────
+
+describe("Phase 5 E2E — bridge", () => {
+  let bridge: BridgeServer | null = null;
+
+  afterEach(async () => {
+    if (bridge) {
+      await bridge.close();
+      bridge = null;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+  });
+
+  it("starts a bridge, connects via WebSocket, lists tools including Phase 5 names", async () => {
+    const root = await setupRepoWithConfig();
+    const registry = buildPhase5Registry(root);
+
+    const cfg = {
+      version: 1 as const,
+      port: 53300,
+      token: "tok123456789xyz",
+      projectRoot: root,
+      projectName: "proj",
+      startedAt: new Date().toISOString(),
+    };
+    bridge = startBridgeServer({ registry, config: cfg });
+
+    const reply = await new Promise<unknown>((resolve, reject) => {
+      const ws = new WebSocket(`ws://127.0.0.1:${cfg.port}?token=${cfg.token}`);
+      const timer = setTimeout(() => {
+        ws.close();
+        reject(new Error("timeout"));
+      }, 3000);
+      ws.onopen = () =>
+        ws.send(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }));
+      ws.onmessage = (evt) => {
+        clearTimeout(timer);
+        ws.close();
+        resolve(JSON.parse(evt.data as string));
+      };
+      ws.onerror = () => {
+        clearTimeout(timer);
+        reject(new Error("ws error"));
+      };
+    });
+
+    const result = (reply as { result: { tools: { name: string }[] } }).result;
+    const names = result.tools.map((t) => t.name);
+    expect(names).toContain("kotikit_plan_design");
+    expect(names).toContain("kotikit_design_get_screen");
+    expect(names).toContain("kotikit_design_apply_step");
+    // Also check Phase 1-3 tools are exposed via bridge
+    expect(names).toContain("kotikit_spec_list");
+    expect(names).toContain("kotikit_brainstorm_start");
+  });
+
+  it("plan_design tool can be called over the bridge", async () => {
+    const root = await setupRepoWithConfig();
+    const registry = buildPhase5Registry(root);
+
+    // Create a spec
+    const draft = {
+      scope: "profile-page",
+      screen: {
+        slug: "profile",
+        title: "Profile Page",
+        description: "x",
+        functional: ["x"],
+        states: { default: "x" },
+        components: [],
+        acceptanceCriteria: [],
+      },
+    };
+    await callTool(registry, "kotikit_spec_create", { draft });
+
+    const cfg = {
+      version: 1 as const,
+      port: 53301,
+      token: "tok123456789xyz",
+      projectRoot: root,
+      projectName: "proj",
+      startedAt: new Date().toISOString(),
+    };
+    bridge = startBridgeServer({ registry, config: cfg });
+
+    const reply = await new Promise<unknown>((resolve, reject) => {
+      const ws = new WebSocket(`ws://127.0.0.1:${cfg.port}?token=${cfg.token}`);
+      const timer = setTimeout(() => {
+        ws.close();
+        reject(new Error("timeout"));
+      }, 3000);
+      ws.onopen = () =>
+        ws.send(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: 2,
+            method: "tools/call",
+            params: {
+              name: "kotikit_plan_design",
+              arguments: { scope: "profile-page" },
+            },
+          })
+        );
+      ws.onmessage = (evt) => {
+        clearTimeout(timer);
+        ws.close();
+        resolve(JSON.parse(evt.data as string));
+      };
+      ws.onerror = () => {
+        clearTimeout(timer);
+        reject(new Error("ws error"));
+      };
+    });
+
+    const result = (reply as { result: { content: { text: string }[] } }).result;
+    expect(result.content[0]?.text).toContain("Design plan written");
+    expect(existsSync(designPlanPath(root, "profile-page", null))).toBe(true);
+  });
+
+  it("connect with invalid token over the bridge is rejected", async () => {
+    const root = await setupRepoWithConfig();
+    const registry = buildPhase5Registry(root);
+
+    const cfg = {
+      version: 1 as const,
+      port: 53302,
+      token: "tok123456789xyz",
+      projectRoot: root,
+      projectName: "proj",
+      startedAt: new Date().toISOString(),
+    };
+    bridge = startBridgeServer({ registry, config: cfg });
+
+    const res = await fetch(`http://127.0.0.1:${cfg.port}/?token=wrong`, {
+      headers: { upgrade: "websocket" },
+    });
+    expect(res.status).toBe(403);
+  });
+});
