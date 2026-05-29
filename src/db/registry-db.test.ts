@@ -6,6 +6,8 @@ import {
   getRegistry,
   searchRegistry,
   clearRegistry,
+  upsertRegistryDsRow,
+  listDesignOnlyComponents,
 } from "./registry-db.js";
 
 describe("registry-db", () => {
@@ -216,5 +218,134 @@ describe("registry-db", () => {
 
     const results = searchRegistry(db, { query: "But" });
     expect(results.map(r => r.name).sort()).toEqual(["Button", "ButtonIcon"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// upsertRegistryDsRow
+// ---------------------------------------------------------------------------
+
+describe("upsertRegistryDsRow", () => {
+  it("inserts a fresh design-only row when none exists", () => {
+    const db = new Database(":memory:");
+    initRegistryDb(db);
+    upsertRegistryDsRow(db, { name: "Button", dsPath: "components/button.json" });
+    const row = getRegistry(db, "component", "Button");
+    expect(row).toEqual({
+      kind: "component",
+      name: "Button",
+      dsPath: "components/button.json",
+      codePath: null,
+      status: "design-only",
+    });
+  });
+
+  it("updates ds_path on existing design-only row, status unchanged", () => {
+    const db = new Database(":memory:");
+    initRegistryDb(db);
+    upsertRegistry(db, { kind: "component", name: "Button", dsPath: "old", codePath: null, status: "design-only" });
+    upsertRegistryDsRow(db, { name: "Button", dsPath: "components/button.json" });
+    const row = getRegistry(db, "component", "Button");
+    expect(row?.dsPath).toBe("components/button.json");
+    expect(row?.status).toBe("design-only");
+  });
+
+  it("preserves synced row: ds_path updates but code_path and status do NOT change", () => {
+    const db = new Database(":memory:");
+    initRegistryDb(db);
+    upsertRegistry(db, {
+      kind: "component",
+      name: "Button",
+      dsPath: "old",
+      codePath: "src/components/ui/button.tsx",
+      status: "synced",
+    });
+    upsertRegistryDsRow(db, { name: "Button", dsPath: "components/button.json" });
+    const row = getRegistry(db, "component", "Button");
+    expect(row?.dsPath).toBe("components/button.json");
+    expect(row?.codePath).toBe("src/components/ui/button.tsx");
+    expect(row?.status).toBe("synced");
+  });
+
+  it("promotes code-only with code_path → synced when ds_path is added", () => {
+    const db = new Database(":memory:");
+    initRegistryDb(db);
+    upsertRegistry(db, {
+      kind: "component",
+      name: "Button",
+      dsPath: null,
+      codePath: "src/components/ui/button.tsx",
+      status: "code-only",
+    });
+    upsertRegistryDsRow(db, { name: "Button", dsPath: "components/button.json" });
+    const row = getRegistry(db, "component", "Button");
+    expect(row?.status).toBe("synced");
+  });
+
+  it("does NOT touch a screen-kind row with the same name", () => {
+    const db = new Database(":memory:");
+    initRegistryDb(db);
+    upsertRegistry(db, {
+      kind: "screen",
+      name: "Cart",
+      dsPath: null,
+      codePath: "src/components/checkout-flow/Cart.tsx",
+      status: "code-only",
+    });
+    upsertRegistryDsRow(db, { name: "Cart", dsPath: "components/cart.json" });
+    const screenRow = getRegistry(db, "screen", "Cart");
+    const componentRow = getRegistry(db, "component", "Cart");
+    expect(screenRow?.codePath).toBe("src/components/checkout-flow/Cart.tsx");
+    expect(screenRow?.status).toBe("code-only");
+    expect(componentRow?.dsPath).toBe("components/cart.json");
+    expect(componentRow?.status).toBe("design-only");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// listDesignOnlyComponents
+// ---------------------------------------------------------------------------
+
+describe("listDesignOnlyComponents", () => {
+  function seed(db: Database) {
+    upsertRegistry(db, { kind: "component", name: "Button", dsPath: "p1", codePath: null, status: "design-only" });
+    upsertRegistry(db, { kind: "component", name: "Card",   dsPath: "p2", codePath: null, status: "design-only" });
+    upsertRegistry(db, { kind: "component", name: "Input",  dsPath: "p3", codePath: "x", status: "synced" });
+    upsertRegistry(db, { kind: "screen",    name: "Cart",   dsPath: null, codePath: "x", status: "code-only" });
+  }
+
+  it("no filter returns all design-only components, excluding screens and synced", () => {
+    const db = new Database(":memory:");
+    initRegistryDb(db);
+    seed(db);
+    const rows = listDesignOnlyComponents(db);
+    expect(rows.map(r => r.name).sort()).toEqual(["Button", "Card"]);
+  });
+
+  it("names filter returns the intersection", () => {
+    const db = new Database(":memory:");
+    initRegistryDb(db);
+    seed(db);
+    const rows = listDesignOnlyComponents(db, ["Button", "DoesNotExist", "Card"]);
+    expect(rows.map(r => r.name).sort()).toEqual(["Button", "Card"]);
+  });
+
+  it("empty names array returns all design-only (treats empty as 'no filter')", () => {
+    const db = new Database(":memory:");
+    initRegistryDb(db);
+    seed(db);
+    // Empty array (length 0) falls into the else branch, returning all design-only rows.
+    const rows = listDesignOnlyComponents(db, []);
+    expect(rows.length).toBeGreaterThan(0);
+  });
+
+  it("respects limit", () => {
+    const db = new Database(":memory:");
+    initRegistryDb(db);
+    for (let i = 0; i < 5; i++) {
+      upsertRegistry(db, { kind: "component", name: `C${i}`, dsPath: "p", codePath: null, status: "design-only" });
+    }
+    const rows = listDesignOnlyComponents(db, undefined, 2);
+    expect(rows).toHaveLength(2);
   });
 });

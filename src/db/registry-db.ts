@@ -150,3 +150,76 @@ export function searchRegistry(
 export function clearRegistry(db: Database): void {
   db.exec("DELETE FROM registry;");
 }
+
+/**
+ * Merge-aware upsert for a DS component row.
+ * Rules:
+ *   - No row             → insert {kind:"component", name, ds_path, code_path:null, status:"design-only"}.
+ *   - Existing design-only → update ds_path, keep status.
+ *   - Existing synced      → update ds_path ONLY; keep code_path; keep status.
+ *   - Existing code-only   → update ds_path; if code_path is non-null, promote to "synced".
+ *   - Existing kind!='component' → no-op (defensive: never collide with a screen-kind row).
+ */
+export function upsertRegistryDsRow(
+  db: Database,
+  input: { name: string; dsPath: string }
+): void {
+  const existing = getRegistry(db, "component", input.name);
+  if (!existing) {
+    upsertRegistry(db, {
+      kind: "component",
+      name: input.name,
+      dsPath: input.dsPath,
+      codePath: null,
+      status: "design-only",
+    });
+    return;
+  }
+  if (existing.status === "synced") {
+    upsertRegistry(db, { ...existing, dsPath: input.dsPath });
+    return;
+  }
+  if (existing.status === "code-only") {
+    const promoted: RegistryStatus = existing.codePath ? "synced" : "code-only";
+    upsertRegistry(db, { ...existing, dsPath: input.dsPath, status: promoted });
+    return;
+  }
+  // design-only
+  upsertRegistry(db, { ...existing, dsPath: input.dsPath });
+}
+
+/**
+ * List all rows where kind='component' AND status='design-only',
+ * optionally filtered by a names whitelist.
+ *
+ * @param names - When provided and non-empty, return only rows whose name appears in this array.
+ *                When omitted or empty, return all design-only component rows.
+ * @param limit - Default 1000 (Phase 4 doesn't justify pagination).
+ */
+export function listDesignOnlyComponents(
+  db: Database,
+  names?: string[],
+  limit: number = 1000
+): RegistryRow[] {
+  if (names && names.length > 0) {
+    const placeholders = names.map(() => "?").join(",");
+    return db
+      .prepare(
+        `SELECT kind, name, ds_path as dsPath, code_path as codePath, status
+         FROM registry
+         WHERE kind = 'component' AND status = 'design-only' AND name IN (${placeholders})
+         ORDER BY name
+         LIMIT ?`
+      )
+      .all(...names, limit) as RegistryRow[];
+  }
+  return db
+    .prepare(
+      `SELECT kind, name, ds_path as dsPath, code_path as codePath, status
+       FROM registry
+       WHERE kind = 'component' AND status = 'design-only'
+       ORDER BY name
+       LIMIT ?`
+    )
+    .all(limit) as RegistryRow[];
+}
