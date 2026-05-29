@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
+import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { registerConfigTools, type ToolRegistry } from "./config";
@@ -101,6 +101,65 @@ describe("kotikit_config_status", () => {
     const result = await call("kotikit_config_status", {});
     const text = getText(result);
     expect(text).toContain('"isGitRepo"');
+  });
+
+  it("config_status before init: no gates field", async () => {
+    const result = await call("kotikit_config_status", {});
+    expect(result.isError).toBeUndefined();
+    const text = result.content.find((c) => c.type === "text")!.text;
+    // The text is "summary\n\nJSON" — extract the JSON part after the first blank line
+    const jsonPart = text.slice(text.indexOf("\n\n") + 2);
+    const detail = JSON.parse(jsonPart);
+    // Before init the detail object should have no "gates" key
+    expect(detail.gates).toBeUndefined();
+  });
+
+  it("config_status after init with no gate binaries: gates.ok === false", async () => {
+    // Init without seeding any binaries in node_modules/.bin
+    await call("kotikit_config_init", {});
+    const result = await call("kotikit_config_status", {});
+    expect(result.isError).toBeUndefined();
+    const text = result.content.find((c) => c.type === "text")!.text;
+    const jsonPart = text.slice(text.indexOf("\n\n") + 2);
+    const detail = JSON.parse(jsonPart);
+    expect(detail.gates).toBeDefined();
+    expect(detail.gates.ok).toBe(false);
+    const gateNames = (detail.gates.missing as { gate: string }[]).map((m) => m.gate);
+    expect(gateNames).toContain("tsc");
+    expect(gateNames).toContain("eslint");
+    expect(gateNames).toContain("prettier");
+    expect(gateNames).toContain("vitest");
+  });
+
+  it("config_status after init with testFramework=none: vitest not in missing", async () => {
+    await call("kotikit_config_init", { testFramework: "none" });
+    const result = await call("kotikit_config_status", {});
+    expect(result.isError).toBeUndefined();
+    const text = result.content.find((c) => c.type === "text")!.text;
+    const jsonPart = text.slice(text.indexOf("\n\n") + 2);
+    const detail = JSON.parse(jsonPart);
+    expect(detail.gates).toBeDefined();
+    expect(detail.gates.ok).toBe(false);
+    const gateNames = (detail.gates.missing as { gate: string }[]).map((m) => m.gate);
+    expect(gateNames).not.toContain("vitest");
+  });
+
+  it("config_status after init with all binaries present: gates.ok === true", async () => {
+    await call("kotikit_config_init", {});
+    // Seed all required binaries (default testFramework: "vitest")
+    const binDir = join(tmp, "node_modules", ".bin");
+    mkdirSync(binDir, { recursive: true });
+    for (const tool of ["tsc", "eslint", "prettier", "vitest"]) {
+      writeFileSync(join(binDir, tool), "#!/bin/sh\n");
+    }
+    const result = await call("kotikit_config_status", {});
+    expect(result.isError).toBeUndefined();
+    const text = result.content.find((c) => c.type === "text")!.text;
+    const jsonPart = text.slice(text.indexOf("\n\n") + 2);
+    const detail = JSON.parse(jsonPart);
+    expect(detail.gates).toBeDefined();
+    expect(detail.gates.ok).toBe(true);
+    expect(detail.gates.missing).toEqual([]);
   });
 });
 

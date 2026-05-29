@@ -5,6 +5,8 @@ import { buildConfig } from "../../config/init.js";
 import type { InitAnswers } from "../../config/init.js";
 import { isGitRepo } from "../../git/auto-commit.js";
 import { toolText, toolError, KotikitError } from "../../util/result.js";
+import { verifyGateEnvironment } from "../../codegen/environment.js";
+import { reactAdapter } from "../../codegen/react/adapter.js";
 
 // ─── Registry shape ───────────────────────────────────────────────────────────
 
@@ -52,6 +54,23 @@ function registerConfigStatus(registry: ToolRegistry, ctx: ToolContext): void {
         const config = await loadConfig(ctx.root);
         if (config !== null && config.figma.designSystemFiles.length === 0) {
           missing.push("no Figma design system connected yet (optional)");
+        }
+
+        if (config !== null) {
+          const gateReport = await verifyGateEnvironment({
+            root: ctx.root,
+            adapter: reactAdapter,
+            testFramework: config.project.testFramework,
+          });
+          return toolText("Here's your kotikit setup status.", {
+            initialized,
+            isGitRepo: gitRepo,
+            missing,
+            gates: {
+              ok: gateReport.ok,
+              missing: gateReport.missing,
+            },
+          });
         }
       }
 
