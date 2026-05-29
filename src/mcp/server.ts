@@ -25,6 +25,8 @@ import { registerScaffoldTools } from "./tools/scaffold.js";
 import { registerPlanDesignTools } from "./tools/plan-design.js";
 import { registerDesignScreenTools } from "./tools/design-screen.js";
 import { registerDesignApplyTools } from "./tools/design-apply.js";
+import { registerAuditTools } from "./tools/audit.js";
+import { registerSystemPromptTools } from "./tools/system-prompt.js";
 import { startBridgeServer, type BridgeServer } from "./bridge/server.js";
 import {
   generateBridgeToken,
@@ -82,6 +84,8 @@ export function buildServer(): { server: Server; registry: ToolRegistry } {
   registerPlanDesignTools(registry, ctx);
   registerDesignScreenTools(registry, ctx);
   registerDesignApplyTools(registry, ctx);
+  registerAuditTools(registry, ctx);
+  registerSystemPromptTools(registry, ctx);
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
 
