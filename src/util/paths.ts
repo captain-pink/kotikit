@@ -50,6 +50,35 @@ export const singleSpecPath = (root: string, scope: string): string =>
 export const flowManifestPath = (root: string, scope: string): string =>
   `${root}/.kotikit/specs/${scope}/flow.json`;
 
+/** Path to a screen's ephemeral code plan inside .kotikit/specs/<scope>/. */
+export const codePlanPath = (
+  root: string,
+  scope: string,
+  screenSlug: string | null
+): string => {
+  const name = screenSlug ? `${screenSlug}.code.plan.json` : "code.plan.json";
+  return `${root}/.kotikit/specs/${scope}/${name}`;
+};
+
+/** Path to the Phase 3 minimal registry DB. */
+export const registryDbPath = (root: string): string =>
+  `${root}/.kotikit/registry.db`;
+
+/** Directory under the user's project that holds generated screen components for a scope. */
+export const codeComponentDir = (
+  root: string,
+  codeComponentsDir: string,
+  scope: string
+): string => `${root}/${codeComponentsDir}/${scope}`;
+
+/** Full path to a generated component file. */
+export const codeComponentFile = (
+  root: string,
+  codeComponentsDir: string,
+  scope: string,
+  fileName: string
+): string => `${root}/${codeComponentsDir}/${scope}/${fileName}`;
+
 /**
  * Walk up from `start` (default: process.cwd()) looking for a directory
  * that contains a `.kotikit` folder. Returns that directory if found,

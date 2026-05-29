@@ -8,6 +8,7 @@ import {
   designSystemDir, componentsDbPath, iconsDbPath,
   variablesJsonPath, manifestPath, componentJsonPath,
   checkpointPath, syncReportPath,
+  codePlanPath, registryDbPath, codeComponentDir, codeComponentFile,
 } from "./paths";
 
 let tmp: string;
@@ -102,6 +103,38 @@ describe("paths", () => {
       expect(syncReportPath("/tmp/proj")).toBe(
         "/tmp/proj/design-system/.sync-report.json"
       );
+    });
+  });
+
+  describe("Phase 3 path helpers", () => {
+    it("codePlanPath with screenSlug returns <scope>/<slug>.code.plan.json", () => {
+      expect(codePlanPath("/tmp/proj", "checkout-flow", "cart")).toBe(
+        "/tmp/proj/.kotikit/specs/checkout-flow/cart.code.plan.json"
+      );
+    });
+
+    it("codePlanPath with null screenSlug returns <scope>/code.plan.json", () => {
+      expect(codePlanPath("/tmp/proj", "profile-page", null)).toBe(
+        "/tmp/proj/.kotikit/specs/profile-page/code.plan.json"
+      );
+    });
+
+    it("registryDbPath returns .kotikit/registry.db", () => {
+      expect(registryDbPath("/tmp/proj")).toBe(
+        "/tmp/proj/.kotikit/registry.db"
+      );
+    });
+
+    it("codeComponentDir returns <root>/<codeComponentsDir>/<scope>", () => {
+      expect(codeComponentDir("/tmp/proj", "src/components", "checkout-flow")).toBe(
+        "/tmp/proj/src/components/checkout-flow"
+      );
+    });
+
+    it("codeComponentFile returns full path to component file", () => {
+      expect(
+        codeComponentFile("/tmp/proj", "src/components", "checkout-flow", "Cart.tsx")
+      ).toBe("/tmp/proj/src/components/checkout-flow/Cart.tsx");
     });
   });
 });

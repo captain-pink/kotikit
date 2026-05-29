@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { uuid, nowIso, slugify, slugifyComponentName } from "./ids";
+import { uuid, nowIso, slugify, slugifyComponentName, pascalCase, componentNameFor } from "./ids";
 
 describe("ids", () => {
   it("uuid returns a valid v4 UUID", () => {
@@ -57,6 +57,50 @@ describe("ids", () => {
 
     it('"PieChart3D" → "pie-chart-3d"', () => {
       expect(slugifyComponentName("PieChart3D")).toBe("pie-chart-3d");
+    });
+  });
+
+  describe("pascalCase", () => {
+    it('"checkout-flow" → "CheckoutFlow"', () => {
+      expect(pascalCase("checkout-flow")).toBe("CheckoutFlow");
+    });
+
+    it('"text_field" → "TextField"', () => {
+      expect(pascalCase("text_field")).toBe("TextField");
+    });
+
+    it('"cart" → "Cart"', () => {
+      expect(pascalCase("cart")).toBe("Cart");
+    });
+
+    it('"https-config" → "HttpsConfig"', () => {
+      expect(pascalCase("https-config")).toBe("HttpsConfig");
+    });
+
+    it('"icon/arrow-left" → "IconArrowLeft"', () => {
+      expect(pascalCase("icon/arrow-left")).toBe("IconArrowLeft");
+    });
+
+    it('"" → ""', () => {
+      expect(pascalCase("")).toBe("");
+    });
+
+    it('"  spaces  in here  " → "SpacesInHere"', () => {
+      expect(pascalCase("  spaces  in here  ")).toBe("SpacesInHere");
+    });
+  });
+
+  describe("componentNameFor", () => {
+    it('componentNameFor("profile-page", null) → "ProfilePage"', () => {
+      expect(componentNameFor("profile-page", null)).toBe("ProfilePage");
+    });
+
+    it('componentNameFor("checkout-flow", "cart") → "Cart"', () => {
+      expect(componentNameFor("checkout-flow", "cart")).toBe("Cart");
+    });
+
+    it('componentNameFor("settings", "billing-info") → "BillingInfo"', () => {
+      expect(componentNameFor("settings", "billing-info")).toBe("BillingInfo");
     });
   });
 });

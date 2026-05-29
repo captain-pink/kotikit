@@ -21,6 +21,35 @@ export const slugify = (input: string): string => {
 };
 
 /**
+ * Convert a slug or arbitrary string to PascalCase.
+ *   "checkout-flow"   → "CheckoutFlow"
+ *   "profile-page"    → "ProfilePage"
+ *   "cart"            → "Cart"
+ *   "text_field"      → "TextField"
+ *   "https-config"    → "HttpsConfig"
+ *   "icon/arrow-left" → "IconArrowLeft"
+ *
+ * Strategy: split on -, _, /, whitespace; capitalize each non-empty token; join.
+ */
+export function pascalCase(input: string): string {
+  return input
+    .split(/[-_/\s]+/)
+    .filter((token) => token.length > 0)
+    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
+    .join("");
+}
+
+/**
+ * Derive the component name for a scope+screen pair.
+ *   componentNameFor("profile-page", null)         → "ProfilePage"
+ *   componentNameFor("checkout-flow", "cart")      → "Cart"
+ *   componentNameFor("settings", "billing-info")   → "BillingInfo"
+ */
+export function componentNameFor(scope: string, screenSlug: string | null): string {
+  return screenSlug ? pascalCase(screenSlug) : pascalCase(scope);
+}
+
+/**
  * Convert a component name to a kebab-case slug suitable for filenames.
  * "Pie Chart"   → "pie-chart"
  * "TextField"   → "text-field"
