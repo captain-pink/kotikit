@@ -4,6 +4,7 @@ import { existsSync } from "fs";
 import { tmpdir } from "os";
 import { join, dirname } from "path";
 import simpleGit from "simple-git";
+import { writeConfig } from "../../config/load";
 
 import { registerScaffoldTools } from "./scaffold";
 import type { ToolRegistry } from "../server";
@@ -167,6 +168,34 @@ function makeGateRunner(
   return async (_opts: RunGatesOpts) => report;
 }
 
+// ─── Phase 6 helper aliases ───────────────────────────────────────────────────
+
+/** Alias for call() — used by Phase 6 tests. */
+async function callTool(
+  reg: ToolRegistry,
+  name: string,
+  args: unknown
+): Promise<{ content: { type: string; text: string }[]; isError?: boolean }> {
+  return call(reg, name, args);
+}
+
+/** Parse the JSON detail block from a tool response text. */
+function parseDetail(text: string): unknown {
+  const jsonStart = text.indexOf("\n\n{");
+  if (jsonStart < 0) return null;
+  try {
+    return JSON.parse(text.slice(jsonStart + 2));
+  } catch {
+    return null;
+  }
+}
+
+/** Write the default config to the repo's .kotikit/config.json. */
+async function initConfigInRepo(root: string): Promise<void> {
+  const { defaultConfig } = await import("../../config/schema");
+  await writeConfig(root, defaultConfig());
+}
+
 // ─── _start tests ────────────────────────────────────────────────────────────
 
 describe("kotikit_scaffold_start", () => {
@@ -212,9 +241,9 @@ describe("kotikit_scaffold_start", () => {
       expect(comp.scaffoldShape.stories).toBeDefined();
     }
 
-    // systemPrompt should mention component names
-    expect(detail.systemPrompt).toContain("Button");
-    expect(detail.systemPrompt).toContain("Card");
+    // systemPromptRef identifies the adapter; systemPrompt is now a stub
+    expect((detail as { systemPromptRef?: string }).systemPromptRef).toBe("react");
+    expect(detail.systemPrompt).toContain("kotikit_get_system_prompt");
   });
 
   it("test 2: no registry → friendly error", async () => {
@@ -534,5 +563,110 @@ describe("kotikit_scaffold_save", () => {
     expect(row!.status).toBe("synced");
     expect(row!.dsPath).toBe("components/button.json");
     expect(row!.codePath).toContain("button.tsx");
+  });
+});
+
+// ─── Phase 6 pagination + compact tests ──────────────────────────────────────
+
+describe("scaffold_start pagination (Phase 6)", () => {
+  it("default pageSize=3: 10 design-only components return 3 + nextCursor + hasMore", async () => {
+    const root = await setupRepo({ storybook: false });
+    await initConfigInRepo(root);
+
+    // Seed 10 DS components (Component00..Component09)
+    for (let i = 0; i < 10; i++) {
+      const name = `Component${String(i).padStart(2, "0")}`;
+      seedComponent(root, name, `components/${name.toLowerCase()}.json`);
+    }
+
+    const registry = makeRegistry();
+    registerScaffoldTools(registry, makeCtx(root));
+    const result = await callTool(registry, "kotikit_scaffold_start", {});
+    const detail = parseDetail(result.content[0]!.text) as {
+      components: { name: string }[];
+      nextCursor?: string;
+      hasMore: boolean;
+      totalRemaining: number;
+    };
+    expect(detail.components).toHaveLength(3);
+    expect(detail.hasMore).toBe(true);
+    expect(detail.nextCursor).toBe(detail.components[2]!.name);
+    expect(detail.totalRemaining).toBeGreaterThan(0);
+  });
+
+  it("cursor advances to the next page", async () => {
+    const root = await setupRepo({ storybook: false });
+    await initConfigInRepo(root);
+    for (let i = 0; i < 6; i++) {
+      const name = `Component${i}`;
+      seedComponent(root, name, `components/${name.toLowerCase()}.json`);
+    }
+    const registry = makeRegistry();
+    registerScaffoldTools(registry, makeCtx(root));
+    const page1 = await callTool(registry, "kotikit_scaffold_start", {});
+    const d1 = parseDetail(page1.content[0]!.text) as { components: { name: string }[]; nextCursor?: string };
+    const page2 = await callTool(registry, "kotikit_scaffold_start", { cursor: d1.nextCursor });
+    const d2 = parseDetail(page2.content[0]!.text) as { components: { name: string }[]; hasMore: boolean };
+    // Page2 should start AFTER cursor
+    expect(d2.components[0]!.name.localeCompare(d1.nextCursor!)).toBeGreaterThan(0);
+  });
+
+  it("2 components: pageSize default fits all → hasMore=false, no nextCursor", async () => {
+    const root = await setupRepo({ storybook: false });
+    await initConfigInRepo(root);
+    seedComponent(root, "A", "components/a.json");
+    seedComponent(root, "B", "components/b.json");
+    const registry = makeRegistry();
+    registerScaffoldTools(registry, makeCtx(root));
+    const result = await callTool(registry, "kotikit_scaffold_start", {});
+    const detail = parseDetail(result.content[0]!.text) as { components: unknown[]; nextCursor?: string; hasMore: boolean };
+    expect(detail.components).toHaveLength(2);
+    expect(detail.hasMore).toBe(false);
+    expect(detail.nextCursor).toBeUndefined();
+  });
+
+  it("compact=true (default): dsJson is the stripped shape", async () => {
+    const root = await setupRepo({ storybook: false });
+    await initConfigInRepo(root);
+    seedComponent(root, "Button", "components/button.json");
+    const registry = makeRegistry();
+    registerScaffoldTools(registry, makeCtx(root));
+    const result = await callTool(registry, "kotikit_scaffold_start", {});
+    const detail = parseDetail(result.content[0]!.text) as { components: { dsJson: Record<string, unknown> }[] };
+    const dsJson = detail.components[0]!.dsJson;
+    expect(dsJson.name).toBeDefined();
+    expect(dsJson.key).toBeDefined();
+    expect(dsJson.variants).toBeDefined();
+    expect(dsJson.propertyNames).toBeDefined();
+    // Stripped — these should NOT be present
+    expect(dsJson.path).toBeUndefined();
+    expect(dsJson.updatedAt).toBeUndefined();
+  });
+
+  it("compact=false returns full ComponentJson", async () => {
+    const root = await setupRepo({ storybook: false });
+    await initConfigInRepo(root);
+    seedComponent(root, "Button", "components/button.json");
+    const registry = makeRegistry();
+    registerScaffoldTools(registry, makeCtx(root));
+    const result = await callTool(registry, "kotikit_scaffold_start", { compact: false });
+    const detail = parseDetail(result.content[0]!.text) as { components: { dsJson: Record<string, unknown> }[] };
+    const dsJson = detail.components[0]!.dsJson;
+    // Full shape — path and updatedAt present
+    expect(dsJson.path).toBeDefined();
+    expect(dsJson.updatedAt).toBeDefined();
+  });
+
+  it("systemPromptRef is present and systemPrompt is a stub", async () => {
+    const root = await setupRepo({ storybook: false });
+    await initConfigInRepo(root);
+    seedComponent(root, "Button", "components/button.json");
+    const registry = makeRegistry();
+    registerScaffoldTools(registry, makeCtx(root));
+    const result = await callTool(registry, "kotikit_scaffold_start", {});
+    const detail = parseDetail(result.content[0]!.text) as { systemPromptRef: string; systemPrompt: string };
+    expect(detail.systemPromptRef).toBe("react");
+    expect(detail.systemPrompt).toContain("kotikit_get_system_prompt");
+    expect(detail.systemPrompt.length).toBeLessThan(300);  // STUB, not the 1.5KB doctrine
   });
 });

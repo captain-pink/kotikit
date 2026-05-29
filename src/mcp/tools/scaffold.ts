@@ -5,7 +5,7 @@ import { existsSync } from "fs";
 import { readFile, writeFile, mkdir } from "fs/promises";
 import { dirname, resolve as resolvePath, relative as relativePath } from "path";
 import { defaultConfig } from "../../config/schema.js";
-import { reactAdapter, REACT_SYSTEM_PROMPT } from "../../codegen/react/adapter.js";
+import { reactAdapter } from "../../codegen/react/adapter.js";
 import { runGates as defaultRunGates } from "../../codegen/gate-runner.js";
 import { verifyGateEnvironment } from "../../codegen/environment.js";
 import { autoCommit } from "../../git/auto-commit.js";
@@ -51,13 +51,31 @@ export function registerScaffoldTools(
   registerScaffoldSave(registry, ctx, opts);
 }
 
+// ─── Compact dsJson shape ─────────────────────────────────────────────────────
+
+interface CompactComponentJson {
+  name: string;
+  key: string;
+  variants: { propertyName: string; values: string[] }[];
+  propertyNames: string[];
+}
+
+function toCompactJson(json: ComponentJson): CompactComponentJson {
+  return {
+    name: json.name,
+    key: json.key,
+    variants: json.variants,
+    propertyNames: Object.keys(json.properties),
+  };
+}
+
 // ─── kotikit_scaffold_start ──────────────────────────────────────────────────
 
 function registerScaffoldStart(registry: ToolRegistry, ctx: ToolContext): void {
   const tool: Tool = {
     name: "kotikit_scaffold_start",
     description:
-      "Gather scaffolding context for one or more DS components — returns component skeletons Claude refines into production code.",
+      "Gather scaffolding context for one or more DS components — returns up to pageSize (default 3) component skeletons per page.",
     inputSchema: {
       type: "object",
       properties: {
@@ -67,6 +85,24 @@ function registerScaffoldStart(registry: ToolRegistry, ctx: ToolContext): void {
           description:
             "Component names to scaffold. Omit to scaffold all design-only components.",
         },
+        pageSize: {
+          type: "number",
+          description: "Max components per page (default 3, clamped to [1, 10]).",
+        },
+        cursor: {
+          type: "string",
+          description:
+            "Name of the last component from the previous page. Pass to get the next page.",
+        },
+        compact: {
+          type: "boolean",
+          description:
+            "When true (default), each component's dsJson is stripped to {name, key, variants, propertyNames}. Set false for the full ComponentJson.",
+        },
+        expand: {
+          type: "boolean",
+          description: "Reserved for future use. Currently the inverse of compact.",
+        },
       },
     },
   };
@@ -74,8 +110,19 @@ function registerScaffoldStart(registry: ToolRegistry, ctx: ToolContext): void {
   registry.tools.push(tool);
 
   registry.handlers.set("kotikit_scaffold_start", async (args) => {
-    const { names } = args as { names?: string[] };
+    const { names, pageSize: rawPageSize, cursor, compact: rawCompact, expand: rawExpand } = args as {
+      names?: string[];
+      pageSize?: number;
+      cursor?: string;
+      compact?: boolean;
+      expand?: boolean;
+    };
     const root = ctx.root;
+
+    // Resolve pagination + compact defaults
+    const pageSize = Math.min(10, Math.max(1, typeof rawPageSize === "number" ? Math.floor(rawPageSize) : 3));
+    // compact defaults true; expand defaults false (inverse of compact)
+    const compact = rawExpand === true ? false : (rawCompact !== undefined ? rawCompact : true);
 
     try {
       // 1. Load config (default if missing)
@@ -96,11 +143,11 @@ function registerScaffoldStart(registry: ToolRegistry, ctx: ToolContext): void {
       const db = openDb(regPath);
       initRegistryDb(db);
 
-      // 4. List design-only components
-      const rows = listDesignOnlyComponents(db, names);
+      // 4. List design-only components and sort alphabetically (case-insensitive)
+      const allRows = listDesignOnlyComponents(db, names);
       db.close();
 
-      if (rows.length === 0) {
+      if (allRows.length === 0) {
         return toolError(
           new KotikitError(
             "There are no design-only components to scaffold.",
@@ -108,6 +155,20 @@ function registerScaffoldStart(registry: ToolRegistry, ctx: ToolContext): void {
           )
         );
       }
+
+      // Sort alphabetically, case-insensitive
+      allRows.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+
+      // Apply cursor: skip components whose name <= cursor
+      const afterCursor = cursor
+        ? allRows.filter((r) => r.name.localeCompare(cursor) > 0)
+        : allRows;
+
+      // Take the current page
+      const rows = afterCursor.slice(0, pageSize);
+      const totalRemaining = Math.max(0, afterCursor.length - rows.length);
+      const hasMore = afterCursor.length > rows.length;
+      const nextCursor = hasMore ? rows[rows.length - 1]!.name : undefined;
 
       // 5. Read DS JSON for each row; track skipped
       const dsDir = designSystemDir(root);
@@ -207,19 +268,23 @@ function registerScaffoldStart(registry: ToolRegistry, ctx: ToolContext): void {
         });
       }
 
-      // 9. Build system prompt: REACT_SYSTEM_PROMPT + component-specific section
-      const componentSection = components
-        .map((c) => {
-          const axes = c.dsJson.variants.map((v) => `  - ${v.propertyName}: ${v.values.join(", ")}`).join("\n");
-          return `### ${c.name}\nTarget: ${c.targetPath}\nVariant axes:\n${axes || "  (none)"}`;
-        })
-        .join("\n\n");
+      // 9. Apply compact mode to dsJson and build response components
+      const responseComponents = components.map((c) => ({
+        ...c,
+        dsJson: compact ? toCompactJson(c.dsJson) : c.dsJson,
+      }));
 
-      const systemPrompt = `${REACT_SYSTEM_PROMPT}\n\n---\n\n## Components to scaffold in this batch\n\n${componentSection}`;
+      // 10. System prompt stub (full prompt available via kotikit_get_system_prompt)
+      const systemPrompt =
+        "For the full React adapter prompt, call kotikit_get_system_prompt({ kind: 'scaffold' }).";
 
-      const n = components.length;
+      const n = responseComponents.length;
       return toolText(`Ready to scaffold ${n} component${n !== 1 ? "s" : ""}.`, {
-        components,
+        components: responseComponents,
+        nextCursor,
+        hasMore,
+        totalRemaining,
+        systemPromptRef: "react",
         systemPrompt,
         hasStorybook: hasSb,
         skipped,
