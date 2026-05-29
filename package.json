@@ -10,6 +10,7 @@
     "bridge": "KOTIKIT_BRIDGE=1 bun run src/mcp/server.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
+    "measure": "bun run scripts/measure-tokens.ts",
     "plugin:build": "cd figma-plugin && bun install && bun run build",
     "plugin:test": "cd figma-plugin && bun test"
   },
