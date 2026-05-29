@@ -22,6 +22,17 @@ import { registerPlanCodeTools } from "./tools/plan-code.js";
 import { registerImplementCodeTools } from "./tools/implement-code.js";
 import { registerRegistryTools } from "./tools/registry.js";
 import { registerScaffoldTools } from "./tools/scaffold.js";
+import { registerPlanDesignTools } from "./tools/plan-design.js";
+import { registerDesignScreenTools } from "./tools/design-screen.js";
+import { registerDesignApplyTools } from "./tools/design-apply.js";
+import { startBridgeServer, type BridgeServer } from "./bridge/server.js";
+import {
+  generateBridgeToken,
+  writeBridgeConfig,
+  clearBridgeConfig,
+} from "./bridge/token.js";
+import { nowIso } from "../util/ids.js";
+import { basename } from "path";
 
 /** The return type every tool handler must produce. */
 type ToolResult = {
@@ -68,6 +79,9 @@ export function buildServer(): { server: Server; registry: ToolRegistry } {
   registerImplementCodeTools(registry, ctx);
   registerRegistryTools(registry, ctx);
   registerScaffoldTools(registry, ctx);
+  registerPlanDesignTools(registry, ctx);
+  registerDesignScreenTools(registry, ctx);
+  registerDesignApplyTools(registry, ctx);
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
 
@@ -87,13 +101,65 @@ export function buildServer(): { server: Server; registry: ToolRegistry } {
   return { server, registry };
 }
 
-/** Start the MCP server connected to stdio. */
+/**
+ * Try to bind a WebSocket bridge to a port, starting from `preferredPort` and
+ * incrementing if the port is in use. Returns the bound BridgeServer + port.
+ */
+async function tryStartBridge(
+  registry: ToolRegistry,
+  root: string,
+  preferredPort: number
+): Promise<{ bridge: BridgeServer; port: number; token: string }> {
+  for (let port = preferredPort; port < preferredPort + 50; port++) {
+    try {
+      const token = generateBridgeToken();
+      const cfg = {
+        version: 1 as const,
+        port,
+        token,
+        projectRoot: root,
+        projectName: basename(root),
+        startedAt: nowIso(),
+      };
+      // Pre-write the config so it's available even before onReady fires
+      await writeBridgeConfig(root, cfg);
+      const bridge = startBridgeServer({ registry, config: cfg });
+      return { bridge, port, token };
+    } catch {
+      // Port likely in use — try the next one
+      continue;
+    }
+  }
+  throw new Error(`[kotikit] Could not bind bridge: ports ${preferredPort}-${preferredPort + 49} all in use.`);
+}
+
+/** Start the MCP server connected to stdio. Optionally also starts the bridge. */
 export async function startServer(): Promise<void> {
   const root = findProjectRoot();
-  const { server } = buildServer();
+  const { server, registry } = buildServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
   process.stderr.write(`[kotikit] MCP server started. Root: ${root}\n`);
+
+  // Opt-in bridge: KOTIKIT_BRIDGE=1 OR --bridge flag
+  const bridgeEnabled =
+    process.env.KOTIKIT_BRIDGE === "1" || process.argv.includes("--bridge");
+
+  if (bridgeEnabled) {
+    const preferredPort = Number(process.env.KOTIKIT_BRIDGE_PORT ?? "53124");
+    const { port, token } = await tryStartBridge(registry, root, preferredPort);
+    process.stderr.write(
+      `[kotikit] Bridge running at ws://localhost:${port}?token=${token}\n` +
+      `[kotikit] Copy that URL into the kotikit Figma plugin's Connect dialog.\n`
+    );
+
+    const cleanup = async (): Promise<void> => {
+      await clearBridgeConfig(root).catch(() => {});
+      process.exit(0);
+    };
+    process.on("SIGINT", cleanup);
+    process.on("SIGTERM", cleanup);
+  }
 }
 
 if (import.meta.main) {
