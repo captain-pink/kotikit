@@ -17,7 +17,7 @@ describe("MCP server", () => {
     expect(server).toBeDefined();
   });
 
-  it("registers all Phase 1 and Phase 2 tools", () => {
+  it("registers all Phase 1, 2, and 3 tools", () => {
     const { registry } = buildServer();
     const expectedTools = [
       // Phase 1
@@ -29,6 +29,10 @@ describe("MCP server", () => {
       "kotikit_ds_search", "kotikit_ds_get_component",
       "kotikit_icons_search",
       "kotikit_sync_ds",
+      // Phase 3
+      "kotikit_plan_code",
+      "kotikit_implement_code_start", "kotikit_implement_code_save", "kotikit_implement_code_gate",
+      "kotikit_registry_search",
     ];
     const registeredNames = registry.tools.map((t) => t.name);
     for (const name of expectedTools) {
