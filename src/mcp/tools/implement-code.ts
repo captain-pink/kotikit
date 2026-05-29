@@ -178,10 +178,10 @@ function registerStart(registry: ToolRegistry, ctx: ToolContext): void {
         const regDb = new Database(regDbPath, { readonly: true });
         try {
           for (const dsRef of plan.dsComponentRefs) {
-            const hits = searchRegistry(regDb, dsRef.name, 5);
+            const hits = searchRegistry(regDb, { query: dsRef.name, limit: 5 });
             for (const h of hits) {
               if (!registryHits.some((r) => r.name === h.name)) {
-                registryHits.push({ name: h.name, codePath: h.codePath, status: h.status });
+                registryHits.push({ name: h.name, codePath: h.codePath ?? "", status: h.status });
               }
             }
           }
@@ -423,7 +423,9 @@ function registerSave(
       try {
         initRegistryDb(regDb);
         upsertRegistry(regDb, {
+          kind: "screen",
           name: componentName,
+          dsPath: null,
           codePath: relTargetPath,
           status: "code-only",
         });

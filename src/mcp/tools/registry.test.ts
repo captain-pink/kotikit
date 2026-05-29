@@ -58,12 +58,16 @@ describe("kotikit_registry_search", () => {
     const db = openDb(registryDbPath(root));
     initRegistryDb(db);
     upsertRegistry(db, {
+      kind: "screen",
       name: "Button",
+      dsPath: null,
       codePath: "src/components/ui/button.tsx",
       status: "code-only",
     });
     upsertRegistry(db, {
+      kind: "screen",
       name: "Card",
+      dsPath: null,
       codePath: "src/components/ui/card.tsx",
       status: "code-only",
     });
@@ -86,7 +90,7 @@ describe("kotikit_registry_search", () => {
     const db = openDb(registryDbPath(root));
     initRegistryDb(db);
     for (let i = 0; i < 10; i++)
-      upsertRegistry(db, { name: `Comp${i}`, codePath: "p", status: "code-only" });
+      upsertRegistry(db, { kind: "screen", name: `Comp${i}`, dsPath: null, codePath: "p", status: "code-only" });
     db.close();
 
     const registry = makeRegistry();

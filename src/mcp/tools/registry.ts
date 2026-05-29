@@ -48,7 +48,7 @@ function registerRegistrySearch(
       }
 
       const db = new Database(dbPath, { readonly: true });
-      const results = searchRegistry(db, query, limit ?? 25);
+      const results = searchRegistry(db, { query, limit: limit ?? 25 });
       db.close();
 
       return toolText(

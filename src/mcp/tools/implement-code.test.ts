@@ -328,7 +328,7 @@ describe("kotikit_implement_code_save", () => {
       expect(existsSync(regDbPath)).toBe(true);
       const db = openDb(regDbPath);
       initRegistryDb(db);
-      const row = getRegistry(db, "ProfilePage");
+      const row = getRegistry(db, "screen", "ProfilePage");
       db.close();
       expect(row).not.toBeNull();
       expect(row?.status).toBe("code-only");
@@ -381,7 +381,7 @@ describe("kotikit_implement_code_save", () => {
       if (existsSync(regDbPath)) {
         const db = openDb(regDbPath);
         initRegistryDb(db);
-        const row = getRegistry(db, "ProfilePage");
+        const row = getRegistry(db, "screen", "ProfilePage");
         db.close();
         expect(row).toBeNull();
       }
@@ -491,7 +491,7 @@ describe("kotikit_implement_code_save", () => {
 
       const db = openDb(regDbPath);
       initRegistryDb(db);
-      const row = getRegistry(db, "ProfilePage");
+      const row = getRegistry(db, "screen", "ProfilePage");
       db.close();
       expect(row).not.toBeNull();
     } finally {
