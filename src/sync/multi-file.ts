@@ -8,11 +8,12 @@ import { writeVariablesJson, type VariablesJson } from "./variables.js";
 import { writeManifest, type SyncManifest } from "./manifest.js";
 import {
   componentsDbPath, iconsDbPath, syncReportPath, componentJsonPath,
-  designSystemDir,
+  designSystemDir, registryDbPath,
 } from "../util/paths.js";
-import { openDb } from "../db/sqlite.js";
+import { openDb, withTransaction } from "../db/sqlite.js";
 import { initComponentsDb, upsertComponent } from "../db/components-db.js";
 import { initIconsDb } from "../db/icons-db.js";
+import { initRegistryDb, getRegistry, upsertRegistry } from "../db/registry-db.js";
 import { nowIso, slugifyComponentName } from "../util/ids.js";
 import { buildPropsString } from "./component-shape.js";
 import type { ComponentJson } from "./component-shape.js";
@@ -32,6 +33,37 @@ export interface SyncReport {
   conflicts: SyncManifest["conflicts"];
   variableCollisions: { name: string; keptSource: "variable" | "style" }[];
   skipped: { fileKey: string; stage: string; reason: string }[];
+  registryUpdates: { added: number; updated: number };
+}
+
+/**
+ * Merge-aware upsert for a DS component row.
+ * No row              → insert {kind:"component", name, ds_path, code_path:null, status:"design-only"}.
+ * Existing design-only → update ds_path, keep status.
+ * Existing synced      → update ds_path ONLY; keep code_path, keep status.
+ * Existing code-only   → update ds_path; if code_path is non-null, promote to "synced".
+ *
+ * NOTE: This helper is inlined here for Phase 4. P4-B3 will extract it into
+ *       src/db/registry-db.ts as upsertRegistryDsRow.
+ */
+function upsertDsRow(db: Database, input: { name: string; dsPath: string }): "added" | "updated" {
+  const existing = getRegistry(db, "component", input.name);
+  if (!existing) {
+    upsertRegistry(db, { kind: "component", name: input.name, dsPath: input.dsPath, codePath: null, status: "design-only" });
+    return "added";
+  }
+  if (existing.status === "synced") {
+    upsertRegistry(db, { ...existing, dsPath: input.dsPath });
+    return "updated";
+  }
+  if (existing.status === "code-only") {
+    const promoted = existing.codePath ? "synced" : "code-only";
+    upsertRegistry(db, { ...existing, dsPath: input.dsPath, status: promoted });
+    return "updated";
+  }
+  // design-only path
+  upsertRegistry(db, { ...existing, dsPath: input.dsPath });
+  return "updated";
 }
 
 async function writeComponentJson(root: string, json: ComponentJson): Promise<void> {
@@ -157,6 +189,27 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
     }
   }
 
+  // ── Upsert non-icon component rows into the registry DB ─────────────────
+  let registryAdded = 0;
+  let registryUpdated = 0;
+
+  const regDbPath = registryDbPath(root);
+  const regDb = openDb(regDbPath);
+  try {
+    initRegistryDb(regDb);
+    withTransaction(regDb, () => {
+      for (const result of fileResults) {
+        for (const json of result.componentJsons) {
+          const action = upsertDsRow(regDb, { name: json.name, dsPath: json.path });
+          if (action === "added") registryAdded++;
+          else registryUpdated++;
+        }
+      }
+    });
+  } finally {
+    regDb.close();
+  }
+
   // ── Merge variables across files ─────────────────────────────────────────
   // Strategy: later file's variables win on collision.
   const allEntriesByName: Map<string, VariablesJson["entries"][number]> = new Map();
@@ -211,6 +264,7 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
     conflicts,
     variableCollisions,
     skipped,
+    registryUpdates: { added: registryAdded, updated: registryUpdated },
   };
   await writeReport(root, report);
 

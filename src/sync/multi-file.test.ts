@@ -2,11 +2,14 @@ import { describe, it, expect, afterAll } from "bun:test";
 import { mkdtempSync, rmSync, existsSync, readFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
+import { Database } from "bun:sqlite";
 import { syncAllFiles } from "./multi-file.js";
 import { FigmaClient } from "./figma-client.js";
 import { createLimiter } from "./rate-limit.js";
 import { SyncManifestSchema } from "./manifest.js";
-import { manifestPath, componentJsonPath, variablesJsonPath, syncReportPath } from "../util/paths.js";
+import { manifestPath, componentJsonPath, variablesJsonPath, syncReportPath, registryDbPath } from "../util/paths.js";
+import { openDb } from "../db/sqlite.js";
+import { initRegistryDb, getRegistry, upsertRegistry } from "../db/registry-db.js";
 
 const tmpDirs: string[] = [];
 function mkTmp(): string {
@@ -87,6 +90,10 @@ describe("syncAllFiles", () => {
 
     // Report says the same
     expect(report.conflicts).toHaveLength(1);
+    // Report includes registry update counts
+    expect(report.registryUpdates).toBeDefined();
+    expect(typeof report.registryUpdates.added).toBe("number");
+    expect(typeof report.registryUpdates.updated).toBe("number");
   });
 
   it("writes variables.json (possibly empty) and a sync-report.json", async () => {
@@ -125,5 +132,180 @@ describe("syncAllFiles", () => {
     const report = await syncAllFiles({ root, files: [], client });
     expect(report.files).toEqual([]);
     expect(report.conflicts).toEqual([]);
+    expect(report.registryUpdates).toEqual({ added: 0, updated: 0 });
+  });
+
+  it("fresh sync populates registry with design-only rows", async () => {
+    const root = mkTmp();
+
+    const fileResponses = {
+      FA: {
+        components: () => ({ meta: { components: [{ key: "ckA", node_id: "nA", name: "Button" }] } }),
+        file: () => ({ name: "FileA", document: { children: [{ id: "p1", name: "Components", children: [{ id: "nA", name: "Button" }] }] } }),
+      },
+      FB: {
+        components: () => ({ meta: { components: [{ key: "ckB", node_id: "nB", name: "Card" }] } }),
+        file: () => ({ name: "FileB", document: { children: [{ id: "p1", name: "Components", children: [{ id: "nB", name: "Card" }] }] } }),
+      },
+    };
+
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch: makeFetch(fileResponses),
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+      backoffOpts: FAST,
+    });
+
+    const report = await syncAllFiles({
+      root,
+      files: [{ key: "FA", name: "FileA" }, { key: "FB", name: "FileB" }],
+      client,
+    });
+
+    // Open the registry and assert two design-only component rows
+    const regDb = new Database(registryDbPath(root), { readonly: true });
+    const button = getRegistry(regDb, "component", "Button");
+    const card = getRegistry(regDb, "component", "Card");
+    regDb.close();
+
+    expect(button?.status).toBe("design-only");
+    expect(button?.dsPath).toBe("components/button.json");
+    expect(card?.status).toBe("design-only");
+    expect(card?.dsPath).toBe("components/card.json");
+
+    // Report counts should reflect adds
+    expect(report.registryUpdates.added).toBe(2);
+    expect(report.registryUpdates.updated).toBe(0);
+  });
+
+  it("re-sync preserves synced rows (does not downgrade or clobber code_path)", async () => {
+    const root = mkTmp();
+
+    // First, manually seed the registry with a synced row for Button
+    // (simulating a prior scaffold run)
+    const regDb = openDb(registryDbPath(root));
+    initRegistryDb(regDb);
+    upsertRegistry(regDb, {
+      kind: "component",
+      name: "Button",
+      dsPath: "components/button.json",
+      codePath: "src/components/ui/button.tsx",
+      status: "synced",
+    });
+    regDb.close();
+
+    // Now run sync with Button as a DS component
+    const fileResponses = {
+      FA: {
+        components: () => ({ meta: { components: [{ key: "ckA", node_id: "nA", name: "Button" }] } }),
+        file: () => ({ name: "FileA", document: { children: [{ id: "p1", name: "Components", children: [{ id: "nA", name: "Button" }] }] } }),
+      },
+    };
+
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch: makeFetch(fileResponses),
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+      backoffOpts: FAST,
+    });
+
+    await syncAllFiles({
+      root,
+      files: [{ key: "FA", name: "FileA" }],
+      client,
+    });
+
+    // Assert: Button is still synced, code_path unchanged
+    const regDb2 = new Database(registryDbPath(root), { readonly: true });
+    const button = getRegistry(regDb2, "component", "Button");
+    regDb2.close();
+
+    expect(button?.status).toBe("synced");
+    expect(button?.codePath).toBe("src/components/ui/button.tsx");
+  });
+
+  it("re-sync of a screen-kind code-only row does not affect component kind rows", async () => {
+    const root = mkTmp();
+
+    // Seed the registry with a screen-kind code-only row named "Button"
+    // (shouldn't happen in practice but tests kind separation)
+    const regDb = openDb(registryDbPath(root));
+    initRegistryDb(regDb);
+    upsertRegistry(regDb, {
+      kind: "screen",
+      name: "Button",
+      dsPath: null,
+      codePath: "src/screens/Button.tsx",
+      status: "code-only",
+    });
+    regDb.close();
+
+    // Run sync with a DS Button component
+    const fileResponses = {
+      FA: {
+        components: () => ({ meta: { components: [{ key: "ckA", node_id: "nA", name: "Button" }] } }),
+        file: () => ({ name: "FileA", document: { children: [{ id: "p1", name: "Components", children: [{ id: "nA", name: "Button" }] }] } }),
+      },
+    };
+
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch: makeFetch(fileResponses),
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+      backoffOpts: FAST,
+    });
+
+    await syncAllFiles({
+      root,
+      files: [{ key: "FA", name: "FileA" }],
+      client,
+    });
+
+    // Assert: the screen row is untouched (different kind)
+    const regDb2 = new Database(registryDbPath(root), { readonly: true });
+    const screenRow = getRegistry(regDb2, "screen", "Button");
+    const componentRow = getRegistry(regDb2, "component", "Button");
+    regDb2.close();
+
+    expect(screenRow?.status).toBe("code-only");
+    expect(screenRow?.codePath).toBe("src/screens/Button.tsx");
+    // A new component row was inserted
+    expect(componentRow?.status).toBe("design-only");
+  });
+
+  it("registryUpdates report counts adds vs updates correctly", async () => {
+    const root = mkTmp();
+
+    const fileResponses = {
+      FA: {
+        components: () => ({ meta: { components: [{ key: "ckA", node_id: "nA", name: "Button" }] } }),
+        file: () => ({ name: "FileA", document: { children: [{ id: "p1", name: "Components", children: [{ id: "nA", name: "Button" }] }] } }),
+      },
+    };
+
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch: makeFetch(fileResponses),
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+      backoffOpts: FAST,
+    });
+
+    // First run — expect added: 1, updated: 0
+    const report1 = await syncAllFiles({
+      root,
+      files: [{ key: "FA", name: "FileA" }],
+      client,
+    });
+    expect(report1.registryUpdates.added).toBe(1);
+    expect(report1.registryUpdates.updated).toBe(0);
+
+    // Second run — expect added: 0, updated: 1
+    const report2 = await syncAllFiles({
+      root,
+      files: [{ key: "FA", name: "FileA" }],
+      client,
+    });
+    expect(report2.registryUpdates.added).toBe(0);
+    expect(report2.registryUpdates.updated).toBe(1);
   });
 });
