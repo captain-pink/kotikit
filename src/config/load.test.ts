@@ -4,7 +4,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { loadConfig, configExists, writeConfig, resolveSecret, resolveSecretImpl } from "./load";
 import { buildConfig } from "./init";
-import { defaultConfig } from "./schema";
+import { defaultConfig, parseConfig } from "./schema";
 
 let tmp: string;
 
@@ -138,5 +138,33 @@ describe("buildConfig", () => {
     const cfg = buildConfig({ figmaFiles: [{ key: "abc", name: "Core DS" }] });
     expect(cfg.figma.designSystemFiles).toHaveLength(1);
     expect(cfg.figma.designSystemFiles[0].key).toBe("abc");
+  });
+
+  it("defaultConfig().project.testFramework is 'vitest'", () => {
+    expect(defaultConfig().project.testFramework).toBe("vitest");
+  });
+
+  it("buildConfig({ testFramework: 'none' }) returns testFramework 'none'", () => {
+    const cfg = buildConfig({ testFramework: "none" });
+    expect(cfg.project.testFramework).toBe("none");
+  });
+});
+
+describe("parseConfig — testFramework back-fill", () => {
+  it("parses an existing config without testFramework and fills default", () => {
+    const raw = {
+      project: {
+        framework: "react",
+        codeComponentsDir: "src/components",
+        tests: true,
+        // testFramework deliberately absent
+      },
+      defaults: {
+        breakpoints: [375, 768, 1024, 1440],
+        themes: ["light", "dark"],
+      },
+    };
+    const cfg = parseConfig(raw);
+    expect(cfg.project.testFramework).toBe("vitest");
   });
 });

@@ -18,6 +18,7 @@ export const ConfigSchema = z.object({
     framework: z.enum(["react"]).default("react"),
     codeComponentsDir: z.string().default("src/components"),
     tests: z.boolean().default(true),
+    testFramework: z.enum(["vitest", "none"]).default("vitest"),
   }),
   defaults: z.object({
     breakpoints: z.array(z.number().int().positive()).default([375, 768, 1024, 1440]),
@@ -39,6 +40,7 @@ export function defaultConfig(): Config {
       framework: "react",
       codeComponentsDir: "src/components",
       tests: true,
+      testFramework: "vitest",
     },
     defaults: {
       breakpoints: [375, 768, 1024, 1440],
