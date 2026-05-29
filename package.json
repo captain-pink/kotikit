@@ -9,7 +9,9 @@
     "mcp": "bun run src/mcp/server.ts",
     "bridge": "KOTIKIT_BRIDGE=1 bun run src/mcp/server.ts",
     "typecheck": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "plugin:build": "cd figma-plugin && bun install && bun run build",
+    "plugin:test": "cd figma-plugin && bun test"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "latest",

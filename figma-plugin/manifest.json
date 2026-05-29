@@ -1,0 +1,12 @@
+{
+  "name": "kotikit",
+  "id": "kotikit-design-track",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/ui.html",
+  "editorType": ["figma", "dev"],
+  "networkAccess": {
+    "allowedDomains": ["http://localhost:*", "ws://localhost:*", "https://localhost:*"],
+    "reasoning": "Connects to the local kotikit bridge over WebSocket."
+  }
+}

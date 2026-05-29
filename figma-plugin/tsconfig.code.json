@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "module": "ES2020",
+    "lib": ["ES2020"],
+    "types": ["@figma/plugin-typings"],
+    "noUnusedLocals": false
+  },
+  "include": ["code.ts"],
+  "exclude": ["ui", "src", "node_modules", "dist"]
+}

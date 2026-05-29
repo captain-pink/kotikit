@@ -22,5 +22,6 @@
     "paths": {
       "@/*": ["./src/*"]
     }
-  }
+  },
+  "exclude": ["figma-plugin", "node_modules"]
 }
