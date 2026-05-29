@@ -9,6 +9,7 @@ import {
   variablesJsonPath, manifestPath, componentJsonPath,
   checkpointPath, syncReportPath,
   codePlanPath, registryDbPath, codeComponentDir, codeComponentFile,
+  uiDir, uiComponentFile, uiStoryFile,
 } from "./paths";
 
 let tmp: string;
@@ -135,6 +136,32 @@ describe("paths", () => {
       expect(
         codeComponentFile("/tmp/proj", "src/components", "checkout-flow", "Cart.tsx")
       ).toBe("/tmp/proj/src/components/checkout-flow/Cart.tsx");
+    });
+  });
+
+  describe("UI scaffold paths (Phase 4)", () => {
+    it("uiDir returns <codeComponentsDir>/ui", () => {
+      expect(uiDir("/tmp/proj", "src/components")).toBe("/tmp/proj/src/components/ui");
+    });
+
+    it("uiComponentFile returns <codeComponentsDir>/ui/<kebab>.tsx", () => {
+      expect(uiComponentFile("/tmp/proj", "src/components", "button")).toBe(
+        "/tmp/proj/src/components/ui/button.tsx"
+      );
+      expect(uiComponentFile("/tmp/proj", "src/components", "pie-chart-3d")).toBe(
+        "/tmp/proj/src/components/ui/pie-chart-3d.tsx"
+      );
+    });
+
+    it("uiStoryFile returns <codeComponentsDir>/ui/<kebab>.stories.tsx", () => {
+      expect(uiStoryFile("/tmp/proj", "src/components", "button")).toBe(
+        "/tmp/proj/src/components/ui/button.stories.tsx"
+      );
+    });
+
+    it("works with a non-default codeComponentsDir", () => {
+      expect(uiDir("/proj", "app/ui")).toBe("/proj/app/ui/ui");
+      expect(uiComponentFile("/proj", "app/ui", "card")).toBe("/proj/app/ui/ui/card.tsx");
     });
   });
 });

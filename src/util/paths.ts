@@ -79,6 +79,24 @@ export const codeComponentFile = (
   fileName: string
 ): string => `${root}/${codeComponentsDir}/${scope}/${fileName}`;
 
+/** The directory where scaffolded DS components land: <codeComponentsDir>/ui/. */
+export const uiDir = (root: string, codeComponentsDir: string): string =>
+  `${root}/${codeComponentsDir}/ui`;
+
+/** Full path to a scaffolded component file: <codeComponentsDir>/ui/<kebab-name>.tsx. */
+export const uiComponentFile = (
+  root: string,
+  codeComponentsDir: string,
+  kebabName: string
+): string => `${root}/${codeComponentsDir}/ui/${kebabName}.tsx`;
+
+/** Full path to a colocated Storybook story: <codeComponentsDir>/ui/<kebab-name>.stories.tsx. */
+export const uiStoryFile = (
+  root: string,
+  codeComponentsDir: string,
+  kebabName: string
+): string => `${root}/${codeComponentsDir}/ui/${kebabName}.stories.tsx`;
+
 /**
  * Walk up from `start` (default: process.cwd()) looking for a directory
  * that contains a `.kotikit` folder. Returns that directory if found,
