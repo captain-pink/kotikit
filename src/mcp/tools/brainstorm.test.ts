@@ -143,6 +143,23 @@ describe("kotikit_brainstorm_start", () => {
       "any developer or designer could build this identically from the spec alone"
     );
   });
+
+  it("returns systemPromptRef === 'brainstorm' instead of inline doctrine", async () => {
+    const registry = setup();
+    const { text } = await callTool(registry, "kotikit_brainstorm_start", {
+      idea: "a simple page",
+    });
+    const detail = parseDetail(text) as {
+      systemPromptRef: string;
+      systemPrompt: string;
+    };
+    expect(detail.systemPromptRef).toBe("brainstorm");
+    // systemPrompt should be a stub, not the full doctrine
+    expect(detail.systemPrompt).toContain("kotikit_get_system_prompt");
+    expect(detail.systemPrompt).toContain(
+      "any developer or designer could build this identically from the spec alone"
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

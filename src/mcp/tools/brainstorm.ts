@@ -288,13 +288,18 @@ export function registerBrainstormTools(registry: ToolRegistry, _ctx: ToolContex
       const coverageChecklist = buildChecklist(classification);
       const firstQuestions = generateFirstQuestions(idea, classification);
 
+      const QUALITY_BAR_SENTENCE =
+        "any developer or designer could build this identically from the spec alone";
+
       return toolText("Ready to brainstorm.", {
         classification,
         coverageChecklist,
-        systemPrompt: BRAINSTORM_SYSTEM_PROMPT,
+        systemPromptRef: "brainstorm",
+        systemPrompt:
+          "For the full brainstorm doctrine, call kotikit_get_system_prompt({ kind: 'brainstorm' }). The quality bar to enforce: " +
+          QUALITY_BAR_SENTENCE,
         firstQuestions,
-        qualityBar:
-          "any developer or designer could build this identically from the spec alone",
+        qualityBar: QUALITY_BAR_SENTENCE,
       });
     } catch (err) {
       return toolError(err);
