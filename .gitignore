@@ -177,3 +177,7 @@ dist
 .kotikit/**/*.local.json
 *.log
 .claude/
+
+# kotikit Phase 5 — ephemeral bridge and apply log artifacts
+.kotikit/bridge.json
+*.design.apply.log
