@@ -13,7 +13,7 @@ import {
 import { openDb, withTransaction } from "../db/sqlite.js";
 import { initComponentsDb, upsertComponent } from "../db/components-db.js";
 import { initIconsDb } from "../db/icons-db.js";
-import { initRegistryDb, getRegistry, upsertRegistry } from "../db/registry-db.js";
+import { initRegistryDb, getRegistry, upsertRegistryDsRow } from "../db/registry-db.js";
 import { nowIso, slugifyComponentName } from "../util/ids.js";
 import { buildPropsString } from "./component-shape.js";
 import type { ComponentJson } from "./component-shape.js";
@@ -37,33 +37,13 @@ export interface SyncReport {
 }
 
 /**
- * Merge-aware upsert for a DS component row.
- * No row              → insert {kind:"component", name, ds_path, code_path:null, status:"design-only"}.
- * Existing design-only → update ds_path, keep status.
- * Existing synced      → update ds_path ONLY; keep code_path, keep status.
- * Existing code-only   → update ds_path; if code_path is non-null, promote to "synced".
- *
- * NOTE: This helper is inlined here for Phase 4. P4-B3 will extract it into
- *       src/db/registry-db.ts as upsertRegistryDsRow.
+ * Local "added vs updated" classifier — checks for an existing row before
+ * delegating the actual write to the canonical upsertRegistryDsRow helper.
  */
 function upsertDsRow(db: Database, input: { name: string; dsPath: string }): "added" | "updated" {
-  const existing = getRegistry(db, "component", input.name);
-  if (!existing) {
-    upsertRegistry(db, { kind: "component", name: input.name, dsPath: input.dsPath, codePath: null, status: "design-only" });
-    return "added";
-  }
-  if (existing.status === "synced") {
-    upsertRegistry(db, { ...existing, dsPath: input.dsPath });
-    return "updated";
-  }
-  if (existing.status === "code-only") {
-    const promoted = existing.codePath ? "synced" : "code-only";
-    upsertRegistry(db, { ...existing, dsPath: input.dsPath, status: promoted });
-    return "updated";
-  }
-  // design-only path
-  upsertRegistry(db, { ...existing, dsPath: input.dsPath });
-  return "updated";
+  const existed = getRegistry(db, "component", input.name) !== null;
+  upsertRegistryDsRow(db, input);
+  return existed ? "updated" : "added";
 }
 
 async function writeComponentJson(root: string, json: ComponentJson): Promise<void> {
