@@ -9,6 +9,7 @@ import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 
 import { findProjectRoot } from "../util/paths.js";
 import { loadConfig } from "../config/load.js";
+import { loadDotEnv } from "../util/env.js";
 import { KotikitError, toolError } from "../util/result.js";
 import type { ToolContext } from "./context.js";
 import { registerSpecTools } from "./tools/spec.js";
@@ -140,6 +141,12 @@ async function tryStartBridge(
 /** Start the MCP server connected to stdio. Optionally also starts the bridge. */
 export async function startServer(): Promise<void> {
   const root = findProjectRoot();
+  const injected = await loadDotEnv(root);
+  if (injected.length > 0) {
+    process.stderr.write(
+      `[kotikit] Loaded ${injected.length} env var(s) from ${root}/.env\n`
+    );
+  }
   const { server, registry } = buildServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);

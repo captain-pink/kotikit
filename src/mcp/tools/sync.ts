@@ -5,6 +5,7 @@ import { FigmaClient } from "../../sync/figma-client.js";
 import { syncAllFiles } from "../../sync/multi-file.js";
 import { resolveSecret } from "../../config/load.js";
 import { toolText, toolError, KotikitError } from "../../util/result.js";
+import { loadDotEnv } from "../../util/env.js";
 import { hasCheckpoint } from "../../sync/checkpoint.js";
 
 export interface RegisterSyncToolsOpts {
@@ -42,18 +43,22 @@ export function registerSyncTools(
         );
       }
 
-      // 2. Resolve the Figma token
+      // 2. Ensure .env is loaded (belt-and-suspenders for invocation paths
+      //    that bypass startServer, e.g. direct tool calls in tests or scripts).
+      await loadDotEnv(ctx.root);
+
+      // 3. Resolve the Figma token
       const token = await resolveSecret(config.figma.token);
       if (token === undefined || token === "") {
         return toolError(
           new KotikitError(
             "I couldn't find your Figma token.",
-            "Set FIGMA_TOKEN in .env or use the op:// reference in config."
+            "Create a .env file in your project root (next to package.json) with FIGMA_TOKEN=figd_... and try again. Or set the token directly in .kotikit/config.json under figma.token."
           )
         );
       }
 
-      // 3. Ensure at least one file is configured
+      // 4. Ensure at least one file is configured
       if (config.figma.designSystemFiles.length === 0) {
         return toolError(
           new KotikitError(
@@ -63,19 +68,19 @@ export function registerSyncTools(
         );
       }
 
-      // 4. Build the Figma client (real or injected)
+      // 5. Build the Figma client (real or injected)
       const client = opts.figmaClientFactory
         ? opts.figmaClientFactory(token)
         : new FigmaClient({ token });
 
-      // 5. Run the sync
+      // 6. Run the sync
       const report = await syncAllFiles({
         root: ctx.root,
         files: config.figma.designSystemFiles,
         client,
       });
 
-      // 6. Build a human-readable summary
+      // 7. Build a human-readable summary
       const totalComponents = report.files.reduce(
         (sum, f) => sum + f.componentCount,
         0
