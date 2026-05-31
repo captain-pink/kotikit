@@ -140,4 +140,35 @@ describe("FigmaClient", () => {
     expect(callsBy).toEqual([100, 100, 50]);
     expect(Object.keys(got).length).toBe(250);
   });
+
+  it("getDocument returns parsed file with depth query param", async () => {
+    let seenUrl = "";
+    const fetch = async (url: string | URL) => {
+      seenUrl = url.toString();
+      return jsonResponse({
+        name: "Mat3",
+        document: {
+          children: [
+            {
+              id: "p1",
+              name: "Components",
+              type: "CANVAS",
+              children: [
+                { id: "c1", name: "Button", type: "COMPONENT" },
+              ],
+            },
+          ],
+        },
+      });
+    };
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      limiter: FAST_LIMITER,
+      backoffOpts: FAST_BACKOFF,
+    });
+    const result = await client.getDocument("k1", 4);
+    expect(seenUrl).toContain("depth=4");
+    expect(result.document?.children?.[0]?.name).toBe("Components");
+  });
 });

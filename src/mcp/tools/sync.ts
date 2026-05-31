@@ -90,10 +90,19 @@ export function registerSyncTools(
         0
       );
       const conflictCount = report.conflicts.length;
-      const summary =
+      let summary =
         `Synced ${report.files.length} file(s). ` +
         `${totalComponents} components, ${totalIcons} icons. ` +
         `${conflictCount} name conflict(s).`;
+
+      // If any file skipped the variables stage (Enterprise-gated 403), surface
+      // a clear explanation so free-plan users are not confused by a silent skip.
+      const variablesSkipped = report.skipped?.some((s) => s.stage === "variables") ?? false;
+      if (variablesSkipped) {
+        summary +=
+          ` Note: Figma Variables API requires an Enterprise plan — color/text/effect styles were still synced normally.` +
+          ` If you need variable-style design tokens, define them manually (e.g. in a tokens.json).`;
+      }
 
       return toolText(summary, report);
     } catch (err) {

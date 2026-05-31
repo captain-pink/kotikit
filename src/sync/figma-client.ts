@@ -102,6 +102,22 @@ export class FigmaClient {
     }
   }
 
+  /**
+   * GET /v1/files/:key?depth=N — full file tree.
+   * Used as a fallback when /components returns empty (free-plan files or
+   * libraries that haven't been published).
+   */
+  async getDocument(fileKey: string, depth: number = 4): Promise<FigmaFile> {
+    try {
+      return await this.request(
+        `/v1/files/${fileKey}?depth=${depth}`,
+        FigmaFileSchema
+      );
+    } catch (err) {
+      throw this.mapError(err, fileKey, "document");
+    }
+  }
+
   /** GET /v1/files/:key/components — published components. */
   async getComponents(fileKey: string): Promise<FigmaPublishedComponent[]> {
     try {

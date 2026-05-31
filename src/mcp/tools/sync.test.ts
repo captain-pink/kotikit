@@ -145,4 +145,48 @@ describe("kotikit_sync_ds", () => {
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text.toLowerCase()).toContain("set up");
   });
+
+  it("happy path: notes that variables were skipped (Enterprise)", async () => {
+    const root = mkTmp();
+    const cfg = defaultConfig();
+    cfg.figma.token = "plain-token-value";
+    cfg.figma.designSystemFiles = [{ key: "FX", name: "FileX" }];
+    await writeConfig(root, cfg);
+
+    // fetch403 returns a proper 403 response for variables/local (simulates free-plan / non-Enterprise)
+    const fetch403 = (async (url: string | URL) => {
+      const u = url.toString();
+      if (u.includes("/variables/local")) {
+        return new Response(JSON.stringify({}), {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (u.includes("/v1/files/FX/components")) return jsonRes({ meta: { components: [{ key: "ckX", node_id: "btnX", name: "Button" }] } });
+      if (u.includes("/v1/files/FX/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/FX/styles")) return jsonRes({ meta: { styles: [] } });
+      if (u.includes("/v1/files/FX/nodes")) return jsonRes({ nodes: {} });
+      return jsonRes({ name: "FileX", document: { children: [{ id: "p1", name: "Components", children: [{ id: "btnX", name: "Button" }] }] } });
+    }) as unknown as typeof globalThis.fetch;
+
+    const registry = makeRegistry();
+    const ctx: ToolContext = {
+      root,
+      loadConfig: async () => cfg,
+    };
+
+    registerSyncTools(registry, ctx, {
+      figmaClientFactory: (token: string) => new FigmaClient({
+        token,
+        fetch: fetch403,
+        limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+        backoffOpts: FAST,
+      }),
+    });
+
+    const result = await callTool(registry, "kotikit_sync_ds", {});
+    expect(result.isError).toBeFalsy();
+    // The summary should mention Enterprise so free-plan users understand the skip
+    expect(result.content[0]?.text).toContain("Enterprise");
+  });
 });

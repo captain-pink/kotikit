@@ -267,4 +267,136 @@ describe("syncOneFile", () => {
     expect(stages).toContain("variables");
     expect(stages).toContain("done");
   });
+
+  it("falls back to document tree when /components returns empty", async () => {
+    const calledUrls: string[] = [];
+    const fetch = (async (url: string | URL) => {
+      const u = url.toString();
+      calledUrls.push(u);
+
+      // /components and /component_sets return empty (unpublished library)
+      if (u.includes("/v1/files/F1/components")) {
+        return jsonRes({ meta: { components: [] } });
+      }
+      if (u.includes("/v1/files/F1/component_sets")) {
+        return jsonRes({ meta: { component_sets: [] } });
+      }
+      if (u.includes("/v1/files/F1/styles")) {
+        return jsonRes({ meta: { styles: [] } });
+      }
+      if (u.includes("/v1/files/F1/variables/local")) {
+        return jsonRes({ meta: { variables: {}, variableCollections: {} } });
+      }
+      if (u.includes("/v1/files/F1/nodes")) {
+        return jsonRes({ nodes: {} });
+      }
+      // Both the metadata call (/v1/files/F1 without query) and the fallback
+      // call (/v1/files/F1?depth=4) hit this branch.
+      // Return a tree with one COMPONENT node so the fallback yields results.
+      if (u.includes("/v1/files/F1")) {
+        return jsonRes({
+          name: "Mat3",
+          document: {
+            children: [
+              {
+                id: "page1",
+                name: "Components",
+                type: "CANVAS",
+                children: [
+                  { id: "cBtn", name: "Button", type: "COMPONENT" },
+                  { id: "cCard", name: "Card", type: "COMPONENT" },
+                ],
+              },
+            ],
+          },
+        });
+      }
+      throw new Error("no match: " + u);
+    }) as unknown as typeof globalThis.fetch;
+
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch,
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+      backoffOpts: FAST,
+    });
+    const { componentsDb, iconsDb } = makeDbs();
+    const result = await syncOneFile({
+      root: "/tmp",
+      client,
+      fileKey: "F1",
+      fileName: "Mat3",
+      componentsDb,
+      iconsDb,
+    });
+
+    // Should have found components via tree walk
+    expect(result.componentCount).toBe(2);
+    expect(result.componentJsons.map((c) => c.name).sort()).toEqual(["Button", "Card"]);
+
+    // The skipped array should mention the fallback
+    expect(result.skipped.some((s) => s.reason.includes("document tree"))).toBe(true);
+
+    // The fallback getDocument call should have used depth=4
+    expect(calledUrls.some((u) => u.includes("depth=4"))).toBe(true);
+  });
+
+  it("does NOT fall back when /components returns components", async () => {
+    const calledUrls: string[] = [];
+    const fetch = (async (url: string | URL) => {
+      const u = url.toString();
+      calledUrls.push(u);
+
+      if (u.includes("/v1/files/F1/components")) {
+        return jsonRes({
+          meta: {
+            components: [
+              { key: "ckBtn", node_id: "nBtn", name: "Button" },
+            ],
+          },
+        });
+      }
+      if (u.includes("/v1/files/F1/component_sets")) {
+        return jsonRes({ meta: { component_sets: [] } });
+      }
+      if (u.includes("/v1/files/F1/styles")) {
+        return jsonRes({ meta: { styles: [] } });
+      }
+      if (u.includes("/v1/files/F1/variables/local")) {
+        return jsonRes({ meta: { variables: {}, variableCollections: {} } });
+      }
+      if (u.includes("/v1/files/F1/nodes")) {
+        return jsonRes({ nodes: {} });
+      }
+      if (u.includes("/v1/files/F1")) {
+        return jsonRes({ name: "F1", document: { children: [] } });
+      }
+      throw new Error("no match: " + u);
+    }) as unknown as typeof globalThis.fetch;
+
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch,
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+      backoffOpts: FAST,
+    });
+    const { componentsDb, iconsDb } = makeDbs();
+    const result = await syncOneFile({
+      root: "/tmp",
+      client,
+      fileKey: "F1",
+      fileName: "F1",
+      componentsDb,
+      iconsDb,
+    });
+
+    // Normal path: 1 component found via /components
+    expect(result.componentCount).toBe(1);
+
+    // The fallback getDocument call should NOT have been made
+    expect(calledUrls.some((u) => u.includes("depth=4"))).toBe(false);
+
+    // No fallback in skipped
+    expect(result.skipped.some((s) => s.reason.includes("document tree"))).toBe(false);
+  });
 });

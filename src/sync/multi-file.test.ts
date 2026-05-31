@@ -41,7 +41,7 @@ function makeFetch(fileResponses: Record<string, Record<string, () => unknown>>)
         return jsonRes(body);
       }
       if (u.includes(`/v1/files/${fileKey}/nodes`)) return jsonRes(handlers.nodes?.() ?? { nodes: {} });
-      if (u.endsWith(`/v1/files/${fileKey}`)) return jsonRes(handlers.file?.() ?? { name: fileKey, document: { children: [] } });
+      if (u.includes(`/v1/files/${fileKey}`) && !u.includes(`/v1/files/${fileKey}/`)) return jsonRes(handlers.file?.() ?? { name: fileKey, document: { children: [] } });
     }
     throw new Error("no fixture for " + u);
   }) as unknown as typeof globalThis.fetch;

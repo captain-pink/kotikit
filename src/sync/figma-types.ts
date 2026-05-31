@@ -135,3 +135,18 @@ export {
   FigmaVariablesResponseSchema,
   FigmaNodesResponseSchema,
 };
+
+// ─── Document-tree walker type ───────────────────────────────────────────────
+// Used when /components returns empty (unpublished libraries / free-plan files).
+// Kept as a TypeScript interface rather than a Zod schema because we only need
+// recursive walking — the schema validation happens at the FigmaFile level above.
+
+export interface FigmaTreeNode {
+  id?: string;
+  name?: string;
+  type?: string;
+  componentPropertyDefinitions?: Record<string, unknown>;
+  componentSetId?: string;
+  description?: string;
+  children?: FigmaTreeNode[];
+}

@@ -3,6 +3,7 @@ import type { FigmaClient } from "./figma-client.js";
 import type { FileCheckpoint } from "./checkpoint.js";
 import type { ComponentJson } from "./component-shape.js";
 import type { VariablesJson } from "./variables.js";
+import type { FigmaPublishedComponent, FigmaComponentSet, FigmaTreeNode } from "./figma-types.js";
 import { detectIconSignal } from "./icon-detect.js";
 import { buildComponentJson, buildPropsString } from "./component-shape.js";
 import { upsertComponent } from "../db/components-db.js";
@@ -33,6 +34,73 @@ export interface SyncOneFileResult {
   pageNameByNodeId: Record<string, string>;
   /** Stages skipped with reason — surfaces to the sync report. */
   skipped: { stage: string; reason: string }[];
+}
+
+/**
+ * Walk a Figma document tree and extract COMPONENT + COMPONENT_SET nodes.
+ * Used when /components returns empty (unpublished libraries / free-plan files).
+ *
+ * Returns the same shapes that FigmaClient.getComponents / getComponentSets return
+ * so downstream code (icon classification, component-shape mapping) works unchanged.
+ */
+function extractComponentsFromTree(
+  document: { children?: FigmaTreeNode[] } | undefined,
+  pageNameByNodeId: Record<string, string>
+): {
+  components: FigmaPublishedComponent[];
+  componentSets: FigmaComponentSet[];
+} {
+  const components: FigmaPublishedComponent[] = [];
+  const componentSets: FigmaComponentSet[] = [];
+
+  const pages = document?.children ?? [];
+  for (const page of pages) {
+    const pageName = page.name ?? "";
+    if (page.id && page.name) pageNameByNodeId[page.id] = page.name;
+
+    const walk = (node: FigmaTreeNode): void => {
+      if (!node) return;
+      if (node.id && page.name) {
+        pageNameByNodeId[node.id] = page.name;
+      }
+
+      if (node.type === "COMPONENT_SET" && node.id && node.name) {
+        componentSets.push({
+          key: node.id,
+          node_id: node.id,
+          name: node.name,
+          ...(node.description ? { description: node.description } : {}),
+          ...(node.componentPropertyDefinitions
+            ? { componentPropertyDefinitions: node.componentPropertyDefinitions as Record<string, never> }
+            : {}),
+        } as FigmaComponentSet);
+        // Don't recurse INTO a component set's child variants — they're variants, not separate components.
+        return;
+      }
+
+      if (node.type === "COMPONENT" && node.id && node.name) {
+        // Any COMPONENT we reach here is standalone (we stop at COMPONENT_SET above).
+        components.push({
+          key: node.id,
+          node_id: node.id,
+          name: node.name,
+          ...(node.description ? { description: node.description } : {}),
+          containing_frame: { pageName },
+        } as FigmaPublishedComponent);
+      }
+
+      // Recurse into children for non-component-set nodes.
+      for (const child of node.children ?? []) {
+        walk(child);
+      }
+    };
+
+    for (const child of page.children ?? []) {
+      walk(child);
+    }
+  }
+
+  return { components, componentSets };
 }
 
 /**
@@ -94,6 +162,27 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
   if (shouldRun("component_sets")) {
     componentSets = await client.getComponentSets(fileKey);
     await onStage?.("component_sets");
+  }
+
+  // ── Fallback: document-tree extraction ─────────────────────────────────
+  // When both /components and /component_sets returned empty AND the stages
+  // actually ran (not skipped due to resume), fall back to walking the file
+  // document tree directly. This handles free-plan Figma files where the
+  // library-publish step (Enterprise/paid feature) was never performed.
+  if (publishedComponents.length === 0 && componentSets.length === 0 && shouldRun("components")) {
+    const file = await client.getDocument(fileKey, 4);
+    const extracted = extractComponentsFromTree(
+      file.document as { children?: FigmaTreeNode[] } | undefined,
+      pageNameByNodeId
+    );
+    if (extracted.components.length > 0 || extracted.componentSets.length > 0) {
+      publishedComponents = extracted.components;
+      componentSets = extracted.componentSets;
+      skipped.push({
+        stage: "components",
+        reason: "Library not published — fell back to document tree extraction.",
+      });
+    }
   }
 
   // ── Stage 4: styles ─────────────────────────────────────────────────────
