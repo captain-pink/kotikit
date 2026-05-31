@@ -358,6 +358,34 @@ in your kotikit config by asking Claude: *"Change my components folder to src/ui
 
 ---
 
+**7. Sync returned 0 components even though my Figma file has them**
+
+Figma's published-component API only returns components from files that have been
+explicitly published as a team library — and library publishing requires a paid Figma
+plan. kotikit handles this automatically by falling back to walking the file's document
+tree and extracting every `COMPONENT` and `COMPONENT_SET` node directly. You should see
+a sync report entry like `"Library not published — fell back to document tree
+extraction."` confirming the fallback ran.
+
+Fix: nothing to do — if you still get 0 components after the fallback, the file likely
+has no components yet, or your Figma token does not have access to it. Re-check by
+visiting the file in a browser while signed in to the same Figma account whose token
+you used.
+
+---
+
+**8. "Figma Variables API requires an Enterprise plan"**
+
+This is a notice, not an error. Figma's Variables endpoint is gated to Enterprise plans;
+kotikit detects the 403 and skips it gracefully. Your color, text, and effect **styles**
+were still synced normally — only variable-based tokens are unavailable.
+
+Fix: if you need variable-style design tokens on a Free or Professional plan, define them
+manually in a `tokens.json` file (or use [Style Dictionary](https://amzn.github.io/style-dictionary/))
+and import them in your project.
+
+---
+
 ## Where to learn more
 
 - `docs/tools.md` — every Claude command kotikit understands, with examples.

@@ -9,6 +9,7 @@ The sync module owns everything needed to pull a Figma design system into a loca
 **Figma client** (`src/sync/figma-client.ts`)
 - `FigmaClient` — constructor accepts `{ token, fetch?, limiter?, backoffOpts?, baseUrl? }`
 - `FigmaClient#getFile(fileKey)` — fetch file metadata and page tree
+- `FigmaClient#getDocument(fileKey, depth=4)` — fetch the full file tree; used as a fallback when `/components` returns empty (free-plan files or libraries that have not been published)
 - `FigmaClient#getComponents(fileKey)` — published components
 - `FigmaClient#getComponentSets(fileKey)` — component sets (variant groups)
 - `FigmaClient#getStyles(fileKey)` — color, text, and effect styles
@@ -57,6 +58,8 @@ The sync module owns everything needed to pull a Figma design system into a loca
 ## How it works
 
 `syncOneFile` is a sequential 8-stage pipeline: `metadata → components → component_sets → styles → variables → node_details → icons → done`. Each stage writes a checkpoint entry after completion, so a process kill at any point leaves a valid checkpoint. On resume, stages before the checkpoint's recorded stage are skipped. The `node_details` stage is the only one with an intra-stage cursor (it batches node IDs in groups of 100 and records `{ processed, batchSize }`).
+
+**Document-tree fallback for unpublished libraries.** Figma's `/v1/files/{key}/components` endpoint only returns components from files that have been published as a team library — and library publishing requires a paid Figma plan. When both `/components` and `/component_sets` return empty arrays, `syncOneFile` falls back to calling `client.getDocument(fileKey, 4)` and walking the document tree to extract every `COMPONENT` and `COMPONENT_SET` node directly. The fallback stops recursion at `COMPONENT_SET` nodes so variant children are not double-counted as standalone components. A `skipped` entry on the sync report records that the fallback ran, so users can see what happened. The happy path for correctly-published libraries is unchanged — the fallback only runs when the published-library endpoints came back empty.
 
 `syncAllFiles` runs files in the order declared in `config.figma.designSystemFiles`. This order is intentional: later files win on component-name collision. When two files publish a component with the same name, the later file's `ComponentJson` overwrites the earlier one on disk and in `components.db`, and the conflict is recorded in `SyncManifest.conflicts`. Variable collisions follow the same last-wins rule.
 
