@@ -9,6 +9,8 @@ import { buildComponentJson, buildPropsString } from "./component-shape.js";
 import { upsertComponent } from "../db/components-db.js";
 import { upsertIcon } from "../db/icons-db.js";
 import { mergeVariables } from "./variables.js";
+import type { ProgressEmitter, FileContext } from "./progress.js";
+import { formatMs } from "./progress.js";
 
 export interface SyncOneFileOpts {
   root: string;
@@ -20,6 +22,10 @@ export interface SyncOneFileOpts {
   resumeFrom?: FileCheckpoint;
   /** Optional progress reporter — called after each stage completes. */
   onStage?: (stage: FileCheckpoint["stage"], cursor?: FileCheckpoint["cursor"]) => void | Promise<void>;
+  /** Optional live progress emitter — writes to stderr, zero token cost. */
+  progress?: ProgressEmitter;
+  /** File context for progress emitter (index, total, display name). */
+  fileCtx?: FileContext;
 }
 
 export interface SyncOneFileResult {
@@ -110,7 +116,7 @@ function extractComponentsFromTree(
  * Those are returned for the multi-file orchestrator to write at the end.
  */
 export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileResult> {
-  const { root: _root, client, fileKey, fileName, componentsDb, iconsDb, resumeFrom, onStage } = opts;
+  const { root: _root, client, fileKey, fileName, componentsDb, iconsDb, resumeFrom, onStage, progress, fileCtx } = opts;
   void _root;
 
   const startStage = resumeFrom?.stage;
@@ -138,6 +144,8 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
 
   // ── Stage 1: metadata ───────────────────────────────────────────────────
   if (shouldRun("metadata")) {
+    const metadataStart = Date.now();
+    if (progress && fileCtx) progress.stage(fileCtx, "metadata");
     const file = await client.getFile(fileKey);
     // Build pageNameByNodeId from document.children (pages).
     const pages = file.document?.children ?? [];
@@ -151,18 +159,23 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
         }
       }
     }
+    if (progress && fileCtx) progress.stageDone(fileCtx, "metadata", formatMs(Date.now() - metadataStart));
     await onStage?.("metadata");
   }
 
   // ── Stage 2: components ─────────────────────────────────────────────────
   if (shouldRun("components")) {
+    if (progress && fileCtx) progress.stage(fileCtx, "components");
     publishedComponents = await client.getComponents(fileKey);
+    if (progress && fileCtx) progress.stageDone(fileCtx, "components", `${publishedComponents.length} returned`);
     await onStage?.("components");
   }
 
   // ── Stage 3: component_sets ─────────────────────────────────────────────
   if (shouldRun("component_sets")) {
+    if (progress && fileCtx) progress.stage(fileCtx, "component_sets");
     componentSets = await client.getComponentSets(fileKey);
+    if (progress && fileCtx) progress.stageDone(fileCtx, "component_sets", `${componentSets.length} returned`);
     await onStage?.("component_sets");
   }
 
@@ -173,6 +186,9 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
   // than fetching the entire file with ?depth=4, which Figma truncates for
   // large design systems.
   if (publishedComponents.length === 0 && componentSets.length === 0 && shouldRun("components")) {
+    const fallbackStart = Date.now();
+    if (progress && fileCtx) progress.stage(fileCtx, "fallback", "library not published");
+
     // If resuming from "components" we may have skipped stage 1; fetch pages now.
     if (pageIds.length === 0) {
       const file = await client.getFile(fileKey);
@@ -191,7 +207,7 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
 
     const syntheticDoc: { children: FigmaTreeNode[] } = {
       children: pageIds
-        .map((id, i) => pageTrees[i] ?? null)
+        .map((_, i) => pageTrees[i] ?? null)
         .filter((t): t is FigmaTreeNode => t !== null),
     };
 
@@ -204,19 +220,32 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
         reason: "Library not published — fell back to document tree extraction.",
       });
     }
+    if (progress && fileCtx) {
+      progress.stageDone(
+        fileCtx,
+        "fallback",
+        `tree extracted: ${extracted.components.length} components, ${extracted.componentSets.length} sets (${formatMs(Date.now() - fallbackStart)})`
+      );
+    }
   }
 
   // ── Stage 4: styles ─────────────────────────────────────────────────────
   if (shouldRun("styles")) {
+    if (progress && fileCtx) progress.stage(fileCtx, "styles");
     styles = await client.getStyles(fileKey);
+    if (progress && fileCtx) progress.stageDone(fileCtx, "styles", `${styles.length}`);
     await onStage?.("styles");
   }
 
   // ── Stage 5: variables ──────────────────────────────────────────────────
   if (shouldRun("variables")) {
+    if (progress && fileCtx) progress.stage(fileCtx, "variables");
     localVariables = await client.getLocalVariables(fileKey);
     if (localVariables === null) {
       skipped.push({ stage: "variables", reason: "Enterprise-gated (403)" });
+      if (progress && fileCtx) progress.stageDone(fileCtx, "variables", "skipped (Enterprise-gated 403)");
+    } else {
+      if (progress && fileCtx) progress.stageDone(fileCtx, "variables");
     }
     await onStage?.("variables");
   }
@@ -229,6 +258,7 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
     const allIds = Array.from(new Set([...styleIds, ...componentNodeIds]));
 
     const BATCH = 100;
+    const nodeDetailsStart = Date.now();
     const startProcessed = (resumeFrom?.stage === "node_details" && resumeFrom.cursor?.processed) || 0;
     let processed = startProcessed;
     while (processed < allIds.length) {
@@ -237,6 +267,13 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
       Object.assign(nodeDetailsById, nodes);
       processed += batch.length;
       await onStage?.("node_details", { processed, batchSize: BATCH });
+      if (progress && fileCtx) {
+        progress.stageProgress(fileCtx, "node_details", {
+          processed,
+          total: allIds.length,
+          label: processed >= allIds.length ? formatMs(Date.now() - nodeDetailsStart) : undefined,
+        });
+      }
     }
     if (allIds.length === 0) {
       await onStage?.("node_details");
@@ -247,6 +284,8 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
   let iconCount = 0;
   const componentJsons: ComponentJson[] = [];
   if (shouldRun("icons")) {
+    if (progress && fileCtx) progress.stage(fileCtx, "icons", "classifying components...");
+
     // Index component sets by key for lookup
     const componentSetByKey: Record<string, (typeof componentSets)[number]> = {};
     for (const cs of componentSets) componentSetByKey[cs.key] = cs;
@@ -287,6 +326,9 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
         fileKey,
         props: buildPropsString(json),
       });
+    }
+    if (progress && fileCtx) {
+      progress.stageDone(fileCtx, "icons", `${iconCount} icons, ${componentJsons.length} non-icons`);
     }
     await onStage?.("icons");
   }

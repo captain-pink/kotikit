@@ -11,6 +11,7 @@ import { createLimiter } from "../../sync/rate-limit.js";
 import { writeConfig } from "../../config/load.js";
 import { defaultConfig } from "../../config/schema.js";
 import { manifestPath } from "../../util/paths.js";
+import { nullProgressEmitter } from "../../sync/progress.js";
 
 const tmpDirs: string[] = [];
 function mkTmp(): string {
@@ -89,6 +90,7 @@ describe("kotikit_sync_ds", () => {
         limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
         backoffOpts: FAST,
       }),
+      progress: nullProgressEmitter(),
     });
 
     const result = await callTool(registry, "kotikit_sync_ds", {});
@@ -109,7 +111,7 @@ describe("kotikit_sync_ds", () => {
       root,
       loadConfig: async () => cfg,
     };
-    registerSyncTools(registry, ctx);
+    registerSyncTools(registry, ctx, { progress: nullProgressEmitter() });
     const result = await callTool(registry, "kotikit_sync_ds", {});
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text.toLowerCase()).toContain("token");
@@ -127,7 +129,7 @@ describe("kotikit_sync_ds", () => {
       root,
       loadConfig: async () => cfg,
     };
-    registerSyncTools(registry, ctx);
+    registerSyncTools(registry, ctx, { progress: nullProgressEmitter() });
     const result = await callTool(registry, "kotikit_sync_ds", {});
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text.toLowerCase()).toContain("file");
@@ -140,7 +142,7 @@ describe("kotikit_sync_ds", () => {
       root,
       loadConfig: async () => null,
     };
-    registerSyncTools(registry, ctx);
+    registerSyncTools(registry, ctx, { progress: nullProgressEmitter() });
     const result = await callTool(registry, "kotikit_sync_ds", {});
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text.toLowerCase()).toContain("set up");
@@ -182,6 +184,7 @@ describe("kotikit_sync_ds", () => {
         limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
         backoffOpts: FAST,
       }),
+      progress: nullProgressEmitter(),
     });
 
     const result = await callTool(registry, "kotikit_sync_ds", {});

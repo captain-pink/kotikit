@@ -3,6 +3,7 @@ import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
 import { FigmaClient } from "../../sync/figma-client.js";
 import { syncAllFiles } from "../../sync/multi-file.js";
+import type { ProgressEmitter } from "../../sync/progress.js";
 import { resolveSecret } from "../../config/load.js";
 import { toolText, toolError, KotikitError } from "../../util/result.js";
 import { loadDotEnv } from "../../util/env.js";
@@ -11,6 +12,8 @@ import { hasCheckpoint } from "../../sync/checkpoint.js";
 export interface RegisterSyncToolsOpts {
   /** For tests. If omitted, the real FigmaClient is constructed. */
   figmaClientFactory?: (token: string) => FigmaClient;
+  /** For tests. If omitted, defaults to stderrProgressEmitter inside syncAllFiles. */
+  progress?: ProgressEmitter;
 }
 
 export function registerSyncTools(
@@ -78,6 +81,7 @@ export function registerSyncTools(
         root: ctx.root,
         files: config.figma.designSystemFiles,
         client,
+        ...(opts.progress !== undefined ? { progress: opts.progress } : {}),
       });
 
       // 7. Build a human-readable summary

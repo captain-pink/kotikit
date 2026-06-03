@@ -5,6 +5,7 @@ import { initComponentsDb } from "../db/components-db.js";
 import { initIconsDb } from "../db/icons-db.js";
 import { FigmaClient } from "./figma-client.js";
 import { createLimiter } from "./rate-limit.js";
+import { recordingProgressEmitter } from "./progress.js";
 
 const FAST = { initialMs: 1, maxMs: 5, jitterMs: 0, maxAttempts: 3 };
 
@@ -474,5 +475,116 @@ describe("syncOneFile", () => {
 
     // No fallback in skipped
     expect(result.skipped.some((s) => s.reason.includes("document tree"))).toBe(false);
+  });
+
+  it("progress: fallback path emits fallback stage + stageDone events when /components returns empty", async () => {
+    const fetch = (async (url: string | URL) => {
+      const u = url.toString();
+      if (u.includes("/v1/files/F1/components")) return jsonRes({ meta: { components: [] } });
+      if (u.includes("/v1/files/F1/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/F1/styles")) return jsonRes({ meta: { styles: [] } });
+      if (u.includes("/v1/files/F1/variables/local")) return jsonRes({ meta: { variables: {}, variableCollections: {} } });
+      if (u.includes("/v1/files/F1/nodes")) return jsonRes({ nodes: {} });
+      // Both metadata and fallback hit this (depth=4 param distinguishes them at runtime)
+      if (u.includes("/v1/files/F1")) {
+        return jsonRes({
+          name: "Mat3",
+          document: {
+            children: [
+              {
+                id: "page1",
+                name: "Components",
+                type: "CANVAS",
+                children: [{ id: "cBtn", name: "Button", type: "COMPONENT" }],
+              },
+            ],
+          },
+        });
+      }
+      throw new Error("no match: " + u);
+    }) as unknown as typeof globalThis.fetch;
+
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch,
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+      backoffOpts: FAST,
+    });
+    const { componentsDb, iconsDb } = makeDbs();
+    const { emitter, events } = recordingProgressEmitter();
+    await syncOneFile({
+      root: "/tmp",
+      client,
+      fileKey: "F1",
+      fileName: "Mat3",
+      componentsDb,
+      iconsDb,
+      progress: emitter,
+      fileCtx: { index: 1, total: 1, name: "Mat3" },
+    });
+
+    const kinds = events.map((e) => e.kind);
+    // Should have at least one "stage" event with stage === "fallback"
+    const fallbackStage = events.find(
+      (e) => e.kind === "stage" && (e.payload as { stage?: string })?.stage === "fallback"
+    );
+    expect(fallbackStage).toBeDefined();
+    // And a matching stageDone
+    const fallbackDone = events.find(
+      (e) => e.kind === "stageDone" && (e.payload as { stage?: string })?.stage === "fallback"
+    );
+    expect(fallbackDone).toBeDefined();
+    // stageDone comes after stage
+    expect(kinds.lastIndexOf("stageDone")).toBeGreaterThan(kinds.indexOf("stage"));
+  });
+
+  it("progress: node_details emits stageProgress with monotonically increasing processed", async () => {
+    // Build 150 components so we get 2 batches (BATCH=100)
+    const componentList = Array.from({ length: 150 }, (_, i) => ({
+      key: `ck${i}`,
+      node_id: `n${i}`,
+      name: `Comp${i}`,
+    }));
+
+    const fetch = (async (url: string | URL) => {
+      const u = url.toString();
+      if (u.includes("/v1/files/F1/components")) {
+        return jsonRes({ meta: { components: componentList } });
+      }
+      if (u.includes("/v1/files/F1/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/F1/styles")) return jsonRes({ meta: { styles: [] } });
+      if (u.includes("/v1/files/F1/variables/local")) return jsonRes({ meta: { variables: {}, variableCollections: {} } });
+      if (u.includes("/v1/files/F1/nodes")) return jsonRes({ nodes: {} });
+      if (u.includes("/v1/files/F1")) return jsonRes({ name: "F1", document: { children: [] } });
+      throw new Error("no match: " + u);
+    }) as unknown as typeof globalThis.fetch;
+
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch,
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+      backoffOpts: FAST,
+    });
+    const { componentsDb, iconsDb } = makeDbs();
+    const { emitter, events } = recordingProgressEmitter();
+    await syncOneFile({
+      root: "/tmp",
+      client,
+      fileKey: "F1",
+      fileName: "F1",
+      componentsDb,
+      iconsDb,
+      progress: emitter,
+      fileCtx: { index: 1, total: 1, name: "F1" },
+    });
+
+    const progressEvents = events.filter((e) => e.kind === "stageProgress" && (e.payload as { stage?: string })?.stage === "node_details");
+    // With 150 ids and BATCH=100, expect 2 progress events
+    expect(progressEvents.length).toBeGreaterThanOrEqual(2);
+    // processed values should be monotonically increasing
+    const processedValues = progressEvents.map((e) => (e.payload as { p: { processed: number } }).p.processed);
+    for (let i = 1; i < processedValues.length; i++) {
+      expect(processedValues[i]).toBeGreaterThan(processedValues[i - 1]!);
+    }
   });
 });

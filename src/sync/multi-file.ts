@@ -4,6 +4,7 @@ import {
   readCheckpoint, writeCheckpoint, clearCheckpoint,
   type Checkpoint, type FileCheckpoint,
 } from "./checkpoint.js";
+import { stderrProgressEmitter, formatMs, type ProgressEmitter, type FileContext } from "./progress.js";
 import { writeVariablesJson, type VariablesJson } from "./variables.js";
 import { writeManifest, type SyncManifest } from "./manifest.js";
 import {
@@ -25,6 +26,8 @@ export interface SyncAllOpts {
   root: string;
   files: { key: string; name: string }[];
   client: FigmaClient;
+  /** Live progress emitter. Defaults to stderrProgressEmitter. */
+  progress?: ProgressEmitter;
 }
 
 export interface SyncReport {
@@ -64,9 +67,12 @@ async function writeReport(root: string, report: SyncReport): Promise<void> {
  * Order matters: later-listed files override earlier ones on name collision.
  */
 export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
-  const { root, files, client } = opts;
+  const { root, files, client, progress = stderrProgressEmitter } = opts;
+  const syncStart = Date.now();
 
   await mkdir(designSystemDir(root), { recursive: true });
+
+  progress.syncStart(files.length);
 
   // Open databases (separate files; both kept open through the whole sync).
   const componentsDb: Database = openDb(componentsDbPath(root));
@@ -92,11 +98,16 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
   const skipped: SyncReport["skipped"] = [];
 
   // Drive sync per file in declared order.
-  for (const file of files) {
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i]!;
     const resumeFrom = fileEntryByKey.get(file.key);
 
     // Skip files already completed in a prior run.
     if (resumeFrom?.stage === "done") continue;
+
+    const fileCtx: FileContext = { index: i + 1, total: files.length, name: file.name };
+    progress.fileStart(fileCtx);
+    const fileStart = Date.now();
 
     // Progress reporter — updates the checkpoint after each stage.
     const onStage = async (
@@ -123,6 +134,8 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
       iconsDb,
       ...(resumeFrom ? { resumeFrom } : {}),
       onStage,
+      progress,
+      fileCtx,
     });
 
     for (const s of result.skipped) {
@@ -130,9 +143,19 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
     }
 
     fileResults.push(result);
+    progress.fileDone(fileCtx, {
+      componentCount: result.componentCount,
+      iconCount: result.iconCount,
+      elapsedMs: Date.now() - fileStart,
+    });
   }
 
   // ── Post-loop: write per-component JSONs + handle conflicts ──────────────
+  // Synthetic context for multi-file writes stage (not tied to a single file).
+  const writesCtx: FileContext = { index: 0, total: files.length, name: "all" };
+  const writesStart = Date.now();
+  progress.stage(writesCtx, "writes", "writing component JSONs + registry rows...");
+
   // Track which names have already been written by an earlier file.
   const writtenByName: Map<string, { fileKey: string; key: string }> = new Map();
 
@@ -189,6 +212,8 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
   } finally {
     regDb.close();
   }
+
+  progress.stageDone(writesCtx, "writes", `${formatMs(Date.now() - writesStart)}`);
 
   // ── Merge variables across files ─────────────────────────────────────────
   // Strategy: later file's variables win on collision.
@@ -251,6 +276,16 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
   // Close DBs.
   componentsDb.close();
   iconsDb.close();
+
+  const totalComponents = fileResults.reduce((sum, r) => sum + r.componentCount, 0);
+  const totalIcons = fileResults.reduce((sum, r) => sum + r.iconCount, 0);
+  progress.syncDone({
+    fileCount: files.length,
+    componentTotal: totalComponents,
+    iconTotal: totalIcons,
+    conflictCount: conflicts.length,
+    elapsedMs: Date.now() - syncStart,
+  });
 
   return report;
 }

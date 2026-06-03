@@ -10,6 +10,7 @@ import { SyncManifestSchema } from "./manifest.js";
 import { manifestPath, componentJsonPath, variablesJsonPath, syncReportPath, registryDbPath } from "../util/paths.js";
 import { openDb } from "../db/sqlite.js";
 import { initRegistryDb, getRegistry, upsertRegistry } from "../db/registry-db.js";
+import { nullProgressEmitter, recordingProgressEmitter } from "./progress.js";
 
 const tmpDirs: string[] = [];
 function mkTmp(): string {
@@ -73,6 +74,7 @@ describe("syncAllFiles", () => {
       root,
       files: [{ key: "FA", name: "FileA" }, { key: "FB", name: "FileB" }],
       client,
+      progress: nullProgressEmitter(),
     });
 
     // Manifest exists and validates
@@ -104,7 +106,7 @@ describe("syncAllFiles", () => {
       limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
       backoffOpts: FAST,
     });
-    await syncAllFiles({ root, files: [{ key: "FX", name: "FX" }], client });
+    await syncAllFiles({ root, files: [{ key: "FX", name: "FX" }], client, progress: nullProgressEmitter() });
     expect(existsSync(variablesJsonPath(root))).toBe(true);
     expect(existsSync(syncReportPath(root))).toBe(true);
   });
@@ -117,7 +119,7 @@ describe("syncAllFiles", () => {
       limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
       backoffOpts: FAST,
     });
-    await syncAllFiles({ root, files: [{ key: "FX", name: "FX" }], client });
+    await syncAllFiles({ root, files: [{ key: "FX", name: "FX" }], client, progress: nullProgressEmitter() });
     expect(existsSync(`${root}/design-system/.sync-checkpoint.json`)).toBe(false);
   });
 
@@ -129,7 +131,7 @@ describe("syncAllFiles", () => {
       limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
       backoffOpts: FAST,
     });
-    const report = await syncAllFiles({ root, files: [], client });
+    const report = await syncAllFiles({ root, files: [], client, progress: nullProgressEmitter() });
     expect(report.files).toEqual([]);
     expect(report.conflicts).toEqual([]);
     expect(report.registryUpdates).toEqual({ added: 0, updated: 0 });
@@ -160,6 +162,7 @@ describe("syncAllFiles", () => {
       root,
       files: [{ key: "FA", name: "FileA" }, { key: "FB", name: "FileB" }],
       client,
+      progress: nullProgressEmitter(),
     });
 
     // Open the registry and assert two design-only component rows
@@ -213,6 +216,7 @@ describe("syncAllFiles", () => {
       root,
       files: [{ key: "FA", name: "FileA" }],
       client,
+      progress: nullProgressEmitter(),
     });
 
     // Assert: Button is still synced, code_path unchanged
@@ -259,6 +263,7 @@ describe("syncAllFiles", () => {
       root,
       files: [{ key: "FA", name: "FileA" }],
       client,
+      progress: nullProgressEmitter(),
     });
 
     // Assert: the screen row is untouched (different kind)
@@ -295,6 +300,7 @@ describe("syncAllFiles", () => {
       root,
       files: [{ key: "FA", name: "FileA" }],
       client,
+      progress: nullProgressEmitter(),
     });
     expect(report1.registryUpdates.added).toBe(1);
     expect(report1.registryUpdates.updated).toBe(0);
@@ -304,8 +310,45 @@ describe("syncAllFiles", () => {
       root,
       files: [{ key: "FA", name: "FileA" }],
       client,
+      progress: nullProgressEmitter(),
     });
     expect(report2.registryUpdates.added).toBe(0);
     expect(report2.registryUpdates.updated).toBe(1);
+  });
+
+  it("recording emitter: syncStart → fileStart → ... → fileDone → syncDone fires once per file", async () => {
+    const root = mkTmp();
+    const fileResponses = {
+      FA: {
+        components: () => ({ meta: { components: [{ key: "ckA", node_id: "nA", name: "Button" }] } }),
+        file: () => ({ name: "FileA", document: { children: [{ id: "p1", name: "Components", children: [{ id: "nA", name: "Button" }] }] } }),
+      },
+    };
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch: makeFetch(fileResponses),
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+      backoffOpts: FAST,
+    });
+
+    const { emitter, events } = recordingProgressEmitter();
+    await syncAllFiles({
+      root,
+      files: [{ key: "FA", name: "FileA" }],
+      client,
+      progress: emitter,
+    });
+
+    const kinds = events.map((e) => e.kind);
+    // Overall shape: syncStart comes first, syncDone comes last
+    expect(kinds[0]).toBe("syncStart");
+    expect(kinds[kinds.length - 1]).toBe("syncDone");
+    // fileStart and fileDone each appear exactly once (one file)
+    expect(kinds.filter((k) => k === "fileStart")).toHaveLength(1);
+    expect(kinds.filter((k) => k === "fileDone")).toHaveLength(1);
+    // fileStart precedes fileDone
+    expect(kinds.indexOf("fileStart")).toBeLessThan(kinds.lastIndexOf("fileDone"));
+    // fileDone precedes syncDone
+    expect(kinds.lastIndexOf("fileDone")).toBeLessThan(kinds.lastIndexOf("syncDone"));
   });
 });
