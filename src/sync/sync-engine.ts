@@ -120,6 +120,7 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
   // so resume only matters when starting fresh; if resume points beyond stage N,
   // we skip the work of fetching for stage N).
   let pageNameByNodeId: Record<string, string> = {};
+  let pageIds: string[] = [];
   let publishedComponents: Awaited<ReturnType<FigmaClient["getComponents"]>> = [];
   let componentSets: Awaited<ReturnType<FigmaClient["getComponentSets"]>> = [];
   let styles: Awaited<ReturnType<FigmaClient["getStyles"]>> = [];
@@ -142,6 +143,7 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
     const pages = file.document?.children ?? [];
     for (const page of pages) {
       if (page.id && page.name) {
+        pageIds.push(page.id);
         pageNameByNodeId[page.id] = page.name;
         // Also map each direct child to its page name so component lookup works
         for (const child of page.children ?? []) {
@@ -164,17 +166,36 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
     await onStage?.("component_sets");
   }
 
-  // ── Fallback: document-tree extraction ─────────────────────────────────
+  // ── Fallback: page-by-page document-tree extraction ────────────────────
   // When both /components and /component_sets returned empty AND the stages
-  // actually ran (not skipped due to resume), fall back to walking the file
-  // document tree directly. This handles free-plan Figma files where the
-  // library-publish step (Enterprise/paid feature) was never performed.
+  // actually ran (not skipped due to resume), fall back to walking each page's
+  // node tree directly via /nodes?ids={pageId}&depth=4. This is more reliable
+  // than fetching the entire file with ?depth=4, which Figma truncates for
+  // large design systems.
   if (publishedComponents.length === 0 && componentSets.length === 0 && shouldRun("components")) {
-    const file = await client.getDocument(fileKey, 4);
-    const extracted = extractComponentsFromTree(
-      file.document as { children?: FigmaTreeNode[] } | undefined,
-      pageNameByNodeId
+    // If resuming from "components" we may have skipped stage 1; fetch pages now.
+    if (pageIds.length === 0) {
+      const file = await client.getFile(fileKey);
+      for (const page of file.document?.children ?? []) {
+        if (page.id && page.name) {
+          pageIds.push(page.id);
+          pageNameByNodeId[page.id] = page.name;
+        }
+      }
+    }
+
+    // Fetch each page tree in parallel; a single failed page won't abort the sync.
+    const pageTrees = await Promise.all(
+      pageIds.map((id) => client.getPageTree(fileKey, id, 4).catch(() => null))
     );
+
+    const syntheticDoc: { children: FigmaTreeNode[] } = {
+      children: pageIds
+        .map((id, i) => pageTrees[i] ?? null)
+        .filter((t): t is FigmaTreeNode => t !== null),
+    };
+
+    const extracted = extractComponentsFromTree(syntheticDoc, pageNameByNodeId);
     if (extracted.components.length > 0 || extracted.componentSets.length > 0) {
       publishedComponents = extracted.components;
       componentSets = extracted.componentSets;

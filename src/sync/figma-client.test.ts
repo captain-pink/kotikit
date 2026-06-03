@@ -141,6 +141,67 @@ describe("FigmaClient", () => {
     expect(Object.keys(got).length).toBe(250);
   });
 
+  it("getPageTree fetches /nodes?ids={pageId}&depth={depth} and returns root node", async () => {
+    let seenUrl = "";
+    const fetch = async (url: string | URL) => {
+      seenUrl = url.toString();
+      return jsonResponse({
+        nodes: {
+          "p1": {
+            document: {
+              id: "p1",
+              name: "Icons",
+              type: "CANVAS",
+              children: [
+                { id: "c1", name: "ic/arrow-right", type: "COMPONENT" },
+                { id: "c2", name: "ic/arrow-left", type: "COMPONENT" },
+              ],
+            },
+          },
+        },
+      });
+    };
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      limiter: FAST_LIMITER,
+      backoffOpts: FAST_BACKOFF,
+    });
+    const root = await client.getPageTree("k1", "p1", 4);
+    expect(seenUrl).toContain("/v1/files/k1/nodes");
+    expect(seenUrl).toContain("ids=p1");
+    expect(seenUrl).toContain("depth=4");
+    expect(root?.name).toBe("Icons");
+    expect(root?.type).toBe("CANVAS");
+    // children preserved via passthrough
+    const children = (root as unknown as { children?: unknown[] })?.children;
+    expect(children).toHaveLength(2);
+  });
+
+  it("getPageTree returns null when the node entry is null", async () => {
+    const fetch = async () => jsonResponse({ nodes: { "p1": null } });
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      limiter: FAST_LIMITER,
+      backoffOpts: FAST_BACKOFF,
+    });
+    const root = await client.getPageTree("k1", "p1");
+    expect(root).toBeNull();
+  });
+
+  it("getPageTree returns null when document is absent", async () => {
+    const fetch = async () => jsonResponse({ nodes: { "p1": {} } });
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      limiter: FAST_LIMITER,
+      backoffOpts: FAST_BACKOFF,
+    });
+    const root = await client.getPageTree("k1", "p1");
+    expect(root).toBeNull();
+  });
+
   it("getDocument returns parsed file with depth query param", async () => {
     let seenUrl = "";
     const fetch = async (url: string | URL) => {

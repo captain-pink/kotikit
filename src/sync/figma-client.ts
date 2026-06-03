@@ -15,6 +15,7 @@ import {
   type FigmaStyle,
   type FigmaLocalVariables,
   type FigmaNode,
+  type FigmaTreeNode,
 } from "./figma-types.js";
 
 export type FetchFn = typeof globalThis.fetch;
@@ -187,6 +188,26 @@ export class FigmaClient {
       }
     }
     return merged;
+  }
+
+  /**
+   * GET /v1/files/:key/nodes?ids={pageId}&depth=N — deep tree for a single page.
+   * Returns the root CANVAS node for that page (with children to the requested depth).
+   * Used by the unpublished-library fallback to find COMPONENT / COMPONENT_SET nodes
+   * page-by-page instead of fetching the entire file in one large request.
+   */
+  async getPageTree(fileKey: string, pageId: string, depth: number = 4): Promise<FigmaTreeNode | null> {
+    try {
+      const res = await this.request(
+        `/v1/files/${fileKey}/nodes?ids=${encodeURIComponent(pageId)}&depth=${depth}`,
+        FigmaNodesResponseSchema
+      );
+      const node = res.nodes[pageId];
+      if (!node?.document) return null;
+      return node.document as unknown as FigmaTreeNode;
+    } catch (err) {
+      throw this.mapError(err, fileKey, "nodes");
+    }
   }
 
   private mapError(err: unknown, fileKey: string, kind: string): Error {

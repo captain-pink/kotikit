@@ -268,37 +268,23 @@ describe("syncOneFile", () => {
     expect(stages).toContain("done");
   });
 
-  it("falls back to document tree when /components returns empty", async () => {
+  it("falls back to page-by-page /nodes?depth=4 when /components returns empty", async () => {
     const calledUrls: string[] = [];
     const fetch = (async (url: string | URL) => {
       const u = url.toString();
       calledUrls.push(u);
 
-      // /components and /component_sets return empty (unpublished library)
-      if (u.includes("/v1/files/F1/components")) {
-        return jsonRes({ meta: { components: [] } });
-      }
-      if (u.includes("/v1/files/F1/component_sets")) {
-        return jsonRes({ meta: { component_sets: [] } });
-      }
-      if (u.includes("/v1/files/F1/styles")) {
-        return jsonRes({ meta: { styles: [] } });
-      }
-      if (u.includes("/v1/files/F1/variables/local")) {
-        return jsonRes({ meta: { variables: {}, variableCollections: {} } });
-      }
-      if (u.includes("/v1/files/F1/nodes")) {
-        return jsonRes({ nodes: {} });
-      }
-      // Both the metadata call (/v1/files/F1 without query) and the fallback
-      // call (/v1/files/F1?depth=4) hit this branch.
-      // Return a tree with one COMPONENT node so the fallback yields results.
-      if (u.includes("/v1/files/F1")) {
+      if (u.includes("/v1/files/F1/components")) return jsonRes({ meta: { components: [] } });
+      if (u.includes("/v1/files/F1/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/F1/styles")) return jsonRes({ meta: { styles: [] } });
+      if (u.includes("/v1/files/F1/variables/local")) return jsonRes({ meta: { variables: {}, variableCollections: {} } });
+
+      // Fallback page-tree fetch: /nodes?ids=page1&depth=4
+      if (u.includes("/v1/files/F1/nodes") && u.includes("depth=4")) {
         return jsonRes({
-          name: "Mat3",
-          document: {
-            children: [
-              {
+          nodes: {
+            "page1": {
+              document: {
                 id: "page1",
                 name: "Components",
                 type: "CANVAS",
@@ -307,6 +293,19 @@ describe("syncOneFile", () => {
                   { id: "cCard", name: "Card", type: "COMPONENT" },
                 ],
               },
+            },
+          },
+        });
+      }
+      // Node-details fetch (no depth param)
+      if (u.includes("/v1/files/F1/nodes")) return jsonRes({ nodes: {} });
+      // Metadata: shallow page list, no component children
+      if (u.includes("/v1/files/F1")) {
+        return jsonRes({
+          name: "Mat3",
+          document: {
+            children: [
+              { id: "page1", name: "Components", type: "CANVAS", children: [] },
             ],
           },
         });
@@ -330,15 +329,92 @@ describe("syncOneFile", () => {
       iconsDb,
     });
 
-    // Should have found components via tree walk
     expect(result.componentCount).toBe(2);
     expect(result.componentJsons.map((c) => c.name).sort()).toEqual(["Button", "Card"]);
-
-    // The skipped array should mention the fallback
     expect(result.skipped.some((s) => s.reason.includes("document tree"))).toBe(true);
 
-    // The fallback getDocument call should have used depth=4
-    expect(calledUrls.some((u) => u.includes("depth=4"))).toBe(true);
+    // Fallback uses /nodes with depth=4, NOT /files?depth=4
+    expect(calledUrls.some((u) => u.includes("/nodes") && u.includes("depth=4"))).toBe(true);
+    expect(calledUrls.every((u) => !/\/v1\/files\/F1\?/.test(u))).toBe(true);
+  });
+
+  it("fetches multiple pages in parallel during fallback", async () => {
+    const calledUrls: string[] = [];
+    const fetch = (async (url: string | URL) => {
+      const u = url.toString();
+      calledUrls.push(u);
+
+      if (u.includes("/v1/files/F1/components")) return jsonRes({ meta: { components: [] } });
+      if (u.includes("/v1/files/F1/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/F1/styles")) return jsonRes({ meta: { styles: [] } });
+      if (u.includes("/v1/files/F1/variables/local")) return jsonRes({ meta: { variables: {}, variableCollections: {} } });
+
+      if (u.includes("/v1/files/F1/nodes") && u.includes("depth=4")) {
+        const ids = new URL(u, "http://x").searchParams.get("ids") ?? "";
+        if (ids.includes("p1")) {
+          return jsonRes({
+            nodes: {
+              "p1": {
+                document: {
+                  id: "p1", name: "Components", type: "CANVAS",
+                  children: [{ id: "cBtn", name: "Button", type: "COMPONENT" }],
+                },
+              },
+            },
+          });
+        }
+        if (ids.includes("p2")) {
+          return jsonRes({
+            nodes: {
+              "p2": {
+                document: {
+                  id: "p2", name: "Icons", type: "CANVAS",
+                  children: [
+                    { id: "ic1", name: "ic/arrow-right", type: "COMPONENT" },
+                    { id: "ic2", name: "ic/arrow-left", type: "COMPONENT" },
+                  ],
+                },
+              },
+            },
+          });
+        }
+      }
+      if (u.includes("/v1/files/F1/nodes")) return jsonRes({ nodes: {} });
+      if (u.includes("/v1/files/F1")) {
+        return jsonRes({
+          name: "Mat3",
+          document: {
+            children: [
+              { id: "p1", name: "Components", type: "CANVAS", children: [] },
+              { id: "p2", name: "Icons", type: "CANVAS", children: [] },
+            ],
+          },
+        });
+      }
+      throw new Error("no match: " + u);
+    }) as unknown as typeof globalThis.fetch;
+
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch,
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+      backoffOpts: FAST,
+    });
+    const { componentsDb, iconsDb } = makeDbs();
+    const result = await syncOneFile({
+      root: "/tmp",
+      client,
+      fileKey: "F1",
+      fileName: "Mat3",
+      componentsDb,
+      iconsDb,
+    });
+
+    // "Button" is a component; the two "ic/*" names are icons
+    expect(result.componentCount).toBe(1);
+    expect(result.iconCount).toBe(2);
+    // One depth=4 fetch per page
+    expect(calledUrls.filter((u) => u.includes("depth=4")).length).toBe(2);
   });
 
   it("does NOT fall back when /components returns components", async () => {
