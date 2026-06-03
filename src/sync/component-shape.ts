@@ -42,8 +42,8 @@ export interface FigmaPublishedComponent {
  * Other types: BOOLEAN, TEXT, INSTANCE_SWAP — with optional defaultValue.
  */
 export interface FigmaPropertyDefinition {
-  type: "VARIANT" | "BOOLEAN" | "TEXT" | "INSTANCE_SWAP";
-  defaultValue?: string | boolean;
+  type: string; // z.string() in schema — unknown Figma types are skipped in buildComponentJson
+  defaultValue?: unknown; // INSTANCE_SWAP sends object refs; guarded at use site
   variantOptions?: string[];
 }
 
@@ -89,16 +89,22 @@ export function buildComponentJson(input: {
   const variants: ComponentJson["variants"] = [];
   const properties: ComponentJson["properties"] = {};
 
+  const KNOWN_PROP_TYPES = new Set(["BOOLEAN", "TEXT", "INSTANCE_SWAP", "VARIANT"]);
   for (const [propName, def] of Object.entries(propDefs)) {
+    if (!KNOWN_PROP_TYPES.has(def.type)) continue; // skip future/unknown Figma types
     if (def.type === "VARIANT") {
       variants.push({
         propertyName: propName,
         values: def.variantOptions ?? [],
       });
     } else {
+      // defaultValue can be an object ref (INSTANCE_SWAP) — only keep scalar defaults
+      const rawDefault = def.defaultValue;
+      const safeDefault =
+        typeof rawDefault === "string" || typeof rawDefault === "boolean" ? rawDefault : undefined;
       properties[propName] = {
-        type: def.type,
-        ...(def.defaultValue !== undefined ? { defaultValue: def.defaultValue } : {}),
+        type: def.type as "BOOLEAN" | "TEXT" | "INSTANCE_SWAP",
+        ...(safeDefault !== undefined ? { defaultValue: safeDefault } : {}),
       };
     }
   }

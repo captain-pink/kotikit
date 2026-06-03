@@ -418,6 +418,77 @@ describe("syncOneFile", () => {
     expect(calledUrls.filter((u) => u.includes("depth=4")).length).toBe(2);
   });
 
+  it("fallback extracts variant COMPONENTs from inside COMPONENT_SETs (MUI3-style design systems)", async () => {
+    // Regression: for design systems where every component lives inside a COMPONENT_SET
+    // (the norm for MUI3 and most modern libraries), the fallback used to stop recursion
+    // at COMPONENT_SET and never add the child variants to publishedComponents. Stage 7
+    // would then iterate an empty list and report componentCount: 0.
+    const fetch = (async (url: string | URL) => {
+      const u = url.toString();
+      if (u.includes("/v1/files/F1/components")) return jsonRes({ meta: { components: [] } });
+      if (u.includes("/v1/files/F1/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/F1/styles")) return jsonRes({ meta: { styles: [] } });
+      if (u.includes("/v1/files/F1/variables/local")) return jsonRes({ meta: { variables: {}, variableCollections: {} } });
+      if (u.includes("/v1/files/F1/nodes") && u.includes("depth=4")) {
+        return jsonRes({
+          nodes: {
+            "page1": {
+              document: {
+                id: "page1", name: "Components", type: "CANVAS",
+                children: [
+                  {
+                    id: "cs1", name: "Button", type: "COMPONENT_SET",
+                    children: [
+                      { id: "v1", name: "Button/Size=Small/Variant=Filled", type: "COMPONENT" },
+                      { id: "v2", name: "Button/Size=Large/Variant=Filled", type: "COMPONENT" },
+                    ],
+                  },
+                  {
+                    id: "cs2", name: "TextField", type: "COMPONENT_SET",
+                    children: [
+                      { id: "v3", name: "TextField/State=Default", type: "COMPONENT" },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        });
+      }
+      if (u.includes("/v1/files/F1/nodes")) return jsonRes({ nodes: {} });
+      if (u.includes("/v1/files/F1")) {
+        return jsonRes({
+          name: "MUI3",
+          document: { children: [{ id: "page1", name: "Components", type: "CANVAS", children: [] }] },
+        });
+      }
+      throw new Error("no match: " + u);
+    }) as unknown as typeof globalThis.fetch;
+
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch,
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+      backoffOpts: FAST,
+    });
+    const { componentsDb, iconsDb } = makeDbs();
+    const result = await syncOneFile({
+      root: "/tmp",
+      client,
+      fileKey: "F1",
+      fileName: "MUI3",
+      componentsDb,
+      iconsDb,
+    });
+
+    // One entry per COMPONENT_SET (165 sets for MUI3, not 5k+ variants).
+    // buildComponentJson uses the set's own node_id as key (no componentSet lookup needed).
+    expect(result.componentCount).toBe(2);
+    expect(result.componentJsons.map((c) => c.name).sort()).toEqual(["Button", "TextField"]);
+    expect(result.componentJsons.map((c) => c.key).sort()).toEqual(["cs1", "cs2"]);
+    expect(result.skipped.some((s) => s.reason.includes("document tree"))).toBe(true);
+  });
+
   it("does NOT fall back when /components returns components", async () => {
     const calledUrls: string[] = [];
     const fetch = (async (url: string | URL) => {

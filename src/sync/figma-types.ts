@@ -9,8 +9,11 @@ const FrameInfoSchema = z.object({
 }).passthrough();
 
 const ComponentPropertyDefSchema = z.object({
-  type: z.enum(["BOOLEAN", "TEXT", "INSTANCE_SWAP", "VARIANT"]),
-  defaultValue: z.union([z.string(), z.boolean()]).optional(),
+  // z.string() instead of z.enum([...]) so Figma API additions (e.g. NUMBER) never
+  // cause a hard parse failure. Unknown types are skipped in buildComponentJson.
+  type: z.string(),
+  // z.unknown() because INSTANCE_SWAP defaults arrive as object refs, not plain scalars.
+  defaultValue: z.unknown().optional(),
   variantOptions: z.array(z.string()).optional(),
 }).passthrough();
 

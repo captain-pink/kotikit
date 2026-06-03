@@ -8,6 +8,7 @@ import { detectIconSignal } from "./icon-detect.js";
 import { buildComponentJson, buildPropsString } from "./component-shape.js";
 import { upsertComponent } from "../db/components-db.js";
 import { upsertIcon } from "../db/icons-db.js";
+import { withTransaction } from "../db/sqlite.js";
 import { mergeVariables } from "./variables.js";
 import type { ProgressEmitter, FileContext } from "./progress.js";
 import { formatMs } from "./progress.js";
@@ -80,7 +81,18 @@ function extractComponentsFromTree(
             ? { componentPropertyDefinitions: node.componentPropertyDefinitions as Record<string, never> }
             : {}),
         } as FigmaComponentSet);
-        // Don't recurse INTO a component set's child variants — they're variants, not separate components.
+        // For unpublished libraries, treat the COMPONENT_SET itself as the synced component.
+        // Stage 7 fetches its node details, where componentPropertyDefinitions holds the
+        // full list of variant options — the same data the published /components path uses
+        // via componentSet lookup. This avoids adding O(variants) entries (thousands) and
+        // instead adds one entry per set (~165 for MUI3), with correct variant prop data.
+        components.push({
+          key: node.id,
+          node_id: node.id,
+          name: node.name,
+          ...(node.description ? { description: node.description } : {}),
+          containing_frame: { pageName },
+        } as FigmaPublishedComponent);
         return;
       }
 
@@ -227,6 +239,31 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
         `tree extracted: ${extracted.components.length} components, ${extracted.componentSets.length} sets (${formatMs(Date.now() - fallbackStart)})`
       );
     }
+  }
+
+  // ── Early write: seed componentsDb with names/paths before node_details ──
+  // node_details is the longest stage (~35 s for MUI3). Without this pass the
+  // DB stays empty until Stage 7 finishes. Stage 7 overwrites these rows with
+  // full prop data once node details are available.
+  if (publishedComponents.length > 0) {
+    const earlySetByKey: Record<string, (typeof componentSets)[number]> = {};
+    for (const cs of componentSets) earlySetByKey[cs.key] = cs;
+
+    withTransaction(componentsDb, () => {
+      for (const pub of publishedComponents) {
+        const pageName = pageNameByNodeId[pub.node_id] ?? pub.containing_frame?.pageName ?? "";
+        if (detectIconSignal({ pageName, componentName: pub.name }) !== null) continue;
+        const componentSet = pub.component_set_id ? earlySetByKey[pub.component_set_id] : undefined;
+        const json = buildComponentJson({ fileKey, publishedComponent: pub, componentSet });
+        upsertComponent(componentsDb, {
+          name: json.name,
+          path: json.path,
+          key: json.key,
+          fileKey,
+          props: "",
+        });
+      }
+    });
   }
 
   // ── Stage 4: styles ─────────────────────────────────────────────────────
