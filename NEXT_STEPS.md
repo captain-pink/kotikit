@@ -37,6 +37,26 @@ Phase 5 ships the bridge + the orchestrator + a placeholder UI. The plan-checkli
 - **Real-time collaboration** — multiple designers, one bridge, conflict resolution.
 - **Design-side gates** — auto-layout sanity, missing variables, components without DS keys.
 
+## Design-system sync hardening
+
+The published-library normalizer now handles the major shapes seen so far:
+standalone components, component sets, flattened variant rows, sparse
+component-set metadata, state groups, and icon pages. The remaining work is to
+prove and refine that behavior against a broader library corpus. Each item
+should be implemented test-first with minimized fixtures, not large live Figma
+payloads.
+
+- **Published-library fixture corpus** — add minimized fixtures for several real published design systems: MUI / Material 3, Ant-style kits, shadcn-like Figma kits, small hand-built libraries, and intentionally messy copied libraries. Store only the API fields the normalizer needs.
+- **Normalizer snapshot tests** — assert logical component count, icon count, representative import key, `componentSetKey`, variant axes, text/boolean/instance-swap properties, warnings, and duplicate-name behavior for every fixture.
+- **Default variant resolution** — improve representative key selection by resolving the component-set default variant when Figma exposes enough data. Keep `ComponentJson.key` importable, but make the chosen default deterministic and explainable.
+- **Property-name cleanup** — normalize Figma property labels such as `Label#42169:37` into readable names while preserving the original Figma property key needed for `setProperties`.
+- **Configurable icon classification** — keep the current page/prefix/slash classifier, but add project-level include/exclude patterns and confidence diagnostics so icon-heavy or icon-named component libraries can avoid false positives.
+- **Duplicate logical name policy** — move beyond last-file-wins for large multi-library setups: expose namespace hints, configurable priority, and clear conflict output before rows overwrite each other.
+- **Normalization diagnostics report** — write compact per-file metrics: published components seen, logical groups emitted, groups classified as icons, inferred variant groups, missing metadata groups, duplicate names, and sampled warnings.
+- **Importability smoke check** — add an optional Figma-plugin smoke path that verifies a small set of synced component keys can be imported into a draft. This should be opt-in because it needs a live Figma session.
+- **Component-set import evaluation** — investigate whether importing component sets directly is reliable enough to support. Until then, keep storing concrete component keys as `ComponentJson.key` and component-set keys as metadata.
+- **Schema-drift guardrails** — add tests for unknown Figma property types and new/extra API fields so future Figma changes degrade with warnings instead of breaking sync.
+
 ## Audit (post-Phase 6)
 
 The variant-name diff catches most renames. Richer signals are deferred.
