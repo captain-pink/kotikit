@@ -9,6 +9,13 @@ import { toolText, toolError, KotikitError } from "../../util/result.js";
 import { loadDotEnv } from "../../util/env.js";
 import { hasCheckpoint } from "../../sync/checkpoint.js";
 
+const DEFAULT_FIGMA_TOKEN_REF = "${FIGMA_TOKEN}";
+
+function figmaTokenRef(configToken: string | undefined): string {
+  const trimmed = configToken?.trim();
+  return trimmed === undefined || trimmed === "" ? DEFAULT_FIGMA_TOKEN_REF : trimmed;
+}
+
 export interface RegisterSyncToolsOpts {
   /** For tests. If omitted, the real FigmaClient is constructed. */
   figmaClientFactory?: (token: string) => FigmaClient;
@@ -48,10 +55,11 @@ export function registerSyncTools(
 
       // 2. Ensure .env is loaded (belt-and-suspenders for invocation paths
       //    that bypass startServer, e.g. direct tool calls in tests or scripts).
-      await loadDotEnv(ctx.root);
+      await loadDotEnv(ctx.root, { overrideEmpty: true });
 
-      // 3. Resolve the Figma token
-      const token = await resolveSecret(config.figma.token);
+      // 3. Resolve the Figma token. Project .env is the default source unless
+      //    config.figma.token explicitly points somewhere else.
+      const token = await resolveSecret(figmaTokenRef(config.figma.token));
       if (token === undefined || token === "") {
         return toolError(
           new KotikitError(

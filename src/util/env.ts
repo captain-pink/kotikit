@@ -1,6 +1,11 @@
 import { readFile } from "fs/promises";
 import { existsSync } from "fs";
 
+export interface LoadDotEnvOptions {
+  /** Replace existing process.env keys only when their current value is empty. */
+  overrideEmpty?: boolean;
+}
+
 /**
  * Parse a .env file's contents into a Record<string, string>.
  * Supports:
@@ -37,10 +42,12 @@ export function parseDotEnv(text: string): Record<string, string> {
 
 /**
  * Load <root>/.env into process.env, WITHOUT clobbering keys that already exist.
+ * When overrideEmpty is true, empty placeholders such as FIGMA_TOKEN= can be
+ * refreshed from a later .env edit without replacing non-empty shell values.
  * No-op if the file is missing or unreadable.
  * Returns the set of keys that were freshly injected (for diagnostics / tests).
  */
-export async function loadDotEnv(root: string): Promise<string[]> {
+export async function loadDotEnv(root: string, options: LoadDotEnvOptions = {}): Promise<string[]> {
   const path = `${root}/.env`;
   if (!existsSync(path)) return [];
   let text: string;
@@ -50,12 +57,13 @@ export async function loadDotEnv(root: string): Promise<string[]> {
     return [];
   }
   const parsed = parseDotEnv(text);
-  const injected: string[] = [];
-  for (const [key, value] of Object.entries(parsed)) {
-    if (process.env[key] === undefined) {
+  return Object.entries(parsed)
+    .filter(([key]) => {
+      const existing = process.env[key];
+      return existing === undefined || (options.overrideEmpty === true && existing === "");
+    })
+    .map(([key, value]) => {
       process.env[key] = value;
-      injected.push(key);
-    }
-  }
-  return injected;
+      return key;
+    });
 }

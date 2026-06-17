@@ -1,5 +1,5 @@
 import { describe, it, expect, afterAll } from "bun:test";
-import { mkdtempSync, rmSync, existsSync } from "fs";
+import { mkdtempSync, rmSync, existsSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
@@ -43,6 +43,30 @@ function makeFetch(handlers: Record<string, () => unknown>): typeof globalThis.f
 
 function makeRegistry(): ToolRegistry {
   return { tools: [] as Tool[], handlers: new Map() };
+}
+
+function makeSingleFileFetch(fileKey: string): typeof globalThis.fetch {
+  return makeFetch({
+    [`/v1/files/${fileKey}/components`]: () => ({
+      meta: { components: [{ key: "component-key", node_id: "button-node", name: "Button" }] },
+    }),
+    [`/v1/files/${fileKey}/component_sets`]: () => ({ meta: { component_sets: [] } }),
+    [`/v1/files/${fileKey}/styles`]: () => ({ meta: { styles: [] } }),
+    [`/v1/files/${fileKey}/variables/local`]: () => ({ meta: { variables: {}, variableCollections: {} } }),
+    [`/v1/files/${fileKey}/nodes`]: () => ({ nodes: {} }),
+    [`/v1/files/${fileKey}`]: () => ({
+      name: "FileA",
+      document: {
+        children: [
+          {
+            id: "page-1",
+            name: "Components",
+            children: [{ id: "button-node", name: "Button" }],
+          },
+        ],
+      },
+    }),
+  });
 }
 
 async function callTool(registry: ToolRegistry, name: string, args: unknown) {
@@ -97,6 +121,94 @@ describe("kotikit_sync_ds", () => {
     expect(result.isError).toBeFalsy();
     expect(result.content[0]?.text).toContain("Synced 2");
     expect(existsSync(manifestPath(root))).toBe(true);
+  });
+
+  it("uses FIGMA_TOKEN from project .env when config token is omitted", async () => {
+    const previousToken = process.env.FIGMA_TOKEN;
+    delete process.env.FIGMA_TOKEN;
+
+    try {
+      const root = mkTmp();
+      const cfg = defaultConfig();
+      cfg.figma.designSystemFiles = [{ key: "FA", name: "FileA" }];
+      await writeConfig(root, cfg);
+      writeFileSync(join(root, ".env"), "FIGMA_TOKEN=figd_from_project_env\n");
+
+      let capturedToken: string | undefined;
+      const registry = makeRegistry();
+      const ctx: ToolContext = {
+        root,
+        loadConfig: async () => cfg,
+      };
+
+      registerSyncTools(registry, ctx, {
+        figmaClientFactory: (token: string) => {
+          capturedToken = token;
+          return new FigmaClient({
+            token,
+            fetch: makeSingleFileFetch("FA"),
+            limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+            backoffOpts: FAST,
+          });
+        },
+        progress: nullProgressEmitter(),
+      });
+
+      const result = await callTool(registry, "kotikit_sync_ds", {});
+
+      expect(result.isError).toBeFalsy();
+      expect(capturedToken).toBe("figd_from_project_env");
+    } finally {
+      if (previousToken === undefined) {
+        delete process.env.FIGMA_TOKEN;
+      } else {
+        process.env.FIGMA_TOKEN = previousToken;
+      }
+    }
+  });
+
+  it("reloads FIGMA_TOKEN from project .env when the existing value is an empty placeholder", async () => {
+    const previousToken = process.env.FIGMA_TOKEN;
+    process.env.FIGMA_TOKEN = "";
+
+    try {
+      const root = mkTmp();
+      const cfg = defaultConfig();
+      cfg.figma.designSystemFiles = [{ key: "FA", name: "FileA" }];
+      await writeConfig(root, cfg);
+      writeFileSync(join(root, ".env"), "FIGMA_TOKEN=figd_updated_after_start\n");
+
+      let capturedToken: string | undefined;
+      const registry = makeRegistry();
+      const ctx: ToolContext = {
+        root,
+        loadConfig: async () => cfg,
+      };
+
+      registerSyncTools(registry, ctx, {
+        figmaClientFactory: (token: string) => {
+          capturedToken = token;
+          return new FigmaClient({
+            token,
+            fetch: makeSingleFileFetch("FA"),
+            limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+            backoffOpts: FAST,
+          });
+        },
+        progress: nullProgressEmitter(),
+      });
+
+      const result = await callTool(registry, "kotikit_sync_ds", {});
+
+      expect(result.isError).toBeFalsy();
+      expect(capturedToken).toBe("figd_updated_after_start");
+    } finally {
+      if (previousToken === undefined) {
+        delete process.env.FIGMA_TOKEN;
+      } else {
+        process.env.FIGMA_TOKEN = previousToken;
+      }
+    }
   });
 
   it("friendly error when no token resolved", async () => {

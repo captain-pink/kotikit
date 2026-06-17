@@ -362,7 +362,9 @@ kotikit could not find or use your Figma personal access token.
 
 Fix: make sure you completed Install step 5 — a `.env` file in your target project root
 (next to `package.json`) containing `FIGMA_TOKEN=figd_...your_token_here...`. The token
-needs the "File read" scope from Figma Settings → Account → Personal access tokens.
+needs the "File read" scope from Figma Settings -> Account -> Personal access tokens.
+For the standard `.env` setup, `.kotikit/config.json` does not need a `figma.token` field;
+sync uses `FIGMA_TOKEN` automatically unless you configure a different token source.
 
 If your team uses 1Password, you can instead set the token field in `.kotikit/config.json`
 to `op://vault-name/item-name/field-name` and kotikit will fetch it via the 1Password CLI.

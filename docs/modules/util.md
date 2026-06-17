@@ -42,6 +42,10 @@ Generated code:
 Project root discovery:
 - `findProjectRoot(start?)` — walk up from `start` (default `process.cwd()`) looking for a directory that contains `.kotikit/`; returns the original start if no such directory is found
 
+**Environment** (`src/util/env.ts`)
+- `parseDotEnv(text)` — parse simple `.env` content into key/value pairs
+- `loadDotEnv(root, options?)` — load `<root>/.env` into `process.env`; existing non-empty values are preserved, while `{ overrideEmpty: true }` refreshes empty placeholders such as `FIGMA_TOKEN=`
+
 **IDs and slug helpers** (`src/util/ids.ts`)
 - `uuid()` — `crypto.randomUUID()`
 - `nowIso()` — `new Date().toISOString()`

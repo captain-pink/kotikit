@@ -67,6 +67,7 @@ describe("loadDotEnv", () => {
     // Clean up any test pollution
     delete process.env.KOTIKIT_TEST_ENV_VAR_1;
     delete process.env.KOTIKIT_TEST_ENV_VAR_2;
+    delete process.env.KOTIKIT_TEST_ENV_VAR_3;
   });
 
   it("returns [] when .env is missing", async () => {
@@ -89,6 +90,28 @@ describe("loadDotEnv", () => {
     const injected = await loadDotEnv(root);
     expect(injected).toEqual([]);
     expect(process.env.KOTIKIT_TEST_ENV_VAR_2).toBe("pre-existing");
+  });
+
+  it("can replace an empty placeholder when requested", async () => {
+    const root = mkTmp();
+    process.env.KOTIKIT_TEST_ENV_VAR_2 = "";
+    writeFileSync(`${root}/.env`, "KOTIKIT_TEST_ENV_VAR_2=from-env-file");
+
+    const injected = await loadDotEnv(root, { overrideEmpty: true });
+
+    expect(injected).toEqual(["KOTIKIT_TEST_ENV_VAR_2"]);
+    expect(process.env.KOTIKIT_TEST_ENV_VAR_2).toBe("from-env-file");
+  });
+
+  it("preserves non-empty environment values when replacing empty placeholders", async () => {
+    const root = mkTmp();
+    process.env.KOTIKIT_TEST_ENV_VAR_3 = "pre-existing";
+    writeFileSync(`${root}/.env`, "KOTIKIT_TEST_ENV_VAR_3=from-env-file");
+
+    const injected = await loadDotEnv(root, { overrideEmpty: true });
+
+    expect(injected).toEqual([]);
+    expect(process.env.KOTIKIT_TEST_ENV_VAR_3).toBe("pre-existing");
   });
 
   it("handles malformed file silently", async () => {
