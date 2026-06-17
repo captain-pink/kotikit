@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { KotikitError } from "../util/result.js";
-import { createLimiter } from "./rate-limit.js";
+import { createAdaptiveLimiter, type AdaptiveLimiter } from "./rate-limit.js";
 import { withBackoff, type RetryableError, type BackoffOpts } from "./backoff.js";
 import {
   FigmaFileSchema,
@@ -20,12 +20,66 @@ import {
 
 export type FetchFn = typeof globalThis.fetch;
 
+export interface FigmaRateLimitOptions {
+  initialMinTime: number;
+  minMinTime: number;
+  maxMinTime: number;
+  maxConcurrent: number;
+}
+
+type FigmaLimiter = Pick<AdaptiveLimiter, "schedule"> &
+  Partial<Pick<AdaptiveLimiter, "recordRateLimit" | "recordSuccess" | "currentMinTime">>;
+
+const DEFAULT_INITIAL_MIN_TIME_MS = 1_000;
+const DEFAULT_MIN_TIME_FLOOR_MS = 100;
+const DEFAULT_MIN_TIME_CEILING_MS = 60_000;
+const DEFAULT_MAX_CONCURRENT = 1;
+const DEFAULT_BACKOFF: BackoffOpts = {
+  initialMs: 5_000,
+  maxMs: 60_000,
+  jitterMs: 1_000,
+  maxAttempts: 6,
+};
+
 export interface FigmaClientOpts {
   token: string;
   fetch?: FetchFn;                  // injectable for tests
-  limiter?: ReturnType<typeof createLimiter>;
+  limiter?: FigmaLimiter;
   backoffOpts?: BackoffOpts;
   baseUrl?: string;                 // default "https://api.figma.com"
+}
+
+function parseNonNegativeInt(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function parsePositiveInt(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+export function figmaRateLimitFromEnv(
+  env: Record<string, string | undefined> = process.env
+): FigmaRateLimitOptions {
+  const minMinTime = parseNonNegativeInt(
+    env.KOTIKIT_FIGMA_MIN_TIME_FLOOR_MS,
+    DEFAULT_MIN_TIME_FLOOR_MS
+  );
+  const maxMinTime = Math.max(
+    minMinTime,
+    parseNonNegativeInt(env.KOTIKIT_FIGMA_MIN_TIME_CEILING_MS, DEFAULT_MIN_TIME_CEILING_MS)
+  );
+
+  return {
+    initialMinTime: parseNonNegativeInt(
+      env.KOTIKIT_FIGMA_INITIAL_MIN_TIME_MS,
+      DEFAULT_INITIAL_MIN_TIME_MS
+    ),
+    minMinTime,
+    maxMinTime,
+    maxConcurrent: parsePositiveInt(env.KOTIKIT_FIGMA_MAX_CONCURRENT, DEFAULT_MAX_CONCURRENT),
+  };
 }
 
 class FigmaResponseError extends Error {
@@ -59,15 +113,15 @@ function isRetryable(err: unknown): RetryableError | null {
 export class FigmaClient {
   private readonly token: string;
   private readonly fetchImpl: FetchFn;
-  private readonly limiter: ReturnType<typeof createLimiter>;
+  private readonly limiter: FigmaLimiter;
   private readonly backoffOpts: BackoffOpts;
   private readonly baseUrl: string;
 
   constructor(opts: FigmaClientOpts) {
     this.token = opts.token;
     this.fetchImpl = opts.fetch ?? globalThis.fetch.bind(globalThis);
-    this.limiter = opts.limiter ?? createLimiter({ minTime: 100, maxConcurrent: 2 });
-    this.backoffOpts = opts.backoffOpts ?? {};
+    this.limiter = opts.limiter ?? createAdaptiveLimiter(figmaRateLimitFromEnv());
+    this.backoffOpts = opts.backoffOpts ?? DEFAULT_BACKOFF;
     this.baseUrl = opts.baseUrl ?? "https://api.figma.com";
   }
 
@@ -83,10 +137,15 @@ export class FigmaClient {
           });
           if (!res.ok) {
             const retryAfterMs = parseRetryAfter(res.headers.get("Retry-After"));
+            if (res.status === 429) {
+              this.limiter.recordRateLimit?.(retryAfterMs);
+            }
             throw new FigmaResponseError(res.status, url, retryAfterMs);
           }
           const data = await res.json();
-          return schema.parse(data);
+          const parsed = schema.parse(data);
+          this.limiter.recordSuccess?.();
+          return parsed;
         },
         isRetryable,
         this.backoffOpts
@@ -233,7 +292,7 @@ export class FigmaClient {
       if (err.status === 429) {
         return new KotikitError(
           "Figma is rate-limiting us.",
-          "Try the sync again in a few minutes."
+          "Kotikit adapts its Figma request pace automatically. Wait a minute and try sync again; if this happens repeatedly, raise KOTIKIT_FIGMA_INITIAL_MIN_TIME_MS or KOTIKIT_FIGMA_MIN_TIME_FLOOR_MS."
         );
       }
       return new KotikitError(

@@ -13,6 +13,8 @@ import { mergeVariables } from "./variables.js";
 import type { ProgressEmitter, FileContext } from "./progress.js";
 import { formatMs } from "./progress.js";
 
+const FALLBACK_PAGE_DEPTHS = [4, 8] as const;
+
 export interface SyncOneFileOpts {
   root: string;
   client: FigmaClient;
@@ -121,6 +123,32 @@ function extractComponentsFromTree(
   return { components, componentSets };
 }
 
+function hasExtractedComponents(
+  extracted: ReturnType<typeof extractComponentsFromTree>
+): boolean {
+  return extracted.components.length > 0 || extracted.componentSets.length > 0;
+}
+
+async function getFallbackPageTree(
+  client: FigmaClient,
+  fileKey: string,
+  pageId: string
+): Promise<FigmaTreeNode | null> {
+  let lastTree: FigmaTreeNode | null = null;
+
+  for (const depth of FALLBACK_PAGE_DEPTHS) {
+    const tree = await client.getPageTree(fileKey, pageId, depth);
+    if (tree === null) return null;
+
+    lastTree = tree;
+    if (hasExtractedComponents(extractComponentsFromTree({ children: [tree] }, {}))) {
+      return tree;
+    }
+  }
+
+  return lastTree;
+}
+
 /**
  * Run one Figma file through the sync pipeline.
  * Writes to the two SQLite DBs (the caller has the transaction).
@@ -212,10 +240,10 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
       }
     }
 
-    // Fetch each page tree in parallel; a single failed page won't abort the sync.
-    const pageTrees = await Promise.all(
-      pageIds.map((id) => client.getPageTree(fileKey, id, 4).catch(() => null))
-    );
+    const pageTrees: Array<FigmaTreeNode | null> = [];
+    for (const id of pageIds) {
+      pageTrees.push(await getFallbackPageTree(client, fileKey, id));
+    }
 
     const syntheticDoc: { children: FigmaTreeNode[] } = {
       children: pageIds
@@ -230,6 +258,11 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
       skipped.push({
         stage: "components",
         reason: "Library not published — fell back to document tree extraction.",
+      });
+    } else {
+      skipped.push({
+        stage: "components",
+        reason: "Library not published and document tree extraction found no components.",
       });
     }
     if (progress && fileCtx) {

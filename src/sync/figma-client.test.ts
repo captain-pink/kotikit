@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { FigmaClient } from "./figma-client.js";
+import { FigmaClient, figmaRateLimitFromEnv } from "./figma-client.js";
 import { KotikitError } from "../util/result.js";
 import { createLimiter } from "./rate-limit.js";
 
@@ -22,6 +22,47 @@ const FAST_BACKOFF = { initialMs: 1, maxMs: 5, jitterMs: 0, maxAttempts: 6 };
 const FAST_LIMITER = createLimiter({ minTime: 0, maxConcurrent: 5 });
 
 describe("FigmaClient", () => {
+  it("uses adaptive rate limit defaults", () => {
+    expect(figmaRateLimitFromEnv({})).toEqual({
+      initialMinTime: 1_000,
+      minMinTime: 100,
+      maxMinTime: 60_000,
+      maxConcurrent: 1,
+    });
+  });
+
+  it("allows adaptive Figma rate limit overrides from env", () => {
+    expect(
+      figmaRateLimitFromEnv({
+        KOTIKIT_FIGMA_INITIAL_MIN_TIME_MS: "2000",
+        KOTIKIT_FIGMA_MIN_TIME_FLOOR_MS: "500",
+        KOTIKIT_FIGMA_MIN_TIME_CEILING_MS: "30000",
+        KOTIKIT_FIGMA_MAX_CONCURRENT: "3",
+      })
+    ).toEqual({
+      initialMinTime: 2_000,
+      minMinTime: 500,
+      maxMinTime: 30_000,
+      maxConcurrent: 3,
+    });
+  });
+
+  it("ignores invalid adaptive Figma rate limit env overrides", () => {
+    expect(
+      figmaRateLimitFromEnv({
+        KOTIKIT_FIGMA_INITIAL_MIN_TIME_MS: "-1",
+        KOTIKIT_FIGMA_MIN_TIME_FLOOR_MS: "-5",
+        KOTIKIT_FIGMA_MIN_TIME_CEILING_MS: "-10",
+        KOTIKIT_FIGMA_MAX_CONCURRENT: "0",
+      })
+    ).toEqual({
+      initialMinTime: 1_000,
+      minMinTime: 100,
+      maxMinTime: 60_000,
+      maxConcurrent: 1,
+    });
+  });
+
   it("sends X-Figma-Token on every request", async () => {
     let seen: string | undefined;
     const fetch = async (_url: string | URL, init?: RequestInit) => {
@@ -62,6 +103,38 @@ describe("FigmaClient", () => {
     const result = await client.getComponents("k1");
     expect(result).toEqual([]);
     expect(calls).toBe(2);
+  });
+
+  it("reports 429s and successes to an adaptive limiter", async () => {
+    let calls = 0;
+    let reportedRetryAfterMs: number | undefined;
+    let successCount = 0;
+    const limiter = {
+      schedule: <T>(fn: () => Promise<T>) => fn(),
+      recordRateLimit: (retryAfterMs?: number) => {
+        reportedRetryAfterMs = retryAfterMs;
+      },
+      recordSuccess: () => {
+        successCount++;
+      },
+    };
+    const fetch = async () => {
+      calls++;
+      if (calls === 1) return errorResponse(429, { "Retry-After": "0.002" });
+      return jsonResponse({ meta: { components: [] } });
+    };
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      limiter,
+      backoffOpts: FAST_BACKOFF,
+    });
+
+    const result = await client.getComponents("k1");
+
+    expect(result).toEqual([]);
+    expect(reportedRetryAfterMs).toBe(2);
+    expect(successCount).toBe(1);
   });
 
   it("retries on 500 and eventually succeeds", async () => {

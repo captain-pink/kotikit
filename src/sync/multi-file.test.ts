@@ -181,6 +181,46 @@ describe("syncAllFiles", () => {
     expect(report.registryUpdates.updated).toBe(0);
   });
 
+  it("persists registry rows before fileDone is emitted", async () => {
+    const root = mkTmp();
+    let sawRegistryAtFileDone = false;
+
+    const fileResponses = {
+      FA: {
+        components: () => ({ meta: { components: [{ key: "ckA", node_id: "nA", name: "Button" }] } }),
+        file: () => ({ name: "FileA", document: { children: [{ id: "p1", name: "Components", children: [{ id: "nA", name: "Button" }] }] } }),
+      },
+    };
+
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch: makeFetch(fileResponses),
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+      backoffOpts: FAST,
+    });
+
+    const progress = {
+      ...nullProgressEmitter(),
+      fileDone() {
+        const regDb = new Database(registryDbPath(root), { readonly: true });
+        const button = getRegistry(regDb, "component", "Button");
+        regDb.close();
+        expect(button?.status).toBe("design-only");
+        expect(button?.dsPath).toBe("components/button.json");
+        sawRegistryAtFileDone = true;
+      },
+    };
+
+    await syncAllFiles({
+      root,
+      files: [{ key: "FA", name: "FileA" }],
+      client,
+      progress,
+    });
+
+    expect(sawRegistryAtFileDone).toBe(true);
+  });
+
   it("re-sync preserves synced rows (does not downgrade or clobber code_path)", async () => {
     const root = mkTmp();
 

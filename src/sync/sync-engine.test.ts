@@ -24,6 +24,13 @@ function jsonRes(body: unknown): Response {
   });
 }
 
+function errorRes(status: number): Response {
+  return new Response(JSON.stringify({ status, err: "Rate limit exceeded" }), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 describe("syncOneFile", () => {
   it("happy path: 3 components + 2 icons", async () => {
     const fetch = (async (url: string | URL) => {
@@ -339,7 +346,7 @@ describe("syncOneFile", () => {
     expect(calledUrls.every((u) => !/\/v1\/files\/F1\?/.test(u))).toBe(true);
   });
 
-  it("fetches multiple pages in parallel during fallback", async () => {
+  it("fetches each page during fallback", async () => {
     const calledUrls: string[] = [];
     const fetch = (async (url: string | URL) => {
       const u = url.toString();
@@ -416,6 +423,138 @@ describe("syncOneFile", () => {
     expect(result.iconCount).toBe(2);
     // One depth=4 fetch per page
     expect(calledUrls.filter((u) => u.includes("depth=4")).length).toBe(2);
+  });
+
+  it("fallback retries a page at depth=8 when depth=4 has no components", async () => {
+    const calledUrls: string[] = [];
+    const fetch = (async (url: string | URL) => {
+      const u = url.toString();
+      calledUrls.push(u);
+
+      if (u.includes("/v1/files/F1/components")) return jsonRes({ meta: { components: [] } });
+      if (u.includes("/v1/files/F1/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/F1/styles")) return jsonRes({ meta: { styles: [] } });
+      if (u.includes("/v1/files/F1/variables/local")) return jsonRes({ meta: { variables: {}, variableCollections: {} } });
+
+      if (u.includes("/v1/files/F1/nodes") && u.includes("depth=4")) {
+        return jsonRes({
+          nodes: {
+            "page1": {
+              document: {
+                id: "page1",
+                name: "Buttons",
+                type: "CANVAS",
+                children: [{ id: "frame1", name: "Nested", type: "FRAME", children: [] }],
+              },
+            },
+          },
+        });
+      }
+
+      if (u.includes("/v1/files/F1/nodes") && u.includes("depth=8")) {
+        return jsonRes({
+          nodes: {
+            "page1": {
+              document: {
+                id: "page1",
+                name: "Buttons",
+                type: "CANVAS",
+                children: [
+                  {
+                    id: "frame1",
+                    name: "Nested",
+                    type: "FRAME",
+                    children: [
+                      {
+                        id: "frame2",
+                        name: "More nested",
+                        type: "FRAME",
+                        children: [
+                          {
+                            id: "csButton",
+                            name: "Button",
+                            type: "COMPONENT_SET",
+                            children: [
+                              { id: "vButton", name: "Button/Variant=Filled", type: "COMPONENT" },
+                            ],
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        });
+      }
+
+      if (u.includes("/v1/files/F1/nodes")) return jsonRes({ nodes: {} });
+      if (u.includes("/v1/files/F1")) {
+        return jsonRes({
+          name: "MUI",
+          document: { children: [{ id: "page1", name: "Buttons", type: "CANVAS", children: [] }] },
+        });
+      }
+      throw new Error("no match: " + u);
+    }) as unknown as typeof globalThis.fetch;
+
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch,
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+      backoffOpts: FAST,
+    });
+    const { componentsDb, iconsDb } = makeDbs();
+
+    const result = await syncOneFile({
+      root: "/tmp",
+      client,
+      fileKey: "F1",
+      fileName: "MUI",
+      componentsDb,
+      iconsDb,
+    });
+
+    expect(result.componentCount).toBe(1);
+    expect(result.componentJsons[0]?.name).toBe("Button");
+    expect(calledUrls.some((u) => u.includes("depth=4"))).toBe(true);
+    expect(calledUrls.some((u) => u.includes("depth=8"))).toBe(true);
+  });
+
+  it("fallback page fetch failures are not swallowed as empty pages", async () => {
+    const fetch = (async (url: string | URL) => {
+      const u = url.toString();
+      if (u.includes("/v1/files/F1/components")) return jsonRes({ meta: { components: [] } });
+      if (u.includes("/v1/files/F1/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/F1/nodes")) return errorRes(429);
+      if (u.includes("/v1/files/F1")) {
+        return jsonRes({
+          name: "MUI",
+          document: { children: [{ id: "page1", name: "Buttons", type: "CANVAS", children: [] }] },
+        });
+      }
+      throw new Error("no match: " + u);
+    }) as unknown as typeof globalThis.fetch;
+
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch,
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 1 }),
+      backoffOpts: FAST,
+    });
+    const { componentsDb, iconsDb } = makeDbs();
+
+    await expect(
+      syncOneFile({
+        root: "/tmp",
+        client,
+        fileKey: "F1",
+        fileName: "MUI",
+        componentsDb,
+        iconsDb,
+      })
+    ).rejects.toThrow("Figma is rate-limiting us");
   });
 
   it("fallback extracts variant COMPONENTs from inside COMPONENT_SETs (MUI3-style design systems)", async () => {

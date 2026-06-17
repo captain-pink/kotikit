@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { createLimiter } from "./rate-limit.js";
+import { createAdaptiveLimiter, createLimiter } from "./rate-limit.js";
 
 describe("createLimiter", () => {
   it("enforces minTime between starts", async () => {
@@ -54,5 +54,75 @@ describe("createLimiter", () => {
     await limiter.schedule(async () => { throw new Error("first"); }).catch(() => {});
     const ok = await limiter.schedule(async () => "ok");
     expect(ok).toBe("ok");
+  });
+});
+
+describe("createAdaptiveLimiter", () => {
+  it("starts at the configured initial pace", () => {
+    const limiter = createAdaptiveLimiter({
+      initialMinTime: 100,
+      minMinTime: 50,
+      maxMinTime: 1_000,
+      maxConcurrent: 1,
+    });
+
+    expect(limiter.currentMinTime()).toBe(100);
+  });
+
+  it("slows down after rate limits and clamps to the ceiling", () => {
+    const limiter = createAdaptiveLimiter({
+      initialMinTime: 100,
+      minMinTime: 50,
+      maxMinTime: 350,
+      maxConcurrent: 1,
+      backoffFactor: 2,
+    });
+
+    limiter.recordRateLimit();
+    expect(limiter.currentMinTime()).toBe(200);
+
+    limiter.recordRateLimit();
+    expect(limiter.currentMinTime()).toBe(350);
+  });
+
+  it("recovers gradually after a sustained success streak", () => {
+    const limiter = createAdaptiveLimiter({
+      initialMinTime: 100,
+      minMinTime: 50,
+      maxMinTime: 1_000,
+      maxConcurrent: 1,
+      backoffFactor: 2,
+      recoveryFactor: 0.5,
+      recoveryAfterSuccesses: 2,
+    });
+
+    limiter.recordRateLimit();
+    expect(limiter.currentMinTime()).toBe(200);
+
+    limiter.recordSuccess();
+    expect(limiter.currentMinTime()).toBe(200);
+
+    limiter.recordSuccess();
+    expect(limiter.currentMinTime()).toBe(100);
+  });
+
+  it("clamps the initial pace between floor and ceiling", () => {
+    expect(
+      createAdaptiveLimiter({
+        initialMinTime: 10,
+        minMinTime: 50,
+        maxMinTime: 1_000,
+        maxConcurrent: 1,
+      }).currentMinTime()
+    ).toBe(50);
+
+    expect(
+      createAdaptiveLimiter({
+        initialMinTime: 2_000,
+        minMinTime: 50,
+        maxMinTime: 1_000,
+        maxConcurrent: 1,
+      }).currentMinTime()
+    ).toBe(1_000);
   });
 });

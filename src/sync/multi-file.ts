@@ -11,7 +11,7 @@ import {
   componentsDbPath, iconsDbPath, syncReportPath, componentJsonPath,
   designSystemDir, registryDbPath,
 } from "../util/paths.js";
-import { openDb, withTransaction } from "../db/sqlite.js";
+import { openDb } from "../db/sqlite.js";
 import { initComponentsDb, upsertComponent } from "../db/components-db.js";
 import { initIconsDb } from "../db/icons-db.js";
 import { initRegistryDb, getRegistry, upsertRegistryDsRow } from "../db/registry-db.js";
@@ -96,6 +96,60 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
   const fileResults: FileResult[] = [];
 
   const skipped: SyncReport["skipped"] = [];
+  const manifestFiles: SyncReport["files"] = [];
+
+  // Track which names have already been written by an earlier file.
+  const writtenByName: Map<string, { fileKey: string; key: string }> = new Map();
+
+  // Conflict tracker: name → { winnerFileKey, losers }
+  const conflictByName: Map<string, SyncManifest["conflicts"][number]> = new Map();
+
+  let registryAdded = 0;
+  let registryUpdated = 0;
+
+  const regDb = openDb(registryDbPath(root));
+  initRegistryDb(regDb);
+
+  const persistFileResult = async (result: FileResult): Promise<void> => {
+    const writesCtx: FileContext = {
+      index: files.findIndex((f) => f.key === result.fileKey) + 1,
+      total: files.length,
+      name: result.fileName,
+    };
+    const writesStart = Date.now();
+    progress.stage(writesCtx, "writes", "writing component JSONs + registry rows...");
+
+    for (const json of result.componentJsons) {
+      const prior = writtenByName.get(json.name);
+      if (prior) {
+        const conflict = conflictByName.get(json.name) ?? {
+          name: json.name,
+          winnerFileKey: result.fileKey,
+          losers: [] as Array<{ fileKey: string; key: string }>,
+        };
+        conflict.winnerFileKey = result.fileKey;
+        conflict.losers.push({ fileKey: prior.fileKey, key: prior.key });
+        conflictByName.set(json.name, conflict);
+      }
+
+      upsertComponent(componentsDb, {
+        name: json.name,
+        path: json.path,
+        key: json.key,
+        fileKey: result.fileKey,
+        props: buildPropsString(json),
+      });
+
+      await writeComponentJson(root, json);
+      writtenByName.set(json.name, { fileKey: result.fileKey, key: json.key });
+
+      const action = upsertDsRow(regDb, { name: json.name, dsPath: json.path });
+      if (action === "added") registryAdded++;
+      else registryUpdated++;
+    }
+
+    progress.stageDone(writesCtx, "writes", `${formatMs(Date.now() - writesStart)}`);
+  };
 
   // Drive sync per file in declared order.
   for (let i = 0; i < files.length; i++) {
@@ -110,7 +164,7 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
     const fileStart = Date.now();
 
     // Progress reporter — updates the checkpoint after each stage.
-    const onStage = async (
+    const writeFileCheckpoint = async (
       stage: FileCheckpoint["stage"],
       cursor?: FileCheckpoint["cursor"]
     ): Promise<void> => {
@@ -123,6 +177,14 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
       if (idx >= 0) checkpoint.files[idx] = fc;
       else checkpoint.files.push(fc);
       await writeCheckpoint(root, checkpoint);
+    };
+
+    const onStage = async (
+      stage: FileCheckpoint["stage"],
+      cursor?: FileCheckpoint["cursor"]
+    ): Promise<void> => {
+      if (stage === "done") return;
+      await writeFileCheckpoint(stage, cursor);
     };
 
     const result = await syncOneFile({
@@ -142,78 +204,23 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
       skipped.push({ fileKey: file.key, stage: s.stage, reason: s.reason });
     }
 
+    await persistFileResult(result);
+    await writeFileCheckpoint("done");
     fileResults.push(result);
+
+    manifestFiles.push({
+      key: result.fileKey,
+      name: result.fileName,
+      componentCount: result.componentCount,
+      iconCount: result.iconCount,
+    });
+
     progress.fileDone(fileCtx, {
       componentCount: result.componentCount,
       iconCount: result.iconCount,
       elapsedMs: Date.now() - fileStart,
     });
   }
-
-  // ── Post-loop: write per-component JSONs + handle conflicts ──────────────
-  // Synthetic context for multi-file writes stage (not tied to a single file).
-  const writesCtx: FileContext = { index: 0, total: files.length, name: "all" };
-  const writesStart = Date.now();
-  progress.stage(writesCtx, "writes", "writing component JSONs + registry rows...");
-
-  // Track which names have already been written by an earlier file.
-  const writtenByName: Map<string, { fileKey: string; key: string }> = new Map();
-
-  // Conflict tracker: name → { winnerFileKey, losers }
-  const conflictByName: Map<string, SyncManifest["conflicts"][number]> = new Map();
-
-  for (const result of fileResults) {
-    for (const json of result.componentJsons) {
-      const prior = writtenByName.get(json.name);
-      if (prior) {
-        // Later file wins; prior entry becomes a loser.
-        const conflict = conflictByName.get(json.name) ?? {
-          name: json.name,
-          winnerFileKey: result.fileKey,
-          losers: [] as Array<{ fileKey: string; key: string }>,
-        };
-        conflict.winnerFileKey = result.fileKey;
-        conflict.losers.push({ fileKey: prior.fileKey, key: prior.key });
-        conflictByName.set(json.name, conflict);
-
-        // Overwrite the components.db row to point at the new file.
-        upsertComponent(componentsDb, {
-          name: json.name,
-          path: json.path,
-          key: json.key,
-          fileKey: result.fileKey,
-          props: buildPropsString(json),
-        });
-      }
-
-      // Write the JSON file (overwrites prior file's JSON if any).
-      await writeComponentJson(root, json);
-      writtenByName.set(json.name, { fileKey: result.fileKey, key: json.key });
-    }
-  }
-
-  // ── Upsert non-icon component rows into the registry DB ─────────────────
-  let registryAdded = 0;
-  let registryUpdated = 0;
-
-  const regDbPath = registryDbPath(root);
-  const regDb = openDb(regDbPath);
-  try {
-    initRegistryDb(regDb);
-    withTransaction(regDb, () => {
-      for (const result of fileResults) {
-        for (const json of result.componentJsons) {
-          const action = upsertDsRow(regDb, { name: json.name, dsPath: json.path });
-          if (action === "added") registryAdded++;
-          else registryUpdated++;
-        }
-      }
-    });
-  } finally {
-    regDb.close();
-  }
-
-  progress.stageDone(writesCtx, "writes", `${formatMs(Date.now() - writesStart)}`);
 
   // ── Merge variables across files ─────────────────────────────────────────
   // Strategy: later file's variables win on collision.
@@ -244,12 +251,7 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
   const manifest: SyncManifest = {
     version: 1,
     lastSyncAt: nowIso(),
-    files: fileResults.map((r) => ({
-      key: r.fileKey,
-      name: r.fileName,
-      componentCount: r.componentCount,
-      iconCount: r.iconCount,
-    })),
+    files: manifestFiles,
     conflicts,
   };
   await writeManifest(root, manifest);
@@ -276,6 +278,7 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
   // Close DBs.
   componentsDb.close();
   iconsDb.close();
+  regDb.close();
 
   const totalComponents = fileResults.reduce((sum, r) => sum + r.componentCount, 0);
   const totalIcons = fileResults.reduce((sum, r) => sum + r.iconCount, 0);
