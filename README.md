@@ -435,16 +435,15 @@ in your kotikit config by asking your assistant: *"Change my components folder t
 **7. Sync returned 0 components even though my Figma file has them**
 
 Figma's published-component API only returns components from files that have been
-explicitly published as a team library — and library publishing requires a paid Figma
-plan. kotikit handles this automatically by falling back to walking the file's document
-tree and extracting every `COMPONENT` and `COMPONENT_SET` node directly. You should see
-a sync report entry like `"Library not published — fell back to document tree
-extraction."` confirming the fallback ran.
+explicitly published as a team library. Kotikit needs those published/importable keys
+so generated Figma drafts can instantiate your design-system components. If a file is
+not published, sync will skip component extraction and report that the file is not
+published as a library.
 
-Fix: nothing to do — if you still get 0 components after the fallback, the file likely
-has no components yet, or your Figma token does not have access to it. Re-check by
-visiting the file in a browser while signed in to the same Figma account whose token
-you used.
+Fix: publish the design-system file as a Figma library, make sure the same account whose
+token you use can access that published library, then run sync again. If it still returns
+0 components, open the file in Figma with that account and confirm the file actually
+contains published components.
 
 ---
 

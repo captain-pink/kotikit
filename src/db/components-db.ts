@@ -36,6 +36,11 @@ export function clearComponents(db: Database): void {
   db.exec("DELETE FROM components;");
 }
 
+/** Remove component rows that came from one Figma file. */
+export function deleteComponentsByFileKey(db: Database, fileKey: string): void {
+  db.prepare("DELETE FROM components WHERE file_key = ?").run(fileKey);
+}
+
 /**
  * Insert or replace a component row by name.
  * FTS5 virtual tables do not support INSERT OR REPLACE, so we DELETE then INSERT.

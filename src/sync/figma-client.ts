@@ -164,8 +164,8 @@ export class FigmaClient {
 
   /**
    * GET /v1/files/:key?depth=N — full file tree.
-   * Used as a fallback when /components returns empty (free-plan files or
-   * libraries that haven't been published).
+   * Kept for diagnostics and future import strategies. The sync engine does
+   * not use document trees as a substitute for published library components.
    */
   async getDocument(fileKey: string, depth: number = 4): Promise<FigmaFile> {
     try {
@@ -252,8 +252,7 @@ export class FigmaClient {
   /**
    * GET /v1/files/:key/nodes?ids={pageId}&depth=N — deep tree for a single page.
    * Returns the root CANVAS node for that page (with children to the requested depth).
-   * Used by the unpublished-library fallback to find COMPONENT / COMPONENT_SET nodes
-   * page-by-page instead of fetching the entire file in one large request.
+   * Kept for diagnostics and targeted Figma tree inspection.
    */
   async getPageTree(fileKey: string, pageId: string, depth: number = 4): Promise<FigmaTreeNode | null> {
     try {

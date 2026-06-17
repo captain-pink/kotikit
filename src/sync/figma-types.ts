@@ -2,10 +2,17 @@ import { z } from "zod";
 
 // ─── Common building blocks ─────────────────────────────────────────────────
 
+const ComponentSetRefSchema = z.object({
+  nodeId: z.string().optional(),
+  name: z.string().optional(),
+}).passthrough();
+
 const FrameInfoSchema = z.object({
   nodeId: z.string().optional(),
   name: z.string().optional(),
   pageName: z.string().optional(),
+  containingComponentSet: ComponentSetRefSchema.optional(),
+  containingStateGroup: ComponentSetRefSchema.optional(),
 }).passthrough();
 
 const ComponentPropertyDefSchema = z.object({
@@ -139,10 +146,10 @@ export {
   FigmaNodesResponseSchema,
 };
 
-// ─── Document-tree walker type ───────────────────────────────────────────────
-// Used when /components returns empty (unpublished libraries / free-plan files).
-// Kept as a TypeScript interface rather than a Zod schema because we only need
-// recursive walking — the schema validation happens at the FigmaFile level above.
+// ─── Document-tree type ──────────────────────────────────────────────────────
+// Used by FigmaClient#getPageTree for targeted diagnostics. Kept as a
+// TypeScript interface rather than a Zod schema because the response is already
+// validated at the outer nodes envelope and Figma can return many node fields.
 
 export interface FigmaTreeNode {
   id?: string;

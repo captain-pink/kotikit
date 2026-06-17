@@ -3,6 +3,7 @@ import { Database } from "bun:sqlite";
 import {
   initComponentsDb,
   clearComponents,
+  deleteComponentsByFileKey,
   upsertComponent,
   searchComponents,
 } from "./components-db.js";
@@ -72,6 +73,16 @@ describe("components-db", () => {
     upsertComponent(db, { name: "Button", path: "p", key: "k", fileKey: "f", props: "" });
     clearComponents(db);
     expect(searchComponents(db, "Button")).toEqual([]);
+  });
+
+  it("deleteComponentsByFileKey removes only rows from that source file", () => {
+    upsertComponent(db, { name: "Button", path: "p1", key: "k1", fileKey: "f1", props: "" });
+    upsertComponent(db, { name: "Card", path: "p2", key: "k2", fileKey: "f2", props: "" });
+
+    deleteComponentsByFileKey(db, "f1");
+
+    expect(searchComponents(db, "Button")).toEqual([]);
+    expect(searchComponents(db, "Card").map(r => r.name)).toEqual(["Card"]);
   });
 
   it("respects the limit argument", () => {

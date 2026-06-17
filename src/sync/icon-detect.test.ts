@@ -15,6 +15,10 @@ describe("detectIconSignal", () => {
     expect(detectIconSignal({ pageName: "ICONS", componentName: "X" })).toBe("page");
   });
 
+  it("detects decorated Figma page names that contain an Icons token", () => {
+    expect(detectIconSignal({ pageName: "    ↪️  Icons", componentName: "ArrowLeft" })).toBe("page");
+  });
+
   it("does not match a partial page name like 'Iconography'", () => {
     expect(detectIconSignal({ pageName: "Iconography", componentName: "X" })).toBe(null);
   });

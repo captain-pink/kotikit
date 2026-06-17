@@ -7,6 +7,7 @@ import { nowIso } from "../util/ids.js";
 export const ComponentJsonSchema = z.object({
   name: z.string(),
   key: z.string(),
+  componentSetKey: z.string().optional(),
   fileKey: z.string(),
   path: z.string(),
   description: z.string().optional(),
@@ -33,7 +34,12 @@ export interface FigmaPublishedComponent {
   description?: string;
   thumbnail_url?: string;
   component_set_id?: string;
-  containing_frame?: { pageName?: string; name?: string };
+  containing_frame?: {
+    pageName?: string;
+    name?: string;
+    containingComponentSet?: { nodeId?: string; name?: string };
+    containingStateGroup?: { nodeId?: string; name?: string };
+  };
 }
 
 /**
@@ -49,6 +55,7 @@ export interface FigmaPropertyDefinition {
 
 export interface FigmaComponentSet {
   key: string;
+  node_id?: string;
   name: string;
   description?: string;
   defaultVariantId?: string;
@@ -57,7 +64,7 @@ export interface FigmaComponentSet {
 }
 
 export interface FigmaNode {
-  /** Node-level property definitions (an alternative source when component_set isn't published). */
+  /** Node-level property definitions, used when published component-set metadata is sparse. */
   componentPropertyDefinitions?: Record<string, FigmaPropertyDefinition>;
 }
 
@@ -71,10 +78,11 @@ export function buildComponentJson(input: {
 }): ComponentJson {
   const { fileKey, publishedComponent, componentSet, nodeDetails } = input;
 
-  // Prefer the component-set name/key/desc when present, otherwise fall back to the
-  // published-component values.
+  // Prefer the component-set name/desc when present, but keep `key` as a concrete
+  // published component key so Figma draft generation can import it directly.
   const name = componentSet?.name ?? publishedComponent.name;
-  const key = componentSet?.key ?? publishedComponent.key;
+  const key = publishedComponent.key;
+  const componentSetKey = componentSet?.key;
   const description = componentSet?.description ?? publishedComponent.description;
   const defaultKey = componentSet?.defaultVariantId;
   const thumbnailUrl = publishedComponent.thumbnail_url;
@@ -114,6 +122,7 @@ export function buildComponentJson(input: {
   const result = {
     name,
     key,
+    ...(componentSetKey !== undefined ? { componentSetKey } : {}),
     fileKey,
     path: `components/${slug}.json`,
     ...(description !== undefined ? { description } : {}),

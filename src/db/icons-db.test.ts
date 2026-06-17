@@ -3,6 +3,7 @@ import { Database } from "bun:sqlite";
 import {
   initIconsDb,
   clearIcons,
+  deleteIconsByFileKey,
   upsertIcon,
   searchIcons,
   getIconSvg,
@@ -69,6 +70,16 @@ describe("icons-db", () => {
     upsertIcon(db, { name: "x", key: "k", signal: "page", fileKey: "f" });
     clearIcons(db);
     expect(searchIcons(db, "x")).toEqual([]);
+  });
+
+  it("deleteIconsByFileKey removes only rows from that source file", () => {
+    upsertIcon(db, { name: "arrow-right", key: "k1", signal: "page", fileKey: "f1" });
+    upsertIcon(db, { name: "home", key: "k2", signal: "page", fileKey: "f2" });
+
+    deleteIconsByFileKey(db, "f1");
+
+    expect(searchIcons(db, "arrow")).toEqual([]);
+    expect(searchIcons(db, "home").map((icon) => icon.name)).toEqual(["home"]);
   });
 
   it("CamelCase token matching: 'arrow' finds 'ArrowRight'", () => {

@@ -3,17 +3,14 @@ import type { FigmaClient } from "./figma-client.js";
 import type { FileCheckpoint } from "./checkpoint.js";
 import type { ComponentJson } from "./component-shape.js";
 import type { VariablesJson } from "./variables.js";
-import type { FigmaPublishedComponent, FigmaComponentSet, FigmaTreeNode } from "./figma-types.js";
-import { detectIconSignal } from "./icon-detect.js";
-import { buildComponentJson, buildPropsString } from "./component-shape.js";
-import { upsertComponent } from "../db/components-db.js";
-import { upsertIcon } from "../db/icons-db.js";
+import { buildPropsString } from "./component-shape.js";
+import { normalizePublishedDesignSystem } from "./normalize-design-system.js";
+import { deleteComponentsByFileKey, upsertComponent } from "../db/components-db.js";
+import { deleteIconsByFileKey, upsertIcon } from "../db/icons-db.js";
 import { withTransaction } from "../db/sqlite.js";
 import { mergeVariables } from "./variables.js";
 import type { ProgressEmitter, FileContext } from "./progress.js";
 import { formatMs } from "./progress.js";
-
-const FALLBACK_PAGE_DEPTHS = [4, 8] as const;
 
 export interface SyncOneFileOpts {
   root: string;
@@ -46,110 +43,6 @@ export interface SyncOneFileResult {
 }
 
 /**
- * Walk a Figma document tree and extract COMPONENT + COMPONENT_SET nodes.
- * Used when /components returns empty (unpublished libraries / free-plan files).
- *
- * Returns the same shapes that FigmaClient.getComponents / getComponentSets return
- * so downstream code (icon classification, component-shape mapping) works unchanged.
- */
-function extractComponentsFromTree(
-  document: { children?: FigmaTreeNode[] } | undefined,
-  pageNameByNodeId: Record<string, string>
-): {
-  components: FigmaPublishedComponent[];
-  componentSets: FigmaComponentSet[];
-} {
-  const components: FigmaPublishedComponent[] = [];
-  const componentSets: FigmaComponentSet[] = [];
-
-  const pages = document?.children ?? [];
-  for (const page of pages) {
-    const pageName = page.name ?? "";
-    if (page.id && page.name) pageNameByNodeId[page.id] = page.name;
-
-    const walk = (node: FigmaTreeNode): void => {
-      if (!node) return;
-      if (node.id && page.name) {
-        pageNameByNodeId[node.id] = page.name;
-      }
-
-      if (node.type === "COMPONENT_SET" && node.id && node.name) {
-        componentSets.push({
-          key: node.id,
-          node_id: node.id,
-          name: node.name,
-          ...(node.description ? { description: node.description } : {}),
-          ...(node.componentPropertyDefinitions
-            ? { componentPropertyDefinitions: node.componentPropertyDefinitions as Record<string, never> }
-            : {}),
-        } as FigmaComponentSet);
-        // For unpublished libraries, treat the COMPONENT_SET itself as the synced component.
-        // Stage 7 fetches its node details, where componentPropertyDefinitions holds the
-        // full list of variant options — the same data the published /components path uses
-        // via componentSet lookup. This avoids adding O(variants) entries (thousands) and
-        // instead adds one entry per set (~165 for MUI3), with correct variant prop data.
-        components.push({
-          key: node.id,
-          node_id: node.id,
-          name: node.name,
-          ...(node.description ? { description: node.description } : {}),
-          containing_frame: { pageName },
-        } as FigmaPublishedComponent);
-        return;
-      }
-
-      if (node.type === "COMPONENT" && node.id && node.name) {
-        // Any COMPONENT we reach here is standalone (we stop at COMPONENT_SET above).
-        components.push({
-          key: node.id,
-          node_id: node.id,
-          name: node.name,
-          ...(node.description ? { description: node.description } : {}),
-          containing_frame: { pageName },
-        } as FigmaPublishedComponent);
-      }
-
-      // Recurse into children for non-component-set nodes.
-      for (const child of node.children ?? []) {
-        walk(child);
-      }
-    };
-
-    for (const child of page.children ?? []) {
-      walk(child);
-    }
-  }
-
-  return { components, componentSets };
-}
-
-function hasExtractedComponents(
-  extracted: ReturnType<typeof extractComponentsFromTree>
-): boolean {
-  return extracted.components.length > 0 || extracted.componentSets.length > 0;
-}
-
-async function getFallbackPageTree(
-  client: FigmaClient,
-  fileKey: string,
-  pageId: string
-): Promise<FigmaTreeNode | null> {
-  let lastTree: FigmaTreeNode | null = null;
-
-  for (const depth of FALLBACK_PAGE_DEPTHS) {
-    const tree = await client.getPageTree(fileKey, pageId, depth);
-    if (tree === null) return null;
-
-    lastTree = tree;
-    if (hasExtractedComponents(extractComponentsFromTree({ children: [tree] }, {}))) {
-      return tree;
-    }
-  }
-
-  return lastTree;
-}
-
-/**
  * Run one Figma file through the sync pipeline.
  * Writes to the two SQLite DBs (the caller has the transaction).
  * Does NOT write per-component JSONs, variables.json, or manifest.json.
@@ -172,6 +65,11 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
   let styles: Awaited<ReturnType<FigmaClient["getStyles"]>> = [];
   let localVariables: Awaited<ReturnType<FigmaClient["getLocalVariables"]>> = null;
   let nodeDetailsById: Record<string, Awaited<ReturnType<FigmaClient["getNodes"]>>[string]> = {};
+
+  if (resumeFrom === undefined || resumeFrom.stage === "metadata") {
+    deleteComponentsByFileKey(componentsDb, fileKey);
+    deleteIconsByFileKey(iconsDb, fileKey);
+  }
 
   // helper to decide whether a stage runs given the resume point
   const stages: FileCheckpoint["stage"][] = [
@@ -219,59 +117,15 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
     await onStage?.("component_sets");
   }
 
-  // ── Fallback: page-by-page document-tree extraction ────────────────────
-  // When both /components and /component_sets returned empty AND the stages
-  // actually ran (not skipped due to resume), fall back to walking each page's
-  // node tree directly via /nodes?ids={pageId}&depth=4. This is more reliable
-  // than fetching the entire file with ?depth=4, which Figma truncates for
-  // large design systems.
+  // ── Diagnostic: unpublished libraries ──────────────────────────────────
+  // Figma draft generation needs published/importable component keys. If a
+  // file has no published components or component sets, do not treat its local
+  // document tree as a usable design system.
   if (publishedComponents.length === 0 && componentSets.length === 0 && shouldRun("components")) {
-    const fallbackStart = Date.now();
-    if (progress && fileCtx) progress.stage(fileCtx, "fallback", "library not published");
-
-    // If resuming from "components" we may have skipped stage 1; fetch pages now.
-    if (pageIds.length === 0) {
-      const file = await client.getFile(fileKey);
-      for (const page of file.document?.children ?? []) {
-        if (page.id && page.name) {
-          pageIds.push(page.id);
-          pageNameByNodeId[page.id] = page.name;
-        }
-      }
-    }
-
-    const pageTrees: Array<FigmaTreeNode | null> = [];
-    for (const id of pageIds) {
-      pageTrees.push(await getFallbackPageTree(client, fileKey, id));
-    }
-
-    const syntheticDoc: { children: FigmaTreeNode[] } = {
-      children: pageIds
-        .map((_, i) => pageTrees[i] ?? null)
-        .filter((t): t is FigmaTreeNode => t !== null),
-    };
-
-    const extracted = extractComponentsFromTree(syntheticDoc, pageNameByNodeId);
-    if (extracted.components.length > 0 || extracted.componentSets.length > 0) {
-      publishedComponents = extracted.components;
-      componentSets = extracted.componentSets;
-      skipped.push({
-        stage: "components",
-        reason: "Library not published — fell back to document tree extraction.",
-      });
-    } else {
-      skipped.push({
-        stage: "components",
-        reason: "Library not published and document tree extraction found no components.",
-      });
-    }
-    if (progress && fileCtx) {
-      progress.stageDone(
-        fileCtx,
-        "fallback",
-        `tree extracted: ${extracted.components.length} components, ${extracted.componentSets.length} sets (${formatMs(Date.now() - fallbackStart)})`
-      );
-    }
+    skipped.push({
+      stage: "components",
+      reason: "This Figma file is not published as a library, so its components cannot be used in generated Figma drafts.",
+    });
   }
 
   // ── Early write: seed componentsDb with names/paths before node_details ──
@@ -279,15 +133,16 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
   // DB stays empty until Stage 7 finishes. Stage 7 overwrites these rows with
   // full prop data once node details are available.
   if (publishedComponents.length > 0) {
-    const earlySetByKey: Record<string, (typeof componentSets)[number]> = {};
-    for (const cs of componentSets) earlySetByKey[cs.key] = cs;
+    const earlyNormalization = normalizePublishedDesignSystem({
+      fileKey,
+      publishedComponents,
+      componentSets,
+      nodeDetailsById: {},
+      pageNameByNodeId,
+    });
 
     withTransaction(componentsDb, () => {
-      for (const pub of publishedComponents) {
-        const pageName = pageNameByNodeId[pub.node_id] ?? pub.containing_frame?.pageName ?? "";
-        if (detectIconSignal({ pageName, componentName: pub.name }) !== null) continue;
-        const componentSet = pub.component_set_id ? earlySetByKey[pub.component_set_id] : undefined;
-        const json = buildComponentJson({ fileKey, publishedComponent: pub, componentSet });
+      for (const json of earlyNormalization.components) {
         upsertComponent(componentsDb, {
           name: json.name,
           path: json.path,
@@ -324,7 +179,13 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
   if (shouldRun("node_details")) {
     // Collect node ids we need: style node ids + published component node ids.
     const styleIds = styles.map((s) => s.node_id).filter((x): x is string => typeof x === "string");
-    const componentNodeIds = publishedComponents.map((c) => c.node_id);
+    const componentNodeIds = normalizePublishedDesignSystem({
+      fileKey,
+      publishedComponents,
+      componentSets,
+      nodeDetailsById: {},
+      pageNameByNodeId,
+    }).nodeIdsForDetails;
     const allIds = Array.from(new Set([...styleIds, ...componentNodeIds]));
 
     const BATCH = 100;
@@ -356,39 +217,21 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
   if (shouldRun("icons")) {
     if (progress && fileCtx) progress.stage(fileCtx, "icons", "classifying components...");
 
-    // Index component sets by key for lookup
-    const componentSetByKey: Record<string, (typeof componentSets)[number]> = {};
-    for (const cs of componentSets) componentSetByKey[cs.key] = cs;
+    const normalized = normalizePublishedDesignSystem({
+      fileKey,
+      publishedComponents,
+      componentSets,
+      nodeDetailsById,
+      pageNameByNodeId,
+    });
 
-    for (const pub of publishedComponents) {
-      const pageName = pageNameByNodeId[pub.node_id] ?? pub.containing_frame?.pageName ?? "";
-      const componentName = pub.name;
-      const signal = detectIconSignal({ pageName, componentName });
+    for (const icon of normalized.icons) {
+      upsertIcon(iconsDb, icon);
+      iconCount++;
+    }
 
-      if (signal !== null) {
-        upsertIcon(iconsDb, {
-          name: componentName,
-          key: pub.key,
-          signal,
-          fileKey,
-        });
-        iconCount++;
-        continue;
-      }
-
-      const componentSet = pub.component_set_id ? componentSetByKey[pub.component_set_id] : undefined;
-      const nodeDetail = nodeDetailsById[pub.node_id];
-
-      const json = buildComponentJson({
-        fileKey,
-        publishedComponent: pub,
-        componentSet,
-        // The API returns { document: { componentPropertyDefinitions?: ... } };
-        // component-shape expects { componentPropertyDefinitions?: ... } at the top level.
-        nodeDetails: nodeDetail?.document,
-      });
+    for (const json of normalized.components) {
       componentJsons.push(json);
-
       upsertComponent(componentsDb, {
         name: json.name,
         path: json.path,
@@ -397,6 +240,11 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
         props: buildPropsString(json),
       });
     }
+
+    for (const warning of normalized.warnings) {
+      skipped.push({ stage: "normalize", reason: warning.message });
+    }
+
     if (progress && fileCtx) {
       progress.stageDone(fileCtx, "icons", `${iconCount} icons, ${componentJsons.length} non-icons`);
     }

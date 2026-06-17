@@ -276,7 +276,7 @@ describe("syncOneFile", () => {
     expect(stages).toContain("done");
   });
 
-  it("falls back to page-by-page /nodes?depth=4 when /components returns empty", async () => {
+  it("does not tree-sync unpublished libraries as usable design systems", async () => {
     const calledUrls: string[] = [];
     const fetch = (async (url: string | URL) => {
       const u = url.toString();
@@ -337,16 +337,16 @@ describe("syncOneFile", () => {
       iconsDb,
     });
 
-    expect(result.componentCount).toBe(2);
-    expect(result.componentJsons.map((c) => c.name).sort()).toEqual(["Button", "Card"]);
-    expect(result.skipped.some((s) => s.reason.includes("document tree"))).toBe(true);
+    expect(result.componentCount).toBe(0);
+    expect(result.componentJsons).toEqual([]);
+    expect(result.skipped.some((s) => s.reason.includes("not published as a library"))).toBe(true);
 
-    // Fallback uses /nodes with depth=4, NOT /files?depth=4
-    expect(calledUrls.some((u) => u.includes("/nodes") && u.includes("depth=4"))).toBe(true);
+    // Unpublished files are not page-tree scraped for usable Figma DS output.
+    expect(calledUrls.some((u) => u.includes("/nodes") && u.includes("depth=4"))).toBe(false);
     expect(calledUrls.every((u) => !/\/v1\/files\/F1\?/.test(u))).toBe(true);
   });
 
-  it("fetches each page during fallback", async () => {
+  it("does not fetch every page when published endpoints are empty", async () => {
     const calledUrls: string[] = [];
     const fetch = (async (url: string | URL) => {
       const u = url.toString();
@@ -418,14 +418,13 @@ describe("syncOneFile", () => {
       iconsDb,
     });
 
-    // "Button" is a component; the two "ic/*" names are icons
-    expect(result.componentCount).toBe(1);
-    expect(result.iconCount).toBe(2);
-    // One depth=4 fetch per page
-    expect(calledUrls.filter((u) => u.includes("depth=4")).length).toBe(2);
+    expect(result.componentCount).toBe(0);
+    expect(result.iconCount).toBe(0);
+    expect(calledUrls.filter((u) => u.includes("depth=4")).length).toBe(0);
+    expect(result.skipped.some((s) => s.reason.includes("not published as a library"))).toBe(true);
   });
 
-  it("fallback retries a page at depth=8 when depth=4 has no components", async () => {
+  it("does not retry deeper page trees for unpublished libraries", async () => {
     const calledUrls: string[] = [];
     const fetch = (async (url: string | URL) => {
       const u = url.toString();
@@ -516,17 +515,21 @@ describe("syncOneFile", () => {
       iconsDb,
     });
 
-    expect(result.componentCount).toBe(1);
-    expect(result.componentJsons[0]?.name).toBe("Button");
-    expect(calledUrls.some((u) => u.includes("depth=4"))).toBe(true);
-    expect(calledUrls.some((u) => u.includes("depth=8"))).toBe(true);
+    expect(result.componentCount).toBe(0);
+    expect(calledUrls.some((u) => u.includes("depth=4"))).toBe(false);
+    expect(calledUrls.some((u) => u.includes("depth=8"))).toBe(false);
+    expect(result.skipped.some((s) => s.reason.includes("not published as a library"))).toBe(true);
   });
 
-  it("fallback page fetch failures are not swallowed as empty pages", async () => {
+  it("does not call page-tree nodes for unpublished libraries", async () => {
+    const calledUrls: string[] = [];
     const fetch = (async (url: string | URL) => {
       const u = url.toString();
+      calledUrls.push(u);
       if (u.includes("/v1/files/F1/components")) return jsonRes({ meta: { components: [] } });
       if (u.includes("/v1/files/F1/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/F1/styles")) return jsonRes({ meta: { styles: [] } });
+      if (u.includes("/v1/files/F1/variables/local")) return jsonRes({ meta: { variables: {}, variableCollections: {} } });
       if (u.includes("/v1/files/F1/nodes")) return errorRes(429);
       if (u.includes("/v1/files/F1")) {
         return jsonRes({
@@ -545,23 +548,23 @@ describe("syncOneFile", () => {
     });
     const { componentsDb, iconsDb } = makeDbs();
 
-    await expect(
-      syncOneFile({
-        root: "/tmp",
-        client,
-        fileKey: "F1",
-        fileName: "MUI",
-        componentsDb,
-        iconsDb,
-      })
-    ).rejects.toThrow("Figma is rate-limiting us");
+    const result = await syncOneFile({
+      root: "/tmp",
+      client,
+      fileKey: "F1",
+      fileName: "MUI",
+      componentsDb,
+      iconsDb,
+    });
+
+    expect(result.componentCount).toBe(0);
+    expect(calledUrls.some((u) => u.includes("/nodes"))).toBe(false);
+    expect(result.skipped.some((s) => s.reason.includes("not published as a library"))).toBe(true);
   });
 
-  it("fallback extracts variant COMPONENTs from inside COMPONENT_SETs (MUI3-style design systems)", async () => {
-    // Regression: for design systems where every component lives inside a COMPONENT_SET
-    // (the norm for MUI3 and most modern libraries), the fallback used to stop recursion
-    // at COMPONENT_SET and never add the child variants to publishedComponents. Stage 7
-    // would then iterate an empty list and report componentCount: 0.
+  it("reports unpublished component-set trees as not usable for Figma draft generation", async () => {
+    // Unpublished copied libraries can still contain real component-set trees, but
+    // those local node IDs are not importable in generated Figma drafts.
     const fetch = (async (url: string | URL) => {
       const u = url.toString();
       if (u.includes("/v1/files/F1/components")) return jsonRes({ meta: { components: [] } });
@@ -620,15 +623,12 @@ describe("syncOneFile", () => {
       iconsDb,
     });
 
-    // One entry per COMPONENT_SET (165 sets for MUI3, not 5k+ variants).
-    // buildComponentJson uses the set's own node_id as key (no componentSet lookup needed).
-    expect(result.componentCount).toBe(2);
-    expect(result.componentJsons.map((c) => c.name).sort()).toEqual(["Button", "TextField"]);
-    expect(result.componentJsons.map((c) => c.key).sort()).toEqual(["cs1", "cs2"]);
-    expect(result.skipped.some((s) => s.reason.includes("document tree"))).toBe(true);
+    expect(result.componentCount).toBe(0);
+    expect(result.componentJsons).toEqual([]);
+    expect(result.skipped.some((s) => s.reason.includes("not published as a library"))).toBe(true);
   });
 
-  it("does NOT fall back when /components returns components", async () => {
+  it("uses the published endpoint when /components returns components", async () => {
     const calledUrls: string[] = [];
     const fetch = (async (url: string | URL) => {
       const u = url.toString();
@@ -680,14 +680,150 @@ describe("syncOneFile", () => {
     // Normal path: 1 component found via /components
     expect(result.componentCount).toBe(1);
 
-    // The fallback getDocument call should NOT have been made
+    // The diagnostic tree endpoint is not part of the normal published sync path.
     expect(calledUrls.some((u) => u.includes("depth=4"))).toBe(false);
 
-    // No fallback in skipped
+    // No document-tree extraction warning is reported.
     expect(result.skipped.some((s) => s.reason.includes("document tree"))).toBe(false);
   });
 
-  it("progress: fallback path emits fallback stage + stageDone events when /components returns empty", async () => {
+  it("normalizes published flattened variants into logical components and icons", async () => {
+    const calledUrls: string[] = [];
+    const fetch = (async (url: string | URL) => {
+      const u = url.toString();
+      calledUrls.push(u);
+
+      if (u.includes("/v1/files/F1/components")) {
+        return jsonRes({
+          meta: {
+            components: [
+              {
+                key: "button-md-fill",
+                node_id: "buttonVariant1",
+                name: "Size=md, Type=Fill, State=rest",
+                containing_frame: {
+                  pageName: "Button",
+                  containingComponentSet: {
+                    nodeId: "buttonSetNode",
+                    name: "MDS-Public-TW-Button",
+                  },
+                },
+              },
+              {
+                key: "button-lg-outline",
+                node_id: "buttonVariant2",
+                name: "Size=lg, Type=Outline, State=hover",
+                containing_frame: {
+                  pageName: "Button",
+                  containingComponentSet: {
+                    nodeId: "buttonSetNode",
+                    name: "MDS-Public-TW-Button",
+                  },
+                },
+              },
+              {
+                key: "arrowDown24",
+                node_id: "arrowDown24Node",
+                name: "Arrows=down, Type=stroke, Size=24px",
+                containing_frame: {
+                  pageName: "    ↪️  Icons",
+                  containingComponentSet: {
+                    nodeId: "arrowsSetNode",
+                    name: "Arrows",
+                  },
+                },
+              },
+              {
+                key: "arrowUp24",
+                node_id: "arrowUp24Node",
+                name: "Arrows=up, Type=stroke, Size=24px",
+                containing_frame: {
+                  pageName: "    ↪️  Icons",
+                  containingComponentSet: {
+                    nodeId: "arrowsSetNode",
+                    name: "Arrows",
+                  },
+                },
+              },
+            ],
+          },
+        });
+      }
+
+      if (u.includes("/v1/files/F1/component_sets")) {
+        return jsonRes({
+          meta: {
+            component_sets: [
+              { key: "buttonSetKey", node_id: "buttonSetNode", name: "MDS-Public-TW-Button" },
+              { key: "arrowsSetKey", node_id: "arrowsSetNode", name: "Arrows" },
+            ],
+          },
+        });
+      }
+
+      if (u.includes("/v1/files/F1/styles")) return jsonRes({ meta: { styles: [] } });
+      if (u.includes("/v1/files/F1/variables/local")) {
+        return jsonRes({ meta: { variables: {}, variableCollections: {} } });
+      }
+      if (u.includes("/v1/files/F1/nodes")) {
+        return jsonRes({
+          nodes: {
+            buttonSetNode: {
+              document: {
+                id: "buttonSetNode",
+                name: "MDS-Public-TW-Button",
+                type: "COMPONENT_SET",
+                componentPropertyDefinitions: {
+                  Size: { type: "VARIANT", variantOptions: ["md", "lg"] },
+                  Type: { type: "VARIANT", variantOptions: ["Fill", "Outline"] },
+                  State: { type: "VARIANT", variantOptions: ["rest", "hover"] },
+                },
+              },
+            },
+            arrowsSetNode: {
+              document: { id: "arrowsSetNode", name: "Arrows", type: "COMPONENT_SET" },
+            },
+          },
+        });
+      }
+      if (u.includes("/v1/files/F1")) {
+        return jsonRes({ name: "Kotiko", document: { children: [] } });
+      }
+      throw new Error("no match: " + u);
+    }) as unknown as typeof globalThis.fetch;
+
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch,
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+      backoffOpts: FAST,
+    });
+    const { componentsDb, iconsDb } = makeDbs();
+
+    const result = await syncOneFile({
+      root: "/tmp",
+      client,
+      fileKey: "F1",
+      fileName: "Kotiko",
+      componentsDb,
+      iconsDb,
+    });
+
+    expect(result.componentCount).toBe(1);
+    expect(result.iconCount).toBe(2);
+    expect(result.componentJsons[0]?.name).toBe("MDS-Public-TW-Button");
+    expect(result.componentJsons[0]?.key).toBe("button-md-fill");
+    expect(result.componentJsons[0]?.componentSetKey).toBe("buttonSetKey");
+    expect(result.componentJsons[0]?.variants.map((variant) => variant.propertyName).sort()).toEqual([
+      "Size",
+      "State",
+      "Type",
+    ]);
+    expect(calledUrls.some((url) => url.includes("buttonSetNode"))).toBe(true);
+    expect(calledUrls.some((url) => url.includes("buttonVariant1"))).toBe(false);
+  });
+
+  it("progress: unpublished library path only emits the normal sync stages", async () => {
     const fetch = (async (url: string | URL) => {
       const u = url.toString();
       if (u.includes("/v1/files/F1/components")) return jsonRes({ meta: { components: [] } });
@@ -695,7 +831,6 @@ describe("syncOneFile", () => {
       if (u.includes("/v1/files/F1/styles")) return jsonRes({ meta: { styles: [] } });
       if (u.includes("/v1/files/F1/variables/local")) return jsonRes({ meta: { variables: {}, variableCollections: {} } });
       if (u.includes("/v1/files/F1/nodes")) return jsonRes({ nodes: {} });
-      // Both metadata and fallback hit this (depth=4 param distinguishes them at runtime)
       if (u.includes("/v1/files/F1")) {
         return jsonRes({
           name: "Mat3",
@@ -722,7 +857,7 @@ describe("syncOneFile", () => {
     });
     const { componentsDb, iconsDb } = makeDbs();
     const { emitter, events } = recordingProgressEmitter();
-    await syncOneFile({
+    const result = await syncOneFile({
       root: "/tmp",
       client,
       fileKey: "F1",
@@ -733,19 +868,11 @@ describe("syncOneFile", () => {
       fileCtx: { index: 1, total: 1, name: "Mat3" },
     });
 
-    const kinds = events.map((e) => e.kind);
-    // Should have at least one "stage" event with stage === "fallback"
-    const fallbackStage = events.find(
+    const unsupportedStage = events.find(
       (e) => e.kind === "stage" && (e.payload as { stage?: string })?.stage === "fallback"
     );
-    expect(fallbackStage).toBeDefined();
-    // And a matching stageDone
-    const fallbackDone = events.find(
-      (e) => e.kind === "stageDone" && (e.payload as { stage?: string })?.stage === "fallback"
-    );
-    expect(fallbackDone).toBeDefined();
-    // stageDone comes after stage
-    expect(kinds.lastIndexOf("stageDone")).toBeGreaterThan(kinds.indexOf("stage"));
+    expect(unsupportedStage).toBeUndefined();
+    expect(result.skipped.some((s) => s.reason.includes("not published as a library"))).toBe(true);
   });
 
   it("progress: node_details emits stageProgress with monotonically increasing processed", async () => {

@@ -1,5 +1,14 @@
 export type IconSignal = "page" | "prefix" | "slash" | null;
 
+function labelTokens(value: string): string[] {
+  return value
+    .replace(/[^A-Za-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((token) => token.toLowerCase());
+}
+
 /**
  * Three-signal icon classifier.
  *
@@ -19,7 +28,7 @@ export function detectIconSignal(input: {
   const { pageName, componentName } = input;
 
   // Page-name signal — strongest authorial intent
-  if (/^icons?$/i.test(pageName.trim())) return "page";
+  if (labelTokens(pageName).some((token) => token === "icon" || token === "icons")) return "page";
 
   // Prefix signal
   // /^(ic[-_]|icon_)/i matches: ic_arrow, ic-arrow, icon_arrow

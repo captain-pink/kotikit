@@ -151,7 +151,7 @@ See also: `kotikit_ds_get_component`, `kotikit_sync_ds`.
 
 Purpose: Read the full `ComponentJson` for a single DS component by its relative path.
 Input: `{ path: string }`
-Output: Full `ComponentJson` (name, key, variants, properties, slots, description, updatedAt).
+Output: Full `ComponentJson` (name, key, optional componentSetKey, variants, properties, slots, description, updatedAt). The `key` is the importable component key; `componentSetKey` is logical set metadata when available.
 Token cost: ~158.
 Example: "Get the full JSON for the Button component."
 See also: `kotikit_ds_search`, `kotikit_implement_code_start`.

@@ -39,6 +39,11 @@ export function clearIcons(db: Database): void {
   db.exec("DELETE FROM icons;");
 }
 
+/** Remove icon rows that came from one Figma file. */
+export function deleteIconsByFileKey(db: Database, fileKey: string): void {
+  db.prepare("DELETE FROM icons WHERE file_key = ?").run(fileKey);
+}
+
 /**
  * Insert or replace an icon row by name.
  * Caller must hold a transaction across batches.

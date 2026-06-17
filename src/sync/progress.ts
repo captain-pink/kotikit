@@ -23,11 +23,11 @@ export interface ProgressEmitter {
   syncStart(fileCount: number): void;
   fileStart(ctx: FileContext): void;
   /** Stage transition with no counts. */
-  stage(ctx: FileContext, stage: Stage | "fallback" | "writes", label?: string): void;
+  stage(ctx: FileContext, stage: Stage | "writes", label?: string): void;
   /** Stage progress with counts (for batched stages). */
-  stageProgress(ctx: FileContext, stage: Stage | "fallback", progress: StageProgress): void;
+  stageProgress(ctx: FileContext, stage: Stage, progress: StageProgress): void;
   /** Stage end with optional duration label. */
-  stageDone(ctx: FileContext, stage: Stage | "fallback" | "writes", label?: string): void;
+  stageDone(ctx: FileContext, stage: Stage | "writes", label?: string): void;
   fileDone(ctx: FileContext, summary: { componentCount: number; iconCount: number; elapsedMs: number }): void;
   syncDone(summary: { fileCount: number; componentTotal: number; iconTotal: number; conflictCount: number; elapsedMs: number }): void;
 }

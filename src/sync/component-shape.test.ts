@@ -31,7 +31,8 @@ describe("buildComponentJson", () => {
     ComponentJsonSchema.parse(result);
 
     expect(result.name).toBe("Button");
-    expect(result.key).toBe("setkey"); // component-set key wins
+    expect(result.key).toBe("pubkey");
+    expect(result.componentSetKey).toBe("setkey");
     expect(result.fileKey).toBe("F1");
     expect(result.path).toBe("components/button.json");
     expect(result.description).toBe("The primary button");
@@ -56,6 +57,7 @@ describe("buildComponentJson", () => {
       publishedComponent: { key: "pubkey", name: "Avatar" },
     });
     expect(result.key).toBe("pubkey");
+    expect(result.componentSetKey).toBeUndefined();
     expect(result.variants).toEqual([]);
     expect(result.properties).toEqual({});
   });
