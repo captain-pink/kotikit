@@ -317,10 +317,10 @@ token so only your Figma session can connect. Nothing leaves your machine.
 
 - Connects your Figma file to the running kotikit session.
 - Lets you inspect the link between a Figma component and its code counterpart.
+- Applies design-plan steps and records the Figma node IDs it created or updated.
+- Enables browserless review-comment lookup: the assistant can call `kotikit_design_review_comments` to fetch Figma comments and map comments on known nodes back to the relevant generated frame or component.
 
-**What is coming:** A full plan-checklist view inside the plugin — click a screen in Figma,
-see the spec and implementation status without leaving Figma. See `NEXT_STEPS.md` for the
-full list.
+**What is coming:** a fuller review workflow for replying to and resolving comments, richer fallback mapping for comments outside known nodes, and a full plan-checklist view inside the plugin. See `NEXT_STEPS.md` for the full list.
 
 ---
 

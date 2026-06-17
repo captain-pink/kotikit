@@ -39,6 +39,7 @@ describe("MCP server", () => {
       "kotikit_plan_design",
       "kotikit_design_get_screen",
       "kotikit_design_apply_step",
+      "kotikit_design_review_comments",
       // Phase 6
       "kotikit_audit",
       "kotikit_get_system_prompt",

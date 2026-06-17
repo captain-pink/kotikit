@@ -26,13 +26,21 @@ The planning module manages ephemeral, regenerable plans that guide an agent thr
 - `readDesignPlan(root, scope, screen | null)` — async; returns `DesignPlan | null`
 - `deleteDesignPlan(root, scope, screen | null)` — async
 
+**Design node maps and comments** (`src/planning/design-node-map.ts`, `src/planning/design-comments.ts`)
+- `DesignNodeMap` — persisted per-screen Figma node map written by `kotikit_design_apply_step` when the plugin reports Figma node metadata
+- `readDesignNodeMap(root, scope, screen | null)` — async; returns `DesignNodeMap | null`
+- `upsertDesignNodeMapEntry(root, scope, screen | null, update)` — async; merges a step's latest target node metadata into the map
+- `mapCommentsToDesignNodes(comments, nodeMap, options)` — pure mapper that links Figma comments by `client_meta.node_id` and leaves unmatched comments unmapped instead of guessing
+
 ## How it works
 
 Both plan tracks follow the same lifecycle: a MCP tool generates and writes the plan, a second tool reads and returns it to the agent, the agent executes the steps (via codegen or bridge tool calls), and a third tool deletes it on completion. Plans are intentionally ephemeral — they are never committed to version control and are always regenerable from the spec they reference. This makes them safe to delete and keeps the `.kotikit/specs/` directory tidy between sessions.
 
 The code plan's `steps` array maps directly to the code generation loop in `kotikit_implement_code_start`. Each step has a `kind` (which determines what the agent writes) and optional `notes` (which carry spec-derived context like "The list uses a pull-to-refresh gesture" for `compose-interactions`). The step kinds form a deliberate ordering: scaffold first, then states, then interactions, then accessibility, then responsive, then tests. This order ensures the file exists before richer behavior is layered in.
 
-The design plan's steps use a discriminated union on `kind`. Each step kind carries exactly the fields the corresponding Figma operation needs: `define-state-frame` carries dimensions; `apply-auto-layout` carries direction, padding, and spacing; `place-component` carries the component name, DS key, and variant overrides; `bind-variable` carries the variable name and the CSS property to bind it to. The bridge tool (`kotikit_design_apply`) reads one step at a time, executes it via the WebSocket bridge to the Figma plugin, and records the result to a JSONL apply-log file.
+The design plan's steps use a discriminated union on `kind`. Each step kind carries exactly the fields the corresponding Figma operation needs: `define-state-frame` carries dimensions; `apply-auto-layout` carries direction, padding, and spacing; `place-component` carries the component name, DS key, and variant overrides; `bind-variable` carries the variable name and the CSS property to bind it to. The bridge flow reads one step at a time, executes it in the Figma plugin, and records the result through `kotikit_design_apply_step`.
+
+Apply results are recorded in two forms. The JSONL apply log stays as the append-only audit trail. The optional `design.node-map.json` is a compact, validated map from design-plan steps to Figma node IDs. `kotikit_design_review_comments` uses that map with Figma comment `client_meta.node_id` values to tell the agent which planned component or frame a review comment targets. Comments without node IDs, or comments whose node IDs are outside the map, are returned as unmapped rather than inferred from text.
 
 ## When to extend it
 
@@ -45,7 +53,7 @@ The design plan's steps use a discriminated union on `kind`. Each step kind carr
 
 - [spec](./spec.md) — plans reference specs by scope and screen slug; `ScreenSpec` is the primary input to both generators
 - [codegen](./codegen.md) — code plan steps map to codegen operations in the implement flow
-- [util](./util.md) — `codePlanPath` and `designPlanPath` live here
-- [mcp](./mcp.md) — `kotikit_plan_code`, `kotikit_implement_code_start`, `kotikit_plan_design`, `kotikit_design_apply` are the tool wrappers
+- [util](./util.md) — `codePlanPath`, `designPlanPath`, and `designNodeMapPath` live here
+- [mcp](./mcp.md) — `kotikit_plan_code`, `kotikit_implement_code_start`, `kotikit_plan_design`, `kotikit_design_apply_step`, and `kotikit_design_review_comments` are the tool wrappers
 - `planning/phase-3.md` — code plan design rationale
 - `planning/phase-5.md` — design plan design rationale; bridge integration

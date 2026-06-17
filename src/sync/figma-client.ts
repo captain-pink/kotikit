@@ -9,6 +9,7 @@ import {
   FigmaStylesResponseSchema,
   FigmaVariablesResponseSchema,
   FigmaNodesResponseSchema,
+  FigmaCommentsResponseSchema,
   type FigmaFile,
   type FigmaPublishedComponent,
   type FigmaComponentSet,
@@ -16,6 +17,7 @@ import {
   type FigmaLocalVariables,
   type FigmaNode,
   type FigmaTreeNode,
+  type FigmaComment,
 } from "./figma-types.js";
 
 export type FetchFn = typeof globalThis.fetch;
@@ -268,6 +270,23 @@ export class FigmaClient {
     }
   }
 
+  /** GET /v1/files/:key/comments — comments and replies for design review. */
+  async getComments(
+    fileKey: string,
+    opts: { asMarkdown?: boolean } = {}
+  ): Promise<FigmaComment[]> {
+    try {
+      const suffix = opts.asMarkdown === true ? "?as_md=true" : "";
+      const res = await this.request(
+        `/v1/files/${fileKey}/comments${suffix}`,
+        FigmaCommentsResponseSchema
+      );
+      return res.comments;
+    } catch (err) {
+      throw this.mapError(err, fileKey, "comments");
+    }
+  }
+
   private mapError(err: unknown, fileKey: string, kind: string): Error {
     if (err instanceof FigmaResponseError) {
       if (err.status === 401) {
@@ -277,9 +296,12 @@ export class FigmaClient {
         );
       }
       if (err.status === 403) {
+        const scopeHint = kind === "comments"
+          ? "Make sure the file is accessible to the token and the token has the file_comments:read scope."
+          : "Make sure the file is published to your team and the token has the file_read scope.";
         return new KotikitError(
           `Your Figma token doesn't have access to file ${fileKey}.`,
-          "Make sure the file is published to your team and the token has the file_read scope."
+          scopeHint
         );
       }
       if (err.status === 404) {

@@ -1,6 +1,6 @@
 # kotikit MCP Tools
 
-26 tools exposed by the kotikit MCP server, organized by what they do.
+27 tools exposed by the kotikit MCP server, organized by what they do.
 Each tool name is what the agent calls; the "Example" line shows how to trigger it from your conversation.
 
 Token costs are approximate response sizes measured against a small fixture project (3 DS components, 1 screen). Re-measure for your project with `bun run measure`. See [docs/TOKENS.md](./TOKENS.md) for optimization strategies.
@@ -277,12 +277,23 @@ See also: `kotikit_plan_design`, `kotikit_design_apply_step`.
 
 ### kotikit_design_apply_step
 
-Purpose: Record that the Figma plugin applied a design plan step (appends to an audit log on disk).
-Input: `{ scope: string; screen?: string; stepIndex: number; outcome: "ok" | "warned" | "failed"; note?: string }`
+Purpose: Record that the Figma plugin applied a design plan step. Appends to an audit log and, when Figma node metadata is provided, updates the screen's `design.node-map.json` for later comment mapping.
+Input: `{ scope: string; screen?: string; stepIndex: number; outcome: "ok" | "warned" | "failed"; note?: string; stepKind?: DesignStepKind; state?: string; componentName?: string; dsKey?: string; figmaFileKey?: string; figmaPageId?: string; figmaPageName?: string; figmaNodeId?: string; figmaNodeKind?: "page" | "frame" | "instance" | "node"; figmaNodeName?: string }`
 Output: `{ line: string }` — the raw JSON line written to the log.
 Token cost: ~60.
 Example: _(called by the Figma plugin, not directly by the designer)_
 See also: `kotikit_design_get_screen`, `kotikit_plan_design`.
+
+---
+
+### kotikit_design_review_comments
+
+Purpose: Fetch Figma comments through the REST API and map them to applied design-plan nodes using the local `design.node-map.json` when available.
+Input: `{ scope?: string; screen?: string; fileKey?: string; includeResolved?: boolean; limit?: number }`
+Output: `{ fileKey, scope?, screen?, hasNodeMap, totalFetched, skippedResolved, mapped, unmapped, truncated }`
+Token cost: depends on comment count; defaults to 25 mapped and 25 unmapped comments returned.
+Example: "Read Figma review comments for the Members screen."
+See also: `kotikit_design_apply_step`, `kotikit_plan_design`.
 
 ---
 

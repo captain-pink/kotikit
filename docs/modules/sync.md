@@ -16,6 +16,7 @@ The sync module owns everything needed to pull a Figma design system into a loca
 - `FigmaClient#getLocalVariables(fileKey)` — local variables (Enterprise-gated; returns `null` on 403)
 - `FigmaClient#getNodes(fileKey, ids)` — node details, batched in chunks of 100
 - `FigmaClient#getPageTree(fileKey, pageId, depth=4)` — fetch one page tree through the nodes endpoint for diagnostics
+- `FigmaClient#getComments(fileKey, { asMarkdown? })` — fetch file comments and replies for design review; requires a token with `file_comments:read`
 - `FigmaResponseError` — exported for test construction
 
 **Rate limiting and backoff** (`src/sync/rate-limit.ts`, `src/sync/backoff.ts`)
@@ -77,7 +78,9 @@ The sync module owns everything needed to pull a Figma design system into a loca
 
 **Adaptive Figma pacing.** The Figma API applies different limits depending on account type, token permissions, endpoint tier, and current usage. Kotikit therefore does not assume a fixed free/pro plan limit. The default client uses `createAdaptiveLimiter`: it begins at `KOTIKIT_FIGMA_INITIAL_MIN_TIME_MS` or 1000 ms between request starts, keeps concurrency at 1, records every 429 as a slowdown signal, honors `Retry-After` as a temporary pause, and cautiously lowers the delay again after sustained success. This keeps professional accounts from being permanently throttled by free-tier defaults while still letting free or low-limit tokens converge to a safe pace. Operators can raise the initial/floor values for stricter environments or lower the floor for trusted high-limit tokens, but normal local sync should leave the defaults unset.
 
-`kotikit_sync_ds` loads the target project's `.env` before constructing the Figma client. If `config.figma.token` is omitted or empty, sync resolves `${FIGMA_TOKEN}` by default. If `config.figma.token` is present, that explicit value wins and may be a plain token, `${OTHER_ENV_VAR}`, or an `op://` secret reference. `.env` loading does not replace non-empty shell values, but it does refresh empty placeholders such as the scaffolded `FIGMA_TOKEN=` line so users can paste a token and retry sync in the same assistant session.
+Figma token resolution is shared by sync and comment review. Kotikit loads the target project's `.env` before constructing a Figma client. If `config.figma.token` is omitted or empty, it resolves `${FIGMA_TOKEN}` by default. If `config.figma.token` is present, that explicit value wins and may be a plain token, `${OTHER_ENV_VAR}`, or an `op://` secret reference. `.env` loading does not replace non-empty shell values, but it does refresh empty placeholders such as the scaffolded `FIGMA_TOKEN=` line so users can paste a token and retry in the same assistant session.
+
+`kotikit_design_review_comments` uses the same adaptive client as sync. Comments are a different Figma endpoint tier from files/components, so the limiter remains endpoint-agnostic: it honors 429s and `Retry-After` dynamically instead of assuming a particular Professional, Organization, or Enterprise quota.
 
 `syncAllFiles` runs files in the order declared in `config.figma.designSystemFiles`. This order is intentional: later files win on component-name collision. When two files publish a component with the same name, the later file's `ComponentJson` overwrites the earlier one on disk and in `components.db`, and the conflict is recorded in `SyncManifest.conflicts`. Variable collisions follow the same last-wins rule.
 
@@ -87,7 +90,7 @@ The registry writeback uses `upsertRegistryDsRow`, a merge-aware function that n
 
 ## When to extend it
 
-- Supporting a new Figma API endpoint (e.g. `/v1/files/:key/variables/published`) — add a method to `FigmaClient`, handle 403 gracefully, and include it as a new stage in `syncOneFile`.
+- Supporting a new Figma API endpoint (e.g. `/v1/files/:key/variables/published`) — add a method to `FigmaClient`, handle 403 gracefully, and include it as a new stage in `syncOneFile` only when it belongs to design-system sync.
 - Changing the collision resolution strategy — edit the `writtenByName` map logic in `syncAllFiles` (currently last-file-wins; could become first-file-wins or explicit priority list).
 - Adding a new artifact type beyond per-component JSON (e.g. a style token file) — add a stage to `syncOneFile` and a write call in the post-loop section of `syncAllFiles`.
 - Supporting non-Figma design tools — replace `FigmaClient` with a different client behind the same interface and write a new `syncOneFile` pipeline; the multi-file orchestrator, checkpoint, and registry writeback layers are tool-agnostic.

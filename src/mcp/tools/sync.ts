@@ -4,17 +4,9 @@ import type { ToolRegistry } from "../server.js";
 import { FigmaClient } from "../../sync/figma-client.js";
 import { syncAllFiles } from "../../sync/multi-file.js";
 import type { ProgressEmitter } from "../../sync/progress.js";
-import { resolveSecret } from "../../config/load.js";
 import { toolText, toolError, KotikitError } from "../../util/result.js";
-import { loadDotEnv } from "../../util/env.js";
 import { hasCheckpoint } from "../../sync/checkpoint.js";
-
-const DEFAULT_FIGMA_TOKEN_REF = "${FIGMA_TOKEN}";
-
-function figmaTokenRef(configToken: string | undefined): string {
-  const trimmed = configToken?.trim();
-  return trimmed === undefined || trimmed === "" ? DEFAULT_FIGMA_TOKEN_REF : trimmed;
-}
+import { resolveFigmaToken } from "../../sync/figma-token.js";
 
 export interface RegisterSyncToolsOpts {
   /** For tests. If omitted, the real FigmaClient is constructed. */
@@ -53,13 +45,9 @@ export function registerSyncTools(
         );
       }
 
-      // 2. Ensure .env is loaded (belt-and-suspenders for invocation paths
-      //    that bypass startServer, e.g. direct tool calls in tests or scripts).
-      await loadDotEnv(ctx.root, { overrideEmpty: true });
-
-      // 3. Resolve the Figma token. Project .env is the default source unless
+      // 2. Resolve the Figma token. Project .env is the default source unless
       //    config.figma.token explicitly points somewhere else.
-      const token = await resolveSecret(figmaTokenRef(config.figma.token));
+      const token = await resolveFigmaToken(ctx.root, config);
       if (token === undefined || token === "") {
         return toolError(
           new KotikitError(
@@ -69,7 +57,7 @@ export function registerSyncTools(
         );
       }
 
-      // 4. Ensure at least one file is configured
+      // 3. Ensure at least one file is configured
       if (config.figma.designSystemFiles.length === 0) {
         return toolError(
           new KotikitError(
@@ -79,12 +67,12 @@ export function registerSyncTools(
         );
       }
 
-      // 5. Build the Figma client (real or injected)
+      // 4. Build the Figma client (real or injected)
       const client = opts.figmaClientFactory
         ? opts.figmaClientFactory(token)
         : new FigmaClient({ token });
 
-      // 6. Run the sync
+      // 5. Run the sync
       const report = await syncAllFiles({
         root: ctx.root,
         files: config.figma.designSystemFiles,
@@ -92,7 +80,7 @@ export function registerSyncTools(
         ...(opts.progress !== undefined ? { progress: opts.progress } : {}),
       });
 
-      // 7. Build a human-readable summary
+      // 6. Build a human-readable summary
       const totalComponents = report.files.reduce(
         (sum, f) => sum + f.componentCount,
         0

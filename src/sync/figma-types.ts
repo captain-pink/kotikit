@@ -137,6 +137,38 @@ const FigmaNodesResponseSchema = z.object({
   nodes: z.record(z.string(), z.union([FigmaNodeSchema, z.null()])),
 }).passthrough();
 
+// ─── GET /v1/files/:key/comments ─────────────────────────────────────────────
+
+export const FigmaCommentClientMetaSchema = z.object({
+  node_id: z.string().optional(),
+}).passthrough();
+export type FigmaCommentClientMeta = z.infer<typeof FigmaCommentClientMetaSchema>;
+
+export const FigmaCommentUserSchema = z.object({
+  id: z.string().optional(),
+  handle: z.string().optional(),
+  img_url: z.string().optional(),
+  email: z.string().optional(),
+}).passthrough();
+export type FigmaCommentUser = z.infer<typeof FigmaCommentUserSchema>;
+
+export const FigmaCommentSchema = z.object({
+  id: z.string(),
+  file_key: z.string(),
+  parent_id: z.string().optional(),
+  user: FigmaCommentUserSchema.optional(),
+  created_at: z.string().optional(),
+  resolved_at: z.string().nullable().optional(),
+  message: z.string().optional(),
+  client_meta: FigmaCommentClientMetaSchema.optional(),
+  order_id: z.string().optional(),
+}).passthrough();
+export type FigmaComment = z.infer<typeof FigmaCommentSchema>;
+
+const FigmaCommentsResponseSchema = z.object({
+  comments: z.array(FigmaCommentSchema),
+}).passthrough();
+
 // Re-export response schemas for the client
 export {
   FigmaComponentsResponseSchema,
@@ -144,6 +176,7 @@ export {
   FigmaStylesResponseSchema,
   FigmaVariablesResponseSchema,
   FigmaNodesResponseSchema,
+  FigmaCommentsResponseSchema,
 };
 
 // ─── Document-tree type ──────────────────────────────────────────────────────
