@@ -21,6 +21,7 @@ export class FakeFigmaShim implements FigmaShim {
   bindings: { nodeId: string; property: string; variableId: string }[] = [];
   notifications: { message: string; error?: boolean }[] = [];
   currentPageId: string | null = null;
+  fileKey: string | undefined;
   private nextId = 1;
   /** Toggled in tests to make a specific call throw. */
   throwOn: { method?: keyof FigmaShim } = {};
@@ -36,6 +37,10 @@ export class FakeFigmaShim implements FigmaShim {
   /** Seed a variable so findVariableByName returns it. */
   seedVariable(name: string, id: string): void {
     this.variables.set(name, id);
+  }
+
+  getFileKey(): string | undefined {
+    return this.fileKey;
   }
 
   async findOrCreatePage(name: string): Promise<{ id: string }> {

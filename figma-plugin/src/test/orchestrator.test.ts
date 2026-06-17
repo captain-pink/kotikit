@@ -21,9 +21,16 @@ function basicPlan(): DesignPlan {
 describe("orchestrator.applyAll", () => {
   it("4-step happy path: all ok", async () => {
     const shim = new FakeFigmaShim();
+    shim.fileKey = "fig-file";
     const results = await applyAll({ shim, plan: basicPlan() });
     expect(results).toHaveLength(4);
     expect(results.every(r => r.outcome === "ok")).toBe(true);
+    expect(results[0]?.fileKey).toBe("fig-file");
+    expect(results[0]?.page?.name).toBe("Cart");
+    expect(results[0]?.node?.kind).toBe("frame");
+    expect(results[2]?.node?.kind).toBe("instance");
+    expect(results[2]?.componentName).toBe("Button");
+    expect(results[2]?.dsKey).toBe("k-button");
   });
 
   it("place-component with no dsKey is warned (others still execute)", async () => {

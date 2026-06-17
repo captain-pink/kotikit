@@ -6,7 +6,7 @@ import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
 import { registerDesignApplyTools } from "./design-apply.js";
-import { designApplyLogPath } from "../../util/paths.js";
+import { designApplyLogPath, designNodeMapPath } from "../../util/paths.js";
 
 const tmpDirs: string[] = [];
 function mkTmp(): string {
@@ -103,5 +103,51 @@ describe("kotikit_design_apply_step", () => {
     expect(typeof parsed.ts).toBe("string");
     expect(parsed.stepIndex).toBe(7);
     expect(parsed.outcome).toBe("ok");
+  });
+
+  it("updates the design node map when Figma node metadata is provided", async () => {
+    const root = mkTmp();
+    const registry = makeRegistry();
+    registerDesignApplyTools(registry, makeCtx(root));
+
+    await callTool(registry, "kotikit_design_apply_step", {
+      scope: "checkout-flow",
+      screen: "cart",
+      stepIndex: 2,
+      stepKind: "place-component",
+      outcome: "ok",
+      state: "default",
+      componentName: "Button",
+      dsKey: "button-key",
+      figmaFileKey: "fig-file",
+      figmaPageId: "page-1",
+      figmaPageName: "Cart",
+      figmaNodeId: "instance-1",
+      figmaNodeKind: "instance",
+      figmaNodeName: "Button",
+    });
+
+    const map = JSON.parse(
+      readFileSync(designNodeMapPath(root, "checkout-flow", "cart"), "utf-8")
+    );
+    expect(map.figmaFileKey).toBe("fig-file");
+    expect(map.page.name).toBe("Cart");
+    expect(map.nodes[0].nodeId).toBe("instance-1");
+    expect(map.nodes[0].componentName).toBe("Button");
+  });
+
+  it("does not write a design node map without Figma node metadata", async () => {
+    const root = mkTmp();
+    const registry = makeRegistry();
+    registerDesignApplyTools(registry, makeCtx(root));
+
+    await callTool(registry, "kotikit_design_apply_step", {
+      scope: "cart",
+      stepIndex: 0,
+      stepKind: "define-state-frame",
+      outcome: "ok",
+    });
+
+    expect(existsSync(designNodeMapPath(root, "cart", null))).toBe(false);
   });
 });

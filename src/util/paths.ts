@@ -82,6 +82,16 @@ export const designApplyLogPath = (
   return `${root}/.kotikit/specs/${scope}/${name}`;
 };
 
+/** Path to the per-screen Figma node map used to match review comments. */
+export const designNodeMapPath = (
+  root: string,
+  scope: string,
+  screen: string | null
+): string => {
+  const name = screen ? `${screen}.design.node-map.json` : "design.node-map.json";
+  return `${root}/.kotikit/specs/${scope}/${name}`;
+};
+
 /** Path to the bridge config file written when the bridge starts. */
 export const bridgeConfigPath = (root: string): string =>
   `${root}/.kotikit/bridge.json`;

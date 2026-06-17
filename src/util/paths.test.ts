@@ -10,7 +10,7 @@ import {
   checkpointPath, syncReportPath,
   codePlanPath, registryDbPath, codeComponentDir, codeComponentFile,
   uiDir, uiComponentFile, uiStoryFile,
-  designPlanPath, designApplyLogPath, bridgeConfigPath,
+  designPlanPath, designApplyLogPath, designNodeMapPath, bridgeConfigPath,
 } from "./paths";
 
 let tmp: string;
@@ -188,6 +188,18 @@ describe("paths", () => {
     it("designApplyLogPath multi-screen", () => {
       expect(designApplyLogPath("/p", "checkout-flow", "cart")).toBe(
         "/p/.kotikit/specs/checkout-flow/cart.design.apply.log"
+      );
+    });
+
+    it("designNodeMapPath single-screen", () => {
+      expect(designNodeMapPath("/p", "profile-page", null)).toBe(
+        "/p/.kotikit/specs/profile-page/design.node-map.json"
+      );
+    });
+
+    it("designNodeMapPath multi-screen", () => {
+      expect(designNodeMapPath("/p", "checkout-flow", "cart")).toBe(
+        "/p/.kotikit/specs/checkout-flow/cart.design.node-map.json"
       );
     });
 

@@ -1,4 +1,5 @@
 export interface FigmaShim {
+  getFileKey(): string | undefined;
   findOrCreatePage(name: string): Promise<{ id: string }>;
   setCurrentPage(pageId: string): Promise<void>;
   createFrame(input: {

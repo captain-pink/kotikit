@@ -4,6 +4,9 @@ declare const figma: any;
 import type { FigmaShim } from "./figma-shim.js";
 
 export const realFigmaShim: FigmaShim = {
+  getFileKey() {
+    return figma.fileKey;
+  },
   async findOrCreatePage(name) {
     const existing = figma.root.children.find((p: { type: string; name: string; id: string }) => p.type === "PAGE" && p.name === name);
     if (existing) return { id: existing.id };
