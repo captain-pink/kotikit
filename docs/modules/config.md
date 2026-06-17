@@ -22,6 +22,7 @@ The config module owns everything related to `.kotikit/config.json`: the Zod sch
 - `defaults.breakpoints` — pixel widths, default `[375, 768, 1024, 1440]`
 - `defaults.themes` — string array, default `["light", "dark"]`
 - `git.autoCommit` — boolean, default `true`
+- `git.coAuthor` — `{ name, email }` used for generated commit footers; defaults to Claude Code for backward compatibility
 
 **I/O** (`src/config/load.ts`)
 - `loadConfig(root)` — async, returns `Config | null` (null when file absent)
@@ -36,11 +37,11 @@ The config module owns everything related to `.kotikit/config.json`: the Zod sch
 
 ## How it works
 
-The config file lives at `<root>/.kotikit/config.json` and is always pretty-printed JSON. `loadConfig` reads and parses the file, delegating validation to `parseConfig` which uses `ConfigSchema.safeParse` and converts Zod issues into a single plain-English error message listing the bad field paths. All fields have safe defaults so a minimal config file (e.g. one written by `kotikit_config_init` with just `figma.token` set) is always valid.
+The config file lives at `<root>/.kotikit/config.json` and is always pretty-printed JSON. `loadConfig` reads and parses the file, delegating validation to `parseConfig` which uses `ConfigSchema.safeParse` and converts Zod issues into a single plain-English error message listing the bad field paths. Defaults are supplied by `defaultConfig()` during initialization, so configs written by `kotikit_config_init` are complete and valid even when the user only answered a few setup questions.
 
 Secret resolution follows a three-way dispatch: a plain string is returned unchanged; a string matching `${VAR_NAME}` is replaced with `process.env.VAR_NAME` synchronously; a string starting with `op://` is resolved by spawning `op read <value>` via `Bun.spawn` and stripping the trailing newline. The `op://` branch is fully async. If the `op` binary is missing or returns a non-zero exit code, `resolveSecret` returns `undefined` rather than throwing — callers are expected to handle a missing token gracefully and surface a clear message to the designer.
 
-The init wizard (`buildConfig`) is a thin merge layer. It calls `defaultConfig()` to get a clean base, then overlays only the keys the designer actually provided in `InitAnswers`, then runs the result through `ConfigSchema.parse` to guarantee a valid typed object. This means the wizard never needs to know about every field — omitted answers fall back to defaults automatically.
+The init wizard (`buildConfig`) is a thin merge layer. It calls `defaultConfig()` to get a clean base, then overlays only the keys the designer actually provided in `InitAnswers`, then runs the result through `ConfigSchema.parse` to guarantee a valid typed object. This means the wizard never needs to know about every field — omitted answers fall back to defaults automatically. Agent-specific wrappers can provide `git.coAuthor` during setup, for example Codex can pass `{ "name": "Codex", "email": "noreply@openai.com" }`, while shared runtime behavior stays agent-neutral.
 
 ## When to extend it
 

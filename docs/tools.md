@@ -1,7 +1,7 @@
 # kotikit MCP Tools
 
 26 tools exposed by the kotikit MCP server, organized by what they do.
-Each tool name is what Claude calls; the "Example" line shows how to trigger it from your conversation.
+Each tool name is what the agent calls; the "Example" line shows how to trigger it from your conversation.
 
 Token costs are approximate response sizes measured against a small fixture project (3 DS components, 1 screen). Re-measure for your project with `bun run measure`. See [docs/TOKENS.md](./TOKENS.md) for optimization strategies.
 
@@ -25,7 +25,7 @@ See also: `kotikit_config_init`, `kotikit_config_get`.
 ### kotikit_config_init
 
 Purpose: Initialize or reinitialize the kotikit config file with project settings and optional Figma connection.
-Input: `{ framework?: "react"; codeComponentsDir?: string; tests?: boolean; autoCommit?: boolean; figmaFiles?: { key: string; name: string }[] }`
+Input: `{ framework?: "react"; codeComponentsDir?: string; tests?: boolean; autoCommit?: boolean; coAuthor?: { name: string; email: string }; figmaFiles?: { key: string; name: string }[] }`
 Output: `{ configPath: string; notes: string[] }`
 Token cost: ~150.
 Example: "Set kotikit up for this project — I'm using React and my components live in `src/components`."
@@ -184,7 +184,7 @@ See also: `kotikit_implement_code_start`, `kotikit_spec_get`.
 
 ### kotikit_implement_code_start ⚠
 
-Purpose: Gather the full context bundle Claude needs to write React code for one screen — spec, plan, DS refs, gate environment, and test scaffold.
+Purpose: Gather the full context bundle an agent needs to write React code for one screen — spec, plan, DS refs, gate environment, and test scaffold.
 Input: `{ scope: string; screen?: string; expand?: boolean }`
 Output (default `expand: false`): `{ componentName, targetPath, testPath, systemPromptRef: "react", screenContext, spec, flow?, config, registryHits, componentRefs: { name, path, key }[], testScaffold, plan }`
 Output (`expand: true`): Same but with `dsComponents: Record<string, ComponentJson>` instead of `componentRefs`.

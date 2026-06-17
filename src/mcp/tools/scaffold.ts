@@ -455,6 +455,7 @@ function registerScaffoldSave(
         kind: writeKind,
         files: [...filePaths, registryDbPath(root)],
         enabled: config.git.autoCommit,
+        coAuthor: config.git.coAuthor,
         subjectScope: "code",
         subjectSuffix,
       });

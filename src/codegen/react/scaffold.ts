@@ -45,7 +45,7 @@ function kebabToCamel(kebab: string): string {
  *   - export default <Name>
  *
  * The Tailwind utility strings in cva are PLACEHOLDERS (empty strings) — kotikit
- * emits the SHAPE; Claude fills in the Tailwind utility classes during the implement pass.
+ * emits the SHAPE; the agent fills in Tailwind utility classes during the implement pass.
  */
 export function buildComponentTsx(json: ComponentJson, _codeComponentsDir: string): string {
   const name = pascalCase(json.name);

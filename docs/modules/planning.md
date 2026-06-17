@@ -2,7 +2,7 @@
 
 ## What it does
 
-The planning module manages ephemeral, regenerable plans that guide Claude through multi-step code generation and design application. It owns two independent plan tracks: the code track (Phase 3) that breaks screen implementation into ordered steps, and the design track (Phase 5) that describes how to build a screen in Figma using the bridge. Plans are written next to their spec files inside `.kotikit/specs/<scope>/`, deleted once the work is done, and regenerated if ever needed again.
+The planning module manages ephemeral, regenerable plans that guide an agent through multi-step code generation and design application. It owns two independent plan tracks: the code track (Phase 3) that breaks screen implementation into ordered steps, and the design track (Phase 5) that describes how to build a screen in Figma using the bridge. Plans are written next to their spec files inside `.kotikit/specs/<scope>/`, deleted once the work is done, and regenerated if ever needed again.
 
 ## Public surface
 
@@ -28,9 +28,9 @@ The planning module manages ephemeral, regenerable plans that guide Claude throu
 
 ## How it works
 
-Both plan tracks follow the same lifecycle: a MCP tool generates and writes the plan, a second tool reads and returns it to Claude, Claude executes the steps (via codegen or bridge tool calls), and a third tool deletes it on completion. Plans are intentionally ephemeral — they are never committed to version control and are always regenerable from the spec they reference. This makes them safe to delete and keeps the `.kotikit/specs/` directory tidy between sessions.
+Both plan tracks follow the same lifecycle: a MCP tool generates and writes the plan, a second tool reads and returns it to the agent, the agent executes the steps (via codegen or bridge tool calls), and a third tool deletes it on completion. Plans are intentionally ephemeral — they are never committed to version control and are always regenerable from the spec they reference. This makes them safe to delete and keeps the `.kotikit/specs/` directory tidy between sessions.
 
-The code plan's `steps` array maps directly to the code generation loop in `kotikit_implement_code_start`. Each step has a `kind` (which determines what Claude writes) and optional `notes` (which carry spec-derived context like "The list uses a pull-to-refresh gesture" for `compose-interactions`). The step kinds form a deliberate ordering: scaffold first, then states, then interactions, then accessibility, then responsive, then tests. This order ensures the file exists before richer behavior is layered in.
+The code plan's `steps` array maps directly to the code generation loop in `kotikit_implement_code_start`. Each step has a `kind` (which determines what the agent writes) and optional `notes` (which carry spec-derived context like "The list uses a pull-to-refresh gesture" for `compose-interactions`). The step kinds form a deliberate ordering: scaffold first, then states, then interactions, then accessibility, then responsive, then tests. This order ensures the file exists before richer behavior is layered in.
 
 The design plan's steps use a discriminated union on `kind`. Each step kind carries exactly the fields the corresponding Figma operation needs: `define-state-frame` carries dimensions; `apply-auto-layout` carries direction, padding, and spacing; `place-component` carries the component name, DS key, and variant overrides; `bind-variable` carries the variable name and the CSS property to bind it to. The bridge tool (`kotikit_design_apply`) reads one step at a time, executes it via the WebSocket bridge to the Figma plugin, and records the result to a JSONL apply-log file.
 

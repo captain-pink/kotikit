@@ -144,6 +144,13 @@ describe("buildConfig", () => {
     expect(defaultConfig().project.testFramework).toBe("vitest");
   });
 
+  it("defaultConfig() keeps the existing Claude Code co-author", () => {
+    expect(defaultConfig().git.coAuthor).toEqual({
+      name: "Claude Code",
+      email: "noreply@anthropic.com",
+    });
+  });
+
   it("buildConfig({ testFramework: 'none' }) returns testFramework 'none'", () => {
     const cfg = buildConfig({ testFramework: "none" });
     expect(cfg.project.testFramework).toBe("none");
@@ -166,5 +173,53 @@ describe("parseConfig — testFramework back-fill", () => {
     };
     const cfg = parseConfig(raw);
     expect(cfg.project.testFramework).toBe("vitest");
+  });
+
+  it("parses a Codex co-author override", () => {
+    const raw = {
+      project: {
+        framework: "react",
+        codeComponentsDir: "src/components",
+        tests: true,
+      },
+      defaults: {
+        breakpoints: [375, 768, 1024, 1440],
+        themes: ["light", "dark"],
+      },
+      git: {
+        autoCommit: true,
+        coAuthor: {
+          name: "Codex",
+          email: "noreply@openai.com",
+        },
+      },
+    };
+    const cfg = parseConfig(raw);
+    expect(cfg.git.coAuthor).toEqual({
+      name: "Codex",
+      email: "noreply@openai.com",
+    });
+  });
+
+  it("rejects empty co-author name and email", () => {
+    const raw = {
+      project: {
+        framework: "react",
+        codeComponentsDir: "src/components",
+        tests: true,
+      },
+      defaults: {
+        breakpoints: [375, 768, 1024, 1440],
+        themes: ["light", "dark"],
+      },
+      git: {
+        autoCommit: true,
+        coAuthor: {
+          name: "",
+          email: "",
+        },
+      },
+    };
+    expect(() => parseConfig(raw)).toThrow();
   });
 });

@@ -520,6 +520,7 @@ function registerSave(
         kind: writeKind,
         files: [...filePaths, regDbPath],
         enabled: config.git.autoCommit,
+        coAuthor: config.git.coAuthor,
       });
 
       // 7c. Update spec status to "active" if not already

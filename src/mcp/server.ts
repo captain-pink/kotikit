@@ -28,6 +28,7 @@ import { registerDesignScreenTools } from "./tools/design-screen.js";
 import { registerDesignApplyTools } from "./tools/design-apply.js";
 import { registerAuditTools } from "./tools/audit.js";
 import { registerSystemPromptTools } from "./tools/system-prompt.js";
+import { KOTIKIT_MCP_INSTRUCTIONS } from "./instructions.js";
 import { startBridgeServer, type BridgeServer } from "./bridge/server.js";
 import {
   generateBridgeToken,
@@ -58,7 +59,10 @@ export interface ToolRegistry {
 export function buildServer(): { server: Server; registry: ToolRegistry } {
   const server = new Server(
     { name: "kotikit", version: "0.1.0" },
-    { capabilities: { tools: {} } }
+    {
+      capabilities: { tools: {} },
+      instructions: KOTIKIT_MCP_INSTRUCTIONS,
+    }
   );
 
   const tools: Tool[] = [];

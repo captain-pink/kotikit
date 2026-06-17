@@ -272,7 +272,7 @@ describe("Phase 3 E2E — gate failure", () => {
     });
     expect(saveResult.isError).toBe(true);
 
-    // Files exist on disk (so Claude can edit)
+    // Files exist on disk (so the agent can edit)
     expect(existsSync(targetAbsPath)).toBe(true);
 
     // No commit yet (no commits at all since only spec commit would have been made)

@@ -1,11 +1,11 @@
 /**
  * Build the .test.tsx scaffold for one screen. Returns the full file contents
- * Claude will then flesh out (or accept as-is for now — each acceptance criterion
+ * The agent will then flesh out (or accept as-is for now — each acceptance criterion
  * becomes one test case with a TODO body, which Vitest treats as a pass-by-default
  * once the assertions are written, but a fail in strict mode if the TODO remains).
  *
  * For Phase 3 MVP we emit test stubs that PASS (no TODO that would fail).
- * Claude is responsible for filling in real assertions when the system prompt
+ * The agent is responsible for filling in real assertions when the system prompt
  * tells it to. If the user leaves test bodies empty, that's acceptable —
  * the gate just verifies the file compiles and runs.
  */

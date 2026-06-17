@@ -28,7 +28,7 @@ export interface Adapter {
   /** "react", "vue", etc. */
   name: string;
 
-  /** Quality-bar-encoded instructions Claude uses to write code. */
+  /** Quality-bar-encoded instructions the agent uses to write code. */
   systemPrompt(ctx: AdapterContext): string;
 
   /** "import { Button } from '@/components/ui/button';" */

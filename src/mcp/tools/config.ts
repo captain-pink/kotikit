@@ -112,6 +112,15 @@ function registerConfigInit(registry: ToolRegistry, ctx: ToolContext): void {
           type: "boolean",
           description: "Whether kotikit should auto-commit spec changes via git.",
         },
+        coAuthor: {
+          type: "object",
+          description: "Co-author identity to include in generated commit bodies.",
+          properties: {
+            name: { type: "string" },
+            email: { type: "string" },
+          },
+          required: ["name", "email"],
+        },
         figmaFiles: {
           type: "array",
           description: "Figma design system files to connect.",

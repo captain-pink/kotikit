@@ -77,6 +77,7 @@ export function registerPlanDesignTools(
         kind,
         files: [path],
         enabled: config.git.autoCommit,
+        coAuthor: config.git.coAuthor,
         subjectScope: "spec",
         subjectSuffix,
       });

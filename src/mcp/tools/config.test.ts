@@ -61,6 +61,12 @@ describe("tool registration", () => {
     expect(registry.tools.find((t) => t.name === "kotikit_config_init")).toBeDefined();
   });
 
+  it("advertises coAuthor on kotikit_config_init", () => {
+    const tool = registry.tools.find((t) => t.name === "kotikit_config_init");
+    expect(JSON.stringify(tool?.inputSchema)).toContain('"coAuthor"');
+    expect(JSON.stringify(tool?.inputSchema)).toContain('"required":["name","email"]');
+  });
+
   it("registers kotikit_config_get", () => {
     expect(registry.tools.find((t) => t.name === "kotikit_config_get")).toBeDefined();
   });
@@ -203,6 +209,26 @@ describe("kotikit_config_init", () => {
     const getResult = await call("kotikit_config_get", {});
     const text = getText(getResult);
     expect(text).toContain("abc123");
+  });
+
+  it("accepts a Codex co-author identity", async () => {
+    const result = await call("kotikit_config_init", {
+      coAuthor: { name: "Codex", email: "noreply@openai.com" },
+    });
+    expect(result.isError).toBeUndefined();
+
+    const getResult = await call("kotikit_config_get", {});
+    const text = getText(getResult);
+    expect(text).toContain('"name": "Codex"');
+    expect(text).toContain('"email": "noreply@openai.com"');
+  });
+
+  it("rejects an empty co-author identity", async () => {
+    const result = await call("kotikit_config_init", {
+      coAuthor: { name: " ", email: "" },
+    });
+    expect(result.isError).toBe(true);
+    expect(getText(result)).toContain("git.coAuthor.name");
   });
 });
 

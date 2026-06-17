@@ -72,6 +72,7 @@ function registerFlowCreate(registry: ToolRegistry, ctx: ToolContext): void {
         kind: "create",
         files: [manifestPath, ...specPaths, indexPath(root)],
         enabled,
+        coAuthor: config.git.coAuthor,
       });
 
       const screenSlugs = specs.map((s) => s.screenSlug).join(", ");

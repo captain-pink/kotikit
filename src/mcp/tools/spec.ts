@@ -101,6 +101,7 @@ function registerSpecCreate(registry: ToolRegistry, ctx: ToolContext): void {
           kind: "create",
           files: [manifestPath, ...specPaths, indexPath(root)],
           enabled,
+          coAuthor: config.git.coAuthor,
         });
 
         return toolText(
@@ -120,6 +121,7 @@ function registerSpecCreate(registry: ToolRegistry, ctx: ToolContext): void {
           kind: "create",
           files: [writtenPath, indexPath(root)],
           enabled,
+          coAuthor: config.git.coAuthor,
         });
 
         return toolText(
@@ -315,6 +317,7 @@ function registerSpecUpdate(registry: ToolRegistry, ctx: ToolContext): void {
         kind: "update",
         files: [writtenPath, indexPath(root)],
         enabled,
+        coAuthor: config.git.coAuthor,
       });
 
       return toolText(

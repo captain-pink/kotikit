@@ -1,4 +1,4 @@
-import { autoCommit, type CommitResult } from "../git/auto-commit.js";
+import { autoCommit, type CoAuthor, type CommitResult } from "../git/auto-commit.js";
 
 export async function autoCommitCode(opts: {
   root: string;
@@ -7,6 +7,7 @@ export async function autoCommitCode(opts: {
   kind: "create" | "update";
   files: string[]; // absolute paths to the generated files (also includes registry.db etc.)
   enabled: boolean;
+  coAuthor?: CoAuthor;
 }): Promise<CommitResult> {
   const subjectSuffix = opts.screen ? `/${opts.screen}` : "";
   return autoCommit({
@@ -15,6 +16,7 @@ export async function autoCommitCode(opts: {
     kind: opts.kind,
     files: opts.files,
     enabled: opts.enabled,
+    coAuthor: opts.coAuthor,
     subjectScope: "code",
     subjectSuffix,
   });

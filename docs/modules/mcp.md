@@ -2,14 +2,15 @@
 
 ## What it does
 
-The mcp module is the boundary between kotikit's engines and the AI model. It owns the MCP server process (stdio transport, used by Claude Code), the optional WebSocket bridge (used by the Figma plugin), the `ToolRegistry` pattern that all tool registrars write to, and the `ToolContext` that every tool handler receives. It registers all 26 tools and routes `tools/list` and `tools/call` requests from both transports through a single shared handler map.
+The mcp module is the boundary between kotikit's engines and the AI model. It owns the MCP server process (stdio transport, used by Claude Code, Codex, and other MCP clients), the optional WebSocket bridge (used by the Figma plugin), the `ToolRegistry` pattern that all tool registrars write to, and the `ToolContext` that every tool handler receives. It registers all 26 tools and routes `tools/list` and `tools/call` requests from both transports through a single shared handler map.
 
 ## Public surface
 
 **Server build and start** (`src/mcp/server.ts`)
 - `ToolRegistry` — `{ tools: Tool[], handlers: Map<string, Handler> }` — the shared accumulator every `register*` function writes to
-- `buildServer()` — construct the MCP `Server`, populate the registry by calling all `register*` functions, wire `ListToolsRequestSchema` and `CallToolRequestSchema` handlers; returns `{ server, registry }`
+- `buildServer()` — construct the MCP `Server` with `KOTIKIT_MCP_INSTRUCTIONS`, populate the registry by calling all `register*` functions, wire `ListToolsRequestSchema` and `CallToolRequestSchema` handlers; returns `{ server, registry }`
 - `startServer()` — call `buildServer`, connect stdio transport, optionally start the bridge
+- `KOTIKIT_MCP_INSTRUCTIONS` (`src/mcp/instructions.ts`) — concise server-level guidance that MCP clients can read during initialization
 
 **Tool context** (`src/mcp/context.ts`)
 - `ToolContext` — `{ root: string, loadConfig: () => Promise<Config | null> }` — passed to every tool registrar at startup
@@ -38,7 +39,9 @@ See [docs/tools.md](../tools.md) for the complete cheat-sheet. The 26 tools are 
 
 `buildServer` is the single composition root. It constructs one `ToolRegistry` object, finds the project root via `findProjectRoot()`, builds a `ToolContext`, then calls each `register*` function with both. Each registrar pushes one or more `Tool` objects (the MCP JSON Schema description) onto `registry.tools` and one handler function per tool onto `registry.handlers`. The server's `CallToolRequestSchema` handler is a single dispatcher: it looks up the tool name in `handlers`, calls the handler, and lets `toolError` convert any thrown error into a safe MCP error response.
 
-The stdio transport and the WebSocket bridge share the identical handler map. The bridge's `tools/call` JSON-RPC handler looks up the tool name in `registry.handlers` and calls it with the parsed arguments, exactly as the stdio dispatcher does. This means every feature automatically works both in Claude Code (stdio) and in the Figma plugin (bridge) without any duplication.
+The server also exposes `KOTIKIT_MCP_INSTRUCTIONS` during MCP initialization. These instructions are agent-neutral and front-load the workflow: translate tool JSON into plain language, fetch long system prompts by reference, search design-system indexes before reading exact files, and keep user-facing errors friendly.
+
+The stdio transport and the WebSocket bridge share the identical handler map. The bridge's `tools/call` JSON-RPC handler looks up the tool name in `registry.handlers` and calls it with the parsed arguments, exactly as the stdio dispatcher does. This means every feature automatically works in stdio MCP clients such as Claude Code and Codex, and in the Figma plugin bridge, without duplication.
 
 The bridge binds to `127.0.0.1` only and requires a per-session token on the WebSocket upgrade URL query string. The `/handshake` endpoint is unauthenticated and returns project metadata so the Figma plugin can display the connected project name before asking for a token. When the bridge starts, it writes `BridgeConfig` to `.kotikit/bridge.json` atomically; on SIGINT/SIGTERM it removes that file so a stale config cannot mislead a future session.
 

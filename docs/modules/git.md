@@ -8,12 +8,13 @@ The git module provides the auto-commit machinery that records kotikit's work as
 
 **Core** (`src/git/auto-commit.ts`)
 - `autoCommit(opts)` — the generic commit function; stages the listed files, checks for staged changes, creates the commit; returns `CommitResult`
-- `AutoCommitOpts` — `{ root, scope, kind, files, enabled, subjectScope?, subjectSuffix? }`
+- `AutoCommitOpts` — `{ root, scope, kind, files, enabled, coAuthor?, subjectScope?, subjectSuffix? }`
   - `root` — project root (must be a git repo)
   - `scope` — the spec scope name, used in the commit subject
   - `kind` — `"create"` or `"update"`
   - `files` — absolute paths to stage; `autoCommit` converts them to repo-relative paths before staging
   - `enabled` — when `false`, returns immediately without touching git
+  - `coAuthor` — optional `{ name, email }` footer identity; defaults to Claude Code for backward compatibility
   - `subjectScope` — `"spec"` (default) or `"code"` — determines the conventional-commit scope marker
   - `subjectSuffix` — optional string appended after `scope` in the subject (e.g. `"/cart"` for a flow screen)
 - `CommitResult` — `{ committed: boolean, reason?: string, sha?: string, message: string }`
@@ -35,7 +36,7 @@ The commit subject follows the Conventional Commits format: `feat(<subjectScope>
 - `feat(code): create checkout-flow/cart` — generated code for a flow screen
 - `feat(code): create login` — generated code for a single-screen scope
 
-Every commit body ends with `Co-authored-by: Claude Code <noreply@anthropic.com>` on its own line, preceded by a blank line. This footer is mandatory and is included even when `subjectSuffix` is empty.
+Every commit body ends with a `Co-authored-by` footer on its own line, preceded by a blank line. The default is `Claude Code <noreply@anthropic.com>` for backward compatibility, but projects can configure a different `git.coAuthor`, such as Codex. The footer is included even when `subjectSuffix` is empty.
 
 `autoCommit` uses `simple-git` for all git operations. Before committing it calls `isGitRepo` — if the project is not tracked by git, it returns `{ committed: false, reason: "not a git repo" }` without error. After staging, it reads `git.status()` and checks `staged`, `created`, and `renamed` entries; if nothing is staged (e.g. the file was unchanged since the last commit), it returns `{ committed: false, reason: "no changes" }`. This makes auto-commit safe to call unconditionally — callers do not need to pre-check whether there is anything to commit.
 
@@ -45,7 +46,7 @@ Every commit body ends with `Co-authored-by: Claude Code <noreply@anthropic.com>
 
 - Adding a new commit subject scope (e.g. `"design"` for Figma apply commits) — extend the `subjectScope` union in `AutoCommitOpts` from `"spec" | "code"` to include the new value; create a wrapper function in the relevant module (following the `autoCommitCode` pattern in `src/codegen/code-commit.ts`).
 - Signing commits (e.g. GPG) — `simple-git` accepts git config passthrough; add a `signingKey` option to `AutoCommitOpts` and pass it via `git.env({ GIT_COMMITTER_NAME: ... })` before `git.commit(...)`.
-- Changing the co-authored-by footer — edit the `body` string in `autoCommit`; the footer is applied to every commit including those from convenience wrappers.
+- Changing the co-authored-by footer — prefer `config.git.coAuthor`; the footer is applied to every commit including those from convenience wrappers.
 - Adding a tag after a commit (e.g. for spec versioning) — add an optional `tag` field to `AutoCommitOpts` and call `git.addTag(tag)` after a successful commit.
 
 ## Related

@@ -1,6 +1,6 @@
 # Tokens
 
-kotikit responses cost tokens to generate AND tokens for Claude to read. Sonnet 4.6 has a weekly token budget; if you burn it in twenty minutes during a single screen-build session, you can't ship for the rest of the week.
+kotikit responses cost tokens to generate and tokens for the active agent to read. Hosted coding assistants have conversation budgets; if you burn them in twenty minutes during a single screen-build session, you lose useful working context for the rest of that task.
 
 This doc tells you what each tool costs and how to keep your conversations cheap.
 
@@ -9,8 +9,8 @@ This doc tells you what each tool costs and how to keep your conversations cheap
 ## TL;DR — three things you can do today
 
 1. **Brainstorm one screen per session.** Start a new chat for the next screen so the prior brainstorm doesn't sit in context.
-2. **Scaffold in batches of 3.** kotikit pages scaffolding by default. Resist asking Claude to "scaffold all 30 components at once".
-3. **Don't `expand: true` unless you actually need it.** The default `componentRefs` shape saves ~15-20% tokens per call; Claude can fetch any one component on demand.
+2. **Scaffold in batches of 3.** kotikit pages scaffolding by default. Resist asking the agent to "scaffold all 30 components at once".
+3. **Don't `expand: true` unless you actually need it.** The default `componentRefs` shape saves ~15-20% tokens per call; the agent can fetch any one component on demand.
 
 ---
 
@@ -63,8 +63,8 @@ Token estimate = bytes / 3.8 (rough JSON-heavy estimate). The real tokenizer can
 ### A note on `kotikit_design_get_screen` (1,513 tokens)
 
 This is the largest tool by response size, but it is called by the Figma plugin over the
-WebSocket bridge — not by Claude directly. Its bytes hit the bridge transport, not the
-Claude context window. Phase 6 chose not to optimize it. If the plugin's UI needs to render
+WebSocket bridge, not directly by the coding assistant. Its bytes hit the bridge transport,
+not the assistant context window. Phase 6 chose not to optimize it. If the plugin's UI needs to render
 many screens per session, a componentRefs-style lazy mode could be added; that work is
 tracked in `NEXT_STEPS.md`.
 
@@ -80,7 +80,7 @@ After Phase 6, those tools return a `systemPromptRef: "react" | "brainstorm" | "
 
 **Net savings on a typical session:** ~3-5KB of duplicated text across multiple implement/scaffold calls (e.g. three implement calls × 1,500 bytes saved each = 4,500 bytes = ~1,184 tokens avoided).
 
-**First-turn recommendation:** If you call `implement_code_start` or `scaffold_start` early in a fresh conversation, make your FIRST tool call `kotikit_get_system_prompt({ kind: 'react' })` to fetch the doctrine into context. After that, every subsequent implement/scaffold call references it for free. Without that priming call, the model has only the short `systemPromptRef` stub and may ask Claude to fetch the doctrine mid-flow, costing an extra round-trip.
+**First-turn recommendation:** If you call `implement_code_start` or `scaffold_start` early in a fresh conversation, make your first tool call `kotikit_get_system_prompt({ kind: 'react' })` to fetch the doctrine into context. After that, every subsequent implement/scaffold call references it for free. Without that priming call, the model has only the short `systemPromptRef` stub and may ask to fetch the doctrine mid-flow, costing an extra round-trip.
 
 ### 2. Scaffold pagination
 
@@ -92,15 +92,15 @@ After Phase 6, those tools return a `systemPromptRef: "react" | "brainstorm" | "
 
 A 20-component design system scaffolds in 7 round-trips of ~5KB each instead of one 50KB blob (~13,157 tokens → ~9,562 tokens across the full set). Each batch is small enough to review and correct before committing to the next.
 
-**Tip for designers:** ask Claude "scaffold the first 3 components" and review each batch before continuing. This also means mistakes are caught early — not after 20 components are generated.
+**Tip for designers:** ask the agent "scaffold the first 3 components" and review each batch before continuing. This also means mistakes are caught early — not after 20 components are generated.
 
 ### 3. `componentRefs` lazy expansion
 
-`kotikit_implement_code_start` default response carries `componentRefs: [{name, path, key}]` instead of the full `dsComponents` dictionary. Claude fetches a specific component JSON on demand via `kotikit_ds_get_component({path})`.
+`kotikit_implement_code_start` default response carries `componentRefs: [{name, path, key}]` instead of the full `dsComponents` dictionary. The agent fetches a specific component JSON on demand via `kotikit_ds_get_component({path})`.
 
-For a screen with 8 components, this drops the implement_code_start response from ~6,408 bytes (1,686 tokens, expand mode) to ~5,339 bytes (1,405 tokens, default refs mode) — a 17% reduction before any components are fetched. Claude only pays for the components it actually reads during code generation, so a screen that ultimately uses 3 of 8 available components saves an additional ~2-3KB.
+For a screen with 8 components, this drops the implement_code_start response from ~6,408 bytes (1,686 tokens, expand mode) to ~5,339 bytes (1,405 tokens, default refs mode) — a 17% reduction before any components are fetched. The agent only pays for the components it actually reads during code generation, so a screen that ultimately uses 3 of 8 available components saves an additional ~2-3KB.
 
-Pass `expand: true` if you want the legacy bundle — for example, when Claude knows up front that it will need every component JSON for a complex screen and the round-trip latency matters more than the token cost.
+Pass `expand: true` if you want the legacy bundle — for example, when the agent knows up front that it will need every component JSON for a complex screen and the round-trip latency matters more than the token cost.
 
 ---
 
@@ -122,7 +122,7 @@ Anthropic supports prompt caching via `cache_control` markers on content blocks 
 
 What kotikit can and does do:
 
-- Tool *definitions* (registered via `tools/list`) are stable and naturally cached by Claude Code at session start.
+- Tool *definitions* (registered via `tools/list`) are stable and naturally cached by the MCP client at session start.
 - Tool *outputs* are structured so a stable prefix (system prompt fetched once, plan written once) lives in conversation history and the KV cache keeps it warm.
 - Static content (the doctrines) is moved behind `kotikit_get_system_prompt` so they appear ONCE per session.
 

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { KotikitError } from "../util/result.js";
 
 export const ConfigSchema = z.object({
   figma: z
@@ -27,8 +28,23 @@ export const ConfigSchema = z.object({
   git: z
     .object({
       autoCommit: z.boolean().default(true),
+      coAuthor: z
+        .object({
+          name: z.string().trim().min(1),
+          email: z.string().trim().min(1),
+        })
+        .default({
+          name: "Claude Code",
+          email: "noreply@anthropic.com",
+        }),
     })
-    .default({ autoCommit: true }),
+    .default({
+      autoCommit: true,
+      coAuthor: {
+        name: "Claude Code",
+        email: "noreply@anthropic.com",
+      },
+    }),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -54,7 +70,7 @@ export function parseConfig(raw: unknown): Config {
   const result = ConfigSchema.safeParse(raw);
   if (!result.success) {
     const fields = result.error.issues.map((i) => i.path.join(".") || "root").join(", ");
-    throw new Error(
+    throw new KotikitError(
       `The kotikit config file has an invalid format. Problem with: ${fields}. ` +
         `Try running /kotikit:auto to reinitialize the config.`
     );

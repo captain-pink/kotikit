@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import simpleGit from "simple-git";
-import { autoCommit, autoCommitSpec, isGitRepo, gitInit } from "./auto-commit";
+import { autoCommit, autoCommitSpec, formatCoAuthorFooter, isGitRepo, gitInit } from "./auto-commit";
 
 let tmp: string;
 
@@ -28,6 +28,12 @@ const writeSpecFile = (dir: string, name: string, content = "{}") => {
 };
 
 describe("autoCommitSpec", () => {
+  it("formats a co-author footer", () => {
+    expect(formatCoAuthorFooter({ name: "Codex", email: "noreply@openai.com" })).toBe(
+      "Co-authored-by: Codex <noreply@openai.com>"
+    );
+  });
+
   it("creates a commit with the correct subject for kind=create", async () => {
     const relPath = writeSpecFile(tmp, "spec.json");
     const result = await autoCommitSpec({
@@ -58,6 +64,29 @@ describe("autoCommitSpec", () => {
     const { $ } = await import("bun");
     const body = await $`git -C ${tmp} show -s --format=%B HEAD`.text();
     expect(body).toContain("Co-authored-by: Claude Code <noreply@anthropic.com>");
+  });
+
+  it("commit body can use a Codex co-author footer", async () => {
+    const relPath = writeSpecFile(tmp, "spec.json");
+    await autoCommitSpec({
+      root: tmp,
+      scope: "profile-page",
+      kind: "create",
+      files: [relPath],
+      enabled: true,
+      coAuthor: {
+        name: "Codex",
+        email: "noreply@openai.com",
+      },
+    });
+    const { $ } = await import("bun");
+    const body = await $`git -C ${tmp} show -s --format=%B HEAD`.text();
+    expect(body).toContain("Co-authored-by: Codex <noreply@openai.com>");
+    expect(body).not.toContain("Co-authored-by: Claude Code");
+  });
+
+  it("rejects a blank co-author name", () => {
+    expect(() => formatCoAuthorFooter({ name: "", email: "noreply@openai.com" })).toThrow();
   });
 
   it("creates a feat(spec): update commit for kind=update", async () => {

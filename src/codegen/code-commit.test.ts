@@ -134,9 +134,36 @@ describe("autoCommitCode", () => {
     const git = simpleGit(root);
     const log = await git.log();
     const last = log.all[0];
-    // Body or message should mention Claude Code
+    // Default body or message should mention Claude Code for backwards compatibility.
     expect((last?.body ?? "") + (last?.message ?? "")).toContain(
       "Co-authored-by: Claude Code",
+    );
+  });
+
+  it("commit body can use a configured Codex co-author footer", async () => {
+    const root = await mkTmpRepo();
+    const file = await writeAndStageFile(
+      root,
+      "src/components/x/X.tsx",
+      "x",
+    );
+    await autoCommitCode({
+      root,
+      scope: "x",
+      screen: null,
+      kind: "create",
+      files: [file],
+      enabled: true,
+      coAuthor: {
+        name: "Codex",
+        email: "noreply@openai.com",
+      },
+    });
+    const git = simpleGit(root);
+    const log = await git.log();
+    const last = log.all[0];
+    expect((last?.body ?? "") + (last?.message ?? "")).toContain(
+      "Co-authored-by: Codex <noreply@openai.com>",
     );
   });
 });

@@ -46,16 +46,16 @@ The codegen module owns everything that turns a `ScreenSpec` into runnable code:
 - `MissingGate` — `{ gate, hint }`
 
 **Code commit** (`src/codegen/code-commit.ts`)
-- `autoCommitCode({ root, scope, screen, kind, files, enabled })` — wrapper over `autoCommit` with `subjectScope: "code"`; subject suffix is `/<screen>` for multi-screen flows
+- `autoCommitCode({ root, scope, screen, kind, files, enabled, coAuthor? })` — wrapper over `autoCommit` with `subjectScope: "code"`; subject suffix is `/<screen>` for multi-screen flows
 
 **Gate report formatter** (`src/codegen/gate-report.ts`)
-- `formatGateReport(report)` — returns a human-readable string Claude can include in its response
+- `formatGateReport(report)` — returns a human-readable string the agent can include in its response
 
 ## How it works
 
 The `Adapter` interface decouples tool layer code from framework-specific decisions. Every method that needs framework knowledge (`systemPrompt`, `importStatement`, `fileNameFor`, `testScaffold`, `qualityGates`, `verifyEnvironment`, `transformGateOutput`) is delegated to the adapter. The MCP tools that drive code generation only import the adapter interface, never the `reactAdapter` singleton directly — this ensures that adding a Vue adapter in the future requires no changes to the tool layer.
 
-The CVA pattern (class-variance-authority) is the scaffold's structural backbone. `buildComponentTsx` emits all Tailwind utility class strings as empty string placeholders (`""`). kotikit owns the shape — the variant axes, their values, the props interface, and the component skeleton — while Claude fills in actual Tailwind classes during the implement pass. This division of responsibility keeps scaffolded files valid TypeScript from the first generation: the shape is correct even before Claude adds classes.
+The CVA pattern (class-variance-authority) is the scaffold's structural backbone. `buildComponentTsx` emits all Tailwind utility class strings as empty string placeholders (`""`). kotikit owns the shape — the variant axes, their values, the props interface, and the component skeleton — while the agent fills in actual Tailwind classes during the implement pass. This division of responsibility keeps scaffolded files valid TypeScript from the first generation: the shape is correct even before styling classes are added.
 
 Gate commands run sequentially. `tsc` receives no per-file arguments (it must type-check the whole project to catch cross-file issues). All other gates (`eslint`, `prettier`, `vitest`) receive the list of generated files as positional arguments so they operate only on what just changed. Each gate has a 60-second timeout by default. The gate runner collects all results and returns a `GateRunReport`; it never throws — even a timeout is recorded as a failed result with a structured failure entry.
 

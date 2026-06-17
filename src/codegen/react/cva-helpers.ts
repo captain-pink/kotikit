@@ -133,7 +133,7 @@ function intrinsicAttrsFor(element: string): string {
  * Emit the body of a `cva(...)` call as a formatted string.
  *
  * Tailwind utility class strings are emitted as `""` (empty string) — kotikit
- * is responsible for the CVA SHAPE; Claude fills in the Tailwind utility classes
+ * is responsible for the CVA SHAPE; the agent fills in the Tailwind utility classes
  * during the generate/implement pass.
  *
  * If the component has no variant axes, returns `cva("")` (no options object).

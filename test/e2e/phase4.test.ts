@@ -415,7 +415,7 @@ describe("Phase 4 E2E — gate failure", () => {
     });
     expect(saveResult.isError).toBe(true);
 
-    // File still on disk for Claude to fix
+    // File still on disk for the agent to fix
     expect(existsSync(join(root, c.targetPath))).toBe(true);
 
     // Registry row still design-only

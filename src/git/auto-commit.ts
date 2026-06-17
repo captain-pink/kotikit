@@ -10,16 +10,40 @@ export interface CommitResult {
   message: string;
 }
 
+export interface CoAuthor {
+  name: string;
+  email: string;
+}
+
+export const DEFAULT_CO_AUTHOR: CoAuthor = {
+  name: "Claude Code",
+  email: "noreply@anthropic.com",
+};
+
 export interface AutoCommitOpts {
   root: string;
   scope: string;
   kind: CommitKind;
   files: string[];
   enabled: boolean;
+  /** Co-author identity for the commit footer. Defaults to Claude Code for backwards compatibility. */
+  coAuthor?: CoAuthor;
   /** Subject prefix scope. Defaults to "spec". */
   subjectScope?: "spec" | "code";
   /** Optional subject suffix appended after `scope`. E.g. "/cart" → "feat(code): create checkout-flow/cart". */
   subjectSuffix?: string;
+}
+
+export function formatCoAuthorFooter(coAuthor: CoAuthor): string {
+  const name = coAuthor.name.trim();
+  const email = coAuthor.email.trim();
+  if (name.length === 0) {
+    throw new KotikitError("The commit co-author name is empty.");
+  }
+  if (email.length === 0) {
+    throw new KotikitError("The commit co-author email is empty.");
+  }
+  return `Co-authored-by: ${name} <${email}>`;
 }
 
 /**
@@ -30,7 +54,7 @@ export async function autoCommit(opts: AutoCommitOpts): Promise<CommitResult> {
   const scopePrefix = opts.subjectScope ?? "spec";
   const suffix = opts.subjectSuffix ?? "";
   const subject = `feat(${scopePrefix}): ${opts.kind} ${opts.scope}${suffix}`;
-  const body = `\n\nCo-authored-by: Claude Code <noreply@anthropic.com>`;
+  const body = `\n\n${formatCoAuthorFooter(opts.coAuthor ?? DEFAULT_CO_AUTHOR)}`;
   const fullMessage = subject + body;
 
   if (!opts.enabled) {
@@ -73,6 +97,7 @@ export async function autoCommitSpec(opts: {
   kind: CommitKind;
   files: string[];
   enabled: boolean;
+  coAuthor?: CoAuthor;
 }): Promise<CommitResult> {
   return autoCommit(opts); // defaults to subjectScope: "spec"
 }

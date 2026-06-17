@@ -29,7 +29,7 @@ The spec module owns the on-disk representation of design intent: the `ScreenSpe
 - `removeIndexEntry(root, scope)` — remove an entry
 
 **Decomposition** (`src/spec/decompose.ts`)
-- `ScreenDraft` — raw Claude output for a single screen (slug, title, description, functional, states, components, acceptanceCriteria, userTypes, entryPoints)
+- `ScreenDraft` — raw agent output for a single screen (slug, title, description, functional, states, components, acceptanceCriteria, userTypes, entryPoints)
 - `FlowDraft` — contains `screens: ScreenDraft[]` plus transitions and sharedState
 - `SingleDraft` — wraps one `ScreenDraft` with a `scope` string
 - `isMultiScreen(draft)` — type guard distinguishing `FlowDraft` from `SingleDraft`

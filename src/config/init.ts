@@ -1,4 +1,4 @@
-import { defaultConfig, ConfigSchema } from "./schema";
+import { defaultConfig, parseConfig } from "./schema";
 import type { Config } from "./schema";
 
 export interface InitAnswers {
@@ -7,6 +7,7 @@ export interface InitAnswers {
   tests?: boolean;
   testFramework?: "vitest" | "none";
   autoCommit?: boolean;
+  coAuthor?: Config["git"]["coAuthor"];
   figmaFiles?: { key: string; name: string }[];
 }
 
@@ -16,7 +17,7 @@ export interface InitAnswers {
  */
 export function buildConfig(answers: InitAnswers): Config {
   const base = defaultConfig();
-  return ConfigSchema.parse({
+  return parseConfig({
     ...base,
     figma: {
       ...base.figma,
@@ -33,6 +34,7 @@ export function buildConfig(answers: InitAnswers): Config {
     git: {
       ...base.git,
       autoCommit: answers.autoCommit ?? base.git.autoCommit,
+      coAuthor: answers.coAuthor ?? base.git.coAuthor,
     },
   });
 }
