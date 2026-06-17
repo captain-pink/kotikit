@@ -104,6 +104,7 @@ describe("scaffoldAgents", () => {
     expect(codexConfig).toContain("[mcp_servers.kotikit]");
     expect(codexConfig).toContain(`args = ["run", "${join(kotikitRoot, "src", "mcp", "server.ts")}"]`);
     expect(codexConfig).toContain(`cwd = "${targetRoot}"`);
+    expect(codexConfig).toContain("tool_timeout_sec = 900");
     const installedSkill = readFileSync(join(targetRoot, ".agents", "skills", "kotikit-auto", "SKILL.md"), "utf8");
     expect(installedSkill).toBe(currentKotikitSkill());
     expect(installedSkill).not.toContain("../../../docs");
@@ -142,6 +143,7 @@ describe("scaffoldAgents", () => {
         "[mcp_servers.kotikit]",
         "command = \"old\"",
         "args = [\"old\"]",
+        "tool_timeout_sec = 120",
         "",
         "[profiles.work]",
         "model = \"gpt-5-codex\"",
@@ -160,6 +162,8 @@ describe("scaffoldAgents", () => {
     expect(codexConfig).toContain("[mcp_servers.other]");
     expect(codexConfig).toContain("[profiles.work]");
     expect(codexConfig).not.toContain("command = \"old\"");
+    expect(codexConfig).not.toContain("tool_timeout_sec = 120");
+    expect(codexConfig).toContain("tool_timeout_sec = 900");
     expect(codexConfig).toContain(`cwd = "${targetRoot}"`);
   });
 

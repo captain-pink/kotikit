@@ -34,6 +34,9 @@ const CODEX_CO_AUTHOR: CoAuthor = {
   email: "noreply@openai.com",
 };
 
+const CODEX_STARTUP_TIMEOUT_SEC = 20;
+const CODEX_TOOL_TIMEOUT_SEC = 900;
+
 function isNotFound(err: unknown): boolean {
   return err instanceof Error && "code" in err && err.code === "ENOENT";
 }
@@ -129,8 +132,8 @@ function buildCodexBlock(kotikitRoot: string, targetRoot: string): string {
     'command = "bun"',
     `args = ["run", ${tomlString(serverPath(kotikitRoot))}]`,
     `cwd = ${tomlString(targetRoot)}`,
-    "startup_timeout_sec = 20",
-    "tool_timeout_sec = 120",
+    `startup_timeout_sec = ${CODEX_STARTUP_TIMEOUT_SEC}`,
+    `tool_timeout_sec = ${CODEX_TOOL_TIMEOUT_SEC}`,
   ].join("\n");
 }
 

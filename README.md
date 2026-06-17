@@ -135,12 +135,14 @@ command = "bun"
 args = ["run", "/Users/YOUR_USERNAME/kotikit/src/mcp/server.ts"]
 cwd = "/Users/YOUR_USERNAME/path/to/your-react-project"
 startup_timeout_sec = 20
-tool_timeout_sec = 120
+tool_timeout_sec = 900
 ```
 
 Replace both paths. The `cwd` value must point at your target React project so kotikit reads
-the right `.env`, `.kotikit/config.json`, and generated-code folders. If you prefer global
-Codex config, put the same block in `~/.codex/config.toml`.
+the right `.env`, `.kotikit/config.json`, and generated-code folders. The longer tool timeout
+lets large Figma design-system syncs finish under API rate limits instead of being killed by
+Codex at two minutes. If you prefer global Codex config, put the same block in
+`~/.codex/config.toml`.
 
 Codex can also use the repo-scoped skill at `.agents/skills/kotikit-auto/SKILL.md`. If you
 are running Codex from the target React project rather than this repo, symlink or copy that

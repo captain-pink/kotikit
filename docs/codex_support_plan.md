@@ -53,7 +53,7 @@ command = "bun"
 args = ["run", "/absolute/path/to/kotikit/src/mcp/server.ts"]
 cwd = "/absolute/path/to/target-react-project"
 startup_timeout_sec = 20
-tool_timeout_sec = 120
+tool_timeout_sec = 900
 ```
 
 Implementation details:
