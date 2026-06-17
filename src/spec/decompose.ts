@@ -37,7 +37,24 @@ export interface SingleDraft {
 // ─── Type guard ───────────────────────────────────────────────────────────────
 
 export function isMultiScreen(d: FlowDraft | SingleDraft): d is FlowDraft {
-  return "screens" in d;
+  return (
+    typeof d === "object" &&
+    d !== null &&
+    "screens" in d &&
+    Array.isArray((d as { screens?: unknown }).screens) &&
+    typeof (d as { scope?: unknown }).scope === "string" &&
+    (d as { scope: string }).scope.trim().length > 0
+  );
+}
+
+export function isSingleScreen(d: FlowDraft | SingleDraft): d is SingleDraft {
+  return (
+    typeof d === "object" &&
+    d !== null &&
+    "screen" in d &&
+    typeof (d as { scope?: unknown }).scope === "string" &&
+    (d as { scope: string }).scope.trim().length > 0
+  );
 }
 
 // ─── Materializers ────────────────────────────────────────────────────────────

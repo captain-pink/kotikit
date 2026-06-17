@@ -12,6 +12,7 @@ import {
   materializeFlow,
   materializeSingle,
   isMultiScreen,
+  isSingleScreen,
   type FlowDraft,
   type SingleDraft,
 } from "../../spec/decompose.js";
@@ -108,7 +109,9 @@ function registerSpecCreate(registry: ToolRegistry, ctx: ToolContext): void {
           `Created the ${scope} flow with ${specs.length} screen(s) and committed it (${commitResult.message}).`,
           { paths: [manifestPath, ...specPaths] }
         );
-      } else {
+      }
+
+      if (isSingleScreen(draft)) {
         // Single screen
         const scope = scopeOverride ?? draft.scope;
         const { spec } = materializeSingle(draft);
@@ -129,6 +132,11 @@ function registerSpecCreate(registry: ToolRegistry, ctx: ToolContext): void {
           { paths: [writtenPath] }
         );
       }
+
+      throw new KotikitError(
+        "That draft doesn't match a kotikit draft shape.",
+        "For one screen, pass { scope, screen: { slug, title, description, functional, states } }. For a flow, pass { scope, title, description, screens, transitions, sharedState }."
+      );
     } catch (err) {
       return toolError(err);
     }

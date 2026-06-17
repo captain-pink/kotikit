@@ -181,6 +181,27 @@ describe("kotikit_spec_create — single screen", () => {
     const text = getText(result);
     expect(text).toContain("profile-page");
   });
+
+  it("rejects malformed drafts instead of writing undefined/flow.json", async () => {
+    const result = await call("kotikit_spec_create", {
+      draft: {
+        type: "screen",
+        title: "Members",
+        screens: [
+          {
+            slug: "members",
+            title: "Members",
+            description: "Members admin table",
+            functional: ["Show members"],
+            states: { default: "Loaded" },
+          },
+        ],
+      },
+    });
+
+    expect(result.isError).toBe(true);
+    expect(getText(result)).toContain("doesn't match a kotikit draft shape");
+  });
 });
 
 // ─── spec_update ─────────────────────────────────────────────────────────────

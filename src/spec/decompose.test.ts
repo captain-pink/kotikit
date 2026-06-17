@@ -3,6 +3,7 @@ import {
   materializeFlow,
   materializeSingle,
   isMultiScreen,
+  isSingleScreen,
   type FlowDraft,
   type SingleDraft,
 } from "./decompose";
@@ -48,6 +49,20 @@ describe("isMultiScreen", () => {
 
   it("returns false for SingleDraft", () => {
     expect(isMultiScreen(singleDraft)).toBe(false);
+  });
+
+  it("returns false for a malformed flow-like draft with no scope", () => {
+    expect(isMultiScreen({ screens: [makeScreenDraft("members", "Members")] } as never)).toBe(false);
+  });
+});
+
+describe("isSingleScreen", () => {
+  it("returns true for SingleDraft", () => {
+    expect(isSingleScreen(singleDraft)).toBe(true);
+  });
+
+  it("returns false for a malformed screen-like draft with no screen", () => {
+    expect(isSingleScreen({ title: "Members", type: "screen" } as never)).toBe(false);
   });
 });
 
