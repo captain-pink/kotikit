@@ -6,11 +6,11 @@ Sorted from highest leverage downward within each section.
 
 ## Token efficiency (highest leverage)
 
-Sonnet 4.6 has a weekly token budget; today's defaults are conservative but there's room to go further.
+AI coding assistants have conversation budgets; today's defaults are conservative but there's room to go further.
 
 - **MCP protocol `cache_control` markers** — when Anthropic ships caching for tool results, retrofit kotikit responses to mark static prefixes as cached. See `docs/TOKENS.md` for current limits.
 - **Tool-call streaming for large bundles** — return scaffold components one-by-one over a streaming JSON-RPC instead of paginated round-trips.
-- **Session-aware deduplication** — kotikit remembers what it sent each Claude session and avoids re-sending the same DS component JSON twice.
+- **Session-aware deduplication** — kotikit remembers what it sent each agent session and avoids re-sending the same DS component JSON twice.
 - **Per-user token budget enforcement** — refuse tool calls that would exceed a configured per-call token limit; surface as a friendly error with the suggested compact/pageSize override.
 - **Compress payloads via shared schema references** — when responses repeat structural keys, deflate using a session-scoped schema id.
 
@@ -51,7 +51,8 @@ The variant-name diff catches most renames. Richer signals are deferred.
 
 The README assumes the designer can install Bun. Real designers often hit walls earlier.
 
-- **A real installer** — `npx create-kotikit` that handles Bun + Claude Code config in one step.
+- **Production-quality agent autoinstaller** — build on the local MVP `bun run scaffold:agents` command. Add interactive prompts, dry-run/diff output, explicit overwrite confirmation, backup/rollback notes, stronger existing-config conflict handling, cross-platform path validation, and a smoke check that starts the MCP server and calls `kotikit_config_status`.
+- **Published `create-kotikit` package** — ship a `bunx create-kotikit` / `npx create-kotikit` flow that detects the target React project, configures Claude Code, Codex, or both, installs or links the Codex skill, handles `.env` safely, and prints exact restart/verification steps.
 - **Video walkthrough of the first hour** — recorded once, evergreen.
 - **Per-tool examples that include real Figma file links** — readers can fork and run the exact flow.
 - **A diagram of the data flow** in the README (spec → plan → code → registry → audit).
@@ -64,7 +65,7 @@ The single-direction Figma → code assumption is core; eventually it might bend
 - **Code → Figma reverse path** — V2+ explicit. Requires a Figma plugin that mutates the file, which the current plugin doesn't do.
 - **Headless mode for CI** — drop the MCP server, expose a CLI that runs sync + audit + gates in one shot.
 - **Multi-project / monorepo config inheritance** — root config + per-package overrides.
-- **A "kotikit-cli"** — for engineers who prefer the terminal to Claude Code chat for routine ops (`kotikit sync`, `kotikit audit`).
+- **A "kotikit-cli"** — for engineers who prefer the terminal to assistant chat for routine ops (`kotikit sync`, `kotikit audit`).
 - **Backend / data layer integration** — currently kotikit stops at the UI; a future phase could wire spec acceptance criteria into typed API contracts.
 - **Replace SQLite with a single shared database** for multi-project setups.
 
@@ -75,7 +76,7 @@ Smaller items that polish the developer experience.
 - **A `kotikit doctor` command** that diagnoses common setup issues (missing token, missing gates, stale checkpoint, etc.).
 - **A `kotikit clean` command** that prunes ephemeral artifacts (plans, checkpoints) safely.
 - **Telemetry-free crash reporting** — when a tool throws, write a structured trace next to the spec for the user to share.
-- **Better Claude Code transcript IDs** — embed tool result IDs so users can ask "what was that error in spec_create earlier?" and Claude can find it.
+- **Better agent transcript IDs** — embed tool result IDs so users can ask "what was that error in spec_create earlier?" and the assistant can find it.
 
 ---
 

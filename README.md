@@ -1,25 +1,26 @@
 # kotikit
 
-kotikit turns your Figma design system into real, working React code — through a conversation
-with Claude. You describe a screen, Claude asks the right questions, kotikit saves a precise
-spec. Then kotikit pulls your Figma components, generates the screen as React code, and saves
-everything as you go. No code to write. No developer to chase.
+kotikit turns your Figma design system into real, working React code through a conversation
+with an AI coding assistant such as Claude Code or Codex. You describe a screen, the agent
+asks the right questions, kotikit saves a precise spec, then pulls your Figma components,
+generates React code, and saves everything as you go. No code to write. No developer to chase.
 
 ---
 
 ## Who this is for
 
-Designers who use [Claude Code](https://claude.com/claude-code) in VS Code, have a Figma
-design system, and want to ship screens as React components without writing the code by hand.
-You do not need to know React, git commands, or anything about the terminal beyond copy-paste.
+Designers who use Claude Code or Codex, have a Figma design system, and want to ship screens
+as React components without writing code by hand. You do not need to know React, git commands,
+or anything about the terminal beyond copy-paste.
 
 ---
 
 ## Prerequisites
 
 - **Bun** — a fast JavaScript runtime (one install command below).
-- **Claude Code** — the AI coding assistant that runs inside VS Code.
-  [Install it from the VS Code Marketplace.](https://marketplace.visualstudio.com/items?itemName=Anthropic.claude-code)
+- **An MCP-capable AI coding assistant** — Claude Code or Codex.
+  - Claude Code: [install it from the VS Code Marketplace.](https://marketplace.visualstudio.com/items?itemName=Anthropic.claude-code)
+  - Codex: install the Codex CLI or IDE extension and sign in.
 - **A Figma personal access token** — open Figma, go to Settings → Account → Personal access
   tokens, and create one with the "File read" scope. Copy it somewhere safe.
 - **A target React project** — kotikit generates code into a React project on your machine.
@@ -72,12 +73,37 @@ git clone https://github.com/captain-pink/kotikit.git ~/kotikit
 cd ~/kotikit && bun install
 ```
 
-**4. Add kotikit to Claude Code's MCP config.**
+**4. Add kotikit to your assistant's MCP config.**
 
-This file goes in YOUR TARGET PROJECT (the React app you are building), not in `~/kotikit`.
+This config belongs to YOUR TARGET PROJECT (the React app you are building), not in
+`~/kotikit`.
 
-Create (or open) the file `.claude/mcp.json` inside your target project folder and add the
-block below. If the `.claude/` folder does not exist yet, create it first.
+Claude Code and Codex both speak MCP, but they read different config files.
+
+**Recommended local setup**: run the scaffold command from the kotikit repo:
+
+```bash
+cd ~/kotikit
+bun run scaffold:agents -- --target /Users/YOUR_USERNAME/path/to/your-react-project --agents both
+```
+
+This writes or updates `.claude/mcp.json`, `.codex/config.toml`, installs the Codex
+`kotikit-auto` skill into the target project, and creates `.env` with a `FIGMA_TOKEN=`
+placeholder if needed.
+
+For Codex-only projects where `.kotikit/config.json` already exists and you want generated
+commit footers to say Codex, run:
+
+```bash
+bun run scaffold:agents -- --target /Users/YOUR_USERNAME/path/to/your-react-project --agents codex --co-author codex
+```
+
+For both Claude Code and Codex, the scaffold command leaves an existing `git.coAuthor`
+unchanged because that value is project-wide.
+
+**Manual setup**: if you prefer to write config files yourself, use the blocks below.
+
+**Claude Code**: create (or open) `.claude/mcp.json` inside your target project and add:
 
 ```json
 {
@@ -97,23 +123,63 @@ MCP config file paths vary between Claude Code versions. If the block above does
 see the [Claude Code MCP documentation](https://docs.anthropic.com/claude-code/mcp) for the
 canonical location for your version.
 
+**Codex**: create (or open) `.codex/config.toml` inside your trusted target project and add:
+
+```toml
+[mcp_servers.kotikit]
+command = "bun"
+args = ["run", "/Users/YOUR_USERNAME/kotikit/src/mcp/server.ts"]
+cwd = "/Users/YOUR_USERNAME/path/to/your-react-project"
+startup_timeout_sec = 20
+tool_timeout_sec = 120
+```
+
+Replace both paths. The `cwd` value must point at your target React project so kotikit reads
+the right `.env`, `.kotikit/config.json`, and generated-code folders. If you prefer global
+Codex config, put the same block in `~/.codex/config.toml`.
+
+Codex can also use the repo-scoped skill at `.agents/skills/kotikit-auto/SKILL.md`. If you
+are running Codex from the target React project rather than this repo, symlink or copy that
+skill folder into the target project's `.agents/skills/` directory so `kotikit:auto` is
+discoverable there.
+
+When Codex runs the `kotikit-auto` skill, first-time setup passes a Codex co-author identity
+to kotikit automatically. If you initialize manually and want generated commits to say Codex
+instead of the backward-compatible Claude Code default, set this inside the existing `git`
+block in `.kotikit/config.json`:
+
+```json
+{
+  "git": {
+    "autoCommit": true,
+    "coAuthor": {
+      "name": "Codex",
+      "email": "noreply@openai.com"
+    }
+  }
+}
+```
+
 **5. Set up your Figma token.**
 
-Create a file named `.env` in your target project root (the same folder as `package.json`)
-with this one line:
+Create or open `.env` in your target project root (the same folder as `package.json`) and
+set this value:
 
 ```
 FIGMA_TOKEN=figd_...your_token_here...
 ```
 
-Replace the value with the token you copied from Figma. This file is automatically ignored
-by git so your token stays private.
+Replace the placeholder with the token you copied from Figma. If you used `scaffold:agents`,
+the `.env` file may already exist with `FIGMA_TOKEN=` ready to fill in. This file is
+automatically ignored by git so your token stays private.
 
-**6. Restart Claude Code** (Cmd+Shift+P → "Developer: Reload Window" in VS Code).
+**6. Restart your assistant.**
 
-After restarting, type "list kotikit tools" in Claude Code to confirm setup — you should see
-26 tools listed. If nothing appears, double-check the path in `mcp.json` and consult the
-[MCP docs](https://docs.anthropic.com/claude-code/mcp).
+- Claude Code: Cmd+Shift+P -> "Developer: Reload Window" in VS Code.
+- Codex: start a new Codex session in your target project.
+
+After restarting, ask your assistant to list MCP tools. In Codex, run `/mcp`. You should see
+the `kotikit_*` tools listed. If nothing appears, double-check the configured paths.
 
 ---
 
@@ -121,18 +187,18 @@ After restarting, type "list kotikit tools" in Claude Code to confirm setup — 
 
 ### 30 seconds: sync your design system
 
-Open Claude Code in your project and type:
+Open your assistant in your project and type:
 
 > *"Check if kotikit is set up here."*
 
-If kotikit is not yet configured for this project, Claude will walk you through a short setup
+If kotikit is not yet configured for this project, the assistant will walk you through a short setup
 conversation — about two minutes, no technical knowledge required.
 
 Then type:
 
 > *"Sync my Figma design system."*
 
-Claude will ask for your Figma file URL (or you can paste it during setup). It pulls every
+The assistant will ask for your Figma file URL (or you can paste it during setup). It pulls every
 component from Figma into a local snapshot that kotikit uses to generate code. You will see
 a count like "Sync complete: 48 components, 312 icons."
 
@@ -146,15 +212,15 @@ Type:
 
 > *"I want to build a login screen."*
 
-Claude starts a conversation. It will ask you about:
+The assistant starts a conversation. It will ask you about:
 
 - Who uses this screen and what they are trying to do.
 - What the user sees first, and what they can do from there.
 - What happens when something goes wrong (wrong password, no account yet).
 - Any edge cases specific to your product.
 
-Answer naturally — full sentences or bullet points, whichever feels easier. Claude will keep
-asking until the picture is complete. When it is, Claude summarizes the screen back to you:
+Answer naturally — full sentences or bullet points, whichever feels easier. The assistant will keep
+asking until the picture is complete. When it is, the assistant summarizes the screen back to you:
 
 > "Here is what I have: a login screen for returning users, with an email and password field,
 > a 'Forgot password' link, and a primary 'Log in' button. On failure, an inline error
@@ -165,7 +231,7 @@ Confirm (or ask for changes), and kotikit saves the spec. Then type:
 
 > *"Write the code for the login screen."*
 
-Claude generates a production-ready React component using your Figma components, with
+The assistant generates a production-ready React component using your Figma components, with
 accessibility, keyboard navigation, and error handling included. It saves the file and records
 a save-point automatically.
 
@@ -178,7 +244,7 @@ designing a full screen first), type:
 
 > *"Generate React versions of my Figma components."*
 
-Claude will walk through your unscaffolded Figma components in small batches, generate a
+The assistant will walk through your unscaffolded Figma components in small batches, generate a
 TypeScript + CVA component file for each one, and save them to your components folder.
 
 ---
@@ -210,8 +276,8 @@ prop to match what the report says Figma has, then re-run the audit to confirm t
 
 ## Working with the Figma plugin
 
-kotikit ships a Figma plugin that connects your Figma session to the same kotikit running in
-VS Code.
+kotikit ships a Figma plugin that connects your Figma session to the same kotikit MCP server
+running locally.
 
 **Build and install the plugin (one-time):**
 
@@ -254,7 +320,7 @@ full list.
 
 ## Keeping conversations cheap
 
-Claude has a conversation budget. kotikit is designed to stay well inside it — tool responses
+Your assistant has a conversation budget. kotikit is designed to stay well inside it — tool responses
 are kept lean by default, and large design system dictionaries are never loaded into a
 conversation all at once.
 
@@ -271,14 +337,14 @@ For the full explanation of what costs tokens and how to control it, see `docs/T
 
 ## Composing with Chrome DevTools MCP
 
-After kotikit commits your generated code, you can ask Claude to visually validate it. If
+After kotikit commits your generated code, you can ask your assistant to visually validate it. If
 you have [Chrome DevTools MCP](https://github.com/modelcontextprotocol/servers) installed
 alongside kotikit, type:
 
 > *"Open localhost:6006 and take a screenshot of the login screen."*
 
-Claude will open your Storybook or dev server and validate the rendered output against what
-you described. Chrome DevTools MCP is a separate tool that Claude orchestrates alongside
+The assistant will open your Storybook or dev server and validate the rendered output against what
+you described. Chrome DevTools MCP is a separate tool that the assistant orchestrates alongside
 kotikit — kotikit handles the spec and code, Chrome DevTools MCP handles the live browser.
 Neither one depends on the other.
 
@@ -333,7 +399,7 @@ Then try again.
 
 kotikit tried to audit or scaffold but has not synced your design system yet.
 
-Fix: type *"Sync my Figma design system."* in Claude Code. After sync completes, try the
+Fix: type *"Sync my Figma design system."* in your assistant. After sync completes, try the
 audit or scaffold command again.
 
 ---
@@ -354,7 +420,7 @@ kotikit refused to write a file outside the components folder it is configured t
 
 Fix: do not move generated component files to a different location before saving them.
 If you need the components folder to be somewhere else, update the `codeComponentsDir` path
-in your kotikit config by asking Claude: *"Change my components folder to src/ui."*
+in your kotikit config by asking your assistant: *"Change my components folder to src/ui."*
 
 ---
 
@@ -388,7 +454,11 @@ and import them in your project.
 
 ## Where to learn more
 
-- `docs/tools.md` — every Claude command kotikit understands, with examples.
+- `docs/tools.md` — every kotikit MCP tool, with examples.
+- `docs/agent_workflow.md` — the shared Claude Code / Codex workflow for `kotikit:auto`.
+- `docs/codex_support_plan.md` — the Codex support implementation plan and local test checklist.
+- `docs/coding_guidelines.md` — coding standards for agents and engineers extending kotikit.
+- `docs/modules/setup.md` — how the local agent scaffold command works.
 - `docs/modules/` — how each piece of kotikit works under the hood (for engineers or
   curious designers).
 - `docs/TOKENS.md` — keeping conversations cheap: what costs tokens and how to reduce it.
