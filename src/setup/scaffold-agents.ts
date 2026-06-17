@@ -195,6 +195,13 @@ async function installCodexSkill(result: ScaffoldAgentsResult, targetRoot: strin
   const existing = await readTextIfExists(targetPath);
 
   if (existing !== null && existing !== source) {
+    if (existing.includes("../../../docs/agent_workflow.md") || existing.includes("docs/agent_workflow.md")) {
+      await writeTextAtomic(targetPath, source);
+      result.written.push(targetPath);
+      result.notes.push(`Replaced outdated Codex skill: ${targetPath}`);
+      return;
+    }
+
     result.skipped.push(targetPath);
     result.notes.push(`Skipped existing Codex skill with local changes: ${targetPath}`);
     return;

@@ -12,13 +12,20 @@ function readJson(path: string): unknown {
   return JSON.parse(readFileSync(path, "utf8"));
 }
 
+function currentKotikitSkill(): string {
+  return readFileSync(
+    join(import.meta.dir, "..", "..", ".agents", "skills", "kotikit-auto", "SKILL.md"),
+    "utf8"
+  );
+}
+
 function seedKotikitRoot(): void {
   mkdirSync(join(kotikitRoot, "src", "mcp"), { recursive: true });
   writeFileSync(join(kotikitRoot, "src", "mcp", "server.ts"), "export {};\n");
   mkdirSync(join(kotikitRoot, ".agents", "skills", "kotikit-auto"), { recursive: true });
   writeFileSync(
     join(kotikitRoot, ".agents", "skills", "kotikit-auto", "SKILL.md"),
-    "# Kotikit Auto\n"
+    currentKotikitSkill()
   );
 }
 
@@ -45,6 +52,15 @@ describe("scaffoldAgents", () => {
 
   it("rejects invalid agent selections", () => {
     expect(() => parseAgentSelection("cursor")).toThrow("agents must be one of");
+  });
+
+  it("ships a portable self-contained Codex skill", () => {
+    const skill = currentKotikitSkill();
+    expect(skill).toContain("This skill assumes the kotikit MCP server is configured");
+    expect(skill).toContain("kotikit_config_status");
+    expect(skill).toContain("kotikit_config_init");
+    expect(skill).not.toContain("../../../docs");
+    expect(skill).not.toContain("docs/agent_workflow");
   });
 
   it("writes Claude MCP config while preserving existing servers", async () => {
@@ -88,11 +104,29 @@ describe("scaffoldAgents", () => {
     expect(codexConfig).toContain("[mcp_servers.kotikit]");
     expect(codexConfig).toContain(`args = ["run", "${join(kotikitRoot, "src", "mcp", "server.ts")}"]`);
     expect(codexConfig).toContain(`cwd = "${targetRoot}"`);
-    expect(readFileSync(join(targetRoot, ".agents", "skills", "kotikit-auto", "SKILL.md"), "utf8")).toBe(
-      "# Kotikit Auto\n"
-    );
+    const installedSkill = readFileSync(join(targetRoot, ".agents", "skills", "kotikit-auto", "SKILL.md"), "utf8");
+    expect(installedSkill).toBe(currentKotikitSkill());
+    expect(installedSkill).not.toContain("../../../docs");
     expect(readFileSync(join(targetRoot, ".env"), "utf8")).toBe("FIGMA_TOKEN=\n");
     expect(result.written).toContain(join(targetRoot, ".codex", "config.toml"));
+  });
+
+  it("replaces an outdated scaffolded Codex skill that points at missing docs", async () => {
+    const skillPath = join(targetRoot, ".agents", "skills", "kotikit-auto", "SKILL.md");
+    mkdirSync(join(targetRoot, ".agents", "skills", "kotikit-auto"), { recursive: true });
+    writeFileSync(skillPath, "Before acting, read `../../../docs/agent_workflow.md` when available.\n");
+
+    const result = await scaffoldAgents({
+      targetRoot,
+      kotikitRoot,
+      agents: ["codex"],
+    });
+
+    const installedSkill = readFileSync(skillPath, "utf8");
+    expect(installedSkill).toBe(currentKotikitSkill());
+    expect(installedSkill).not.toContain("../../../docs");
+    expect(result.written).toContain(skillPath);
+    expect(result.notes.join("\n")).toContain("Replaced outdated Codex skill");
   });
 
   it("replaces only the existing Codex kotikit block", async () => {

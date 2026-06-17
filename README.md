@@ -91,6 +91,10 @@ This writes or updates `.claude/mcp.json`, `.codex/config.toml`, installs the Co
 `kotikit-auto` skill into the target project, and creates `.env` with a `FIGMA_TOKEN=`
 placeholder if needed.
 
+If you already scaffolded an older `kotikit-auto` skill that points at
+`docs/agent_workflow.md`, rerun the command after pulling the latest kotikit. The scaffold
+command replaces that known-broken skill with the portable self-contained version.
+
 For Codex-only projects where `.kotikit/config.json` already exists and you want generated
 commit footers to say Codex, run:
 
