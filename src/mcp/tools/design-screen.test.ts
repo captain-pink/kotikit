@@ -11,6 +11,7 @@ import { writeScreenSpec, writeFlowManifest } from "../../spec/engine.js";
 import { writeDesignPlan } from "../../planning/design-plan-store.js";
 import { generateDesignPlan } from "../../planning/design-planner.js";
 import { defaultConfig } from "../../config/schema.js";
+import { openDesignReviewDb } from "../../db/design-review-db.js";
 
 const tmpDirs: string[] = [];
 function mkTmp(): string {
@@ -153,5 +154,50 @@ describe("kotikit_design_get_screen", () => {
     expect(result.isError).toBeFalsy();
     const detail = parseDetail(result.content[0]!.text) as { flow?: { title: string } };
     expect(detail.flow?.title).toBe("Checkout");
+  });
+
+  it("includes active design preferences relevant to the scope", async () => {
+    const root = mkTmp();
+    const spec = newScreenSpec({ title: "Members", description: "x" });
+    spec.requirements.states = { default: "x" };
+    await writeScreenSpec(root, "members", null, spec);
+
+    const plan = generateDesignPlan({ scope: "members", screen: null, spec, config: defaultConfig() });
+    await writeDesignPlan(root, "members", null, plan);
+
+    const reviewDb = openDesignReviewDb(root);
+    const session = reviewDb.recordReviewSession({
+      scope: "members",
+      fileKey: "fig-file",
+      totalFetched: 0,
+      mappedCount: 0,
+      unmappedCount: 0,
+      skippedResolved: 0,
+      comments: [],
+    });
+    reviewDb.recordDesignAdjustment({
+      sessionId: session.sessionId,
+      scope: "members",
+      fileKey: "fig-file",
+      category: "density",
+      summary: "Reduced row height.",
+      preferenceKey: "tables.density.compact_rows",
+      preferenceSummary: "Use compact rows for admin tables.",
+    });
+    reviewDb.promotePreferenceCandidate({
+      key: "tables.density.compact_rows",
+      scope: "members",
+      rule: "For member-management tables, prefer compact row density.",
+    });
+
+    const registry = makeRegistry();
+    registerDesignScreenTools(registry, makeCtx(root));
+    const result = await callTool(registry, "kotikit_design_get_screen", { scope: "members" });
+    const detail = parseDetail(result.content[0]!.text) as {
+      designPreferences: { key: string; rule: string }[];
+    };
+
+    expect(detail.designPreferences[0]?.key).toBe("tables.density.compact_rows");
+    expect(detail.designPreferences[0]?.rule).toContain("compact row density");
   });
 });

@@ -7,10 +7,13 @@ import type { FigmaComment } from "../../sync/figma-types.js";
 import { resolveFigmaToken } from "../../sync/figma-token.js";
 import { readDesignNodeMap } from "../../planning/design-node-map.js";
 import { mapCommentsToDesignNodes } from "../../planning/design-comments.js";
+import { openDesignReviewDb } from "../../db/design-review-db.js";
+import type { DesignAdjustmentCategory } from "../../db/design-review-db.js";
 import { KotikitError, toolError, toolText } from "../../util/result.js";
 
 export interface FigmaCommentsClient {
   getComments(fileKey: string, opts?: { asMarkdown?: boolean }): Promise<FigmaComment[]>;
+  postComment?(fileKey: string, input: { message: string; commentId?: string }): Promise<FigmaComment>;
 }
 
 export interface RegisterDesignCommentToolsOpts {
@@ -27,6 +30,72 @@ const ReviewCommentsInputSchema = z.object({
 
 type ReviewCommentsInput = z.infer<typeof ReviewCommentsInputSchema>;
 
+const DesignAdjustmentCategorySchema = z.enum([
+  "spacing",
+  "density",
+  "typography",
+  "hierarchy",
+  "color",
+  "component",
+  "interaction",
+  "copy",
+  "responsive",
+  "layout",
+  "other",
+]);
+
+const AdjustmentRecordInputSchema = z.object({
+  sessionId: z.string().optional(),
+  scope: z.string().optional(),
+  screen: z.string().optional(),
+  fileKey: z.string().optional(),
+  commentId: z.string().optional(),
+  nodeId: z.string().optional(),
+  category: DesignAdjustmentCategorySchema,
+  summary: z.string().min(1),
+  preferenceKey: z.string().optional(),
+  preferenceSummary: z.string().optional(),
+});
+
+const ReviewReportInputSchema = z.object({
+  sessionId: z.string().optional(),
+  scope: z.string().optional(),
+  screen: z.string().optional(),
+  limit: z.number().int().positive().max(200).optional().default(25),
+});
+
+const ReplyPrepareInputSchema = z.object({
+  sessionId: z.string().optional(),
+  fileKey: z.string().optional(),
+  commentIds: z.array(z.string()).optional(),
+  message: z.string().min(1).default("Fixed in this pass."),
+});
+
+const ReplyPostInputSchema = z.object({
+  sessionId: z.string().optional(),
+  fileKey: z.string().optional(),
+  outboxIds: z.array(z.string()).optional(),
+  limit: z.number().int().positive().max(50).optional().default(10),
+});
+
+const MemoryCandidatesInputSchema = z.object({
+  status: z.enum(["candidate", "promoted", "dismissed"]).optional(),
+  limit: z.number().int().positive().max(100).optional().default(25),
+});
+
+const MemoryPromoteInputSchema = z.object({
+  candidateKey: z.string().min(1),
+  scope: z.string().optional(),
+  rule: z.string().optional(),
+});
+
+const MemorySearchInputSchema = z.object({
+  scope: z.string().optional(),
+  category: DesignAdjustmentCategorySchema.optional(),
+  query: z.string().optional(),
+  limit: z.number().int().positive().max(100).optional().default(25),
+});
+
 const sliceComments = <T>(items: T[], limit: number): T[] => items.slice(0, limit);
 
 const resolveNodeMap = async (
@@ -35,6 +104,69 @@ const resolveNodeMap = async (
 ) => {
   if (input.scope === undefined) return null;
   return readDesignNodeMap(root, input.scope, input.screen ?? null);
+};
+
+const authorFromComment = (comment: FigmaComment): string | undefined =>
+  comment.user?.handle ?? comment.user?.email ?? comment.user?.id;
+
+const commentTargetById = (comments: ReturnType<typeof mapCommentsToDesignNodes>): Map<string, unknown> =>
+  new Map(comments.mapped.map((comment) => [comment.id, comment.target]));
+
+const reviewCommentInputs = (
+  comments: FigmaComment[],
+  mappedAll: ReturnType<typeof mapCommentsToDesignNodes>,
+  input: { fileKey: string }
+) => {
+  const targets = commentTargetById(mappedAll);
+  return comments.map((comment) => {
+    const target = targets.get(comment.id);
+    const resolvedAt = comment.resolved_at ?? undefined;
+    const status = resolvedAt
+      ? "already-resolved"
+      : target !== undefined
+        ? "open"
+        : "unmapped";
+    return {
+      commentId: comment.id,
+      fileKey: input.fileKey,
+      ...(comment.parent_id !== undefined ? { parentId: comment.parent_id } : {}),
+      message: comment.message ?? "",
+      ...(authorFromComment(comment) !== undefined ? { author: authorFromComment(comment) } : {}),
+      ...(comment.client_meta?.node_id !== undefined ? { nodeId: comment.client_meta.node_id } : {}),
+      status,
+      ...(comment.created_at !== undefined ? { createdAt: comment.created_at } : {}),
+      ...(resolvedAt !== undefined ? { resolvedAt } : {}),
+      ...(target !== undefined ? { target } : {}),
+    };
+  });
+};
+
+const registerTool = (
+  registry: ToolRegistry,
+  tool: Tool,
+  handler: (args: unknown) => Promise<ReturnType<typeof toolText> | ReturnType<typeof toolError>>
+): void => {
+  registry.tools.push(tool);
+  registry.handlers.set(tool.name, handler);
+};
+
+const requireFigmaClient = async (
+  ctx: ToolContext,
+  opts: RegisterDesignCommentToolsOpts
+): Promise<FigmaCommentsClient | ReturnType<typeof toolError>> => {
+  const config = await ctx.loadConfig();
+  const token = await resolveFigmaToken(ctx.root, config);
+  if (token === undefined || token === "") {
+    return toolError(
+      new KotikitError(
+        "I couldn't find your Figma token.",
+        "Create a .env file in your project root with FIGMA_TOKEN=figd_... or set figma.token in .kotikit/config.json. Reading comments requires file_comments:read; posting replies requires file_comments:write."
+      )
+    );
+  }
+  return opts.figmaClientFactory
+    ? opts.figmaClientFactory(token)
+    : new FigmaClient({ token });
 };
 
 export function registerDesignCommentTools(
@@ -58,21 +190,11 @@ export function registerDesignCommentTools(
     },
   };
 
-  registry.tools.push(tool);
-
-  registry.handlers.set("kotikit_design_review_comments", async (args) => {
+  registerTool(registry, tool, async (args) => {
     try {
       const input = ReviewCommentsInputSchema.parse(args);
-      const config = await ctx.loadConfig();
-      const token = await resolveFigmaToken(ctx.root, config);
-      if (token === undefined || token === "") {
-        return toolError(
-          new KotikitError(
-            "I couldn't find your Figma token.",
-            "Create a .env file in your project root with FIGMA_TOKEN=figd_... or set figma.token in .kotikit/config.json. The token must include file_comments:read."
-          )
-        );
-      }
+      const clientOrError = await requireFigmaClient(ctx, opts);
+      if ("isError" in clientOrError) return clientOrError;
 
       const nodeMap = await resolveNodeMap(ctx.root, input);
       const fileKey = input.fileKey ?? nodeMap?.figmaFileKey;
@@ -85,14 +207,26 @@ export function registerDesignCommentTools(
         );
       }
 
-      const client = opts.figmaClientFactory
-        ? opts.figmaClientFactory(token)
-        : new FigmaClient({ token });
-      const comments = await client.getComments(fileKey, { asMarkdown: true });
+      const comments = await clientOrError.getComments(fileKey, { asMarkdown: true });
       const mapped = mapCommentsToDesignNodes(comments, nodeMap, {
         includeResolved: input.includeResolved,
       });
+      const mappedAll = mapCommentsToDesignNodes(comments, nodeMap, {
+        includeResolved: true,
+      });
+      const store = openDesignReviewDb(ctx.root);
+      const session = store.recordReviewSession({
+        ...(input.scope !== undefined ? { scope: input.scope } : {}),
+        ...(input.screen !== undefined ? { screen: input.screen } : {}),
+        fileKey,
+        totalFetched: comments.length,
+        mappedCount: mapped.mapped.length,
+        unmappedCount: mapped.unmapped.length,
+        skippedResolved: mapped.skippedResolved,
+        comments: reviewCommentInputs(comments, mappedAll, { fileKey }),
+      });
       const detail = {
+        sessionId: session.sessionId,
         fileKey,
         ...(input.scope !== undefined ? { scope: input.scope } : {}),
         ...(input.screen !== undefined ? { screen: input.screen } : {}),
@@ -111,6 +245,215 @@ export function registerDesignCommentTools(
         `Fetched ${comments.length} Figma comment(s): ${mapped.mapped.length} mapped, ${mapped.unmapped.length} unmapped.`,
         detail
       );
+    } catch (err) {
+      return toolError(err);
+    }
+  });
+
+  registerTool(registry, {
+    name: "kotikit_design_adjustment_record",
+    description: "Record a compact design adjustment made in response to review feedback.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        scope: { type: "string" },
+        screen: { type: "string" },
+        fileKey: { type: "string" },
+        commentId: { type: "string" },
+        nodeId: { type: "string" },
+        category: { type: "string", enum: DesignAdjustmentCategorySchema.options },
+        summary: { type: "string" },
+        preferenceKey: { type: "string" },
+        preferenceSummary: { type: "string" },
+      },
+      required: ["category", "summary"],
+    },
+  }, async (args) => {
+    try {
+      const input = AdjustmentRecordInputSchema.parse(args);
+      const store = openDesignReviewDb(ctx.root);
+      const adjustment = store.recordDesignAdjustment({
+        ...input,
+        category: input.category as DesignAdjustmentCategory,
+      });
+      return toolText("Recorded design adjustment.", { adjustment });
+    } catch (err) {
+      return toolError(err);
+    }
+  });
+
+  registerTool(registry, {
+    name: "kotikit_design_review_report",
+    description: "Return a compact report for the latest or selected design review session.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        scope: { type: "string" },
+        screen: { type: "string" },
+        limit: { type: "number" },
+      },
+    },
+  }, async (args) => {
+    try {
+      const input = ReviewReportInputSchema.parse(args);
+      const report = openDesignReviewDb(ctx.root).getReviewReport(input);
+      return toolText("Design review report.", report);
+    } catch (err) {
+      return toolError(err);
+    }
+  });
+
+  registerTool(registry, {
+    name: "kotikit_design_comment_reply_prepare",
+    description: "Prepare pending Figma comment replies for fixed review comments without posting them.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        fileKey: { type: "string" },
+        commentIds: { type: "array", items: { type: "string" } },
+        message: { type: "string" },
+      },
+    },
+  }, async (args) => {
+    try {
+      const input = ReplyPrepareInputSchema.parse(args);
+      const replies = openDesignReviewDb(ctx.root).prepareCommentReplies(input);
+      return toolText(`Prepared ${replies.length} pending Figma repl${replies.length === 1 ? "y" : "ies"}.`, { replies });
+    } catch (err) {
+      return toolError(err);
+    }
+  });
+
+  registerTool(registry, {
+    name: "kotikit_design_comment_reply_post",
+    description: "Post pending prepared Figma comment replies. Requires file_comments:write.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        fileKey: { type: "string" },
+        outboxIds: { type: "array", items: { type: "string" } },
+        limit: { type: "number" },
+      },
+    },
+  }, async (args) => {
+    try {
+      const input = ReplyPostInputSchema.parse(args);
+      const store = openDesignReviewDb(ctx.root);
+      const pending = store
+        .listPendingReplies({
+          ...(input.sessionId !== undefined ? { sessionId: input.sessionId } : {}),
+          ...(input.fileKey !== undefined ? { fileKey: input.fileKey } : {}),
+          limit: input.limit,
+        })
+        .filter((reply) => input.outboxIds === undefined || input.outboxIds.includes(reply.outboxId));
+      const clientOrError = await requireFigmaClient(ctx, opts);
+      if ("isError" in clientOrError) return clientOrError;
+      if (!clientOrError.postComment) {
+        throw new KotikitError(
+          "This Figma client cannot post comments.",
+          "Use the real Figma client or a test client with postComment."
+        );
+      }
+
+      const posted = [];
+      const failed = [];
+      for (const reply of pending) {
+        try {
+          const figmaReply = await clientOrError.postComment(reply.fileKey, {
+            message: reply.message,
+            commentId: reply.commentId,
+          });
+          store.markReplyPosted({
+            outboxId: reply.outboxId,
+            postedCommentId: figmaReply.id,
+          });
+          posted.push({ outboxId: reply.outboxId, commentId: reply.commentId, postedCommentId: figmaReply.id });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          store.markReplyFailed({ outboxId: reply.outboxId, error: message });
+          failed.push({ outboxId: reply.outboxId, commentId: reply.commentId, error: message });
+        }
+      }
+
+      return toolText(`Posted ${posted.length} Figma repl${posted.length === 1 ? "y" : "ies"}.`, {
+        posted,
+        failed,
+      });
+    } catch (err) {
+      return toolError(err);
+    }
+  });
+
+  registerTool(registry, {
+    name: "kotikit_design_memory_candidates",
+    description: "List repeated design feedback patterns that may become project design preferences.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        status: { type: "string", enum: ["candidate", "promoted", "dismissed"] },
+        limit: { type: "number" },
+      },
+    },
+  }, async (args) => {
+    try {
+      const input = MemoryCandidatesInputSchema.parse(args);
+      const candidates = openDesignReviewDb(ctx.root).listPreferenceCandidates(input);
+      return toolText(`Found ${candidates.length} design memory candidate(s).`, { candidates });
+    } catch (err) {
+      return toolError(err);
+    }
+  });
+
+  registerTool(registry, {
+    name: "kotikit_design_memory_promote",
+    description: "Promote a repeated feedback candidate into an active project design preference.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        candidateKey: { type: "string" },
+        scope: { type: "string" },
+        rule: { type: "string" },
+      },
+      required: ["candidateKey"],
+    },
+  }, async (args) => {
+    try {
+      const input = MemoryPromoteInputSchema.parse(args);
+      const preference = openDesignReviewDb(ctx.root).promotePreferenceCandidate({
+        key: input.candidateKey,
+        ...(input.scope !== undefined ? { scope: input.scope } : {}),
+        ...(input.rule !== undefined ? { rule: input.rule } : {}),
+      });
+      return toolText("Promoted design preference.", { preference });
+    } catch (err) {
+      return toolError(err);
+    }
+  });
+
+  registerTool(registry, {
+    name: "kotikit_design_memory_search",
+    description: "Search active project design preferences for the current design task.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        scope: { type: "string" },
+        category: { type: "string", enum: DesignAdjustmentCategorySchema.options },
+        query: { type: "string" },
+        limit: { type: "number" },
+      },
+    },
+  }, async (args) => {
+    try {
+      const input = MemorySearchInputSchema.parse(args);
+      const preferences = openDesignReviewDb(ctx.root).searchDesignPreferences({
+        ...input,
+        ...(input.category !== undefined ? { category: input.category as DesignAdjustmentCategory } : {}),
+      });
+      return toolText(`Found ${preferences.length} active design preference(s).`, { preferences });
     } catch (err) {
       return toolError(err);
     }

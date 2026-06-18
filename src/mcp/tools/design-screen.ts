@@ -7,9 +7,10 @@ import { defaultConfig } from "../../config/schema.js";
 import { readScreenSpec, readFlowManifest } from "../../spec/engine.js";
 import { readDesignPlan } from "../../planning/design-plan-store.js";
 import { ComponentJsonSchema, type ComponentJson } from "../../sync/component-shape.js";
-import { designSystemDir } from "../../util/paths.js";
+import { designReviewDbPath, designSystemDir } from "../../util/paths.js";
 import { slugifyComponentName } from "../../util/ids.js";
 import { toolText, toolError, KotikitError } from "../../util/result.js";
+import { openDesignReviewDb } from "../../db/design-review-db.js";
 
 // ─── Register all design-screen tools ─────────────────────────────────────────
 
@@ -94,9 +95,13 @@ function registerDesignGetScreen(registry: ToolRegistry, ctx: ToolContext): void
         }
       }
 
+      const designPreferences = existsSync(designReviewDbPath(root))
+        ? openDesignReviewDb(root).searchDesignPreferences({ scope, limit: 10 })
+        : [];
+
       return toolText(
         `Design plan for ${plan.pageName}: ${plan.steps.length} steps.`,
-        { plan, spec, ...(flow ? { flow } : {}), dsComponents, skipped }
+        { plan, spec, ...(flow ? { flow } : {}), dsComponents, skipped, designPreferences }
       );
     } catch (err) {
       return toolError(err);

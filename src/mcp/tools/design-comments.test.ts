@@ -85,9 +85,13 @@ describe("kotikit_design_review_comments", () => {
       scope: "members",
       screen: "list",
     });
-    const detail = detailFrom(result) as { mapped: { target: { componentName: string } }[] };
+    const detail = detailFrom(result) as {
+      sessionId: string;
+      mapped: { target: { componentName: string } }[];
+    };
 
     expect(result.isError).toBeFalsy();
+    expect(detail.sessionId).toBeString();
     expect(detail.mapped[0]?.target.componentName).toBe("Button");
   });
 
@@ -180,5 +184,138 @@ describe("kotikit_design_review_comments", () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("fileKey");
+  });
+
+  it("records adjustments, reports the review pass, and surfaces memory candidates", async () => {
+    const root = mkTmp();
+    const cfg = defaultConfig();
+    cfg.figma.token = "plain-token";
+    await writeConfig(root, cfg);
+
+    const registry = makeRegistry();
+    registerDesignCommentTools(registry, makeCtx(root, cfg), {
+      figmaClientFactory: () => ({
+        getComments: async () => [comment({ client_meta: { node_id: "node-1" } })],
+        postComment: async () => comment({ id: "reply-1", parent_id: "comment-1" }),
+      }),
+    });
+
+    const review = await callTool(registry, "kotikit_design_review_comments", {
+      fileKey: "fig-file",
+      scope: "members",
+    });
+    const reviewDetail = detailFrom(review) as { sessionId: string };
+
+    const adjustment = await callTool(registry, "kotikit_design_adjustment_record", {
+      sessionId: reviewDetail.sessionId,
+      scope: "members",
+      fileKey: "fig-file",
+      commentId: "comment-1",
+      nodeId: "node-1",
+      category: "density",
+      summary: "Reduced row height and cell padding.",
+      preferenceKey: "tables.density.compact_rows",
+      preferenceSummary: "Use compact rows for admin tables.",
+    });
+    const report = await callTool(registry, "kotikit_design_review_report", {
+      sessionId: reviewDetail.sessionId,
+    });
+    const candidates = await callTool(registry, "kotikit_design_memory_candidates", {});
+
+    expect(adjustment.isError).toBeFalsy();
+    expect((detailFrom(report) as { summary: { fixed: number } }).summary.fixed).toBe(1);
+    expect(
+      (detailFrom(candidates) as { candidates: { key: string }[] }).candidates[0]?.key
+    ).toBe("tables.density.compact_rows");
+  });
+
+  it("prepares and posts Figma replies for fixed comments", async () => {
+    const root = mkTmp();
+    const cfg = defaultConfig();
+    cfg.figma.token = "plain-token";
+    await writeConfig(root, cfg);
+    let postedCommentId: string | undefined;
+
+    const registry = makeRegistry();
+    registerDesignCommentTools(registry, makeCtx(root, cfg), {
+      figmaClientFactory: () => ({
+        getComments: async () => [comment({ client_meta: { node_id: "node-1" } })],
+        postComment: async (_fileKey, input) => {
+          postedCommentId = input.commentId;
+          return comment({ id: "reply-1", parent_id: input.commentId });
+        },
+      }),
+    });
+
+    const review = await callTool(registry, "kotikit_design_review_comments", {
+      fileKey: "fig-file",
+      scope: "members",
+    });
+    const sessionId = (detailFrom(review) as { sessionId: string }).sessionId;
+    await callTool(registry, "kotikit_design_adjustment_record", {
+      sessionId,
+      scope: "members",
+      fileKey: "fig-file",
+      commentId: "comment-1",
+      category: "spacing",
+      summary: "Adjusted spacing.",
+    });
+
+    const prepared = await callTool(registry, "kotikit_design_comment_reply_prepare", {
+      sessionId,
+      message: "Fixed in this pass.",
+    });
+    const posted = await callTool(registry, "kotikit_design_comment_reply_post", {
+      sessionId,
+    });
+
+    expect((detailFrom(prepared) as { replies: unknown[] }).replies).toHaveLength(1);
+    expect((detailFrom(posted) as { posted: unknown[] }).posted).toHaveLength(1);
+    expect(postedCommentId).toBe("comment-1");
+  });
+
+  it("promotes and searches active design preferences", async () => {
+    const root = mkTmp();
+    const cfg = defaultConfig();
+    cfg.figma.token = "plain-token";
+    await writeConfig(root, cfg);
+
+    const registry = makeRegistry();
+    registerDesignCommentTools(registry, makeCtx(root, cfg), {
+      figmaClientFactory: () => ({
+        getComments: async () => [comment({})],
+        postComment: async () => comment({ id: "reply-1" }),
+      }),
+    });
+
+    const review = await callTool(registry, "kotikit_design_review_comments", {
+      fileKey: "fig-file",
+      scope: "members",
+    });
+    const sessionId = (detailFrom(review) as { sessionId: string }).sessionId;
+    await callTool(registry, "kotikit_design_adjustment_record", {
+      sessionId,
+      scope: "members",
+      fileKey: "fig-file",
+      category: "density",
+      summary: "Reduced row height.",
+      preferenceKey: "tables.density.compact_rows",
+      preferenceSummary: "Use compact rows for admin tables.",
+    });
+
+    const promoted = await callTool(registry, "kotikit_design_memory_promote", {
+      candidateKey: "tables.density.compact_rows",
+      scope: "members",
+      rule: "For member-management tables, prefer compact row density.",
+    });
+    const search = await callTool(registry, "kotikit_design_memory_search", {
+      scope: "members",
+      query: "compact",
+    });
+
+    expect((detailFrom(promoted) as { preference: { status: string } }).preference.status).toBe("active");
+    expect((detailFrom(search) as { preferences: { key: string }[] }).preferences[0]?.key).toBe(
+      "tables.density.compact_rows"
+    );
   });
 });
