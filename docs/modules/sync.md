@@ -17,6 +17,7 @@ The sync module owns everything needed to pull a Figma design system into a loca
 - `FigmaClient#getNodes(fileKey, ids)` — node details, batched in chunks of 100
 - `FigmaClient#getPageTree(fileKey, pageId, depth=4)` — fetch one page tree through the nodes endpoint for diagnostics
 - `FigmaClient#getComments(fileKey, { asMarkdown? })` — fetch file comments and replies for design review; requires a token with `file_comments:read`
+- `FigmaClient#postComment(fileKey, { message, commentId?, clientMeta? })` — post a root comment or reply; requires a token with `file_comments:write`
 - `FigmaResponseError` — exported for test construction
 
 **Rate limiting and backoff** (`src/sync/rate-limit.ts`, `src/sync/backoff.ts`)

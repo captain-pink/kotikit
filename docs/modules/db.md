@@ -2,7 +2,7 @@
 
 ## What it does
 
-The db module wraps `bun:sqlite` with the conventions kotikit uses everywhere: WAL journal mode, normal synchronous writes, foreign key enforcement, and a thin transaction helper. On top of that base it owns three SQLite databases — a full-text-search components store, a full-text-search icons store, and a registry that tracks which design system components have been scaffolded into code — plus the CamelCase token splitter that makes component names searchable by their parts.
+The db module wraps `bun:sqlite` with the conventions kotikit uses everywhere: WAL journal mode, normal synchronous writes, foreign key enforcement, and a thin transaction helper. On top of that base it owns four SQLite databases — a full-text-search components store, a full-text-search icons store, a registry that tracks which design system components have been scaffolded into code, and a design review ledger that stores comment review state and project design preferences — plus the CamelCase token splitter that makes component names searchable by their parts.
 
 ## Public surface
 
@@ -38,6 +38,17 @@ The db module wraps `bun:sqlite` with the conventions kotikit uses everywhere: W
 - `upsertRegistryDsRow(db, { name, dsPath })` — merge-aware DS component upsert; never clobbers `code_path` on synced rows
 - `listDesignOnlyComponents(db, names?, limit?)` — return component rows with `status="design-only"`, optionally filtered by names allowlist
 
+**Design review database** (`src/db/design-review-db.ts`)
+- `openDesignReviewDb(root)` — open `.kotikit/design-review.db`, initialize tables, and return the review store
+- `recordReviewSession(input)` — persist a comment-reading pass and compact comment rows
+- `recordDesignAdjustment(input)` — persist a micro-adjustment and mark linked comments fixed
+- `prepareCommentReplies(input)` — create pending reply outbox rows for fixed comments
+- `markReplyPosted(input)` / `markReplyFailed(input)` — update reply outbox state after Figma API calls
+- `getReviewReport(input)` — return compact session summary, comments, adjustments, and pending replies
+- `listPreferenceCandidates(input)` — return repeated-feedback candidates
+- `promotePreferenceCandidate(input)` — turn a candidate into an active design preference
+- `searchDesignPreferences(input)` — fetch active preferences relevant to a future design task
+
 **CamelCase tokenizer** (`src/db/camel-tokens.ts`)
 - `buildNameTokens(name)` — produce the `name_tokens` column value: the original string plus each split token, deduplicated, joined with spaces
 
@@ -51,17 +62,24 @@ The registry schema has two versions. `PRAGMA user_version = 0` is the Phase 3 b
 
 `upsertRegistryDsRow` is the only function that understands component lifecycle rules. When the sync runs again on an already-scaffolded component, this function updates `ds_path` without touching `code_path` or status, preserving the `"synced"` label. When a component was `"code-only"` (scaffolded before the DS was synced), it promotes the row to `"synced"` if `code_path` is non-null.
 
+The design review database is intentionally compact. It does not store long
+design-change narratives. A review pass stores comment metadata and mapping
+status, each fix stores a short adjustment row, and repeated adjustment evidence
+can become a preference candidate. Only promoted `design_preferences` are fed
+back into design context by `kotikit_design_get_screen`.
+
 ## When to extend it
 
 - Adding a new indexed field to the components table (e.g. `page_name`) — `initComponentsDb` uses `CREATE VIRTUAL TABLE IF NOT EXISTS`, so you must drop and recreate the table in a new migration step; consider versioning `components.db` the same way the registry is versioned.
 - Supporting partial-match searches (prefix matching) — add `*` to the query term in `searchComponents`; FTS5 supports `term*` prefix queries natively.
 - Adding a new registry status (e.g. `"archived"`) — extend the `CHECK` constraint in the SQL and the `RegistryStatus` TypeScript type, then update `upsertRegistryDsRow` merge logic.
 - Adding a third FTS5 database (e.g. for spec search) — follow the components-db pattern: a single `initXxxDb`, `upsertXxx`, `searchXxx`, and `clearXxx` in their own file; use `openDb` for consistent pragma setup.
+- Adding more review workflow state — extend `design-review-db.ts` with an idempotent schema addition and keep MCP responses paginated or summarized.
 
 ## Related
 
 - [sync](./sync.md) — `initComponentsDb`, `upsertComponent`, `initIconsDb`, `upsertIcon`, `initRegistryDb`, `upsertRegistryDsRow` are all called by the sync orchestrator
 - [codegen](./codegen.md) — the registry is read by the scaffold tool to find `design-only` components
-- [util](./util.md) — `componentsDbPath`, `iconsDbPath`, `registryDbPath` are the canonical path helpers
+- [util](./util.md) — `componentsDbPath`, `iconsDbPath`, `registryDbPath`, and `designReviewDbPath` are the canonical path helpers
 - `planning/phase-2.md` — FTS5 tokenizer decision; camel-token rationale
 - `planning/phase-4.md` — registry v1 schema and `upsertRegistryDsRow` merge rules

@@ -27,13 +27,15 @@ The React adapter ships and is exercised, but the boundary it implies hasn't bee
 
 ## Design track
 
-Phase 5 ships the bridge + the orchestrator + a placeholder UI. The plan-checklist UI was deferred (P5-D4).
+Phase 5 ships the bridge + the orchestrator + a placeholder UI. The plan-checklist UI was deferred (P5-D4). Browserless comment reading, compact review reporting, reply outbox support, and explicit design preference promotion now exist; the remaining items make that loop more automatic and visual.
 
 - **Full plan-checklist UI in the Figma plugin** — the deferred P5-D4 task: two-pane view with per-step Run buttons + streaming status log.
-- **Comment reply / resolve workflow** — extend browserless review from read-only `file_comments:read` to optional `file_comments:write`, with explicit user confirmation before posting replies or resolving threads.
+- **Automatic feedback clustering** — infer `preferenceKey` suggestions from similar comment/adjustment text instead of relying on the agent to provide a stable key.
 - **Comment thread inheritance** — map replies without `client_meta.node_id` through their parent comment when the parent is mapped, while still returning truly detached comments as unmapped.
 - **Coordinate fallback for unmapped comments** — investigate whether frame-relative `client_meta` offsets can be matched against generated node bounds in the node map. Keep it conservative: only map when the geometry is unambiguous.
+- **Official resolve support if Figma exposes it** — if Figma adds a REST endpoint for resolving comments, add a confirm-first tool that marks threads resolved after replies are posted.
 - **Review dashboard in the plugin** — show mapped and unmapped comments beside the apply-plan status so designers can inspect review feedback without switching tools.
+- **Preference lifecycle controls** — add dismiss, deactivate, and edit flows for active design preferences so stale taste does not accumulate.
 - **Multi-project bridge selector** inside the plugin — list of running bridges instead of a single-paste connect URL.
 - **Flow-level Figma prototype connections** — read `flow.json` transitions and wire them as Figma prototype arrows.
 - **Variable binding with `nodeNameHint` resolution** — bind a variable to a specific child node (e.g. "Heading text") instead of the frame itself.

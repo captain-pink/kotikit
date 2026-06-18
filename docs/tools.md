@@ -1,6 +1,6 @@
 # kotikit MCP Tools
 
-27 tools exposed by the kotikit MCP server, organized by what they do.
+34 tools exposed by the kotikit MCP server, organized by what they do.
 Each tool name is what the agent calls; the "Example" line shows how to trigger it from your conversation.
 
 Token costs are approximate response sizes measured against a small fixture project (3 DS components, 1 screen). Re-measure for your project with `bun run measure`. See [docs/TOKENS.md](./TOKENS.md) for optimization strategies.
@@ -290,10 +290,87 @@ See also: `kotikit_design_get_screen`, `kotikit_plan_design`.
 
 Purpose: Fetch Figma comments through the REST API and map them to applied design-plan nodes using the local `design.node-map.json` when available.
 Input: `{ scope?: string; screen?: string; fileKey?: string; includeResolved?: boolean; limit?: number }`
-Output: `{ fileKey, scope?, screen?, hasNodeMap, totalFetched, skippedResolved, mapped, unmapped, truncated }`
+Output: `{ sessionId, fileKey, scope?, screen?, hasNodeMap, totalFetched, skippedResolved, mapped, unmapped, truncated }`
 Token cost: depends on comment count; defaults to 25 mapped and 25 unmapped comments returned.
 Example: "Read Figma review comments for the Members screen."
 See also: `kotikit_design_apply_step`, `kotikit_plan_design`.
+
+---
+
+### kotikit_design_adjustment_record
+
+Purpose: Record a compact design adjustment made during a review pass and optionally attach evidence for a reusable design preference.
+Input: `{ sessionId?: string; scope?: string; screen?: string; fileKey?: string; commentId?: string; nodeId?: string; category: "spacing" | "density" | "typography" | "hierarchy" | "color" | "component" | "interaction" | "copy" | "responsive" | "layout" | "other"; summary: string; preferenceKey?: string; preferenceSummary?: string }`
+Output: `{ adjustment }`
+Token cost: ~100.
+Example: "Record that I made the Members table denser for comment c1."
+See also: `kotikit_design_review_report`, `kotikit_design_memory_candidates`.
+
+---
+
+### kotikit_design_review_report
+
+Purpose: Return a compact report for a review session: comment statuses, adjustments, and pending replies.
+Input: `{ sessionId?: string; scope?: string; screen?: string; limit?: number }`
+Output: `{ session, summary, comments, adjustments, pendingReplies }`
+Token cost: depends on `limit`; defaults to 25 rows per section.
+Example: "Show the latest design review report for Members."
+See also: `kotikit_design_review_comments`, `kotikit_design_adjustment_record`.
+
+---
+
+### kotikit_design_comment_reply_prepare
+
+Purpose: Prepare pending Figma replies for fixed comments without posting them.
+Input: `{ sessionId?: string; fileKey?: string; commentIds?: string[]; message?: string }`
+Output: `{ replies }`
+Token cost: ~120 plus reply count.
+Example: "Prepare replies for all fixed comments in this review pass."
+See also: `kotikit_design_comment_reply_post`.
+
+---
+
+### kotikit_design_comment_reply_post
+
+Purpose: Post pending prepared Figma replies. Requires a token with `file_comments:write`.
+Input: `{ sessionId?: string; fileKey?: string; outboxIds?: string[]; limit?: number }`
+Output: `{ posted, failed }`
+Token cost: ~120 plus posted/failed count.
+Example: "Post the prepared replies for fixed comments."
+See also: `kotikit_design_comment_reply_prepare`.
+
+---
+
+### kotikit_design_memory_candidates
+
+Purpose: List repeated design feedback patterns that may become project design preferences.
+Input: `{ status?: "candidate" | "promoted" | "dismissed"; limit?: number }`
+Output: `{ candidates }`
+Token cost: depends on `limit`; defaults to 25.
+Example: "Show design memory candidates from recent review fixes."
+See also: `kotikit_design_memory_promote`, `kotikit_design_memory_search`.
+
+---
+
+### kotikit_design_memory_promote
+
+Purpose: Promote a repeated feedback candidate into an active project design preference.
+Input: `{ candidateKey: string; scope?: string; rule?: string }`
+Output: `{ preference }`
+Token cost: ~100.
+Example: "Promote `tables.density.compact_rows` for the Members scope."
+See also: `kotikit_design_memory_candidates`.
+
+---
+
+### kotikit_design_memory_search
+
+Purpose: Search active project design preferences for the current design task.
+Input: `{ scope?: string; category?: "spacing" | "density" | "typography" | "hierarchy" | "color" | "component" | "interaction" | "copy" | "responsive" | "layout" | "other"; query?: string; limit?: number }`
+Output: `{ preferences }`
+Token cost: depends on `limit`; defaults to 25.
+Example: "Find active density preferences for this screen."
+See also: `kotikit_design_get_screen`.
 
 ---
 
