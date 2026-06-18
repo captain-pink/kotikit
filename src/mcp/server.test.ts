@@ -50,6 +50,8 @@ describe("MCP server", () => {
       // Phase 6
       "kotikit_audit",
       "kotikit_get_system_prompt",
+      // Tooling
+      "kotikit_doctor",
     ];
     const registeredNames = registry.tools.map((t) => t.name);
     for (const name of expectedTools) {

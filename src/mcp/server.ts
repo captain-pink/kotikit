@@ -29,6 +29,7 @@ import { registerDesignApplyTools } from "./tools/design-apply.js";
 import { registerDesignCommentTools } from "./tools/design-comments.js";
 import { registerAuditTools } from "./tools/audit.js";
 import { registerSystemPromptTools } from "./tools/system-prompt.js";
+import { registerDoctorTools } from "./tools/doctor.js";
 import { KOTIKIT_MCP_INSTRUCTIONS } from "./instructions.js";
 import { startBridgeServer, type BridgeServer } from "./bridge/server.js";
 import {
@@ -93,6 +94,7 @@ export function buildServer(): { server: Server; registry: ToolRegistry } {
   registerDesignCommentTools(registry, ctx);
   registerAuditTools(registry, ctx);
   registerSystemPromptTools(registry, ctx);
+  registerDoctorTools(registry, ctx);
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
 

@@ -3,9 +3,11 @@
   "version": "0.1.0",
   "type": "module",
   "bin": {
+    "kotikit": "./src/cli.ts",
     "kotikit-mcp": "./src/mcp/server.ts"
   },
   "scripts": {
+    "doctor": "bun run src/cli.ts doctor",
     "mcp": "bun run src/mcp/server.ts",
     "bridge": "KOTIKIT_BRIDGE=1 bun run src/mcp/server.ts",
     "typecheck": "tsc --noEmit",
