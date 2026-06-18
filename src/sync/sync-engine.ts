@@ -4,7 +4,11 @@ import type { FileCheckpoint } from "./checkpoint.js";
 import type { ComponentJson } from "./component-shape.js";
 import type { VariablesJson } from "./variables.js";
 import { buildPropsString } from "./component-shape.js";
-import { normalizePublishedDesignSystem } from "./normalize-design-system.js";
+import {
+  buildNormalizationDiagnostics,
+  normalizePublishedDesignSystem,
+  type NormalizationDiagnostics,
+} from "./normalize-design-system.js";
 import { deleteComponentsByFileKey, upsertComponent } from "../db/components-db.js";
 import { deleteIconsByFileKey, upsertIcon } from "../db/icons-db.js";
 import { withTransaction } from "../db/sqlite.js";
@@ -40,6 +44,8 @@ export interface SyncOneFileResult {
   pageNameByNodeId: Record<string, string>;
   /** Stages skipped with reason — surfaces to the sync report. */
   skipped: { stage: string; reason: string }[];
+  /** Compact normalizer quality metrics for sync reports. */
+  normalizationDiagnostics: NormalizationDiagnostics | null;
 }
 
 /**
@@ -214,16 +220,19 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
   // ── Stage 7: icons (and classification) ─────────────────────────────────
   let iconCount = 0;
   const componentJsons: ComponentJson[] = [];
+  let normalizationDiagnostics: NormalizationDiagnostics | null = null;
   if (shouldRun("icons")) {
     if (progress && fileCtx) progress.stage(fileCtx, "icons", "classifying components...");
 
-    const normalized = normalizePublishedDesignSystem({
+    const normalizationInput = {
       fileKey,
       publishedComponents,
       componentSets,
       nodeDetailsById,
       pageNameByNodeId,
-    });
+    };
+    const normalized = normalizePublishedDesignSystem(normalizationInput);
+    normalizationDiagnostics = buildNormalizationDiagnostics(normalizationInput, normalized);
 
     for (const icon of normalized.icons) {
       upsertIcon(iconsDb, icon);
@@ -275,5 +284,6 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
     componentJsons,
     pageNameByNodeId,
     skipped,
+    normalizationDiagnostics,
   };
 }

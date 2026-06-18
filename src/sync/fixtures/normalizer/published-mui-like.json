@@ -1,0 +1,124 @@
+{
+  "input": {
+    "fileKey": "FIXTURE",
+    "publishedComponents": [
+      {
+        "key": "button-primary-medium",
+        "node_id": "button-1",
+        "name": "Color=Primary, Size=Medium, Variant=Contained",
+        "containing_frame": {
+          "pageName": "Components",
+          "containingComponentSet": {
+            "nodeId": "button-set",
+            "name": "Button"
+          }
+        }
+      },
+      {
+        "key": "button-secondary-small",
+        "node_id": "button-2",
+        "name": "Color=Secondary, Size=Small, Variant=Outlined",
+        "containing_frame": {
+          "pageName": "Components",
+          "containingComponentSet": {
+            "nodeId": "button-set",
+            "name": "Button"
+          }
+        }
+      },
+      {
+        "key": "field-enabled",
+        "node_id": "field-1",
+        "name": "State=Enabled, Size=Medium",
+        "containing_frame": {
+          "pageName": "Inputs",
+          "containingStateGroup": {
+            "nodeId": "field-set",
+            "name": "Text field"
+          }
+        }
+      },
+      {
+        "key": "field-error",
+        "node_id": "field-2",
+        "name": "State=Error, Size=Medium",
+        "containing_frame": {
+          "pageName": "Inputs",
+          "containingStateGroup": {
+            "nodeId": "field-set",
+            "name": "Text field"
+          }
+        }
+      },
+      {
+        "key": "icon-add",
+        "node_id": "icon-1",
+        "name": "Icon/Add",
+        "containing_frame": {
+          "pageName": "Icons"
+        }
+      }
+    ],
+    "componentSets": [
+      {
+        "key": "button-set-key",
+        "node_id": "button-set",
+        "name": "Button",
+        "componentPropertyDefinitions": {
+          "Color": { "type": "VARIANT", "variantOptions": ["Primary", "Secondary"] },
+          "Size": { "type": "VARIANT", "variantOptions": ["Small", "Medium"] },
+          "Variant": { "type": "VARIANT", "variantOptions": ["Contained", "Outlined"] },
+          "Label": { "type": "TEXT", "defaultValue": "Button" }
+        }
+      }
+    ],
+    "nodeDetailsById": {},
+    "pageNameByNodeId": {
+      "button-1": "Components",
+      "button-2": "Components",
+      "field-1": "Inputs",
+      "field-2": "Inputs",
+      "icon-1": "Icons"
+    }
+  },
+  "expected": {
+    "components": [
+      {
+        "name": "Button",
+        "key": "button-primary-medium",
+        "componentSetKey": "button-set-key",
+        "fileKey": "FIXTURE",
+        "path": "components/button.json",
+        "variants": [
+          { "propertyName": "Color", "values": ["Primary", "Secondary"] },
+          { "propertyName": "Size", "values": ["Small", "Medium"] },
+          { "propertyName": "Variant", "values": ["Contained", "Outlined"] }
+        ],
+        "properties": {
+          "Label": { "type": "TEXT", "defaultValue": "Button" }
+        }
+      },
+      {
+        "name": "Text field",
+        "key": "field-enabled",
+        "componentSetKey": "field-enabled",
+        "fileKey": "FIXTURE",
+        "path": "components/text-field.json",
+        "variants": [
+          { "propertyName": "State", "values": ["Enabled", "Error"] },
+          { "propertyName": "Size", "values": ["Medium"] }
+        ],
+        "properties": {}
+      }
+    ],
+    "icons": [
+      {
+        "name": "Icon/Add",
+        "key": "icon-add",
+        "signal": "page",
+        "fileKey": "FIXTURE"
+      }
+    ],
+    "warningCodes": ["inferred-variants", "missing-component-set-metadata"]
+  }
+}

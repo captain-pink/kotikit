@@ -26,6 +26,21 @@ export interface NormalizePublishedResult {
   warnings: NormalizeWarning[];
 }
 
+export interface NormalizationDiagnostics {
+  fileKey: string;
+  publishedComponentCount: number;
+  componentSetCount: number;
+  nodeDetailsCount: number;
+  pageNameCount: number;
+  componentCount: number;
+  iconCount: number;
+  detailNodeCount: number;
+  warnings: Array<{
+    code: NormalizeWarning["code"];
+    count: number;
+  }>;
+}
+
 interface ComponentSetRef {
   id?: string;
   name?: string;
@@ -275,5 +290,27 @@ export function normalizePublishedDesignSystem(
     icons: normalized.icons,
     nodeIdsForDetails: nodeIdsForGroups(groups),
     warnings: [...warnings, ...duplicateWarnings],
+  };
+}
+
+export function buildNormalizationDiagnostics(
+  input: NormalizePublishedInput,
+  result: NormalizePublishedResult
+): NormalizationDiagnostics {
+  const warningCounts = result.warnings.reduce<Map<NormalizeWarning["code"], number>>(
+    (acc, warning) => acc.set(warning.code, (acc.get(warning.code) ?? 0) + 1),
+    new Map()
+  );
+
+  return {
+    fileKey: input.fileKey,
+    publishedComponentCount: input.publishedComponents.length,
+    componentSetCount: input.componentSets.length,
+    nodeDetailsCount: Object.keys(input.nodeDetailsById).length,
+    pageNameCount: Object.keys(input.pageNameByNodeId ?? {}).length,
+    componentCount: result.components.length,
+    iconCount: result.icons.length,
+    detailNodeCount: result.nodeIdsForDetails.length,
+    warnings: Array.from(warningCounts.entries()).map(([code, count]) => ({ code, count })),
   };
 }

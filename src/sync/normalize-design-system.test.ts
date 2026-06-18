@@ -1,6 +1,10 @@
 import { describe, it, expect } from "bun:test";
-import { normalizePublishedDesignSystem } from "./normalize-design-system.js";
+import {
+  buildNormalizationDiagnostics,
+  normalizePublishedDesignSystem,
+} from "./normalize-design-system.js";
 import type { FigmaPublishedComponent, FigmaComponentSet, FigmaNode } from "./figma-types.js";
+import type { ComponentJson } from "./component-shape.js";
 
 const buttonVariants: FigmaPublishedComponent[] = [
   {
@@ -29,7 +33,69 @@ const buttonVariants: FigmaPublishedComponent[] = [
   },
 ];
 
+interface NormalizerFixture {
+  input: {
+    fileKey: string;
+    publishedComponents: FigmaPublishedComponent[];
+    componentSets: FigmaComponentSet[];
+    nodeDetailsById: Record<string, FigmaNode>;
+    pageNameByNodeId?: Record<string, string>;
+  };
+  expected: {
+    components: Array<Omit<ComponentJson, "updatedAt">>;
+    icons: unknown[];
+    warningCodes: string[];
+  };
+}
+
+const loadFixture = async (name: string): Promise<NormalizerFixture> =>
+  Bun.file(new URL(`./fixtures/normalizer/${name}.json`, import.meta.url)).json();
+
+const stableComponent = (component: ComponentJson): Omit<ComponentJson, "updatedAt"> => {
+  const { updatedAt: _updatedAt, ...stable } = component;
+  return stable;
+};
+
 describe("normalizePublishedDesignSystem", () => {
+  it.each([
+    "published-mui-like",
+    "duplicate-logical-names",
+  ])("matches the %s fixture", async (fixtureName) => {
+    const fixture = await loadFixture(fixtureName);
+    const result = normalizePublishedDesignSystem(fixture.input);
+
+    expect(result.components.map(stableComponent)).toEqual(fixture.expected.components);
+    expect(result.icons).toEqual(fixture.expected.icons);
+    expect(result.warnings.map((warning) => warning.code)).toEqual(fixture.expected.warningCodes);
+  });
+
+  it("builds compact diagnostics for sync reports", async () => {
+    const fixture = await loadFixture("published-mui-like");
+    const result = normalizePublishedDesignSystem(fixture.input);
+    const diagnostics = buildNormalizationDiagnostics(fixture.input, result);
+
+    expect(diagnostics).toEqual({
+      fileKey: "FIXTURE",
+      publishedComponentCount: 5,
+      componentSetCount: 1,
+      nodeDetailsCount: 0,
+      pageNameCount: 5,
+      componentCount: 2,
+      iconCount: 1,
+      detailNodeCount: 3,
+      warnings: [
+        {
+          code: "inferred-variants",
+          count: 1,
+        },
+        {
+          code: "missing-component-set-metadata",
+          count: 1,
+        },
+      ],
+    });
+  });
+
   it("collapses published flattened variants into one logical component set", () => {
     const componentSets: FigmaComponentSet[] = [
       {

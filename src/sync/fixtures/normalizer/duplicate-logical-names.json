@@ -1,0 +1,44 @@
+{
+  "input": {
+    "fileKey": "DUP",
+    "publishedComponents": [
+      {
+        "key": "card-a",
+        "node_id": "card-a-node",
+        "name": "Card",
+        "containing_frame": { "pageName": "Marketing" }
+      },
+      {
+        "key": "card-b",
+        "node_id": "card-b-node",
+        "name": "Card",
+        "containing_frame": { "pageName": "Product" }
+      }
+    ],
+    "componentSets": [],
+    "nodeDetailsById": {},
+    "pageNameByNodeId": {}
+  },
+  "expected": {
+    "components": [
+      {
+        "name": "Card",
+        "key": "card-a",
+        "fileKey": "DUP",
+        "path": "components/card.json",
+        "variants": [],
+        "properties": {}
+      },
+      {
+        "name": "Card",
+        "key": "card-b",
+        "fileKey": "DUP",
+        "path": "components/card.json",
+        "variants": [],
+        "properties": {}
+      }
+    ],
+    "icons": [],
+    "warningCodes": ["duplicate-logical-name"]
+  }
+}

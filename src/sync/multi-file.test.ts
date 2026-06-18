@@ -111,6 +111,61 @@ describe("syncAllFiles", () => {
     expect(existsSync(syncReportPath(root))).toBe(true);
   });
 
+  it("writes normalization diagnostics to the sync report", async () => {
+    const root = mkTmp();
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch: makeFetch({
+        FX: {
+          file: () => ({
+            name: "FX",
+            document: {
+              children: [
+                { id: "p1", name: "Components", children: [{ id: "button-1", name: "Button" }] },
+              ],
+            },
+          }),
+          components: () => ({
+            meta: {
+              components: [
+                {
+                  key: "button-key",
+                  node_id: "button-1",
+                  name: "Size=Medium, Variant=Filled",
+                  containing_frame: {
+                    pageName: "Components",
+                    containingComponentSet: { nodeId: "button-set", name: "Button" },
+                  },
+                },
+              ],
+            },
+          }),
+        },
+      }),
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+      backoffOpts: FAST,
+    });
+
+    const report = await syncAllFiles({
+      root,
+      files: [{ key: "FX", name: "FX" }],
+      client,
+      progress: nullProgressEmitter(),
+    });
+    const reportOnDisk = JSON.parse(readFileSync(syncReportPath(root), "utf-8"));
+
+    expect(report.normalizationDiagnostics[0]).toMatchObject({
+      fileKey: "FX",
+      publishedComponentCount: 1,
+      componentCount: 1,
+      iconCount: 0,
+    });
+    expect(reportOnDisk.normalizationDiagnostics[0].warnings[0]).toMatchObject({
+      code: "inferred-variants",
+      count: 1,
+    });
+  });
+
   it("clears the checkpoint on successful completion", async () => {
     const root = mkTmp();
     const client = new FigmaClient({

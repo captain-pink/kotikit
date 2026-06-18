@@ -18,6 +18,7 @@ import { initRegistryDb, getRegistry, upsertRegistryDsRow } from "../db/registry
 import { nowIso, slugifyComponentName } from "../util/ids.js";
 import { buildPropsString } from "./component-shape.js";
 import type { ComponentJson } from "./component-shape.js";
+import type { NormalizationDiagnostics } from "./normalize-design-system.js";
 import { mkdir, writeFile } from "fs/promises";
 import { dirname } from "path";
 import type { Database } from "bun:sqlite";
@@ -36,6 +37,7 @@ export interface SyncReport {
   conflicts: SyncManifest["conflicts"];
   variableCollisions: { name: string; keptSource: "variable" | "style" }[];
   skipped: { fileKey: string; stage: string; reason: string }[];
+  normalizationDiagnostics: NormalizationDiagnostics[];
   registryUpdates: { added: number; updated: number };
 }
 
@@ -96,6 +98,7 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
   const fileResults: FileResult[] = [];
 
   const skipped: SyncReport["skipped"] = [];
+  const normalizationDiagnostics: NormalizationDiagnostics[] = [];
   const manifestFiles: SyncReport["files"] = [];
 
   // Track which names have already been written by an earlier file.
@@ -203,6 +206,9 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
     for (const s of result.skipped) {
       skipped.push({ fileKey: file.key, stage: s.stage, reason: s.reason });
     }
+    if (result.normalizationDiagnostics !== null) {
+      normalizationDiagnostics.push(result.normalizationDiagnostics);
+    }
 
     await persistFileResult(result);
     await writeFileCheckpoint("done");
@@ -271,6 +277,7 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
     conflicts,
     variableCollisions,
     skipped,
+    normalizationDiagnostics,
     registryUpdates: { added: registryAdded, updated: registryUpdated },
   };
   await writeReport(root, report);
