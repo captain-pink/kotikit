@@ -89,6 +89,17 @@ const MemoryPromoteInputSchema = z.object({
   rule: z.string().optional(),
 });
 
+const MemoryDismissInputSchema = z.object({
+  candidateKey: z.string().min(1),
+});
+
+const MemoryUpdateInputSchema = z.object({
+  preferenceKey: z.string().min(1),
+  rule: z.string().optional(),
+  scope: z.string().nullable().optional(),
+  status: z.enum(["active", "inactive"]).optional(),
+});
+
 const MemorySearchInputSchema = z.object({
   scope: z.string().optional(),
   category: DesignAdjustmentCategorySchema.optional(),
@@ -109,8 +120,12 @@ const resolveNodeMap = async (
 const authorFromComment = (comment: FigmaComment): string | undefined =>
   comment.user?.handle ?? comment.user?.email ?? comment.user?.id;
 
-const commentTargetById = (comments: ReturnType<typeof mapCommentsToDesignNodes>): Map<string, unknown> =>
-  new Map(comments.mapped.map((comment) => [comment.id, comment.target]));
+const commentTargetById = (comments: ReturnType<typeof mapCommentsToDesignNodes>) =>
+  new Map(
+    comments.mapped
+      .filter((comment) => comment.target !== undefined)
+      .map((comment) => [comment.id, comment.target!])
+  );
 
 const reviewCommentInputs = (
   comments: FigmaComment[],
@@ -120,6 +135,7 @@ const reviewCommentInputs = (
   const targets = commentTargetById(mappedAll);
   return comments.map((comment) => {
     const target = targets.get(comment.id);
+    const nodeId = comment.client_meta?.node_id ?? target?.nodeId;
     const resolvedAt = comment.resolved_at ?? undefined;
     const status = resolvedAt
       ? "already-resolved"
@@ -132,7 +148,7 @@ const reviewCommentInputs = (
       ...(comment.parent_id !== undefined ? { parentId: comment.parent_id } : {}),
       message: comment.message ?? "",
       ...(authorFromComment(comment) !== undefined ? { author: authorFromComment(comment) } : {}),
-      ...(comment.client_meta?.node_id !== undefined ? { nodeId: comment.client_meta.node_id } : {}),
+      ...(nodeId !== undefined ? { nodeId } : {}),
       status,
       ...(comment.created_at !== undefined ? { createdAt: comment.created_at } : {}),
       ...(resolvedAt !== undefined ? { resolvedAt } : {}),
@@ -429,6 +445,56 @@ export function registerDesignCommentTools(
         ...(input.rule !== undefined ? { rule: input.rule } : {}),
       });
       return toolText("Promoted design preference.", { preference });
+    } catch (err) {
+      return toolError(err);
+    }
+  });
+
+  registerTool(registry, {
+    name: "kotikit_design_memory_dismiss",
+    description: "Dismiss a repeated feedback candidate that should not become a project design preference.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        candidateKey: { type: "string" },
+      },
+      required: ["candidateKey"],
+    },
+  }, async (args) => {
+    try {
+      const input = MemoryDismissInputSchema.parse(args);
+      const candidate = openDesignReviewDb(ctx.root).dismissPreferenceCandidate({
+        key: input.candidateKey,
+      });
+      return toolText("Dismissed design memory candidate.", { candidate });
+    } catch (err) {
+      return toolError(err);
+    }
+  });
+
+  registerTool(registry, {
+    name: "kotikit_design_memory_update",
+    description: "Edit, reactivate, or deactivate an existing project design preference.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        preferenceKey: { type: "string" },
+        rule: { type: "string" },
+        scope: { type: ["string", "null"] },
+        status: { type: "string", enum: ["active", "inactive"] },
+      },
+      required: ["preferenceKey"],
+    },
+  }, async (args) => {
+    try {
+      const input = MemoryUpdateInputSchema.parse(args);
+      const preference = openDesignReviewDb(ctx.root).updateDesignPreference({
+        key: input.preferenceKey,
+        ...(input.rule !== undefined ? { rule: input.rule } : {}),
+        ...(input.scope !== undefined ? { scope: input.scope } : {}),
+        ...(input.status !== undefined ? { status: input.status } : {}),
+      });
+      return toolText("Updated design preference.", { preference });
     } catch (err) {
       return toolError(err);
     }

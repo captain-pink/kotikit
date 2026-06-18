@@ -42,7 +42,7 @@ const toReviewComment = (
   comment: FigmaComment,
   target?: ReviewCommentTarget
 ): ReviewComment => {
-  const nodeId = nodeIdFromComment(comment);
+  const nodeId = nodeIdFromComment(comment) ?? target?.nodeId;
   return {
     id: comment.id,
     message: comment.message ?? "",
@@ -77,18 +77,40 @@ export const mapCommentsToDesignNodes = (
   const nodeTargets = new Map(
     (nodeMap?.nodes ?? []).map((entry) => [entry.nodeId, targetFromEntry(entry)])
   );
+
+  const commentById = new Map(comments.map((comment) => [comment.id, comment]));
+  const targetCache = new Map<string, ReviewCommentTarget | null>();
+  const targetForComment = (
+    comment: FigmaComment,
+    seen: Set<string> = new Set()
+  ): ReviewCommentTarget | undefined => {
+    const cached = targetCache.get(comment.id);
+    if (cached !== undefined) return cached ?? undefined;
+    if (seen.has(comment.id)) return undefined;
+
+    const directNodeId = nodeIdFromComment(comment);
+    const directTarget = directNodeId ? nodeTargets.get(directNodeId) : undefined;
+    if (directTarget !== undefined) {
+      targetCache.set(comment.id, directTarget);
+      return directTarget;
+    }
+
+    const parent = comment.parent_id ? commentById.get(comment.parent_id) : undefined;
+    const inheritedTarget = parent
+      ? targetForComment(parent, new Set([...seen, comment.id]))
+      : undefined;
+    targetCache.set(comment.id, inheritedTarget ?? null);
+    return inheritedTarget;
+  };
+
   const mapped = unresolvedComments
     .map((comment) => {
-      const nodeId = nodeIdFromComment(comment);
-      const target = nodeId ? nodeTargets.get(nodeId) : undefined;
+      const target = targetForComment(comment);
       return target ? toReviewComment(comment, target) : null;
     })
     .filter((comment): comment is ReviewComment => comment !== null);
   const unmapped = unresolvedComments
-    .filter((comment) => {
-      const nodeId = nodeIdFromComment(comment);
-      return nodeId === undefined || !nodeTargets.has(nodeId);
-    })
+    .filter((comment) => targetForComment(comment) === undefined)
     .map((comment) => toReviewComment(comment));
 
   return { mapped, unmapped, skippedResolved };

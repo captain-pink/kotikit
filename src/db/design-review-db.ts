@@ -181,7 +181,14 @@ export interface DesignReviewStore {
   markReplyPosted(input: { outboxId: string; postedCommentId: string }): void;
   markReplyFailed(input: { outboxId: string; error: string }): void;
   listPreferenceCandidates(input?: { status?: PreferenceCandidateStatus; limit?: number }): PreferenceCandidateRow[];
+  dismissPreferenceCandidate(input: { key: string }): PreferenceCandidateRow;
   promotePreferenceCandidate(input: { key: string; scope?: string; rule?: string }): DesignPreferenceRow;
+  updateDesignPreference(input: {
+    key: string;
+    rule?: string;
+    scope?: string | null;
+    status?: DesignPreferenceStatus;
+  }): DesignPreferenceRow;
   searchDesignPreferences(input?: {
     scope?: string;
     category?: DesignAdjustmentCategory;
@@ -196,6 +203,43 @@ const targetToJson = (target: unknown): string | null =>
 
 const confidenceFor = (evidenceCount: number, distinctScreens: number): number =>
   Math.min(0.95, 0.35 + evidenceCount * 0.1 + distinctScreens * 0.05);
+
+const preferenceStopWords = new Set([
+  "and",
+  "for",
+  "from",
+  "into",
+  "made",
+  "make",
+  "prefer",
+  "reduced",
+  "the",
+  "this",
+  "use",
+  "with",
+]);
+
+const preferenceSlug = (text: string): string => {
+  const tokens = text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(" ")
+    .map((token) => token.trim())
+    .filter((token) => token.length > 2 && !preferenceStopWords.has(token))
+    .slice(0, 6);
+  return tokens.length > 0 ? tokens.join("_") : "general";
+};
+
+const inferPreferenceCandidate = (input: DesignAdjustmentInput): {
+  key: string;
+  summary: string;
+} => {
+  const summary = input.preferenceSummary ?? input.summary;
+  return {
+    key: input.preferenceKey ?? `${input.category}.${preferenceSlug(summary)}`,
+    summary,
+  };
+};
 
 export function initDesignReviewDb(db: Database): void {
   db.exec(`
@@ -523,6 +567,7 @@ class SqliteDesignReviewStore implements DesignReviewStore {
   recordDesignAdjustment(input: DesignAdjustmentInput): DesignAdjustmentRow {
     const adjustmentId = uuid();
     const ts = nowIso();
+    const candidate = inferPreferenceCandidate(input);
     const row: DesignAdjustmentRow = {
       adjustmentId,
       sessionId: input.sessionId ?? null,
@@ -533,7 +578,7 @@ class SqliteDesignReviewStore implements DesignReviewStore {
       nodeId: input.nodeId ?? null,
       category: input.category,
       summary: input.summary,
-      preferenceKey: input.preferenceKey ?? null,
+      preferenceKey: candidate.key,
       createdAt: ts,
     };
     withTransaction(this.db, () => {
@@ -562,18 +607,16 @@ class SqliteDesignReviewStore implements DesignReviewStore {
           WHERE file_key = ? AND comment_id = ? AND status NOT IN ('replied','wont-fix','already-resolved')
         `).run(ts, input.fileKey, input.commentId);
       }
-      if (input.preferenceKey && input.preferenceSummary) {
-        this.upsertPreferenceCandidate({
-          adjustmentId,
-          commentId: input.commentId,
-          scope: input.scope,
-          screen: input.screen,
-          category: input.category,
-          key: input.preferenceKey,
-          summary: input.preferenceSummary,
-          ts,
-        });
-      }
+      this.upsertPreferenceCandidate({
+        adjustmentId,
+        commentId: input.commentId,
+        scope: input.scope,
+        screen: input.screen,
+        category: input.category,
+        key: candidate.key,
+        summary: candidate.summary,
+        ts,
+      });
     });
     return row;
   }
@@ -684,6 +727,29 @@ class SqliteDesignReviewStore implements DesignReviewStore {
     `).all(...bindings).map(rowToCandidate);
   }
 
+  dismissPreferenceCandidate(input: { key: string }): PreferenceCandidateRow {
+    const ts = nowIso();
+    const result = this.db.prepare(`
+      UPDATE design_preference_candidates
+      SET status = 'dismissed', updated_at = ?
+      WHERE key = ?
+    `).run(ts, input.key);
+    if (result.changes === 0) {
+      throw new KotikitError(
+        `No design preference candidate found for ${input.key}.`,
+        "List candidates with kotikit_design_memory_candidates before dismissing one."
+      );
+    }
+    const row = this.db.prepare(`
+      SELECT
+        key, category, summary, rule, evidence_count as evidenceCount,
+        distinct_screens as distinctScreens, confidence, status, updated_at as updatedAt
+      FROM design_preference_candidates
+      WHERE key = ?
+    `).get(input.key) as Record<string, unknown>;
+    return rowToCandidate(row);
+  }
+
   promotePreferenceCandidate(input: { key: string; scope?: string; rule?: string }): DesignPreferenceRow {
     const candidate = this.db.prepare(`
       SELECT
@@ -728,6 +794,46 @@ class SqliteDesignReviewStore implements DesignReviewStore {
       status: "active",
       evidenceCount: parsed.evidenceCount,
       createdAt: ts,
+      updatedAt: ts,
+    };
+  }
+
+  updateDesignPreference(input: {
+    key: string;
+    rule?: string;
+    scope?: string | null;
+    status?: DesignPreferenceStatus;
+  }): DesignPreferenceRow {
+    const existing = this.db.prepare(`
+      SELECT
+        key, category, rule, scope, status, evidence_count as evidenceCount,
+        created_at as createdAt, updated_at as updatedAt
+      FROM design_preferences
+      WHERE key = ?
+    `).get(input.key) as Record<string, unknown> | undefined;
+    if (!existing) {
+      throw new KotikitError(
+        `No design preference found for ${input.key}.`,
+        "Promote a candidate before editing or deactivating it."
+      );
+    }
+
+    const parsed = rowToPreference(existing);
+    const ts = nowIso();
+    const next = {
+      rule: input.rule ?? parsed.rule,
+      scope: input.scope !== undefined ? input.scope : parsed.scope,
+      status: input.status ?? parsed.status,
+    };
+    this.db.prepare(`
+      UPDATE design_preferences
+      SET rule = ?, scope = ?, status = ?, updated_at = ?
+      WHERE key = ?
+    `).run(next.rule, next.scope, next.status, ts, input.key);
+
+    return {
+      ...parsed,
+      ...next,
       updatedAt: ts,
     };
   }

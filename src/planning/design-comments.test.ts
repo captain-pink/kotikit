@@ -59,6 +59,21 @@ describe("design comments", () => {
     expect(result.unmapped[0]?.nodeId).toBe("unknown-node");
   });
 
+  it("maps thread replies to the parent comment target when replies have no node id", () => {
+    const result = mapCommentsToDesignNodes(
+      [
+        comment({ id: "parent", client_meta: { node_id: "instance-1" } }),
+        comment({ id: "reply", parent_id: "parent", message: "Same target, reduce the padding." }),
+      ],
+      nodeMap,
+      { includeResolved: false }
+    );
+
+    expect(result.mapped).toHaveLength(2);
+    expect(result.unmapped).toHaveLength(0);
+    expect(result.mapped[1]?.target?.nodeName).toBe("Invite member");
+  });
+
   it("skips resolved comments unless requested", () => {
     const comments = [
       comment({

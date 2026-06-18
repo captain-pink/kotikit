@@ -229,6 +229,98 @@ describe("kotikit_design_review_comments", () => {
     ).toBe("tables.density.compact_rows");
   });
 
+  it("clusters repeated adjustments into candidates without explicit preference keys", async () => {
+    const root = mkTmp();
+    const cfg = defaultConfig();
+    cfg.figma.token = "plain-token";
+    await writeConfig(root, cfg);
+
+    const registry = makeRegistry();
+    registerDesignCommentTools(registry, makeCtx(root, cfg), {
+      figmaClientFactory: () => ({ getComments: async () => [] }),
+    });
+
+    await callTool(registry, "kotikit_design_adjustment_record", {
+      scope: "members",
+      screen: "list",
+      category: "density",
+      summary: "Reduced row height and cell padding.",
+    });
+    await callTool(registry, "kotikit_design_adjustment_record", {
+      scope: "teams",
+      screen: "list",
+      category: "density",
+      summary: "Reduced row height and cell padding.",
+    });
+
+    const candidates = await callTool(registry, "kotikit_design_memory_candidates", {});
+    const first = (detailFrom(candidates) as {
+      candidates: { key: string; evidenceCount: number; distinctScreens: number }[];
+    }).candidates[0];
+
+    expect(first?.key).toBe("density.row_height_cell_padding");
+    expect(first?.evidenceCount).toBe(2);
+    expect(first?.distinctScreens).toBe(2);
+  });
+
+  it("dismisses candidates and updates or deactivates promoted preferences", async () => {
+    const root = mkTmp();
+    const cfg = defaultConfig();
+    cfg.figma.token = "plain-token";
+    await writeConfig(root, cfg);
+
+    const registry = makeRegistry();
+    registerDesignCommentTools(registry, makeCtx(root, cfg), {
+      figmaClientFactory: () => ({ getComments: async () => [] }),
+    });
+
+    await callTool(registry, "kotikit_design_adjustment_record", {
+      scope: "members",
+      category: "spacing",
+      summary: "Increased section spacing.",
+      preferenceKey: "layout.spacing.roomy_sections",
+      preferenceSummary: "Prefer roomy spacing between admin page sections.",
+    });
+    const dismissed = await callTool(registry, "kotikit_design_memory_dismiss", {
+      candidateKey: "layout.spacing.roomy_sections",
+    });
+    const dismissedCandidates = await callTool(registry, "kotikit_design_memory_candidates", {
+      status: "dismissed",
+    });
+
+    expect((detailFrom(dismissed) as { candidate: { status: string } }).candidate.status).toBe("dismissed");
+    expect((detailFrom(dismissedCandidates) as { candidates: { key: string }[] }).candidates[0]?.key).toBe(
+      "layout.spacing.roomy_sections"
+    );
+
+    await callTool(registry, "kotikit_design_adjustment_record", {
+      scope: "members",
+      category: "density",
+      summary: "Reduced row height.",
+      preferenceKey: "tables.density.compact_rows",
+      preferenceSummary: "Use compact rows for admin tables.",
+    });
+    await callTool(registry, "kotikit_design_memory_promote", {
+      candidateKey: "tables.density.compact_rows",
+      scope: "members",
+    });
+    const updated = await callTool(registry, "kotikit_design_memory_update", {
+      preferenceKey: "tables.density.compact_rows",
+      rule: "Use compact rows only for dense admin data tables.",
+      status: "inactive",
+    });
+    const search = await callTool(registry, "kotikit_design_memory_search", {
+      scope: "members",
+      query: "compact",
+    });
+
+    expect((detailFrom(updated) as { preference: { rule: string; status: string } }).preference.rule).toContain(
+      "dense admin data tables"
+    );
+    expect((detailFrom(updated) as { preference: { status: string } }).preference.status).toBe("inactive");
+    expect((detailFrom(search) as { preferences: unknown[] }).preferences).toHaveLength(0);
+  });
+
   it("prepares and posts Figma replies for fixed comments", async () => {
     const root = mkTmp();
     const cfg = defaultConfig();
