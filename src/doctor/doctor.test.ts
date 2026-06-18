@@ -8,6 +8,7 @@ import { checkpointPath, componentsDbPath, iconsDbPath, manifestPath } from "../
 import { runKotikitDoctor, formatDoctorReport } from "./doctor.js";
 
 const tmpDirs: string[] = [];
+const originalFigmaToken = process.env.FIGMA_TOKEN;
 
 const mkTmp = (): string => {
   const dir = mkdtempSync(join(tmpdir(), "kotikit-doctor-"));
@@ -17,6 +18,11 @@ const mkTmp = (): string => {
 
 afterEach(() => {
   tmpDirs.splice(0).forEach((dir) => rmSync(dir, { recursive: true, force: true }));
+  if (originalFigmaToken === undefined) {
+    delete process.env.FIGMA_TOKEN;
+  } else {
+    process.env.FIGMA_TOKEN = originalFigmaToken;
+  }
 });
 
 const touch = (path: string): void => {
