@@ -10,6 +10,7 @@ import {
   FigmaVariablesResponseSchema,
   FigmaNodesResponseSchema,
   FigmaCommentsResponseSchema,
+  FigmaCommentSchema,
   type FigmaFile,
   type FigmaPublishedComponent,
   type FigmaComponentSet,
@@ -127,13 +128,19 @@ export class FigmaClient {
     this.baseUrl = opts.baseUrl ?? "https://api.figma.com";
   }
 
-  private async request<T>(path: string, schema: z.ZodType<T>): Promise<T> {
+  private async request<T>(
+    path: string,
+    schema: z.ZodType<T>,
+    init: RequestInit = {}
+  ): Promise<T> {
     const url = `${this.baseUrl}${path}`;
     return this.limiter.schedule(() =>
       withBackoff(
         async () => {
           const res = await this.fetchImpl(url, {
+            ...init,
             headers: {
+              ...(init.headers as Record<string, string> | undefined),
               "X-Figma-Token": this.token,
             },
           });
@@ -287,6 +294,30 @@ export class FigmaClient {
     }
   }
 
+  /** POST /v1/files/:key/comments — create a root comment or reply. */
+  async postComment(
+    fileKey: string,
+    input: { message: string; commentId?: string; clientMeta?: unknown }
+  ): Promise<FigmaComment> {
+    try {
+      return await this.request(
+        `/v1/files/${fileKey}/comments`,
+        FigmaCommentSchema,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: input.message,
+            ...(input.commentId !== undefined ? { comment_id: input.commentId } : {}),
+            ...(input.clientMeta !== undefined ? { client_meta: input.clientMeta } : {}),
+          }),
+        }
+      );
+    } catch (err) {
+      throw this.mapError(err, fileKey, "comments-write");
+    }
+  }
+
   private mapError(err: unknown, fileKey: string, kind: string): Error {
     if (err instanceof FigmaResponseError) {
       if (err.status === 401) {
@@ -298,6 +329,8 @@ export class FigmaClient {
       if (err.status === 403) {
         const scopeHint = kind === "comments"
           ? "Make sure the file is accessible to the token and the token has the file_comments:read scope."
+          : kind === "comments-write"
+            ? "Make sure the file is accessible to the token and the token has the file_comments:write scope."
           : "Make sure the file is published to your team and the token has the file_read scope.";
         return new KotikitError(
           `Your Figma token doesn't have access to file ${fileKey}.`,

@@ -321,6 +321,42 @@ describe("FigmaClient", () => {
     });
   });
 
+  it("postComment replies to a root comment through the comments endpoint", async () => {
+    let seenUrl = "";
+    let seenMethod = "";
+    let seenBody = "";
+    const fetch = async (url: string | URL, init?: RequestInit) => {
+      seenUrl = url.toString();
+      seenMethod = init?.method ?? "GET";
+      seenBody = String(init?.body ?? "");
+      return jsonResponse({
+        id: "reply-1",
+        file_key: "k1",
+        parent_id: "comment-1",
+        message: "Fixed in this pass.",
+      });
+    };
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      limiter: FAST_LIMITER,
+      backoffOpts: FAST_BACKOFF,
+    });
+
+    const reply = await client.postComment("k1", {
+      message: "Fixed in this pass.",
+      commentId: "comment-1",
+    });
+
+    expect(seenUrl).toContain("/v1/files/k1/comments");
+    expect(seenMethod).toBe("POST");
+    expect(JSON.parse(seenBody)).toEqual({
+      message: "Fixed in this pass.",
+      comment_id: "comment-1",
+    });
+    expect(reply.id).toBe("reply-1");
+  });
+
   it("getDocument returns parsed file with depth query param", async () => {
     let seenUrl = "";
     const fetch = async (url: string | URL) => {

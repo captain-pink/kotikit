@@ -10,7 +10,7 @@ import {
   checkpointPath, syncReportPath,
   codePlanPath, registryDbPath, codeComponentDir, codeComponentFile,
   uiDir, uiComponentFile, uiStoryFile,
-  designPlanPath, designApplyLogPath, designNodeMapPath, bridgeConfigPath,
+  designPlanPath, designApplyLogPath, designNodeMapPath, designReviewDbPath, bridgeConfigPath,
 } from "./paths";
 
 let tmp: string;
@@ -201,6 +201,10 @@ describe("paths", () => {
       expect(designNodeMapPath("/p", "checkout-flow", "cart")).toBe(
         "/p/.kotikit/specs/checkout-flow/cart.design.node-map.json"
       );
+    });
+
+    it("designReviewDbPath", () => {
+      expect(designReviewDbPath("/p")).toBe("/p/.kotikit/design-review.db");
     });
 
     it("bridgeConfigPath", () => {

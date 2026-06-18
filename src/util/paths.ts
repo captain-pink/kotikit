@@ -100,6 +100,10 @@ export const bridgeConfigPath = (root: string): string =>
 export const registryDbPath = (root: string): string =>
   `${root}/.kotikit/registry.db`;
 
+/** Path to the local design review ledger and project design preferences DB. */
+export const designReviewDbPath = (root: string): string =>
+  `${root}/.kotikit/design-review.db`;
+
 /** Directory under the user's project that holds generated screen components for a scope. */
 export const codeComponentDir = (
   root: string,
