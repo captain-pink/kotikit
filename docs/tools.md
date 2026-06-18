@@ -1,6 +1,6 @@
 # kotikit MCP Tools
 
-34 tools exposed by the kotikit MCP server, organized by what they do.
+37 tools exposed by the kotikit MCP server, organized by what they do.
 Each tool name is what the agent calls; the "Example" line shows how to trigger it from your conversation.
 
 Token costs are approximate response sizes measured against a small fixture project (3 DS components, 1 screen). Re-measure for your project with `bun run measure`. See [docs/TOKENS.md](./TOKENS.md) for optimization strategies.
@@ -41,6 +41,17 @@ Output: Full `KotikitConfig` object with `figma.token` replaced by `"<resolved f
 Token cost: ~133.
 Example: "Show me my kotikit config."
 See also: `kotikit_config_status`, `kotikit_config_init`.
+
+---
+
+### kotikit_doctor
+
+Purpose: Diagnose local kotikit setup across config, git, Figma token resolution, design-system artifacts, stale sync checkpoints, code gates, and bridge state.
+Input: `{}`
+Output: `{ ok: boolean; root: string; checks: { id, label, status, message, hint? }[]; nextSteps: string[] }`
+Token cost: ~300.
+Example: "Run kotikit doctor for this project."
+See also: `kotikit_config_status`, `kotikit_sync_ds`.
 
 ---
 
@@ -129,7 +140,7 @@ See also: `kotikit_spec_create`, `kotikit_spec_get`, `kotikit_brainstorm_assess`
 
 Purpose: Pull the latest design system from Figma into the local search index and registry.
 Input: `{}`
-Output: `{ files: { fileKey, componentCount, iconCount }[]; conflicts: string[] }` plus a human-readable summary.
+Output: `{ files: { fileKey, componentCount, iconCount }[]; conflicts: string[]; normalizationDiagnostics: NormalizationDiagnostics[] }` plus a human-readable summary.
 Token cost: ~200 response (large side-effect: writes all DS JSON to disk).
 Example: "Sync my design system from Figma."
 See also: `kotikit_ds_search`, `kotikit_ds_get_component`, `kotikit_icons_search`.
@@ -348,7 +359,7 @@ Input: `{ status?: "candidate" | "promoted" | "dismissed"; limit?: number }`
 Output: `{ candidates }`
 Token cost: depends on `limit`; defaults to 25.
 Example: "Show design memory candidates from recent review fixes."
-See also: `kotikit_design_memory_promote`, `kotikit_design_memory_search`.
+See also: `kotikit_design_memory_promote`, `kotikit_design_memory_dismiss`, `kotikit_design_memory_search`.
 
 ---
 
@@ -359,7 +370,29 @@ Input: `{ candidateKey: string; scope?: string; rule?: string }`
 Output: `{ preference }`
 Token cost: ~100.
 Example: "Promote `tables.density.compact_rows` for the Members scope."
+See also: `kotikit_design_memory_candidates`, `kotikit_design_memory_update`.
+
+---
+
+### kotikit_design_memory_dismiss
+
+Purpose: Dismiss a repeated feedback candidate that should not become a project design preference.
+Input: `{ candidateKey: string }`
+Output: `{ candidate }`
+Token cost: ~100.
+Example: "Dismiss the roomy sections preference candidate."
 See also: `kotikit_design_memory_candidates`.
+
+---
+
+### kotikit_design_memory_update
+
+Purpose: Edit, reactivate, or deactivate an existing project design preference.
+Input: `{ preferenceKey: string; rule?: string; scope?: string | null; status?: "active" | "inactive" }`
+Output: `{ preference }`
+Token cost: ~100.
+Example: "Deactivate the compact rows preference for now."
+See also: `kotikit_design_memory_promote`, `kotikit_design_memory_search`.
 
 ---
 

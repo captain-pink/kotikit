@@ -27,15 +27,16 @@ The React adapter ships and is exercised, but the boundary it implies hasn't bee
 
 ## Design track
 
-Phase 5 ships the bridge + the orchestrator + a placeholder UI. The plan-checklist UI was deferred (P5-D4). Browserless comment reading, compact review reporting, reply outbox support, and explicit design preference promotion now exist; the remaining items make that loop more automatic and visual.
+Phase 5 ships the bridge, orchestrator, browserless comment reading, compact
+review reporting, reply outbox support, design preference memory, and a first
+plugin review dashboard. The remaining items make that loop more visual,
+collaborative, and precise.
 
 - **Full plan-checklist UI in the Figma plugin** — the deferred P5-D4 task: two-pane view with per-step Run buttons + streaming status log.
-- **Automatic feedback clustering** — infer `preferenceKey` suggestions from similar comment/adjustment text instead of relying on the agent to provide a stable key.
-- **Comment thread inheritance** — map replies without `client_meta.node_id` through their parent comment when the parent is mapped, while still returning truly detached comments as unmapped.
+- **Semantic feedback clustering** — current design memory clusters deterministic normalized adjustment summaries. Add embedding-free similarity heuristics first (shared nouns, category, target component, repeated reviewer phrasing), then consider embeddings only if local heuristics are too weak.
 - **Coordinate fallback for unmapped comments** — investigate whether frame-relative `client_meta` offsets can be matched against generated node bounds in the node map. Keep it conservative: only map when the geometry is unambiguous.
 - **Official resolve support if Figma exposes it** — if Figma adds a REST endpoint for resolving comments, add a confirm-first tool that marks threads resolved after replies are posted.
-- **Review dashboard in the plugin** — show mapped and unmapped comments beside the apply-plan status so designers can inspect review feedback without switching tools.
-- **Preference lifecycle controls** — add dismiss, deactivate, and edit flows for active design preferences so stale taste does not accumulate.
+- **Preference evidence pruning** — add a small maintenance tool that can archive old evidence rows or stale inactive preferences without deleting active project rules.
 - **Multi-project bridge selector** inside the plugin — list of running bridges instead of a single-paste connect URL.
 - **Flow-level Figma prototype connections** — read `flow.json` transitions and wire them as Figma prototype arrows.
 - **Variable binding with `nodeNameHint` resolution** — bind a variable to a specific child node (e.g. "Heading text") instead of the frame itself.
@@ -47,18 +48,20 @@ Phase 5 ships the bridge + the orchestrator + a placeholder UI. The plan-checkli
 
 The published-library normalizer now handles the major shapes seen so far:
 standalone components, component sets, flattened variant rows, sparse
-component-set metadata, state groups, and icon pages. The remaining work is to
-prove and refine that behavior against a broader library corpus. Each item
+component-set metadata, state groups, icon pages, duplicate logical names, and
+compact per-file diagnostics in `.sync-report.json`. A small fixture corpus now
+covers MUI-like flattened variants and duplicate-name behavior. The remaining
+work is to broaden and refine that behavior against more libraries. Each item
 should be implemented test-first with minimized fixtures, not large live Figma
 payloads.
 
-- **Published-library fixture corpus** — add minimized fixtures for several real published design systems: MUI / Material 3, Ant-style kits, shadcn-like Figma kits, small hand-built libraries, and intentionally messy copied libraries. Store only the API fields the normalizer needs.
-- **Normalizer snapshot tests** — assert logical component count, icon count, representative import key, `componentSetKey`, variant axes, text/boolean/instance-swap properties, warnings, and duplicate-name behavior for every fixture.
+- **Broaden the published-library fixture corpus** — add minimized fixtures for more real published design systems: Material 3, Ant-style kits, shadcn-like Figma kits, small hand-built libraries, and intentionally messy copied libraries. Store only the API fields the normalizer needs.
+- **Expand normalizer snapshot assertions** — keep the current fixture tests, then add cases for representative import key selection, `componentSetKey`, variant axes, text/boolean/instance-swap properties, warnings, duplicate-name behavior, and icon false positives for every new fixture.
 - **Default variant resolution** — improve representative key selection by resolving the component-set default variant when Figma exposes enough data. Keep `ComponentJson.key` importable, but make the chosen default deterministic and explainable.
 - **Property-name cleanup** — normalize Figma property labels such as `Label#42169:37` into readable names while preserving the original Figma property key needed for `setProperties`.
 - **Configurable icon classification** — keep the current page/prefix/slash classifier, but add project-level include/exclude patterns and confidence diagnostics so icon-heavy or icon-named component libraries can avoid false positives.
 - **Duplicate logical name policy** — move beyond last-file-wins for large multi-library setups: expose namespace hints, configurable priority, and clear conflict output before rows overwrite each other.
-- **Normalization diagnostics report** — write compact per-file metrics: published components seen, logical groups emitted, groups classified as icons, inferred variant groups, missing metadata groups, duplicate names, and sampled warnings.
+- **Richer normalization diagnostics** — extend the compact report with sampled warning messages, confidence hints for icon classification, and suggested next actions for each warning code.
 - **Importability smoke check** — add an optional Figma-plugin smoke path that verifies a small set of synced component keys can be imported into a draft. This should be opt-in because it needs a live Figma session.
 - **Component-set import evaluation** — investigate whether importing component sets directly is reliable enough to support. Until then, keep storing concrete component keys as `ComponentJson.key` and component-set keys as metadata.
 - **Schema-drift guardrails** — add tests for unknown Figma property types and new/extra API fields so future Figma changes degrade with warnings instead of breaking sync.
@@ -91,7 +94,7 @@ The single-direction Figma → code assumption is core; eventually it might bend
 - **Code → Figma reverse path** — V2+ explicit. Requires a Figma plugin that mutates the file, which the current plugin doesn't do.
 - **Headless mode for CI** — drop the MCP server, expose a CLI that runs sync + audit + gates in one shot.
 - **Multi-project / monorepo config inheritance** — root config + per-package overrides.
-- **A "kotikit-cli"** — for engineers who prefer the terminal to assistant chat for routine ops (`kotikit sync`, `kotikit audit`).
+- **Expand the `kotikit` CLI** — the CLI now has `kotikit doctor` and `kotikit mcp`; add terminal-first routine ops such as `kotikit sync`, `kotikit audit`, and CI-friendly JSON output.
 - **Backend / data layer integration** — currently kotikit stops at the UI; a future phase could wire spec acceptance criteria into typed API contracts.
 - **Replace SQLite with a single shared database** for multi-project setups.
 
@@ -99,7 +102,6 @@ The single-direction Figma → code assumption is core; eventually it might bend
 
 Smaller items that polish the developer experience.
 
-- **A `kotikit doctor` command** that diagnoses common setup issues (missing token, missing gates, stale checkpoint, etc.).
 - **A `kotikit clean` command** that prunes ephemeral artifacts (plans, checkpoints) safely.
 - **Telemetry-free crash reporting** — when a tool throws, write a structured trace next to the spec for the user to share.
 - **Better agent transcript IDs** — embed tool result IDs so users can ask "what was that error in spec_create earlier?" and the assistant can find it.

@@ -38,7 +38,7 @@ The sync module owns everything needed to pull a Figma design system into a loca
 **Multi-file orchestrator** (`src/sync/multi-file.ts`)
 - `syncAllFiles(opts)` — drives N files in order, merges outputs, writes all artifacts
 - `SyncAllOpts` — `{ root, files, client }`
-- `SyncReport` — `{ ranAt, files[], conflicts[], variableCollisions[], skipped[], registryUpdates }`
+- `SyncReport` — `{ ranAt, files[], conflicts[], variableCollisions[], skipped[], normalizationDiagnostics[], registryUpdates }`
 
 **Checkpoint** (`src/sync/checkpoint.ts`)
 - `Checkpoint`, `FileCheckpoint`, `CheckpointStage`
@@ -59,6 +59,8 @@ The sync module owns everything needed to pull a Figma design system into a loca
 **Design-system normalization** (`src/sync/normalize-design-system.ts`)
 - `normalizePublishedDesignSystem(input)` — collapses published Figma API rows into the canonical local model
 - `NormalizePublishedResult` — `{ components, icons, nodeIdsForDetails, warnings }`
+- `buildNormalizationDiagnostics(input, result)` — compact per-file metrics for `.sync-report.json`
+- `NormalizationDiagnostics` — counts for published components, component sets, node details, emitted components/icons, detail nodes, and warning codes
 
 **Icon detection** (`src/sync/icon-detect.ts`)
 - `detectIconSignal({ pageName, componentName })` — returns a signal string if the component looks like an icon, otherwise `null`
@@ -86,6 +88,8 @@ Figma token resolution is shared by sync and comment review. Kotikit loads the t
 `syncAllFiles` runs files in the order declared in `config.figma.designSystemFiles`. This order is intentional: later files win on component-name collision. When two files publish a component with the same name, the later file's `ComponentJson` overwrites the earlier one on disk and in `components.db`, and the conflict is recorded in `SyncManifest.conflicts`. Variable collisions follow the same last-wins rule.
 
 Component rows are seeded into `components.db` as soon as published component metadata is available, before the slower `node_details` stage. Stage 7 overwrites those rows with enriched prop data after node details arrive. Icon rows, component JSON files, and registry rows are persisted after each file finishes, before `fileDone` is emitted and before the checkpoint marks that file as `done`. This avoids a long final write batch and makes resumed sync safer: a file is only marked complete after its component artifacts and registry rows are durable. At the start of a fresh per-file sync, kotikit deletes only that file's old component/icon rows so stale design-system entries do not survive a re-sync. Variables and the final manifest are still written at the end because their collision rules depend on the full configured file order.
+
+The sync report includes `normalizationDiagnostics` for every fully normalized file. Agents should use this compact report to understand whether Figma omitted component-set metadata, variants were inferred from child names, names collided, or too many groups were classified as icons before reading component JSON files.
 
 The registry writeback uses `upsertRegistryDsRow`, a merge-aware function that never clobbers `code_path` on an already-synced row. The rules are: no existing row → insert as `design-only`; existing `design-only` → update `ds_path`; existing `synced` → update `ds_path`, keep `code_path` and status; existing `code-only` → update `ds_path` and promote to `synced` if `code_path` is non-null. This ensures that a re-sync after a component is scaffolded does not reset its registry status.
 

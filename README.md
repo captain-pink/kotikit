@@ -316,13 +316,14 @@ token so only your Figma session can connect. Nothing leaves your machine.
 **What the plugin currently does:**
 
 - Connects your Figma file to the running kotikit session.
-- Lets you inspect the link between a Figma component and its code counterpart.
-- Applies design-plan steps and records the Figma node IDs it created or updated.
+- Shows a compact setup/review checklist backed by the same kotikit MCP tools your assistant uses.
+- Runs `kotikit_doctor` through the bridge so you can spot setup issues without leaving Figma.
+- Loads the latest design review report, including open/fixed comments and pending replies.
 - Enables browserless review-comment lookup: the assistant can call `kotikit_design_review_comments` to fetch Figma comments and map comments on known nodes back to the relevant generated frame or component.
 - Records compact design adjustments and review reports in `.kotikit/design-review.db`.
-- Learns project design preference candidates from repeated feedback, then uses promoted preferences in future design context.
+- Learns project design preference candidates from repeated feedback, supports dismiss/edit/deactivate lifecycle controls, then uses active promoted preferences in future design context.
 
-**What is coming:** richer fallback mapping for comments outside known nodes, automatic clustering of repeated feedback, and a full plan-checklist view inside the plugin. See `NEXT_STEPS.md` for the full list.
+**What is coming:** richer fallback mapping for comments outside known nodes, semantic clustering of repeated feedback, and a full plan-checklist view inside the plugin. See `NEXT_STEPS.md` for the full list.
 
 ---
 

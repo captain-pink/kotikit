@@ -2,7 +2,7 @@
 
 ## What it does
 
-The mcp module is the boundary between kotikit's engines and the AI model. It owns the MCP server process (stdio transport, used by Claude Code, Codex, and other MCP clients), the optional WebSocket bridge (used by the Figma plugin), the `ToolRegistry` pattern that all tool registrars write to, and the `ToolContext` that every tool handler receives. It registers all 34 tools and routes `tools/list` and `tools/call` requests from both transports through a single shared handler map.
+The mcp module is the boundary between kotikit's engines and the AI model. It owns the MCP server process (stdio transport, used by Claude Code, Codex, and other MCP clients), the optional WebSocket bridge (used by the Figma plugin), the `ToolRegistry` pattern that all tool registrars write to, and the `ToolContext` that every tool handler receives. It registers all 37 tools and routes `tools/list` and `tools/call` requests from both transports through a single shared handler map.
 
 ## Public surface
 
@@ -26,14 +26,15 @@ The mcp module is the boundary between kotikit's engines and the AI model. It ow
 
 **Tool registrars** (each in `src/mcp/tools/<name>.ts`)
 
-See [docs/tools.md](../tools.md) for the complete cheat-sheet. The 34 tools are grouped here by phase:
+See [docs/tools.md](../tools.md) for the complete cheat-sheet. The 37 tools are grouped here by phase:
 
 - Phase 1: `kotikit_config_status`, `kotikit_config_init`, `kotikit_config_get`, `kotikit_spec_create`, `kotikit_spec_get`, `kotikit_spec_list`, `kotikit_spec_update`, `kotikit_flow_create`, `kotikit_brainstorm_start`, `kotikit_brainstorm_assess`
 - Phase 2: `kotikit_sync_ds`, `kotikit_ds_search`, `kotikit_ds_get_component`, `kotikit_icons_search`
 - Phase 3: `kotikit_plan_code`, `kotikit_implement_code_start`, `kotikit_implement_code_save`, `kotikit_implement_code_gate`, `kotikit_registry_search`
 - Phase 4: `kotikit_scaffold_start`, `kotikit_scaffold_save`
-- Phase 5: `kotikit_plan_design`, `kotikit_design_get_screen`, `kotikit_design_apply_step`, `kotikit_design_review_comments`, `kotikit_design_adjustment_record`, `kotikit_design_review_report`, `kotikit_design_comment_reply_prepare`, `kotikit_design_comment_reply_post`, `kotikit_design_memory_candidates`, `kotikit_design_memory_promote`, `kotikit_design_memory_search`
+- Phase 5: `kotikit_plan_design`, `kotikit_design_get_screen`, `kotikit_design_apply_step`, `kotikit_design_review_comments`, `kotikit_design_adjustment_record`, `kotikit_design_review_report`, `kotikit_design_comment_reply_prepare`, `kotikit_design_comment_reply_post`, `kotikit_design_memory_candidates`, `kotikit_design_memory_promote`, `kotikit_design_memory_dismiss`, `kotikit_design_memory_update`, `kotikit_design_memory_search`
 - Phase 6: `kotikit_audit`, `kotikit_get_system_prompt`
+- Tooling: `kotikit_doctor`
 
 ## How it works
 
@@ -60,7 +61,7 @@ The bridge transport is opt-in: set `KOTIKIT_BRIDGE=1` or pass `--bridge` when s
 - [config](./config.md) — `ToolContext.loadConfig` wraps `loadConfig` from the config module
 - [util](./util.md) — `findProjectRoot` is called at server startup; `bridgeConfigPath` is the bridge config path helper
 - [spec](./spec.md), [sync](./sync.md), [codegen](./codegen.md), [planning](./planning.md), [db](./db.md), [git](./git.md) — all module engines are invoked from tool handler functions
-- `docs/tools.md` — complete cheat-sheet for all 34 MCP tools
+- `docs/tools.md` — complete cheat-sheet for all 37 MCP tools
 - `planning/phase-1.md` — MCP server architecture and ToolRegistry pattern
 - `planning/phase-5.md` — bridge design, token gating, Figma plugin connection protocol
 - `planning/phase-6.md` §P6-B1, §P6-B2 — `kotikit_audit` and `kotikit_get_system_prompt` wiring
