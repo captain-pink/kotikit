@@ -30,10 +30,13 @@ root, then writes agent-specific setup:
   large Figma syncs.
 - Codex: `.codex/config.toml`, replacing only the
   `[mcp_servers.kotikit]` section or appending it if missing.
-- Codex skill: copies `.agents/skills/kotikit-auto/SKILL.md` into the target
-  project unless a different local skill already exists. The installer replaces
-  the known outdated generated skill that points at `docs/agent_workflow.md`,
-  because that path does not exist inside target projects.
+- Agent skill: copies the portable kotikit-auto workflow into the target
+  project unless a different local skill already exists. Claude Code receives
+  `.claude/skills/kotikit-auto/SKILL.md` for `/kotikit-auto`; Codex receives
+  `.agents/skills/kotikit-auto/SKILL.md` for `kotikit:auto`. The installer
+  replaces the known outdated generated skill that points at
+  `docs/agent_workflow.md`, because that path does not exist inside target
+  projects.
 - Figma token placeholder: creates `.env` with `FIGMA_TOKEN=` or appends that
   key when `.env` exists without it.
 - Co-author metadata: when requested, updates an existing

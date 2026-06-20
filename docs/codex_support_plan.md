@@ -84,7 +84,7 @@ Local test checklist:
 Status: implemented for local testing.
 
 `CLAUDE.md` is not a reliable Codex surface. Codex reads `AGENTS.md`, skills,
-plugins, MCP server instructions, and configured MCP tools. The `/kotikit:auto`
+plugins, MCP server instructions, and configured MCP tools. The `kotikit:auto`
 workflow needs to exist in a Codex-native form.
 
 Recommended implementation:
@@ -308,9 +308,10 @@ The local MVP command is:
 bun run scaffold:agents -- --target /absolute/path/to/target-react-project --agents both
 ```
 
-It writes local Claude Code and Codex MCP config, installs the Codex skill, and
-creates or updates a `.env` Figma token placeholder. The production installer
-should build on that proven behavior and add a polished, reversible setup flow.
+It writes local Claude Code and Codex MCP config, installs the portable
+kotikit-auto skill for selected agents, and creates or updates a `.env` Figma
+token placeholder. The production installer should build on that proven
+behavior and add a polished, reversible setup flow.
 
 Recommended command:
 
@@ -330,7 +331,7 @@ Installer responsibilities:
 - Write project-scoped `.mcp.json` when Claude Code is selected.
 - Write `.codex/config.toml` or print a global config block when Codex is
   selected.
-- Offer to install or link the Codex skill.
+- Offer to install or link the kotikit-auto skill for the selected agents.
 - Offer to configure `git.coAuthor` for the selected agent.
 - Create `.env` with a placeholder `FIGMA_TOKEN=` line if missing.
 - Run a smoke check that calls `kotikit_config_status`.

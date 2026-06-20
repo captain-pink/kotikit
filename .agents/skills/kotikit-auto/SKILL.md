@@ -5,20 +5,22 @@ description: Run the kotikit auto workflow with MCP tools. Use when the user say
 
 # Kotikit Auto
 
-Use this self-contained skill to operate kotikit through its MCP tools in Codex.
-It must work after being copied into a target React project, so do not try to
-read workflow docs from the target project.
+Use this self-contained skill to operate kotikit through its MCP tools in
+Claude Code or Codex. It must work after being copied into a target React
+project, so do not try to read workflow docs from the target project.
 
 This skill assumes the kotikit MCP server is configured for the current target
 project. If no `kotikit_*` tools are available, stop and tell the user that
 kotikit MCP is not connected in this session. Ask them to run the local scaffold
-from the kotikit repo:
+from the kotikit repo for their current assistant:
 
 ```bash
-bun run scaffold:agents -- --target /path/to/their-react-project --agents codex
+bun run scaffold:agents -- --target /path/to/their-react-project --agents claude
 ```
 
-Then ask them to restart Codex in the target project and run `/mcp`.
+Use `--agents codex` for Codex-only projects or `--agents both` when both
+assistants should be configured. Then ask them to restart their assistant in the
+target project and run `/mcp`.
 
 ## Required Behavior
 
@@ -55,8 +57,8 @@ Then ask them to restart Codex in the target project and run `/mcp`.
 
 ## Auto Workflow
 
-Use this when the user says `kotikit:auto`, asks to initialize kotikit, or asks
-to build/spec a screen or flow.
+Use this when the user says `/kotikit-auto`, `kotikit:auto`, asks to initialize
+kotikit, or asks to build/spec a screen or flow.
 
 1. Run the Init Workflow.
 2. Ask: "What do you want to build?" unless the user already said it.

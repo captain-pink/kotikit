@@ -9,7 +9,7 @@ interface CliOptions {
   agents: ReturnType<typeof parseAgentSelection>;
   coAuthorMode: CoAuthorMode;
   ensureEnv: boolean;
-  installCodexSkill: boolean;
+  installSkills: boolean;
   help: boolean;
 }
 
@@ -34,7 +34,7 @@ function parseArgs(argv: string[], defaults: { cwd: string; kotikitRoot: string 
     agents: ["claude", "codex"],
     coAuthorMode: "auto",
     ensureEnv: true,
-    installCodexSkill: true,
+    installSkills: true,
     help: false,
   };
 
@@ -44,7 +44,7 @@ function parseArgs(argv: string[], defaults: { cwd: string; kotikitRoot: string 
     }
     if (arg === "--help" || arg === "-h") return { ...opts, help: true };
     if (arg === "--no-env") return { ...opts, ensureEnv: false };
-    if (arg === "--no-skill") return { ...opts, installCodexSkill: false };
+    if (arg === "--no-skill") return { ...opts, installSkills: false };
     if (arg === "--target") return { ...opts, targetRoot: readFlagValue(argv, index, "--target") };
     if (arg.startsWith("--target=")) return { ...opts, targetRoot: arg.slice("--target=".length) };
     if (arg === "--kotikit-root") return { ...opts, kotikitRoot: readFlagValue(argv, index, "--kotikit-root") };
@@ -66,7 +66,7 @@ function helpText(): string {
     "  --kotikit-root /path/to/kotikit          Kotikit repo root. Default: this repo.",
     "  --co-author auto|none|claude|codex       Update existing .kotikit/config.json co-author. Default: auto.",
     "  --no-env                                Do not create or append FIGMA_TOKEN= in .env.",
-    "  --no-skill                              Do not install the Codex skill into the target project.",
+    "  --no-skill                              Do not install kotikit-auto skills into the target project.",
     "  --help                                  Show this help.",
   ].join("\n");
 }
@@ -94,7 +94,7 @@ async function main(): Promise<void> {
     agents: opts.agents,
     coAuthorMode: opts.coAuthorMode,
     ensureEnv: opts.ensureEnv,
-    installCodexSkill: opts.installCodexSkill,
+    installSkills: opts.installSkills,
   });
 
   console.log("kotikit agent scaffold complete.");
@@ -104,10 +104,10 @@ async function main(): Promise<void> {
   console.log("");
   console.log("Next: restart your assistant and confirm the kotikit_* MCP tools are listed.");
   if (opts.agents.includes("claude")) {
-    console.log(`For Claude Code, open the target project (${opts.targetRoot}), approve the project MCP server if prompted, then run /mcp.`);
+    console.log(`For Claude Code, open the target project (${opts.targetRoot}), approve the project MCP server if prompted, then run /mcp and /kotikit-auto.`);
   }
   if (opts.agents.includes("codex")) {
-    console.log("For Codex, start a new session in the target project and run /mcp.");
+    console.log("For Codex, start a new session in the target project and run /mcp or kotikit:auto.");
   }
 }
 

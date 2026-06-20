@@ -87,8 +87,8 @@ cd ~/kotikit
 bun run scaffold:agents -- --target /Users/YOUR_USERNAME/path/to/your-react-project --agents both
 ```
 
-This writes or updates `.mcp.json` for Claude Code, `.codex/config.toml`, installs the Codex
-`kotikit-auto` skill into the target project, and creates `.env` with a `FIGMA_TOKEN=`
+This writes or updates `.mcp.json` for Claude Code, `.codex/config.toml`, installs the
+`kotikit-auto` skill for both assistants, and creates `.env` with a `FIGMA_TOKEN=`
 placeholder if needed.
 
 For a Claude Code-only laptop setup, run:
@@ -99,7 +99,10 @@ bun run scaffold:agents -- --target /Users/YOUR_USERNAME/path/to/your-react-proj
 ```
 
 Then open Claude Code from the target project, approve the project MCP server if prompted,
-and run `/mcp`. You should see the `kotikit` server with the `kotikit_*` tools.
+and run `/mcp`. You should see the `kotikit` server with the `kotikit_*` tools. The
+scaffold also installs `.claude/skills/kotikit-auto/SKILL.md`, so you can run
+`/kotikit-auto` in Claude Code for the same guided workflow that Codex gets from
+`kotikit:auto`.
 
 If you already scaffolded an older `kotikit-auto` skill that points at
 `docs/agent_workflow.md`, rerun the command after pulling the latest kotikit. The scaffold
@@ -161,10 +164,12 @@ lets large Figma design-system syncs finish under API rate limits instead of bei
 Codex at two minutes. If you prefer global Codex config, put the same block in
 `~/.codex/config.toml`.
 
-Codex can also use the repo-scoped skill at `.agents/skills/kotikit-auto/SKILL.md`. If you
-are running Codex from the target React project rather than this repo, symlink or copy that
-skill folder into the target project's `.agents/skills/` directory so `kotikit:auto` is
-discoverable there.
+Claude Code and Codex can also use the repo-scoped skill at
+`.agents/skills/kotikit-auto/SKILL.md`. If you are setting up manually, copy that file to
+the product-specific skill location:
+
+- Claude Code: `.claude/skills/kotikit-auto/SKILL.md`, then run `/kotikit-auto`.
+- Codex: `.agents/skills/kotikit-auto/SKILL.md`, then run `kotikit:auto`.
 
 When Codex runs the `kotikit-auto` skill, first-time setup passes a Codex co-author identity
 to kotikit automatically. If you initialize manually and want generated commits to say Codex
@@ -483,7 +488,8 @@ and import them in your project.
 ## Where to learn more
 
 - `docs/tools.md` — every kotikit MCP tool, with examples.
-- `docs/agent_workflow.md` — the shared Claude Code / Codex workflow for `kotikit:auto`.
+- `docs/agent_workflow.md` — the shared Claude Code / Codex workflow for
+  `/kotikit-auto` and `kotikit:auto`.
 - `docs/codex_support_plan.md` — the Codex support implementation plan and local test checklist.
 - `docs/coding_guidelines.md` — coding standards for agents and engineers extending kotikit.
 - `docs/modules/setup.md` — how the local agent scaffold command works.

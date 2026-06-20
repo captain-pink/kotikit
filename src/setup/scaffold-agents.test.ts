@@ -54,11 +54,13 @@ describe("scaffoldAgents", () => {
     expect(() => parseAgentSelection("cursor")).toThrow("agents must be one of");
   });
 
-  it("ships a portable self-contained Codex skill", () => {
+  it("ships a portable self-contained kotikit-auto skill", () => {
     const skill = currentKotikitSkill();
     expect(skill).toContain("This skill assumes the kotikit MCP server is configured");
     expect(skill).toContain("kotikit_config_status");
     expect(skill).toContain("kotikit_config_init");
+    expect(skill).toContain("Claude Code");
+    expect(skill).toContain("Codex");
     expect(skill).not.toContain("../../../docs");
     expect(skill).not.toContain("docs/agent_workflow");
   });
@@ -82,6 +84,7 @@ describe("scaffoldAgents", () => {
     const config = readJson(join(targetRoot, ".mcp.json")) as {
       mcpServers: Record<string, { command: string; args: string[]; type?: string; timeout?: number }>;
     };
+    const installedSkill = readFileSync(join(targetRoot, ".claude", "skills", "kotikit-auto", "SKILL.md"), "utf8");
     expect(config.mcpServers.browser.command).toBe("npx");
     expect(config.mcpServers.kotikit).toEqual({
       type: "stdio",
@@ -89,7 +92,10 @@ describe("scaffoldAgents", () => {
       args: ["run", join(kotikitRoot, "src", "mcp", "server.ts")],
       timeout: 900000,
     });
+    expect(installedSkill).toBe(currentKotikitSkill());
+    expect(installedSkill).toContain("Use this self-contained skill");
     expect(result.written).toContain(join(targetRoot, ".mcp.json"));
+    expect(result.written).toContain(join(targetRoot, ".claude", "skills", "kotikit-auto", "SKILL.md"));
     expect(result.notes.join("\n")).toContain("Claude Code project MCP config");
   });
 
@@ -107,6 +113,41 @@ describe("scaffoldAgents", () => {
     expect(readFileSync(legacyPath, "utf8")).toBe("{\"mcpServers\":{\"old\":{\"command\":\"node\"}}}\n");
     expect(readFileSync(join(targetRoot, ".mcp.json"), "utf8")).toContain("\"kotikit\"");
     expect(result.notes.join("\n")).toContain("legacy Claude config");
+  });
+
+  it("replaces an outdated scaffolded Claude skill that points at missing docs", async () => {
+    const skillPath = join(targetRoot, ".claude", "skills", "kotikit-auto", "SKILL.md");
+    mkdirSync(join(targetRoot, ".claude", "skills", "kotikit-auto"), { recursive: true });
+    writeFileSync(skillPath, "Before acting, read `docs/agent_workflow.md` when available.\n");
+
+    const result = await scaffoldAgents({
+      targetRoot,
+      kotikitRoot,
+      agents: ["claude"],
+    });
+
+    const installedSkill = readFileSync(skillPath, "utf8");
+    expect(installedSkill).toBe(currentKotikitSkill());
+    expect(installedSkill).not.toContain("docs/agent_workflow");
+    expect(result.written).toContain(skillPath);
+    expect(result.notes.join("\n")).toContain("Replaced outdated Claude Code skill");
+  });
+
+  it("preserves an existing Claude skill with local changes", async () => {
+    const skillPath = join(targetRoot, ".claude", "skills", "kotikit-auto", "SKILL.md");
+    const localSkill = "Local project-specific kotikit workflow.\n";
+    mkdirSync(join(targetRoot, ".claude", "skills", "kotikit-auto"), { recursive: true });
+    writeFileSync(skillPath, localSkill);
+
+    const result = await scaffoldAgents({
+      targetRoot,
+      kotikitRoot,
+      agents: ["claude"],
+    });
+
+    expect(readFileSync(skillPath, "utf8")).toBe(localSkill);
+    expect(result.skipped).toContain(skillPath);
+    expect(result.notes.join("\n")).toContain("Skipped existing Claude Code skill with local changes");
   });
 
   it("writes Codex config, installs the Codex skill, and creates a Figma token placeholder", async () => {

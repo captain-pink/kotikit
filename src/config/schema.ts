@@ -72,7 +72,7 @@ export function parseConfig(raw: unknown): Config {
     const fields = result.error.issues.map((i) => i.path.join(".") || "root").join(", ");
     throw new KotikitError(
       `The kotikit config file has an invalid format. Problem with: ${fields}. ` +
-        `Try running /kotikit:auto to reinitialize the config.`
+        `Try running /kotikit-auto in Claude Code or kotikit:auto in Codex to reinitialize the config.`
     );
   }
   return result.data;

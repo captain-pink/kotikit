@@ -2,8 +2,8 @@
 
 This is the shared workflow for AI coding assistants that run kotikit through
 MCP. Claude Code, Codex, and future agents should follow this document when a
-designer asks for `kotikit:auto`, "run kotikit auto", or the equivalent plain
-language request.
+designer asks for `/kotikit-auto`, `kotikit:auto`, "run kotikit auto", or the
+equivalent plain language request.
 
 The designer-facing experience must stay plain-language and product-focused.
 Tool calls, JSON, schema names, internal file paths, and git terminology are
@@ -11,10 +11,11 @@ implementation details.
 
 ## Entry Point
 
-`kotikit:auto` is the primary conversational entry point. When a designer
-starts it, execute the six steps below in order. Do not skip steps, do not
-expose internal formats to the designer, and do not end a completed action
-without presenting the "What next?" menu.
+`/kotikit-auto` in Claude Code and `kotikit:auto` in Codex are the primary
+conversational entry points. When a designer starts either one, execute the six
+steps below in order. Do not skip steps, do not expose internal formats to the
+designer, and do not end a completed action without presenting the "What next?"
+menu.
 
 ## Step 1: Init Check
 

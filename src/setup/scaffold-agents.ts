@@ -10,6 +10,8 @@ export interface ScaffoldAgentsOptions {
   agents?: readonly AgentKind[];
   coAuthorMode?: CoAuthorMode;
   ensureEnv?: boolean;
+  installSkills?: boolean;
+  /** @deprecated Use installSkills. Kept for existing scaffold callers. */
   installCodexSkill?: boolean;
 }
 
@@ -198,23 +200,48 @@ async function writeCodexConfig(result: ScaffoldAgentsResult, targetRoot: string
   result.written.push(path);
 }
 
-async function installCodexSkill(result: ScaffoldAgentsResult, targetRoot: string, kotikitRoot: string): Promise<void> {
-  const sourcePath = join(kotikitRoot, ".agents", "skills", "kotikit-auto", "SKILL.md");
-  const targetPath = join(targetRoot, ".agents", "skills", "kotikit-auto", "SKILL.md");
-  await assertReadableFile(sourcePath, "Codex skill source");
+function kotikitAutoSkillSourcePath(kotikitRoot: string): string {
+  return join(kotikitRoot, ".agents", "skills", "kotikit-auto", "SKILL.md");
+}
+
+function kotikitAutoSkillTargetPath(targetRoot: string, agent: AgentKind): string {
+  if (agent === "claude") {
+    return join(targetRoot, ".claude", "skills", "kotikit-auto", "SKILL.md");
+  }
+  return join(targetRoot, ".agents", "skills", "kotikit-auto", "SKILL.md");
+}
+
+function agentLabel(agent: AgentKind): string {
+  return agent === "claude" ? "Claude Code" : "Codex";
+}
+
+function isOutdatedKotikitAutoSkill(existing: string): boolean {
+  return existing.includes("../../../docs/agent_workflow.md") || existing.includes("docs/agent_workflow.md");
+}
+
+async function installKotikitAutoSkill(
+  result: ScaffoldAgentsResult,
+  targetRoot: string,
+  kotikitRoot: string,
+  agent: AgentKind
+): Promise<void> {
+  const sourcePath = kotikitAutoSkillSourcePath(kotikitRoot);
+  const targetPath = kotikitAutoSkillTargetPath(targetRoot, agent);
+  const label = agentLabel(agent);
+  await assertReadableFile(sourcePath, `${label} skill source`);
   const source = await readFile(sourcePath, "utf8");
   const existing = await readTextIfExists(targetPath);
 
   if (existing !== null && existing !== source) {
-    if (existing.includes("../../../docs/agent_workflow.md") || existing.includes("docs/agent_workflow.md")) {
+    if (isOutdatedKotikitAutoSkill(existing)) {
       await writeTextAtomic(targetPath, source);
       result.written.push(targetPath);
-      result.notes.push(`Replaced outdated Codex skill: ${targetPath}`);
+      result.notes.push(`Replaced outdated ${label} skill: ${targetPath}`);
       return;
     }
 
     result.skipped.push(targetPath);
-    result.notes.push(`Skipped existing Codex skill with local changes: ${targetPath}`);
+    result.notes.push(`Skipped existing ${label} skill with local changes: ${targetPath}`);
     return;
   }
 
@@ -270,8 +297,11 @@ export async function scaffoldAgents(options: ScaffoldAgentsOptions): Promise<Sc
     agents.includes("codex") ? writeCodexConfig(result, targetRoot, kotikitRoot) : Promise.resolve(),
   ]);
 
-  if (agents.includes("codex") && (options.installCodexSkill ?? true)) {
-    await installCodexSkill(result, targetRoot, kotikitRoot);
+  const installSkills = options.installSkills ?? options.installCodexSkill ?? true;
+  if (installSkills) {
+    await Promise.all(
+      agents.map((agent) => installKotikitAutoSkill(result, targetRoot, kotikitRoot, agent))
+    );
   }
 
   if (options.ensureEnv ?? true) {
