@@ -55,6 +55,9 @@ describe("MCP server", () => {
       "kotikit_get_system_prompt",
       // Tooling
       "kotikit_doctor",
+      "kotikit_bridge_start",
+      "kotikit_bridge_stop",
+      "kotikit_bridge_status",
     ];
     const registeredNames = registry.tools.map((t) => t.name);
     for (const name of expectedTools) {

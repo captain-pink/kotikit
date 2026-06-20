@@ -31,15 +31,9 @@ import { registerAuditTools } from "./tools/audit.js";
 import { registerSystemPromptTools } from "./tools/system-prompt.js";
 import { registerDoctorTools } from "./tools/doctor.js";
 import { registerPluginVariableTools } from "./tools/plugin-variables.js";
+import { registerBridgeTools } from "./tools/bridge.js";
 import { KOTIKIT_MCP_INSTRUCTIONS } from "./instructions.js";
-import { startBridgeServer, type BridgeServer } from "./bridge/server.js";
-import {
-  generateBridgeToken,
-  writeBridgeConfig,
-  clearBridgeConfig,
-} from "./bridge/token.js";
-import { nowIso } from "../util/ids.js";
-import { basename } from "path";
+import { createBridgeManager, type BridgeManager } from "./bridge/manager.js";
 
 /** The return type every tool handler must produce. */
 type ToolResult = {
@@ -59,7 +53,7 @@ export interface ToolRegistry {
  * Build the server and return it along with the registry.
  * Exported so tests can inspect the registry without spawning a process.
  */
-export function buildServer(): { server: Server; registry: ToolRegistry } {
+export function buildServer(): { server: Server; registry: ToolRegistry; bridge: BridgeManager } {
   const server = new Server(
     { name: "kotikit", version: "0.1.0" },
     {
@@ -73,9 +67,11 @@ export function buildServer(): { server: Server; registry: ToolRegistry } {
   const registry: ToolRegistry = { tools, handlers };
 
   const root = findProjectRoot();
+  const bridge = createBridgeManager({ registry, root });
   const ctx: ToolContext = {
     root,
     loadConfig: () => loadConfig(root),
+    bridge,
   };
 
   registerSpecTools(registry, ctx);
@@ -97,6 +93,7 @@ export function buildServer(): { server: Server; registry: ToolRegistry } {
   registerSystemPromptTools(registry, ctx);
   registerDoctorTools(registry, ctx);
   registerPluginVariableTools(registry, ctx);
+  registerBridgeTools(registry, ctx);
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
 
@@ -113,39 +110,7 @@ export function buildServer(): { server: Server; registry: ToolRegistry } {
     }
   });
 
-  return { server, registry };
-}
-
-/**
- * Try to bind a WebSocket bridge to a port, starting from `preferredPort` and
- * incrementing if the port is in use. Returns the bound BridgeServer + port.
- */
-async function tryStartBridge(
-  registry: ToolRegistry,
-  root: string,
-  preferredPort: number
-): Promise<{ bridge: BridgeServer; port: number; token: string }> {
-  for (let port = preferredPort; port < preferredPort + 50; port++) {
-    try {
-      const token = generateBridgeToken();
-      const cfg = {
-        version: 1 as const,
-        port,
-        token,
-        projectRoot: root,
-        projectName: basename(root),
-        startedAt: nowIso(),
-      };
-      // Pre-write the config so it's available even before onReady fires
-      await writeBridgeConfig(root, cfg);
-      const bridge = startBridgeServer({ registry, config: cfg });
-      return { bridge, port, token };
-    } catch {
-      // Port likely in use — try the next one
-      continue;
-    }
-  }
-  throw new Error(`[kotikit] Could not bind bridge: ports ${preferredPort}-${preferredPort + 49} all in use.`);
+  return { server, registry, bridge };
 }
 
 /** Start the MCP server connected to stdio. Optionally also starts the bridge. */
@@ -157,7 +122,7 @@ export async function startServer(): Promise<void> {
       `[kotikit] Loaded ${injected.length} env var(s) from ${root}/.env\n`
     );
   }
-  const { server, registry } = buildServer();
+  const { server, bridge } = buildServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
   process.stderr.write(`[kotikit] MCP server started. Root: ${root}\n`);
@@ -168,14 +133,14 @@ export async function startServer(): Promise<void> {
 
   if (bridgeEnabled) {
     const preferredPort = Number(process.env.KOTIKIT_BRIDGE_PORT ?? "53124");
-    const { port, token } = await tryStartBridge(registry, root, preferredPort);
+    const status = await bridge.start({ preferredPort });
     process.stderr.write(
-      `[kotikit] Bridge running at ws://localhost:${port}?token=${token}\n` +
+      `[kotikit] Bridge running at ${status.url}\n` +
       `[kotikit] Copy that URL into the kotikit Figma plugin's Connect dialog.\n`
     );
 
     const cleanup = async (): Promise<void> => {
-      await clearBridgeConfig(root).catch(() => {});
+      await bridge.stop().catch(() => {});
       process.exit(0);
     };
     process.on("SIGINT", cleanup);

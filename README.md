@@ -319,13 +319,17 @@ Then in Figma: Plugins → Development → Import plugin from manifest → pick
 
 **Start the bridge before using the plugin:**
 
-```bash
-cd /path/to/your-project && kotikit mcp --bridge
-```
+Ask your assistant: **"Start the kotikit Figma plugin bridge."**
 
-Run this from the project where you ran `kotikit init`. If you are developing kotikit from
-this source checkout, `bun run bridge` is equivalent. Your terminal will print a one-time
-connection address. Copy it exactly as printed.
+The assistant calls `kotikit_bridge_start` and gives you a one-time connection address.
+Copy it exactly as printed.
+
+Manual fallback for kotikit developers:
+
+```bash
+cd /path/to/your-react-project
+bun run /path/to/kotikit/src/mcp/server.ts --bridge
+```
 
 In Figma: Plugins → Development → kotikit → paste that address into the Connect dialog.
 
@@ -335,6 +339,8 @@ In Figma: Plugins → Development → kotikit → paste that address into the Co
 The bridge runs a local WebSocket server. The address it prints looks like
 `ws://localhost:53124?token=abc123` — a secure, local-only URL that includes a one-time
 token so only your Figma session can connect. Nothing leaves your machine.
+If the assistant started the bridge, ask it to stop the bridge when you are done; closing
+Claude Code or Codex normally stops the MCP process too.
 
 </details>
 
@@ -356,12 +362,10 @@ Run `kotikit_sync_ds` first. If the sync says variables are blocked by Figma's R
 use the plugin fallback:
 
 1. Ask your assistant to start the kotikit bridge, or run:
-   ```bash
-   cd /path/to/your-project && kotikit mcp --bridge
-   ```
+   **"Start the kotikit Figma plugin bridge."**
 2. Open the source design-system file in Figma, not a random draft file.
 3. Run Plugins → Development → kotikit.
-4. Paste the bridge URL printed by the terminal.
+4. Paste the bridge URL your assistant returned.
 5. Click **Sync Variables From Open File**.
 
 The plugin reads Figma variables from the currently open file and sends a compact payload

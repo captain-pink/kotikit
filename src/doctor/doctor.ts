@@ -60,7 +60,7 @@ const bridgeMessage = async (root: string): Promise<DoctorCheck> => {
       label: "Bridge",
       status: "warn",
       message: "The Figma plugin bridge is not running.",
-      hint: `Start it with bun run bridge when you need the Figma plugin. Expected config: ${bridgeConfigPath(root)}.`,
+      hint: `Ask your assistant to run kotikit_bridge_start when you need the Figma plugin. Expected config: ${bridgeConfigPath(root)}.`,
     });
   }
   return check({

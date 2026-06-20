@@ -19,15 +19,19 @@ This produces `dist/code.js` and `dist/ui.html`.
 
 ## Use
 
-1. From the project where you ran `kotikit init`: `kotikit mcp --bridge`.
-   Copy the printed URL (`ws://localhost:53124?token=...`).
+1. Ask your assistant to start the kotikit Figma plugin bridge.
+   Copy the URL it returns (`ws://localhost:53124?token=...`).
 2. In Figma: Plugins -> Development -> kotikit. Paste the URL into Connect.
 3. To import variables on a Professional plan, open the source design-system
    file in Figma and click **Sync Variables From Open File**.
 4. (P5-D4 -- coming) pick a screen, click Run All.
 
-When developing from this repository, `bun run bridge` from the repository root
-starts the same bridge.
+When developing from this repository, this manual fallback starts the same bridge:
+
+```bash
+cd /path/to/your-react-project
+bun run /path/to/kotikit/src/mcp/server.ts --bridge
+```
 
 ## Test
 

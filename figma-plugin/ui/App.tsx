@@ -112,7 +112,7 @@ export function App(): React.ReactElement {
 
   const handleConnect = (): void => {
     if (!connectUrl.startsWith("ws://localhost") && !connectUrl.startsWith("ws://127.0.0.1")) {
-      setError("Use the localhost bridge URL printed by kotikit mcp --bridge.");
+      setError("Use the localhost bridge URL returned by your assistant.");
       return;
     }
 

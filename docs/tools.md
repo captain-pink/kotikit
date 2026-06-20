@@ -1,6 +1,6 @@
 # kotikit MCP Tools
 
-38 tools exposed by the kotikit MCP server, organized by what they do.
+41 tools exposed by the kotikit MCP server, organized by what they do.
 Each tool name is what the agent calls; the "Example" line shows how to trigger it from your conversation.
 
 Token costs are approximate response sizes measured against a small fixture project (3 DS components, 1 screen). Re-measure for your project with `bun run measure`. See [docs/TOKENS.md](./TOKENS.md) for optimization strategies.
@@ -275,6 +275,39 @@ See also: `kotikit_scaffold_start`, `kotikit_audit`.
 ---
 
 ## Design track (Figma plugin)
+
+### kotikit_bridge_start
+
+Purpose: Start the local Figma plugin bridge from the running kotikit MCP process and return the pasteable plugin URL.
+Input: `{ preferredPort?: number }`
+Output: `{ running, staleConfig, projectRoot, projectName, port, url, startedAt }` plus a designer-facing summary.
+Token cost: ~90.
+Example: "Start the kotikit Figma plugin bridge."
+See also: `kotikit_bridge_stop`, `kotikit_bridge_status`.
+
+---
+
+### kotikit_bridge_stop
+
+Purpose: Stop the Figma plugin bridge owned by the current kotikit MCP process and clear `.kotikit/bridge.json`.
+Input: `{}`
+Output: `{ stopped, clearedConfig }`
+Token cost: ~30.
+Example: "Stop the kotikit Figma plugin bridge."
+See also: `kotikit_bridge_start`, `kotikit_bridge_status`.
+
+---
+
+### kotikit_bridge_status
+
+Purpose: Report whether the current kotikit MCP process owns a running Figma plugin bridge, and whether stale bridge config exists.
+Input: `{}`
+Output: `{ running, staleConfig, projectRoot, projectName, port?, url?, startedAt? }`
+Token cost: ~70.
+Example: "Is the Figma plugin bridge running?"
+See also: `kotikit_bridge_start`, `kotikit_doctor`.
+
+---
 
 ### kotikit_plan_design
 
