@@ -265,9 +265,12 @@ describe("FigmaClient", () => {
 
   it("getNodes batches 250 ids into 3 calls (100, 100, 50)", async () => {
     const callsBy: number[] = [];
+    const depths: Array<string | null> = [];
     const fetch = async (url: string | URL) => {
       const u = url.toString();
-      const idsParam = new URL(u, "http://x").searchParams.get("ids") ?? "";
+      const parsedUrl = new URL(u, "http://x");
+      const idsParam = parsedUrl.searchParams.get("ids") ?? "";
+      depths.push(parsedUrl.searchParams.get("depth"));
       callsBy.push(idsParam.split(",").length);
       const nodes: Record<string, unknown> = {};
       for (const id of idsParam.split(",")) nodes[id] = { document: { id } };
@@ -280,6 +283,7 @@ describe("FigmaClient", () => {
     const ids = Array.from({ length: 250 }, (_, i) => `n${i}`);
     const got = await client.getNodes("k1", ids);
     expect(callsBy).toEqual([100, 100, 50]);
+    expect(depths).toEqual(["1", "1", "1"]);
     expect(Object.keys(got).length).toBe(250);
   });
 

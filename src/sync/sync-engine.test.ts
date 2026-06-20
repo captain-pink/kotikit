@@ -295,11 +295,28 @@ describe("syncOneFile", () => {
     expect(result.componentJsons.map((c) => c.name).sort()).toEqual(["Button", "Card", "Input"]);
   });
 
-  it("resume: a checkpoint at 'styles' stage skips earlier stages", async () => {
+  it("resume: re-fetches cheap list stages so resumed runs keep design-system data", async () => {
     const calls: string[] = [];
     const fetch = (async (url: string | URL) => {
       const u = url.toString();
       calls.push(u);
+      if (u.includes("/components")) {
+        return jsonRes({
+          meta: {
+            components: [
+              {
+                key: "component-key",
+                node_id: "component-node",
+                name: "Button",
+                containing_frame: { pageName: "Components" },
+              },
+            ],
+          },
+        });
+      }
+      if (u.includes("/component_sets")) {
+        return jsonRes({ meta: { component_sets: [] } });
+      }
       if (u.includes("/styles")) {
         return new Response(JSON.stringify({ meta: { styles: [] } }), {
           headers: { "Content-Type": "application/json" },
@@ -318,7 +335,10 @@ describe("syncOneFile", () => {
           status: 200,
         });
       }
-      throw new Error("Unexpected call before resume point: " + u);
+      if (u.includes("/v1/files/F1")) {
+        return jsonRes({ name: "TestFile", document: { children: [] } });
+      }
+      throw new Error("Unexpected call: " + u);
     }) as unknown as typeof globalThis.fetch;
 
     const client = new FigmaClient({
@@ -328,7 +348,7 @@ describe("syncOneFile", () => {
       backoffOpts: FAST,
     });
     const { componentsDb, iconsDb } = makeDbs();
-    await syncOneFile({
+    const result = await syncOneFile({
       root: "/tmp",
       client,
       fileKey: "F1",
@@ -337,17 +357,11 @@ describe("syncOneFile", () => {
       iconsDb,
       resumeFrom: { fileKey: "F1", stage: "styles" },
     });
-    // Should have called /styles and /variables/local
+    expect(result.componentCount).toBe(1);
+    expect(result.componentJsons[0]?.name).toBe("Button");
+    expect(calls.some((c) => c.includes("/components"))).toBe(true);
+    expect(calls.some((c) => c.includes("/component_sets"))).toBe(true);
     expect(calls.some((c) => c.includes("/styles"))).toBe(true);
-    // Should NOT have called base file, /components, or /component_sets
-    expect(
-      calls.every(
-        (c) =>
-          !c.match(/\/v1\/files\/F1$/) &&
-          !c.includes("/components") &&
-          !c.includes("/component_sets")
-      )
-    ).toBe(true);
   });
 
   it("variables 403 surfaces as a skipped stage", async () => {
@@ -1108,6 +1122,66 @@ describe("syncOneFile", () => {
 
     releaseNodeRequests.resolve();
     await expect(sync).resolves.toMatchObject({ fileKey: "F1" });
+  });
+
+  it("pauses between bounded node_detail waves before starting later batches", async () => {
+    const componentList = Array.from({ length: 400 }, (_, i) => ({
+      key: `ck${i}`,
+      node_id: `n${i}`,
+      name: `Comp${i}`,
+    }));
+    const firstWaveStarted = deferred();
+    const releaseFirstWave = deferred();
+    let nodeRequestCount = 0;
+    let pause = false;
+
+    const fetch = (async (url: string | URL) => {
+      const u = url.toString();
+      if (u.includes("/v1/files/F1/components")) {
+        return jsonRes({ meta: { components: componentList } });
+      }
+      if (u.includes("/v1/files/F1/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/F1/styles")) return jsonRes({ meta: { styles: [] } });
+      if (u.includes("/v1/files/F1/variables/local")) return jsonRes({ meta: { variables: {}, variableCollections: {} } });
+      if (u.includes("/v1/files/F1/nodes")) {
+        nodeRequestCount++;
+        if (nodeRequestCount === 3) firstWaveStarted.resolve();
+        await releaseFirstWave.promise;
+        return jsonRes({ nodes: {} });
+      }
+      if (u.includes("/v1/files/F1")) return jsonRes({ name: "F1", document: { children: [] } });
+      throw new Error("no match: " + u);
+    }) as unknown as typeof globalThis.fetch;
+
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch,
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+      backoffOpts: FAST,
+    });
+    const { componentsDb, iconsDb } = makeDbs();
+    const sync = syncOneFile({
+      root: "/tmp",
+      client,
+      fileKey: "F1",
+      fileName: "F1",
+      componentsDb,
+      iconsDb,
+      shouldPause: () => pause,
+      pauseContext: { filesCompleted: 0, totalFiles: 1 },
+    });
+
+    await expect(Promise.race([firstWaveStarted.promise, timeout(50)])).resolves.toBeUndefined();
+    expect(nodeRequestCount).toBe(3);
+
+    pause = true;
+    releaseFirstWave.resolve();
+
+    await expect(sync).rejects.toMatchObject({
+      name: "SyncPausedError",
+      lastStage: "node_details",
+    } satisfies Partial<SyncPausedError>);
+    expect(nodeRequestCount).toBe(3);
   });
 
   it("progress: node_details emits stageProgress with monotonically increasing processed", async () => {

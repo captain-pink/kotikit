@@ -242,6 +242,35 @@ describe("syncAllFiles", () => {
     }
   });
 
+  it("clears the checkpoint after a non-pause sync crash", async () => {
+    const root = mkTmp();
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch: makeFetch({
+        FX: {
+          components: () => ({ meta: { components: [] } }),
+          component_sets: () => ({ meta: { component_sets: [] } }),
+          styles: () => {
+            throw new Error("network failed");
+          },
+        },
+      }),
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+      backoffOpts: FAST,
+    });
+
+    await expect(
+      syncAllFiles({
+        root,
+        files: [{ key: "FX", name: "FX" }],
+        client,
+        progress: nullProgressEmitter(),
+      })
+    ).rejects.toThrow("network failed");
+
+    expect(existsSync(checkpointPath(root))).toBe(false);
+  });
+
   it("with no files: returns an empty report and writes empty artifacts", async () => {
     const root = mkTmp();
     const client = new FigmaClient({

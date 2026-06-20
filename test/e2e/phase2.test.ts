@@ -301,7 +301,7 @@ describe("Phase 2 E2E — checkpoint resume", () => {
       await rm(d, { recursive: true, force: true }).catch(() => {});
   });
 
-  it("a mid-sync failure persists the checkpoint; a retry completes", async () => {
+  it("a mid-sync failure clears the checkpoint; a clean retry completes", async () => {
     const tmpDir = await mkdtemp(join(tmpdir(), "kotikit-phase2-resume-"));
     tmpDirs.push(tmpDir);
 
@@ -339,7 +339,11 @@ describe("Phase 2 E2E — checkpoint resume", () => {
         });
 
       if (u.includes("/v1/files/FB/components"))
-        return jsonRes({ meta: { components: [] } });
+        return jsonRes({
+          meta: {
+            components: [{ key: "ckB-card", node_id: "cardB", name: "Card" }],
+          },
+        });
       if (u.includes("/v1/files/FB/component_sets"))
         return jsonRes({ meta: { component_sets: [] } });
       if (u.includes("/v1/files/FB/styles"))
@@ -347,7 +351,18 @@ describe("Phase 2 E2E — checkpoint resume", () => {
       if (u.includes("/v1/files/FB/variables/local")) return jsonRes({}, 403);
       if (u.includes("/v1/files/FB/nodes")) return jsonRes({ nodes: {} });
       if (u.endsWith("/v1/files/FB"))
-        return jsonRes({ name: "FB", document: { children: [] } });
+        return jsonRes({
+          name: "FB",
+          document: {
+            children: [
+              {
+                id: "p1",
+                name: "Components",
+                children: [{ id: "cardB", name: "Card" }],
+              },
+            ],
+          },
+        });
       throw new Error("no fixture for " + u);
     }) as unknown as typeof globalThis.fetch;
 
@@ -378,7 +393,7 @@ describe("Phase 2 E2E — checkpoint resume", () => {
     // First attempt — expected to fail on FB/styles
     const first = await callTool(registry, "kotikit_sync_ds", {});
     expect(first.isError).toBe(true);
-    expect(existsSync(checkpointPath(tmpDir))).toBe(true);
+    expect(existsSync(checkpointPath(tmpDir))).toBe(false);
 
     // Flip the fixture to success and retry
     mode = "ok";

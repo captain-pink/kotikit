@@ -19,6 +19,7 @@ import { nowIso, slugifyComponentName } from "../util/ids.js";
 import { buildPropsString } from "./component-shape.js";
 import type { ComponentJson } from "./component-shape.js";
 import type { NormalizationDiagnostics } from "./normalize-design-system.js";
+import { SyncPausedError } from "./errors.js";
 import { mkdir, writeFile } from "fs/promises";
 import { dirname } from "path";
 import type { Database } from "bun:sqlite";
@@ -222,6 +223,9 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
       componentsDb.close();
       iconsDb.close();
       regDb.close();
+      if (!(err instanceof SyncPausedError)) {
+        await clearCheckpoint(root).catch(() => undefined);
+      }
       throw err;
     }
 

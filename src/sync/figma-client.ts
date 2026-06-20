@@ -245,7 +245,7 @@ export class FigmaClient {
         batches.map(async (batch) => {
           const batchIds = batch.join(",");
           const res = await this.request(
-            `/v1/files/${fileKey}/nodes?ids=${encodeURIComponent(batchIds)}`,
+            `/v1/files/${fileKey}/nodes?ids=${encodeURIComponent(batchIds)}&depth=1`,
             FigmaNodesResponseSchema
           );
           return Object.entries(res.nodes).flatMap(([nodeId, node]) =>

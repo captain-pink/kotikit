@@ -4,6 +4,8 @@ import { existsSync } from "fs";
 import { dirname } from "path";
 import { checkpointPath } from "../util/paths.js";
 
+const DEFAULT_CHECKPOINT_MAX_AGE_MS = 6 * 60 * 60 * 1_000;
+
 export const CheckpointStageSchema = z.enum([
   "metadata",
   "components",
@@ -35,11 +37,34 @@ export const CheckpointSchema = z.object({
 });
 export type Checkpoint = z.infer<typeof CheckpointSchema>;
 
+export interface ReadCheckpointOpts {
+  /** Treat older checkpoints as stale. Defaults to KOTIKIT_SYNC_CHECKPOINT_MAX_AGE_MS or 6 hours. */
+  maxAgeMs?: number;
+  /** Injectable clock for tests. */
+  nowMs?: () => number;
+}
+
+function checkpointMaxAgeFromEnv(env: Record<string, string | undefined> = process.env): number {
+  const parsed = Number(env.KOTIKIT_SYNC_CHECKPOINT_MAX_AGE_MS);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : DEFAULT_CHECKPOINT_MAX_AGE_MS;
+}
+
+function isCheckpointStale(checkpoint: Checkpoint, opts: ReadCheckpointOpts): boolean {
+  const startedAtMs = Date.parse(checkpoint.startedAt);
+  if (!Number.isFinite(startedAtMs)) return true;
+  const maxAgeMs = opts.maxAgeMs ?? checkpointMaxAgeFromEnv();
+  const nowMs = opts.nowMs?.() ?? Date.now();
+  return nowMs - startedAtMs > maxAgeMs;
+}
+
 /**
  * Read the checkpoint, returning null if absent or malformed.
  * A malformed checkpoint logs to stderr and returns null — never throws.
  */
-export async function readCheckpoint(root: string): Promise<Checkpoint | null> {
+export async function readCheckpoint(
+  root: string,
+  opts: ReadCheckpointOpts = {}
+): Promise<Checkpoint | null> {
   const path = checkpointPath(root);
   if (!existsSync(path)) return null;
   try {
@@ -48,6 +73,10 @@ export async function readCheckpoint(root: string): Promise<Checkpoint | null> {
     const result = CheckpointSchema.safeParse(raw);
     if (!result.success) {
       process.stderr.write("[kotikit] discarding malformed checkpoint\n");
+      return null;
+    }
+    if (isCheckpointStale(result.data, opts)) {
+      process.stderr.write("[kotikit] discarding stale checkpoint\n");
       return null;
     }
     return result.data;

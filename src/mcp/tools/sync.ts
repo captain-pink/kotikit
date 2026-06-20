@@ -101,6 +101,18 @@ export function registerSyncTools(
         `${totalComponents} components, ${totalIcons} icons. ` +
         `${conflictCount} name conflict(s).`;
 
+      const emptyFiles = report.files.filter((file) =>
+        file.componentCount === 0 && file.iconCount === 0
+      );
+      if (emptyFiles.length > 0) {
+        const names = emptyFiles.map((file) => `"${file.name}"`).join(", ");
+        const emptySummary =
+          `Sync finished, but ${names} returned 0 components and 0 icons. ` +
+          `If the file is a published library, this usually means the sync was interrupted - run sync again. ` +
+          `If it persists, verify the token has access to the published library.`;
+        return { ...toolText(emptySummary, report), isError: true as const };
+      }
+
       // If any file skipped the variables stage (Enterprise-gated 403), surface
       // a clear explanation so free-plan users are not confused by a silent skip.
       const variablesSkipped = report.skipped?.some((s) => s.stage === "variables") ?? false;

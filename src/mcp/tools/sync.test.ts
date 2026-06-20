@@ -364,4 +364,41 @@ describe("kotikit_sync_ds", () => {
     // The summary should mention Enterprise so free-plan users understand the skip
     expect(result.content[0]?.text).toContain("Enterprise");
   });
+
+  it("surfaces zero components and zero icons as a visible sync problem", async () => {
+    const root = mkTmp();
+    const cfg = defaultConfig();
+    cfg.figma.token = "plain-token-value";
+    cfg.figma.designSystemFiles = [{ key: "FX", name: "EmptyLibrary" }];
+    await writeConfig(root, cfg);
+
+    const registry = makeRegistry();
+    const ctx: ToolContext = {
+      root,
+      loadConfig: async () => cfg,
+    };
+
+    registerSyncTools(registry, ctx, {
+      figmaClientFactory: (token: string) => new FigmaClient({
+        token,
+        fetch: makeFetch({
+          "/v1/files/FX/components": () => ({ meta: { components: [] } }),
+          "/v1/files/FX/component_sets": () => ({ meta: { component_sets: [] } }),
+          "/v1/files/FX/styles": () => ({ meta: { styles: [] } }),
+          "/v1/files/FX/variables/local": () => ({ meta: { variables: {}, variableCollections: {} } }),
+          "/v1/files/FX/nodes": () => ({ nodes: {} }),
+          "/v1/files/FX": () => ({ name: "EmptyLibrary", document: { children: [] } }),
+        }),
+        limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+        backoffOpts: FAST,
+      }),
+      progress: nullProgressEmitter(),
+    });
+
+    const result = await callTool(registry, "kotikit_sync_ds", {});
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain("returned 0 components and 0 icons");
+    expect(result.content[0]?.text).toContain("EmptyLibrary");
+  });
 });

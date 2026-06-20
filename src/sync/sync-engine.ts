@@ -67,7 +67,6 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
     fileName,
     componentsDb,
     iconsDb,
-    resumeFrom,
     onStage,
     progress,
     fileCtx,
@@ -76,12 +75,11 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
   } = opts;
   void _root;
 
-  const startStage = resumeFrom?.stage;
   const skipped: { stage: string; reason: string }[] = [];
 
-  // Cache intermediate state across stages (this all lives inside one call,
-  // so resume only matters when starting fresh; if resume points beyond stage N,
-  // we skip the work of fetching for stage N).
+  // Stage outputs are intentionally kept in memory for one invocation only.
+  // A resumed file therefore re-runs these idempotent fetches instead of
+  // skipping work whose output was lost when the prior process stopped.
   let pageNameByNodeId: Record<string, string> = {};
   let publishedComponents: Awaited<ReturnType<FigmaClient["getComponents"]>> = [];
   let componentSets: Awaited<ReturnType<FigmaClient["getComponentSets"]>> = [];
@@ -89,22 +87,11 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
   let localVariables: Awaited<ReturnType<FigmaClient["getLocalVariables"]>> = null;
   let nodeDetailsById: Record<string, Awaited<ReturnType<FigmaClient["getNodes"]>>[string]> = {};
 
-  if (resumeFrom === undefined || resumeFrom.stage === "metadata") {
-    deleteComponentsByFileKey(componentsDb, fileKey);
-    deleteIconsByFileKey(iconsDb, fileKey);
-  }
-
-  // helper to decide whether a stage runs given the resume point
-  const stages: FileCheckpoint["stage"][] = [
-    "metadata", "components", "component_sets", "styles",
-    "variables", "node_details", "icons", "done",
-  ];
-  const startIndex = startStage ? stages.indexOf(startStage) : 0;
-  const shouldRun = (stage: FileCheckpoint["stage"]): boolean =>
-    stages.indexOf(stage) >= startIndex;
+  deleteComponentsByFileKey(componentsDb, fileKey);
+  deleteIconsByFileKey(iconsDb, fileKey);
 
   // ── Stage 1: metadata ───────────────────────────────────────────────────
-  if (shouldRun("metadata")) {
+  {
     const metadataStart = Date.now();
     if (progress && fileCtx) progress.stage(fileCtx, "metadata");
     try {
@@ -132,7 +119,7 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
   }
 
   // ── Stage 2: components ─────────────────────────────────────────────────
-  if (shouldRun("components")) {
+  {
     if (progress && fileCtx) progress.stage(fileCtx, "components");
     publishedComponents = await client.getComponents(fileKey);
     if (progress && fileCtx) progress.stageDone(fileCtx, "components", `${publishedComponents.length} returned`);
@@ -140,7 +127,7 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
   }
 
   // ── Stage 3: component_sets ─────────────────────────────────────────────
-  if (shouldRun("component_sets")) {
+  {
     if (progress && fileCtx) progress.stage(fileCtx, "component_sets");
     componentSets = await client.getComponentSets(fileKey);
     if (progress && fileCtx) progress.stageDone(fileCtx, "component_sets", `${componentSets.length} returned`);
@@ -151,7 +138,7 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
   // Figma draft generation needs published/importable component keys. If a
   // file has no published components or component sets, do not treat its local
   // document tree as a usable design system.
-  if (publishedComponents.length === 0 && componentSets.length === 0 && shouldRun("components")) {
+  if (publishedComponents.length === 0 && componentSets.length === 0) {
     skipped.push({
       stage: "components",
       reason: "This Figma file is not published as a library, so its components cannot be used in generated Figma drafts.",
@@ -185,7 +172,7 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
   }
 
   // ── Stage 4: styles ─────────────────────────────────────────────────────
-  if (shouldRun("styles")) {
+  {
     if (progress && fileCtx) progress.stage(fileCtx, "styles");
     styles = await client.getStyles(fileKey);
     if (progress && fileCtx) progress.stageDone(fileCtx, "styles", `${styles.length}`);
@@ -193,7 +180,7 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
   }
 
   // ── Stage 5: variables ──────────────────────────────────────────────────
-  if (shouldRun("variables")) {
+  {
     if (progress && fileCtx) progress.stage(fileCtx, "variables");
     localVariables = await client.getLocalVariables(fileKey);
     if (localVariables === null) {
@@ -206,7 +193,7 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
   }
 
   // ── Stage 6: node_details ───────────────────────────────────────────────
-  if (shouldRun("node_details")) {
+  {
     // Collect node ids we need: style node ids + published component node ids.
     const styleIds = styles.map((s) => s.node_id).filter((x): x is string => typeof x === "string");
     const componentNodeIds = normalizePublishedDesignSystem({
@@ -219,36 +206,36 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
     const allIds = Array.from(new Set([...styleIds, ...componentNodeIds]));
 
     const BATCH = 100;
+    const WAVE = 3;
     const batches = Array.from(
       { length: Math.ceil(allIds.length / BATCH) },
       (_, index) => allIds.slice(index * BATCH, index * BATCH + BATCH)
     );
     const nodeDetailsStart = Date.now();
-    const startBatch = resumeFrom?.stage === "node_details"
-      ? Math.floor((resumeFrom.cursor?.processed ?? 0) / BATCH)
-      : 0;
-    const remainingBatches = batches.slice(startBatch);
-    const nodeDetailsResults = await Promise.all(
-      remainingBatches.map((batch) => client.getNodes(fileKey, batch))
-    );
-    let processed = Math.min(startBatch * BATCH, allIds.length);
-    for (const nodes of nodeDetailsResults) {
-      Object.assign(nodeDetailsById, nodes);
-      processed = Math.min(processed + BATCH, allIds.length);
-      await onStage?.("node_details", { processed, batchSize: BATCH });
-      if (progress && fileCtx) {
-        progress.stageProgress(fileCtx, "node_details", {
-          processed,
-          total: allIds.length,
-          label: processed >= allIds.length ? formatMs(Date.now() - nodeDetailsStart) : undefined,
-        });
-      }
-      if (shouldPause?.()) {
-        throw new SyncPausedError(
-          pauseContext?.filesCompleted ?? 0,
-          pauseContext?.totalFiles ?? 1,
-          "node_details"
-        );
+    let processed = 0;
+    for (let waveStart = 0; waveStart < batches.length; waveStart += WAVE) {
+      const wave = batches.slice(waveStart, waveStart + WAVE);
+      const nodeDetailsResults = await Promise.all(
+        wave.map((batch) => client.getNodes(fileKey, batch))
+      );
+      for (const nodes of nodeDetailsResults) {
+        Object.assign(nodeDetailsById, nodes);
+        processed = Math.min(processed + BATCH, allIds.length);
+        await onStage?.("node_details", { processed, batchSize: BATCH });
+        if (progress && fileCtx) {
+          progress.stageProgress(fileCtx, "node_details", {
+            processed,
+            total: allIds.length,
+            label: processed >= allIds.length ? formatMs(Date.now() - nodeDetailsStart) : undefined,
+          });
+        }
+        if (shouldPause?.()) {
+          throw new SyncPausedError(
+            pauseContext?.filesCompleted ?? 0,
+            pauseContext?.totalFiles ?? 1,
+            "node_details"
+          );
+        }
       }
     }
     if (allIds.length === 0) {
@@ -260,7 +247,7 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
   let iconCount = 0;
   const componentJsons: ComponentJson[] = [];
   let normalizationDiagnostics: NormalizationDiagnostics | null = null;
-  if (shouldRun("icons")) {
+  {
     if (progress && fileCtx) progress.stage(fileCtx, "icons", "classifying components...");
 
     const normalizationInput = {
