@@ -1,4 +1,3 @@
-// @ts-expect-error -- figma global only exists at runtime in the plugin sandbox
 declare const figma: any;
 
 import type { FigmaShim } from "./figma-shim.js";

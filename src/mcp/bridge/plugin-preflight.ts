@@ -34,6 +34,7 @@ const TOP_LEVEL_BUILD_INPUTS = [
   "tsconfig.json",
   "tsconfig.code.json",
   "vite.config.ts",
+  "vite.sandbox.config.ts",
   "code.ts",
 ];
 const BUILD_INPUT_DIRS = ["src", "ui"];
