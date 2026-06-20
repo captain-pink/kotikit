@@ -6,7 +6,10 @@ import { designApplyLogPath } from "../../util/paths.js";
 import { nowIso } from "../../util/ids.js";
 import { toolText, toolError } from "../../util/result.js";
 import { upsertDesignNodeMapEntry } from "../../planning/design-node-map.js";
-import type { DesignPlanStepKind } from "../../planning/design-plan-schema.js";
+import {
+  DESIGN_PLAN_STEP_KINDS,
+  type DesignPlanStepKind,
+} from "../../planning/design-plan-schema.js";
 import type { DesignNodeKind } from "../../planning/design-node-map.js";
 
 export function registerDesignApplyTools(
@@ -30,7 +33,7 @@ export function registerDesignApplyTools(
         note: { type: "string", description: "Optional human-readable note." },
         stepKind: {
           type: "string",
-          enum: ["define-state-frame", "apply-auto-layout", "place-component", "bind-variable"],
+          enum: [...DESIGN_PLAN_STEP_KINDS],
           description: "Design plan step kind applied by the Figma plugin.",
         },
         state: { type: "string", description: "Design state affected by the step." },

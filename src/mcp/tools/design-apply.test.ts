@@ -29,6 +29,15 @@ async function callTool(registry: ToolRegistry, name: string, args: unknown) {
 }
 
 describe("kotikit_design_apply_step", () => {
+  it("advertises every design plan step kind accepted by the apply log", () => {
+    const registry = makeRegistry();
+    registerDesignApplyTools(registry, makeCtx(mkTmp()));
+    const tool = registry.tools.find((entry) => entry.name === "kotikit_design_apply_step");
+    const stepKind = tool?.inputSchema.properties?.stepKind as { enum?: string[] } | undefined;
+
+    expect(stepKind?.enum).toContain("define-layout-zone");
+  });
+
   it("records 'ok' outcome", async () => {
     const root = mkTmp();
     const registry = makeRegistry();

@@ -82,6 +82,48 @@ describe("orchestrator.applyAll", () => {
     expect(frames[0]?.children.length).toBe(2);
   });
 
+  it("semantic layout zones receive their assigned component instances", async () => {
+    const shim = new FakeFigmaShim();
+    const plan: DesignPlan = {
+      ...basicPlan(),
+      steps: [
+        { kind: "define-state-frame", state: "default", width: 1440, height: "auto" },
+        { kind: "apply-auto-layout", state: "default", direction: "VERTICAL", padding: 24, itemSpacing: 16 },
+        {
+          kind: "define-layout-zone",
+          state: "default",
+          zone: "controls",
+          parentZone: "root",
+          direction: "HORIZONTAL",
+          padding: 0,
+          itemSpacing: 12,
+          minTargetSize: 44,
+        },
+        {
+          kind: "place-component",
+          state: "default",
+          componentName: "Search field",
+          dsKey: "k-search",
+          role: "search-input",
+          zone: "controls",
+        },
+      ],
+    };
+
+    const results = await applyAll({ shim, plan });
+    const zoneResult = results.find((result) => result.stepKind === "define-layout-zone");
+    const placeResult = results.find((result) => result.stepKind === "place-component");
+    const zoneNode = zoneResult?.node?.id ? shim.nodes.get(zoneResult.node.id) : undefined;
+
+    expect(results.every((result) => result.outcome === "ok")).toBe(true);
+    expect(zoneNode?.layoutMode).toBe("HORIZONTAL");
+    expect(zoneNode?.children).toContain(placeResult?.node?.id);
+    expect(placeResult).toMatchObject({
+      role: "search-input",
+      zone: "controls",
+    });
+  });
+
   it("onStep callback fires for each step", async () => {
     const shim = new FakeFigmaShim();
     const calls: number[] = [];

@@ -42,7 +42,8 @@ collaborative, and precise.
 - **Variable binding with `nodeNameHint` resolution** — bind a variable to a specific child node (e.g. "Heading text") instead of the frame itself.
 - **Bidirectional sync** — edits in Figma flow back into `.kotikit/specs/`. Major scope; deferred since Phase 5.
 - **Real-time collaboration** — multiple designers, one bridge, conflict resolution.
-- **Design-side gates** — auto-layout sanity, missing variables, components without DS keys.
+- **Measured design-side gates** — after semantic layout zones are applied, inspect generated frames for overlap, clipped text, target sizes below 44px, missing variables, components without DS keys, and obvious responsive breakpoints. Keep this generic and report actionable fixes instead of embedding rules for one design system.
+- **Component metadata-driven layout refinement** — use synced component metadata such as default dimensions, supported variants, role confidence, and importability status to choose better zone direction, spacing, and representative variants before the plugin creates frames.
 
 ## Design-system sync hardening
 

@@ -8,14 +8,66 @@ export interface DesignPlan {
   screen?: string;
   pageName: string;
   states: string[];
+  layout?: {
+    version: 1;
+    strategy: "semantic-zones";
+    zones: Array<{
+      id: LayoutZoneId;
+      parent: LayoutZoneId;
+      direction: "VERTICAL" | "HORIZONTAL";
+      padding: number;
+      itemSpacing: number;
+      minTargetSize: number;
+    }>;
+    placements: Array<{
+      componentName: string;
+      role: ComponentRole;
+      zone: LayoutZoneId;
+    }>;
+  };
   steps: DesignPlanStep[];
   createdAt: string;
 }
 
+export type ComponentRole =
+  | "navigation"
+  | "primary-action"
+  | "secondary-action"
+  | "destructive-action"
+  | "search-input"
+  | "filter-control"
+  | "data-display"
+  | "status-indicator"
+  | "binary-control"
+  | "feedback"
+  | "content";
+
+export type LayoutZoneId =
+  | "root"
+  | "navigation"
+  | "header"
+  | "header-actions"
+  | "controls"
+  | "content"
+  | "content-status"
+  | "content-toggles"
+  | "content-actions"
+  | "feedback";
+
 export type DesignPlanStep =
   | { kind: "define-state-frame"; state: string; width: number; height: number | "auto" }
   | { kind: "apply-auto-layout"; state: string; direction: "VERTICAL" | "HORIZONTAL"; padding: number; itemSpacing: number }
-  | { kind: "place-component"; state: string; componentName: string; dsKey?: string; variant?: Record<string, string> }
+  | {
+      kind: "define-layout-zone";
+      state: string;
+      zone: LayoutZoneId;
+      parentZone?: LayoutZoneId;
+      direction: "VERTICAL" | "HORIZONTAL";
+      padding: number;
+      itemSpacing: number;
+      minTargetSize: number;
+    }
+  | { kind: "place-component"; state: string; componentName: string; dsKey?: string; variant?: Record<string, string>; role?: ComponentRole; zone?: LayoutZoneId }
   | { kind: "bind-variable"; state: string; variableName: string; property: "fill" | "text" | "effect"; nodeNameHint?: string };
 
 export interface ApplyStepResult {
@@ -36,6 +88,8 @@ export interface ApplyStepResult {
   state?: string;
   componentName?: string;
   dsKey?: string;
+  role?: ComponentRole;
+  zone?: LayoutZoneId;
 }
 
 export interface OrchestratorOpts {
@@ -47,7 +101,10 @@ export interface OrchestratorOpts {
 interface OrchestratorState {
   pageId: string | null;
   frameByState: Map<string, string>;
+  frameByZone: Map<string, string>;
 }
+
+const zoneKey = (state: string, zone: LayoutZoneId): string => `${state}:${zone}`;
 
 const resultWithContext = (
   result: ApplyStepResult,
@@ -85,6 +142,7 @@ async function applyStepInner(
         height: step.height,
       });
       state.frameByState.set(step.state, frame.id);
+      state.frameByZone.set(zoneKey(step.state, "root"), frame.id);
       return resultWithContext({
         stepIndex,
         outcome: "ok",
@@ -109,6 +167,41 @@ async function applyStepInner(
         node: { id: frameId, kind: "frame", name: step.state },
       }, shim, state, plan);
     }
+    if (step.kind === "define-layout-zone") {
+      const parentZone = step.parentZone ?? "root";
+      const parentId = state.frameByZone.get(zoneKey(step.state, parentZone));
+      if (!parentId) {
+        return resultWithContext({
+          stepIndex,
+          outcome: "warned",
+          note: `no parent zone ${parentZone} for ${step.state}`,
+          stepKind: step.kind,
+          state: step.state,
+          zone: step.zone,
+        }, shim, state, plan);
+      }
+      const parentSize = await shim.getNodeSize(parentId);
+      const frame = await shim.createFrame({
+        name: step.zone,
+        parentId,
+        width: parentSize?.width ?? step.minTargetSize,
+        height: step.minTargetSize,
+      });
+      await shim.setAutoLayout(frame.id, {
+        direction: step.direction,
+        padding: step.padding,
+        itemSpacing: step.itemSpacing,
+      });
+      state.frameByZone.set(zoneKey(step.state, step.zone), frame.id);
+      return resultWithContext({
+        stepIndex,
+        outcome: "ok",
+        stepKind: step.kind,
+        state: step.state,
+        zone: step.zone,
+        node: { id: frame.id, kind: "frame", name: step.zone },
+      }, shim, state, plan);
+    }
     if (step.kind === "place-component") {
       if (!step.dsKey) {
         return resultWithContext({
@@ -120,8 +213,10 @@ async function applyStepInner(
           componentName: step.componentName,
         }, shim, state, plan);
       }
-      const frameId = state.frameByState.get(step.state);
-      if (!frameId) return resultWithContext({ stepIndex, outcome: "warned", note: `no state frame for ${step.state}`, stepKind: step.kind, state: step.state, componentName: step.componentName, dsKey: step.dsKey }, shim, state, plan);
+      const frameId = step.zone
+        ? state.frameByZone.get(zoneKey(step.state, step.zone))
+        : state.frameByState.get(step.state);
+      if (!frameId) return resultWithContext({ stepIndex, outcome: "warned", note: `no target frame for ${step.state}${step.zone ? `/${step.zone}` : ""}`, stepKind: step.kind, state: step.state, componentName: step.componentName, dsKey: step.dsKey, role: step.role, zone: step.zone }, shim, state, plan);
       const component = await shim.importComponentByKey(step.dsKey);
       const inst = await shim.appendInstance(frameId, component.id);
       if (step.variant) {
@@ -134,6 +229,8 @@ async function applyStepInner(
         state: step.state,
         componentName: step.componentName,
         dsKey: step.dsKey,
+        role: step.role,
+        zone: step.zone,
         node: { id: inst.instanceId, kind: "instance", name: step.componentName },
       }, shim, state, plan);
     }
@@ -156,7 +253,7 @@ async function applyStepInner(
 }
 
 export async function applyAll(opts: OrchestratorOpts): Promise<ApplyStepResult[]> {
-  const state: OrchestratorState = { pageId: null, frameByState: new Map() };
+  const state: OrchestratorState = { pageId: null, frameByState: new Map(), frameByZone: new Map() };
   const results: ApplyStepResult[] = [];
   for (let i = 0; i < opts.plan.steps.length; i++) {
     const step = opts.plan.steps[i]!;
@@ -168,7 +265,7 @@ export async function applyAll(opts: OrchestratorOpts): Promise<ApplyStepResult[
 }
 
 export async function applyStep(opts: OrchestratorOpts & { stepIndex: number }): Promise<ApplyStepResult> {
-  const state: OrchestratorState = { pageId: null, frameByState: new Map() };
+  const state: OrchestratorState = { pageId: null, frameByState: new Map(), frameByZone: new Map() };
   // Rebuild state frame map by re-running all preceding define-state-frame steps.
   // For Phase 5 MVP, applyStep is a "place a single item somewhere" — it requires
   // the state frame to already exist. We do a minimal re-init: if any earlier

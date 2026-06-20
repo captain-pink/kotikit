@@ -8,6 +8,7 @@ export interface FigmaShim {
     width: number;
     height: number | "auto";
   }): Promise<{ id: string }>;
+  getNodeSize(nodeId: string): Promise<{ width: number; height: number | "auto" } | null>;
   setAutoLayout(frameId: string, opts: {
     direction: "VERTICAL" | "HORIZONTAL";
     padding: number;

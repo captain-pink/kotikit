@@ -72,6 +72,13 @@ export class FakeFigmaShim implements FigmaShim {
     return { id };
   }
 
+  async getNodeSize(nodeId: string): Promise<{ width: number; height: number | "auto" } | null> {
+    this.check("getNodeSize");
+    const node = this.nodes.get(nodeId);
+    if (!node || node.width === undefined || node.height === undefined) return null;
+    return { width: node.width, height: node.height };
+  }
+
   async setAutoLayout(frameId: string, opts: { direction: "VERTICAL" | "HORIZONTAL"; padding: number; itemSpacing: number }): Promise<void> {
     this.check("setAutoLayout");
     const frame = this.nodes.get(frameId);

@@ -205,8 +205,13 @@ describe("Phase 5 E2E — multi-screen flow", () => {
     );
     expect(plan.pageName).toBe("Cart");
     expect(plan.states.sort()).toEqual(["filled", "loading"]);
-    // 2 states × (1 frame + 1 auto-layout + 1 component) = 6 steps
-    expect(plan.steps).toHaveLength(6);
+    expect(plan.layout.placements).toEqual([
+      { componentName: "Header", role: "content", zone: "content" },
+    ]);
+    expect(plan.steps.filter((step) => step.kind === "define-state-frame")).toHaveLength(2);
+    expect(plan.steps.filter((step) => step.kind === "apply-auto-layout")).toHaveLength(2);
+    expect(plan.steps.filter((step) => step.kind === "define-layout-zone")).toHaveLength(2);
+    expect(plan.steps.filter((step) => step.kind === "place-component")).toHaveLength(2);
   });
 });
 

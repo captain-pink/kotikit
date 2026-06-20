@@ -17,9 +17,10 @@ The planning module manages ephemeral, regenerable plans that guide an agent thr
 - `deleteCodePlan(root, scope, screenSlug | null)` — async; removes the plan file
 
 **Design plans** (`src/planning/design-plan-schema.ts`, `src/planning/design-plan-store.ts`, `src/planning/design-planner.ts`)
-- `DesignPlan`, `DesignPlanSchema` — the plan shape (version, scope, screen, pageName, states, steps, createdAt)
-- `DesignPlanStepKind` — `"define-state-frame" | "apply-auto-layout" | "place-component" | "bind-variable"`
-- `DesignPlanStep` — a discriminated union of the four step kinds, each with its own validated fields
+- `DesignPlan`, `DesignPlanSchema` — the plan shape (version, scope, screen, pageName, states, layout, steps, createdAt)
+- `DesignPlanStepKind` — `"define-state-frame" | "apply-auto-layout" | "define-layout-zone" | "place-component" | "bind-variable"`
+- `DesignPlanStep` — a discriminated union of the five step kinds, each with its own validated fields
+- `LayoutContract` (`src/planning/layout-contract.ts`) — semantic zones and component placements derived from the spec, independent of any specific design system
 - `parseDesignPlan(raw)` — validates raw JSON, throws `KotikitError` on failure
 - `generateDesignPlan(opts)` — async; builds a `DesignPlan` from the spec and config
 - `writeDesignPlan(root, scope, screen | null, plan)` — async
@@ -39,7 +40,11 @@ Both plan tracks follow the same lifecycle: a MCP tool generates and writes the 
 
 The code plan's `steps` array maps directly to the code generation loop in `kotikit_implement_code_start`. Each step has a `kind` (which determines what the agent writes) and optional `notes` (which carry spec-derived context like "The list uses a pull-to-refresh gesture" for `compose-interactions`). The step kinds form a deliberate ordering: scaffold first, then states, then interactions, then accessibility, then responsive, then tests. This order ensures the file exists before richer behavior is layered in.
 
-The design plan's steps use a discriminated union on `kind`. Each step kind carries exactly the fields the corresponding Figma operation needs: `define-state-frame` carries dimensions; `apply-auto-layout` carries direction, padding, and spacing; `place-component` carries the component name, DS key, and variant overrides; `bind-variable` carries the variable name and the CSS property to bind it to. The bridge flow reads one step at a time, executes it in the Figma plugin, and records the result through `kotikit_design_apply_step`.
+The design plan's steps use a discriminated union on `kind`. Each step kind carries exactly the fields the corresponding Figma operation needs: `define-state-frame` carries dimensions; `apply-auto-layout` carries direction, padding, and spacing; `define-layout-zone` creates a semantic auto-layout container; `place-component` carries the component name, DS key, variant overrides, semantic role, and target zone; `bind-variable` carries the variable name and the CSS property to bind it to. The bridge flow reads one step at a time, executes it in the Figma plugin, and records the result through `kotikit_design_apply_step`.
+
+Design layout is intentionally generic. `generateDesignPlan` does not know about MUI, shadcn, Ant, or a copied local kit. It reads `spec.components[]`, resolves each component to a broad role such as `primary-action`, `search-input`, `filter-control`, `data-display`, `binary-control`, or `destructive-action`, and maps the role to a stable zone such as `header-actions`, `controls`, `content`, `content-toggles`, or `content-actions`. The plugin then creates those zones with Figma auto-layout and appends imported component instances into the assigned zone. This prevents common failures where unrelated controls, tables, buttons, and switches are all placed into a single stack, while keeping design-system-specific names and variants outside the core planner.
+
+The Figma shim exposes parent node size inspection so zone frames can inherit a sensible width from their parent frame before components are appended. This is still a layout scaffold, not a visual QA engine: later review/gate passes should check overlap, clipping, minimum target size, and responsive state quality.
 
 Apply results are recorded in two forms. The JSONL apply log stays as the append-only audit trail. The optional `design.node-map.json` is a compact, validated map from design-plan steps to Figma node IDs. `kotikit_design_review_comments` uses that map with Figma comment `client_meta.node_id` values to tell the agent which planned component or frame a review comment targets. Comments without node IDs, or comments whose node IDs are outside the map, are returned as unmapped rather than inferred from text.
 
@@ -48,7 +53,8 @@ Review results and refinements live in `.kotikit/design-review.db`. Agents recor
 ## When to extend it
 
 - Adding a new code step kind (e.g. `"compose-animation"`) — extend `CodePlanStepKindSchema`, add logic to `generateCodePlan` to include it when the spec signals animation requirements, and update the MCP `implement_code_start` tool to handle the new kind.
-- Adding a new design step kind (e.g. `"export-asset"`) — add a new variant to `DesignPlanStepSchema` as a discriminated union member with its own Zod schema, then handle it in the bridge apply loop.
+- Adding a new design step kind (e.g. `"export-asset"`) — add a new variant to `DesignPlanStepSchema` as a discriminated union member with its own Zod schema, then handle it in the bridge apply loop and `kotikit_design_apply_step` schema.
+- Adding a new generic layout role or zone — update `layout-contract.ts`, add planner tests with minimized specs, extend `DesignPlanSchema` enums, and keep the plugin behavior semantic rather than design-system-specific.
 - Adding a design-to-code synchronization step — a third plan kind (e.g. `SyncPlan`) would follow the same store pattern; add `syncPlanPath` to `src/util/paths.ts` first.
 - Persisting plan history instead of deleting — replace `deleteCodePlan` with an archive move to a `.kotikit/history/` directory; the reader interface stays the same.
 

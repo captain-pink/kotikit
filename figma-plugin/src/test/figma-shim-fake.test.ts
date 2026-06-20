@@ -28,6 +28,14 @@ describe("FakeFigmaShim", () => {
     expect(node.itemSpacing).toBe(16);
   });
 
+  it("getNodeSize returns frame dimensions for layout planning", async () => {
+    const shim = new FakeFigmaShim();
+    const page = await shim.findOrCreatePage("Cart");
+    const frame = await shim.createFrame({ name: "d", parentId: page.id, width: 100, height: "auto" });
+
+    expect(await shim.getNodeSize(frame.id)).toEqual({ width: 100, height: "auto" });
+  });
+
   it("findVariableByName returns null when not seeded, id when seeded", async () => {
     const shim = new FakeFigmaShim();
     expect(await shim.findVariableByName("brand/primary")).toBeNull();

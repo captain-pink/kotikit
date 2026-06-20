@@ -293,6 +293,7 @@ Input: `{ scope: string; screen?: string; stepIndex: number; outcome: "ok" | "wa
 Output: `{ line: string }` — the raw JSON line written to the log.
 Token cost: ~60.
 Example: _(called by the Figma plugin, not directly by the designer)_
+Notes: `DesignStepKind` includes `define-state-frame`, `apply-auto-layout`, `define-layout-zone`, `place-component`, and `bind-variable`.
 See also: `kotikit_design_get_screen`, `kotikit_plan_design`.
 
 ---

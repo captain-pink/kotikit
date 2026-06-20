@@ -12,10 +12,32 @@ function validPlan() {
     scope: "cart",
     pageName: "Cart",
     states: ["default", "loading"],
+    layout: {
+      version: 1 as const,
+      strategy: "semantic-zones",
+      zones: [
+        {
+          id: "content",
+          parent: "root",
+          direction: "VERTICAL",
+          padding: 0,
+          itemSpacing: 16,
+          minTargetSize: 44,
+        },
+      ],
+      placements: [
+        {
+          componentName: "Button",
+          role: "primary-action",
+          zone: "content",
+        },
+      ],
+    },
     steps: [
       { kind: "define-state-frame", state: "default" },
       { kind: "apply-auto-layout", state: "default" },
-      { kind: "place-component", state: "default", componentName: "Button", dsKey: "abc" },
+      { kind: "define-layout-zone", state: "default", zone: "content", parentZone: "root", direction: "VERTICAL" },
+      { kind: "place-component", state: "default", componentName: "Button", dsKey: "abc", role: "primary-action", zone: "content" },
       { kind: "bind-variable", state: "default", variableName: "brand/primary" },
     ],
     createdAt: "2026-05-29T10:00:00.000Z",
@@ -23,7 +45,7 @@ function validPlan() {
 }
 
 describe("DesignPlanSchema", () => {
-  it("parses a valid plan with all 4 step kinds", () => {
+  it("parses a valid plan with all step kinds and a semantic layout contract", () => {
     expect(() => DesignPlanSchema.parse(validPlan())).not.toThrow();
   });
 
@@ -41,10 +63,23 @@ describe("DesignPlanSchema", () => {
     expect(al).toMatchObject({ kind: "apply-auto-layout", direction: "VERTICAL", padding: 24, itemSpacing: 16 });
   });
 
+  it("fills layout-zone defaults for stable target regions", () => {
+    const parsed = DesignPlanSchema.parse(validPlan());
+    const zone = parsed.steps[2]!;
+    expect(zone).toMatchObject({
+      kind: "define-layout-zone",
+      parentZone: "root",
+      direction: "VERTICAL",
+      padding: 0,
+      itemSpacing: 16,
+      minTargetSize: 44,
+    });
+  });
+
   it("fills bind-variable defaults: property=fill", () => {
     const plan = validPlan();
     const parsed = DesignPlanSchema.parse(plan);
-    const bind = parsed.steps[3]!;
+    const bind = parsed.steps[4]!;
     expect(bind).toMatchObject({ kind: "bind-variable", property: "fill" });
   });
 
@@ -84,8 +119,28 @@ describe("DesignPlanSchema", () => {
 
   it("place-component variant is optional Record<string, string>", () => {
     const plan = validPlan();
-    (plan.steps[2] as { variant?: Record<string, string> }).variant = { Variant: "Primary", Size: "md" };
+    (plan.steps[3] as { variant?: Record<string, string> }).variant = { Variant: "Primary", Size: "md" };
     expect(() => DesignPlanSchema.parse(plan)).not.toThrow();
+  });
+
+  it("place-component accepts generic role and zone metadata", () => {
+    const parsed = DesignPlanSchema.parse(validPlan());
+    expect(parsed.steps[3]).toMatchObject({
+      kind: "place-component",
+      role: "primary-action",
+      zone: "content",
+    });
+  });
+
+  it("back-fills an empty layout contract for older design plans", () => {
+    const { layout: _layout, ...legacyPlan } = validPlan();
+    const parsed = DesignPlanSchema.parse(legacyPlan);
+    expect(parsed.layout).toEqual({
+      version: 1,
+      strategy: "semantic-zones",
+      zones: [],
+      placements: [],
+    });
   });
 });
 
@@ -115,6 +170,7 @@ describe("DesignPlanStepSchema (direct)", () => {
   it("validates each step kind in isolation", () => {
     expect(() => DesignPlanStepSchema.parse({ kind: "define-state-frame", state: "x" })).not.toThrow();
     expect(() => DesignPlanStepSchema.parse({ kind: "apply-auto-layout", state: "x" })).not.toThrow();
+    expect(() => DesignPlanStepSchema.parse({ kind: "define-layout-zone", state: "x", zone: "content" })).not.toThrow();
     expect(() => DesignPlanStepSchema.parse({ kind: "place-component", state: "x", componentName: "Button" })).not.toThrow();
     expect(() => DesignPlanStepSchema.parse({ kind: "bind-variable", state: "x", variableName: "brand" })).not.toThrow();
   });

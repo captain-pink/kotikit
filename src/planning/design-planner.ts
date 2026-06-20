@@ -6,6 +6,10 @@ import {
   type DesignPlan,
   type DesignPlanStep,
 } from "./design-plan-schema.js";
+import {
+  buildLayoutContract,
+  type LayoutZoneId,
+} from "./layout-contract.js";
 
 export interface GenerateDesignPlanInput {
   scope: string;
@@ -22,8 +26,9 @@ export interface GenerateDesignPlanInput {
  * Step ordering rule: for each state, emit
  *   1. define-state-frame
  *   2. apply-auto-layout
- *   3. place-component (one per spec.components, in declared order)
- *   4. bind-variable (one per declared variable name — see strategy below)
+ *   3. define-layout-zone (one per required semantic zone)
+ *   4. place-component (one per spec.components, in declared order)
+ *   5. bind-variable (one per declared variable name — see strategy below)
  *
  * Then move to the next state. This way the plugin can apply a partial
  * subset (e.g. only "loading" state steps) without depending on later steps.
@@ -37,42 +42,52 @@ export function generateDesignPlan(input: GenerateDesignPlanInput): DesignPlan {
   // Resolve states from spec; default to ["default"] if none declared.
   const stateKeys = Object.keys(spec.requirements.states ?? {});
   const states = stateKeys.length > 0 ? stateKeys : ["default"];
+  const layout = buildLayoutContract({ spec });
+
+  const layoutZoneStepsFor = (state: string): DesignPlanStep[] =>
+    layout.zones.map((zone) => ({
+      kind: "define-layout-zone" as const,
+      state,
+      zone: zone.id,
+      parentZone: zone.parent,
+      direction: zone.direction,
+      padding: zone.padding,
+      itemSpacing: zone.itemSpacing,
+      minTargetSize: zone.minTargetSize,
+    }));
+
+  const placementByComponent = new Map(
+    layout.placements.map((placement) => [placement.componentName, placement])
+  );
 
   // Build steps state-by-state
-  const steps: DesignPlanStep[] = [];
-  for (const state of states) {
-    // 1. frame
-    steps.push({
+  const steps: DesignPlanStep[] = states.flatMap((state) => [
+    {
       kind: "define-state-frame",
       state,
       width: 1440,
       height: "auto",
-    });
-    // 2. auto-layout
-    steps.push({
+    },
+    {
       kind: "apply-auto-layout",
       state,
       direction: "VERTICAL",
       padding: 24,
       itemSpacing: 16,
-    });
-    // 3. one place-component per spec.components entry
-    for (const c of spec.components ?? []) {
-      const step: DesignPlanStep = {
+    },
+    ...layoutZoneStepsFor(state),
+    ...(spec.components ?? []).map<DesignPlanStep>((component) => {
+      const placement = placementByComponent.get(component.name);
+      return {
         kind: "place-component",
         state,
-        componentName: c.name,
-        ...(c.dsKey ? { dsKey: c.dsKey } : {}),
+        componentName: component.name,
+        ...(component.dsKey ? { dsKey: component.dsKey } : {}),
+        ...(placement?.role ? { role: placement.role } : {}),
+        ...(placement?.zone ? { zone: placement.zone as LayoutZoneId } : {}),
       };
-      steps.push(step);
-    }
-    // 4. NO bind-variable steps by default in Phase 5 MVP.
-    //    The spec doesn't carry a variable list. If we want to remind the
-    //    designer to bind brand colors, we can emit a single placeholder
-    //    bind-variable per state — but that adds noise.
-    //    Decision: skip bind-variable in MVP. Designer can add manually.
-    //    (The schema supports it; the planner just doesn't generate any.)
-  }
+    }),
+  ]);
 
   const plan = {
     version: 1 as const,
@@ -80,6 +95,7 @@ export function generateDesignPlan(input: GenerateDesignPlanInput): DesignPlan {
     ...(screen !== null ? { screen } : {}),
     pageName,
     states,
+    layout,
     steps,
     createdAt: nowIso(),
   };

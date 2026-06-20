@@ -24,6 +24,12 @@ function fixturePlan(): DesignPlan {
     screen: "cart",
     pageName: "Cart",
     states: ["loading"],
+    layout: {
+      version: 1,
+      strategy: "semantic-zones",
+      zones: [],
+      placements: [],
+    },
     steps: [
       { kind: "define-state-frame", state: "loading", width: 1440, height: "auto" },
       {

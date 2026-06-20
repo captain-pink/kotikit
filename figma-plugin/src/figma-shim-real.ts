@@ -28,6 +28,14 @@ export const realFigmaShim: FigmaShim = {
     parent.appendChild(frame);
     return { id: frame.id };
   },
+  async getNodeSize(nodeId) {
+    const node = figma.getNodeById(nodeId);
+    if (!node || typeof node.width !== "number") return null;
+    return {
+      width: node.width,
+      height: typeof node.height === "number" ? node.height : "auto",
+    };
+  },
   async setAutoLayout(frameId, opts) {
     const frame = figma.getNodeById(frameId);
     if (!frame) throw new Error(`Frame not found: ${frameId}`);
