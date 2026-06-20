@@ -186,6 +186,9 @@ describe("syncAllFiles", () => {
       node_id: `component-node-${index}`,
       name: `Component ${index}`,
     }));
+    const originalNow = Date.now;
+    let now = 1_000;
+    Date.now = () => now;
     const client = new FigmaClient({
       token: "tkn",
       fetch: makeFetch({
@@ -206,30 +209,37 @@ describe("syncAllFiles", () => {
             },
           }),
           components: () => ({ meta: { components } }),
-          nodes: () => ({ nodes: {} }),
+          nodes: () => {
+            now = 1_001;
+            return { nodes: {} };
+          },
         },
       }),
       limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
       backoffOpts: FAST,
     });
 
-    await expect(
-      syncAllFiles({
-        root,
-        files: [{ key: "FX", name: "FX" }],
-        client,
-        progress: nullProgressEmitter(),
-        softDeadlineMs: 0,
-      })
-    ).rejects.toBeInstanceOf(SyncPausedError);
+    try {
+      await expect(
+        syncAllFiles({
+          root,
+          files: [{ key: "FX", name: "FX" }],
+          client,
+          progress: nullProgressEmitter(),
+          softDeadlineMs: 1,
+        })
+      ).rejects.toBeInstanceOf(SyncPausedError);
 
-    const checkpoint = JSON.parse(readFileSync(checkpointPath(root), "utf-8"));
-    expect(checkpoint.files[0]).toMatchObject({
-      fileKey: "FX",
-      stage: "node_details",
-      cursor: { processed: 100, batchSize: 100 },
-    });
-    expect(existsSync(manifestPath(root))).toBe(false);
+      const checkpoint = JSON.parse(readFileSync(checkpointPath(root), "utf-8"));
+      expect(checkpoint.files[0]).toMatchObject({
+        fileKey: "FX",
+        stage: "node_details",
+        cursor: { processed: 100, batchSize: 100 },
+      });
+      expect(existsSync(manifestPath(root))).toBe(false);
+    } finally {
+      Date.now = originalNow;
+    }
   });
 
   it("with no files: returns an empty report and writes empty artifacts", async () => {

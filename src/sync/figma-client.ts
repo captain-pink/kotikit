@@ -36,7 +36,7 @@ type FigmaLimiter = Pick<AdaptiveLimiter, "schedule"> &
 const DEFAULT_INITIAL_MIN_TIME_MS = 1_000;
 const DEFAULT_MIN_TIME_FLOOR_MS = 100;
 const DEFAULT_MIN_TIME_CEILING_MS = 60_000;
-const DEFAULT_MAX_CONCURRENT = 1;
+const DEFAULT_MAX_CONCURRENT = 3;
 const DEFAULT_BACKOFF: BackoffOpts = {
   initialMs: 5_000,
   maxMs: 60_000,
@@ -234,27 +234,29 @@ export class FigmaClient {
    * GET /v1/files/:key/nodes?ids=... — batched in chunks of 100.
    */
   async getNodes(fileKey: string, ids: string[]): Promise<Record<string, FigmaNode>> {
-    const batches: string[][] = [];
     const BATCH_SIZE = 100;
-    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
-      batches.push(ids.slice(i, i + BATCH_SIZE));
+    const batches = Array.from(
+      { length: Math.ceil(ids.length / BATCH_SIZE) },
+      (_, index) => ids.slice(index * BATCH_SIZE, index * BATCH_SIZE + BATCH_SIZE)
+    );
+
+    try {
+      const entriesByBatch = await Promise.all(
+        batches.map(async (batch) => {
+          const batchIds = batch.join(",");
+          const res = await this.request(
+            `/v1/files/${fileKey}/nodes?ids=${encodeURIComponent(batchIds)}`,
+            FigmaNodesResponseSchema
+          );
+          return Object.entries(res.nodes).flatMap(([nodeId, node]) =>
+            node === null ? [] : [[nodeId, node] as const]
+          );
+        })
+      );
+      return Object.fromEntries(entriesByBatch.flat());
+    } catch (err) {
+      throw this.mapError(err, fileKey, "nodes");
     }
-    const merged: Record<string, FigmaNode> = {};
-    for (const batch of batches) {
-      const batchIds = batch.join(",");
-      try {
-        const res = await this.request(
-          `/v1/files/${fileKey}/nodes?ids=${encodeURIComponent(batchIds)}`,
-          FigmaNodesResponseSchema
-        );
-        for (const [nodeId, node] of Object.entries(res.nodes)) {
-          if (node !== null) merged[nodeId] = node;
-        }
-      } catch (err) {
-        throw this.mapError(err, fileKey, "nodes");
-      }
-    }
-    return merged;
   }
 
   /**

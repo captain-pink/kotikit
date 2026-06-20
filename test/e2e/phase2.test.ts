@@ -102,9 +102,24 @@ describe("Phase 2 E2E — sync + search", () => {
         return jsonRes({
           meta: {
             components: [
-              { key: "ckA-btn", node_id: "btnA", name: "Button" },
-              { key: "ckA-card", node_id: "cardA", name: "Card" },
-              { key: "ckA-arr", node_id: "arrA", name: "arrow-right" },
+              {
+                key: "ckA-btn",
+                node_id: "btnA",
+                name: "Button",
+                containing_frame: { pageName: "Components" },
+              },
+              {
+                key: "ckA-card",
+                node_id: "cardA",
+                name: "Card",
+                containing_frame: { pageName: "Components" },
+              },
+              {
+                key: "ckA-arr",
+                node_id: "arrA",
+                name: "arrow-right",
+                containing_frame: { pageName: "Icons" },
+              },
             ],
           },
         });
@@ -125,7 +140,7 @@ describe("Phase 2 E2E — sync + search", () => {
         });
       if (u.includes("/v1/files/FA/variables/local")) return jsonRes({}, 403);
       if (u.includes("/v1/files/FA/nodes")) return jsonRes({ nodes: {} });
-      if (u.endsWith("/v1/files/FA"))
+      if (u.includes("/v1/files/FA") && !u.includes("/v1/files/FA/"))
         return jsonRes({
           name: "FileA",
           document: {
@@ -149,7 +164,14 @@ describe("Phase 2 E2E — sync + search", () => {
       if (u.includes("/v1/files/FB/components"))
         return jsonRes({
           meta: {
-            components: [{ key: "ckB-btn", node_id: "btnB", name: "Button" }],
+            components: [
+              {
+                key: "ckB-btn",
+                node_id: "btnB",
+                name: "Button",
+                containing_frame: { pageName: "Components" },
+              },
+            ],
           },
         });
       if (u.includes("/v1/files/FB/component_sets"))
@@ -158,7 +180,7 @@ describe("Phase 2 E2E — sync + search", () => {
         return jsonRes({ meta: { styles: [] } });
       if (u.includes("/v1/files/FB/variables/local")) return jsonRes({}, 403);
       if (u.includes("/v1/files/FB/nodes")) return jsonRes({ nodes: {} });
-      if (u.endsWith("/v1/files/FB"))
+      if (u.includes("/v1/files/FB") && !u.includes("/v1/files/FB/"))
         return jsonRes({
           name: "FileB",
           document: {

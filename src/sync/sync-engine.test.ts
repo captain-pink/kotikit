@@ -6,6 +6,7 @@ import { initIconsDb } from "../db/icons-db.js";
 import { FigmaClient } from "./figma-client.js";
 import { createLimiter } from "./rate-limit.js";
 import { recordingProgressEmitter } from "./progress.js";
+import { SyncPausedError } from "./errors.js";
 
 const FAST = { initialMs: 1, maxMs: 5, jitterMs: 0, maxAttempts: 3 };
 
@@ -31,7 +32,165 @@ function errorRes(status: number): Response {
   });
 }
 
+function deferred<T = void>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+  reject: (reason: unknown) => void;
+} {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+function timeout(ms: number): Promise<never> {
+  return new Promise((_, reject) => {
+    setTimeout(() => reject(new Error(`Timed out after ${ms}ms`)), ms);
+  });
+}
+
 describe("syncOneFile", () => {
+  it("metadata fetch uses depth=1 and records only page IDs", async () => {
+    let metadataUrl = "";
+    const fetch = (async (url: string | URL) => {
+      const u = url.toString();
+      if (u.includes("/v1/files/F1/components")) return jsonRes({ meta: { components: [] } });
+      if (u.includes("/v1/files/F1/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/F1/styles")) return jsonRes({ meta: { styles: [] } });
+      if (u.includes("/v1/files/F1/variables/local")) return jsonRes({ meta: { variables: {}, variableCollections: {} } });
+      if (u.includes("/v1/files/F1/nodes")) return jsonRes({ nodes: {} });
+      if (u.includes("/v1/files/F1")) {
+        metadataUrl = u;
+        return jsonRes({
+          name: "F1",
+          document: {
+            children: [
+              {
+                id: "page1",
+                name: "Components",
+                type: "CANVAS",
+                children: [{ id: "child1", name: "Should not be read" }],
+              },
+            ],
+          },
+        });
+      }
+      throw new Error("no match: " + u);
+    }) as unknown as typeof globalThis.fetch;
+
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch,
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+      backoffOpts: FAST,
+    });
+    const { componentsDb, iconsDb } = makeDbs();
+    const result = await syncOneFile({
+      root: "/tmp",
+      client,
+      fileKey: "F1",
+      fileName: "F1",
+      componentsDb,
+      iconsDb,
+    });
+
+    expect(metadataUrl).toContain("/v1/files/F1?depth=1");
+    expect(result.pageNameByNodeId.page1).toBe("Components");
+    expect(result.pageNameByNodeId.child1).toBeUndefined();
+  });
+
+  it("continues when shallow metadata fails and classifies from containing_frame page names", async () => {
+    const fetch = (async (url: string | URL) => {
+      const u = url.toString();
+      if (u.includes("/v1/files/F1/components")) {
+        return jsonRes({
+          meta: {
+            components: [
+              {
+                key: "arrow-key",
+                node_id: "arrow-node",
+                name: "arrow-left",
+                containing_frame: { pageName: "Icons" },
+              },
+            ],
+          },
+        });
+      }
+      if (u.includes("/v1/files/F1/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/F1/styles")) return jsonRes({ meta: { styles: [] } });
+      if (u.includes("/v1/files/F1/variables/local")) return jsonRes({ meta: { variables: {}, variableCollections: {} } });
+      if (u.includes("/v1/files/F1/nodes")) return jsonRes({ nodes: {} });
+      if (u.includes("/v1/files/F1")) return errorRes(500);
+      throw new Error("no match: " + u);
+    }) as unknown as typeof globalThis.fetch;
+
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch,
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+      backoffOpts: FAST,
+    });
+    const { componentsDb, iconsDb } = makeDbs();
+    const result = await syncOneFile({
+      root: "/tmp",
+      client,
+      fileKey: "F1",
+      fileName: "F1",
+      componentsDb,
+      iconsDb,
+    });
+
+    expect(result.iconCount).toBe(1);
+    expect(result.componentCount).toBe(0);
+  });
+
+  it("pauses after a checkpointed metadata stage when the soft deadline is reached", async () => {
+    const calledUrls: string[] = [];
+    const fetch = (async (url: string | URL) => {
+      const u = url.toString();
+      calledUrls.push(u);
+      if (u.includes("/v1/files/F1/components")) throw new Error("components should not run after pause");
+      if (u.includes("/v1/files/F1")) {
+        return jsonRes({ name: "F1", document: { children: [] } });
+      }
+      throw new Error("no match: " + u);
+    }) as unknown as typeof globalThis.fetch;
+
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch,
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+      backoffOpts: FAST,
+    });
+    const { componentsDb, iconsDb } = makeDbs();
+    const stages: string[] = [];
+
+    await expect(
+      syncOneFile({
+        root: "/tmp",
+        client,
+        fileKey: "F1",
+        fileName: "F1",
+        componentsDb,
+        iconsDb,
+        onStage: (stage) => {
+          stages.push(stage);
+        },
+        shouldPause: () => true,
+        pauseContext: { filesCompleted: 0, totalFiles: 1 },
+      })
+    ).rejects.toMatchObject({
+      name: "SyncPausedError",
+      lastStage: "metadata",
+    } satisfies Partial<SyncPausedError>);
+
+    expect(stages).toEqual(["metadata"]);
+    expect(calledUrls.some((url) => url.includes("/components"))).toBe(false);
+  });
+
   it("happy path: 3 components + 2 icons", async () => {
     const fetch = (async (url: string | URL) => {
       const u = url.toString();
@@ -40,11 +199,36 @@ describe("syncOneFile", () => {
         return jsonRes({
           meta: {
             components: [
-              { key: "ck1", node_id: "nButton", name: "Button" },
-              { key: "ck2", node_id: "nCard", name: "Card" },
-              { key: "ck3", node_id: "nInput", name: "Input" },
-              { key: "ck4", node_id: "nArr", name: "arrow-right" },
-              { key: "ck5", node_id: "nArl", name: "arrow-left" },
+              {
+                key: "ck1",
+                node_id: "nButton",
+                name: "Button",
+                containing_frame: { pageName: "Components" },
+              },
+              {
+                key: "ck2",
+                node_id: "nCard",
+                name: "Card",
+                containing_frame: { pageName: "Components" },
+              },
+              {
+                key: "ck3",
+                node_id: "nInput",
+                name: "Input",
+                containing_frame: { pageName: "Components" },
+              },
+              {
+                key: "ck4",
+                node_id: "nArr",
+                name: "arrow-right",
+                containing_frame: { pageName: "Icons" },
+              },
+              {
+                key: "ck5",
+                node_id: "nArl",
+                name: "arrow-left",
+                containing_frame: { pageName: "Icons" },
+              },
             ],
           },
         });
@@ -343,7 +527,7 @@ describe("syncOneFile", () => {
 
     // Unpublished files are not page-tree scraped for usable Figma DS output.
     expect(calledUrls.some((u) => u.includes("/nodes") && u.includes("depth=4"))).toBe(false);
-    expect(calledUrls.every((u) => !/\/v1\/files\/F1\?/.test(u))).toBe(true);
+    expect(calledUrls.some((u) => u.includes("/v1/files/F1?depth=1"))).toBe(true);
   });
 
   it("does not fetch every page when published endpoints are empty", async () => {
@@ -873,6 +1057,57 @@ describe("syncOneFile", () => {
     );
     expect(unsupportedStage).toBeUndefined();
     expect(result.skipped.some((s) => s.reason.includes("not published as a library"))).toBe(true);
+  });
+
+  it("queues node_detail batches without waiting for each previous batch response", async () => {
+    const componentList = Array.from({ length: 250 }, (_, i) => ({
+      key: `ck${i}`,
+      node_id: `n${i}`,
+      name: `Comp${i}`,
+    }));
+    const allNodeRequestsStarted = deferred();
+    const releaseNodeRequests = deferred();
+    let nodeRequestCount = 0;
+
+    const fetch = (async (url: string | URL) => {
+      const u = url.toString();
+      if (u.includes("/v1/files/F1/components")) {
+        return jsonRes({ meta: { components: componentList } });
+      }
+      if (u.includes("/v1/files/F1/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/F1/styles")) return jsonRes({ meta: { styles: [] } });
+      if (u.includes("/v1/files/F1/variables/local")) return jsonRes({ meta: { variables: {}, variableCollections: {} } });
+      if (u.includes("/v1/files/F1/nodes")) {
+        nodeRequestCount++;
+        if (nodeRequestCount === 3) allNodeRequestsStarted.resolve();
+        await releaseNodeRequests.promise;
+        return jsonRes({ nodes: {} });
+      }
+      if (u.includes("/v1/files/F1")) return jsonRes({ name: "F1", document: { children: [] } });
+      throw new Error("no match: " + u);
+    }) as unknown as typeof globalThis.fetch;
+
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch,
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+      backoffOpts: FAST,
+    });
+    const { componentsDb, iconsDb } = makeDbs();
+    const sync = syncOneFile({
+      root: "/tmp",
+      client,
+      fileKey: "F1",
+      fileName: "F1",
+      componentsDb,
+      iconsDb,
+    });
+
+    await expect(Promise.race([allNodeRequestsStarted.promise, timeout(50)])).resolves.toBeUndefined();
+    expect(nodeRequestCount).toBe(3);
+
+    releaseNodeRequests.resolve();
+    await expect(sync).resolves.toMatchObject({ fileKey: "F1" });
   });
 
   it("progress: node_details emits stageProgress with monotonically increasing processed", async () => {

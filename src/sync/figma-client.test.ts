@@ -47,7 +47,7 @@ describe("FigmaClient", () => {
       initialMinTime: 1_000,
       minMinTime: 100,
       maxMinTime: 60_000,
-      maxConcurrent: 1,
+      maxConcurrent: 3,
     });
   });
 
@@ -79,7 +79,7 @@ describe("FigmaClient", () => {
       initialMinTime: 1_000,
       minMinTime: 100,
       maxMinTime: 60_000,
-      maxConcurrent: 1,
+      maxConcurrent: 3,
     });
   });
 
@@ -281,6 +281,37 @@ describe("FigmaClient", () => {
     const got = await client.getNodes("k1", ids);
     expect(callsBy).toEqual([100, 100, 50]);
     expect(Object.keys(got).length).toBe(250);
+  });
+
+  it("getNodes schedules internal batches without waiting for each previous batch response", async () => {
+    const allBatchesStarted = deferred();
+    const releaseBatches = deferred();
+    let callCount = 0;
+    const fetch = async (url: string | URL) => {
+      const u = url.toString();
+      callCount++;
+      if (callCount === 3) allBatchesStarted.resolve();
+      await releaseBatches.promise;
+      const idsParam = new URL(u, "http://x").searchParams.get("ids") ?? "";
+      const nodes: Record<string, unknown> = Object.fromEntries(
+        idsParam.split(",").map((id) => [id, { document: { id } }])
+      );
+      return jsonResponse({ nodes });
+    };
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+      backoffOpts: FAST_BACKOFF,
+    });
+
+    const got = client.getNodes("k1", Array.from({ length: 250 }, (_, i) => `n${i}`));
+
+    await expect(Promise.race([allBatchesStarted.promise, timeout(50)])).resolves.toBeUndefined();
+    expect(callCount).toBe(3);
+
+    releaseBatches.resolve();
+    await expect(got).resolves.toHaveProperty("n249");
   });
 
   it("getPageTree fetches /nodes?ids={pageId}&depth={depth} and returns root node", async () => {

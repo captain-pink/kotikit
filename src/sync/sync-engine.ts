@@ -83,7 +83,6 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
   // so resume only matters when starting fresh; if resume points beyond stage N,
   // we skip the work of fetching for stage N).
   let pageNameByNodeId: Record<string, string> = {};
-  let pageIds: string[] = [];
   let publishedComponents: Awaited<ReturnType<FigmaClient["getComponents"]>> = [];
   let componentSets: Awaited<ReturnType<FigmaClient["getComponentSets"]>> = [];
   let styles: Awaited<ReturnType<FigmaClient["getStyles"]>> = [];
@@ -108,21 +107,28 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
   if (shouldRun("metadata")) {
     const metadataStart = Date.now();
     if (progress && fileCtx) progress.stage(fileCtx, "metadata");
-    const file = await client.getFile(fileKey);
-    // Build pageNameByNodeId from document.children (pages).
-    const pages = file.document?.children ?? [];
-    for (const page of pages) {
-      if (page.id && page.name) {
-        pageIds.push(page.id);
-        pageNameByNodeId[page.id] = page.name;
-        // Also map each direct child to its page name so component lookup works
-        for (const child of page.children ?? []) {
-          if (child.id) pageNameByNodeId[child.id] = page.name;
+    try {
+      const file = await client.getDocument(fileKey, 1);
+      // Depth 1 returns page nodes only. Component page names primarily come
+      // from /components containing_frame.pageName.
+      const pages = file.document?.children ?? [];
+      for (const page of pages) {
+        if (page.id && page.name) {
+          pageNameByNodeId[page.id] = page.name;
         }
       }
+    } catch {
+      pageNameByNodeId = {};
     }
     if (progress && fileCtx) progress.stageDone(fileCtx, "metadata", formatMs(Date.now() - metadataStart));
     await onStage?.("metadata");
+    if (shouldPause?.()) {
+      throw new SyncPausedError(
+        pauseContext?.filesCompleted ?? 0,
+        pauseContext?.totalFiles ?? 1,
+        "metadata"
+      );
+    }
   }
 
   // ── Stage 2: components ─────────────────────────────────────────────────
@@ -213,14 +219,22 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
     const allIds = Array.from(new Set([...styleIds, ...componentNodeIds]));
 
     const BATCH = 100;
+    const batches = Array.from(
+      { length: Math.ceil(allIds.length / BATCH) },
+      (_, index) => allIds.slice(index * BATCH, index * BATCH + BATCH)
+    );
     const nodeDetailsStart = Date.now();
-    const startProcessed = (resumeFrom?.stage === "node_details" && resumeFrom.cursor?.processed) || 0;
-    let processed = startProcessed;
-    while (processed < allIds.length) {
-      const batch = allIds.slice(processed, processed + BATCH);
-      const nodes = await client.getNodes(fileKey, batch);
+    const startBatch = resumeFrom?.stage === "node_details"
+      ? Math.floor((resumeFrom.cursor?.processed ?? 0) / BATCH)
+      : 0;
+    const remainingBatches = batches.slice(startBatch);
+    const nodeDetailsResults = await Promise.all(
+      remainingBatches.map((batch) => client.getNodes(fileKey, batch))
+    );
+    let processed = Math.min(startBatch * BATCH, allIds.length);
+    for (const nodes of nodeDetailsResults) {
       Object.assign(nodeDetailsById, nodes);
-      processed += batch.length;
+      processed = Math.min(processed + BATCH, allIds.length);
       await onStage?.("node_details", { processed, batchSize: BATCH });
       if (progress && fileCtx) {
         progress.stageProgress(fileCtx, "node_details", {
