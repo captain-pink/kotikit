@@ -63,11 +63,9 @@ describe("scaffoldAgents", () => {
     expect(skill).not.toContain("docs/agent_workflow");
   });
 
-  it("writes Claude MCP config while preserving existing servers", async () => {
-    const claudeDir = join(targetRoot, ".claude");
-    mkdirSync(claudeDir, { recursive: true });
+  it("writes Claude project MCP config while preserving existing servers", async () => {
     writeFileSync(
-      join(claudeDir, "mcp.json"),
+      join(targetRoot, ".mcp.json"),
       JSON.stringify({
         mcpServers: {
           browser: { command: "npx", args: ["browser-mcp"] },
@@ -81,16 +79,34 @@ describe("scaffoldAgents", () => {
       agents: ["claude"],
     });
 
-    const config = readJson(join(targetRoot, ".claude", "mcp.json")) as {
-      mcpServers: Record<string, { command: string; args: string[]; type?: string }>;
+    const config = readJson(join(targetRoot, ".mcp.json")) as {
+      mcpServers: Record<string, { command: string; args: string[]; type?: string; timeout?: number }>;
     };
     expect(config.mcpServers.browser.command).toBe("npx");
     expect(config.mcpServers.kotikit).toEqual({
       type: "stdio",
       command: "bun",
       args: ["run", join(kotikitRoot, "src", "mcp", "server.ts")],
+      timeout: 900000,
     });
-    expect(result.written).toContain(join(targetRoot, ".claude", "mcp.json"));
+    expect(result.written).toContain(join(targetRoot, ".mcp.json"));
+    expect(result.notes.join("\n")).toContain("Claude Code project MCP config");
+  });
+
+  it("leaves legacy .claude/mcp.json untouched and notes the current Claude path", async () => {
+    const legacyPath = join(targetRoot, ".claude", "mcp.json");
+    mkdirSync(join(targetRoot, ".claude"), { recursive: true });
+    writeFileSync(legacyPath, "{\"mcpServers\":{\"old\":{\"command\":\"node\"}}}\n");
+
+    const result = await scaffoldAgents({
+      targetRoot,
+      kotikitRoot,
+      agents: ["claude"],
+    });
+
+    expect(readFileSync(legacyPath, "utf8")).toBe("{\"mcpServers\":{\"old\":{\"command\":\"node\"}}}\n");
+    expect(readFileSync(join(targetRoot, ".mcp.json"), "utf8")).toContain("\"kotikit\"");
+    expect(result.notes.join("\n")).toContain("legacy Claude config");
   });
 
   it("writes Codex config, installs the Codex skill, and creates a Figma token placeholder", async () => {

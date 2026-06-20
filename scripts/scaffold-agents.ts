@@ -103,7 +103,12 @@ async function main(): Promise<void> {
   printList("Notes", result.notes);
   console.log("");
   console.log("Next: restart your assistant and confirm the kotikit_* MCP tools are listed.");
-  console.log("For Codex, run /mcp in the target project.");
+  if (opts.agents.includes("claude")) {
+    console.log(`For Claude Code, open the target project (${opts.targetRoot}), approve the project MCP server if prompted, then run /mcp.`);
+  }
+  if (opts.agents.includes("codex")) {
+    console.log("For Codex, start a new session in the target project and run /mcp.");
+  }
 }
 
 try {

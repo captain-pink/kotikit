@@ -25,8 +25,9 @@ The scaffold command resolves two roots: the target React project and the
 kotikit repository. It verifies that `src/mcp/server.ts` exists in the kotikit
 root, then writes agent-specific setup:
 
-- Claude Code: `.claude/mcp.json`, preserving existing `mcpServers` entries
-  and upserting the `kotikit` server.
+- Claude Code: project-scoped `.mcp.json`, preserving existing `mcpServers`
+  entries and upserting the `kotikit` server with a long per-tool timeout for
+  large Figma syncs.
 - Codex: `.codex/config.toml`, replacing only the
   `[mcp_servers.kotikit]` section or appending it if missing.
 - Codex skill: copies `.agents/skills/kotikit-auto/SKILL.md` into the target
@@ -40,6 +41,11 @@ root, then writes agent-specific setup:
 
 All file writes are atomic: write a temp file next to the destination, then
 rename it into place. Existing unrelated config is preserved.
+
+Claude Code sets `CLAUDE_PROJECT_DIR` when it launches stdio MCP servers.
+Kotikit's root resolver uses that value by default, so a project-scoped
+`.mcp.json` works even if Claude starts the server process from a different
+working directory.
 
 ## When to extend it
 

@@ -87,9 +87,19 @@ cd ~/kotikit
 bun run scaffold:agents -- --target /Users/YOUR_USERNAME/path/to/your-react-project --agents both
 ```
 
-This writes or updates `.claude/mcp.json`, `.codex/config.toml`, installs the Codex
+This writes or updates `.mcp.json` for Claude Code, `.codex/config.toml`, installs the Codex
 `kotikit-auto` skill into the target project, and creates `.env` with a `FIGMA_TOKEN=`
 placeholder if needed.
+
+For a Claude Code-only laptop setup, run:
+
+```bash
+cd ~/kotikit
+bun run scaffold:agents -- --target /Users/YOUR_USERNAME/path/to/your-react-project --agents claude
+```
+
+Then open Claude Code from the target project, approve the project MCP server if prompted,
+and run `/mcp`. You should see the `kotikit` server with the `kotikit_*` tools.
 
 If you already scaffolded an older `kotikit-auto` skill that points at
 `docs/agent_workflow.md`, rerun the command after pulling the latest kotikit. The scaffold
@@ -107,7 +117,7 @@ unchanged because that value is project-wide.
 
 **Manual setup**: if you prefer to write config files yourself, use the blocks below.
 
-**Claude Code**: create (or open) `.claude/mcp.json` inside your target project and add:
+**Claude Code**: create (or open) `.mcp.json` inside your target project and add:
 
 ```json
 {
@@ -115,17 +125,24 @@ unchanged because that value is project-wide.
     "kotikit": {
       "type": "stdio",
       "command": "bun",
-      "args": ["run", "/Users/YOUR_USERNAME/kotikit/src/mcp/server.ts"]
+      "args": ["run", "/Users/YOUR_USERNAME/kotikit/src/mcp/server.ts"],
+      "timeout": 900000
     }
   }
 }
 ```
 
-Replace `YOUR_USERNAME` with your macOS username (run `whoami` in Terminal if unsure).
+Replace `YOUR_USERNAME` with your macOS username (run `whoami` in Terminal if unsure). The
+`timeout` value is milliseconds and lets long Figma design-system syncs finish instead of
+being killed early. Claude Code also supports an equivalent command from inside the target
+project:
 
-MCP config file paths vary between Claude Code versions. If the block above does not work,
-see the [Claude Code MCP documentation](https://docs.anthropic.com/claude-code/mcp) for the
-canonical location for your version.
+```bash
+claude mcp add --scope project --transport stdio kotikit -- bun run /Users/YOUR_USERNAME/kotikit/src/mcp/server.ts
+```
+
+If the command form is used, add `"timeout": 900000` to `.mcp.json` afterwards for large
+design-system syncs.
 
 **Codex**: create (or open) `.codex/config.toml` inside your trusted target project and add:
 
@@ -184,8 +201,9 @@ automatically ignored by git so your token stays private.
 - Claude Code: Cmd+Shift+P -> "Developer: Reload Window" in VS Code.
 - Codex: start a new Codex session in your target project.
 
-After restarting, ask your assistant to list MCP tools. In Codex, run `/mcp`. You should see
-the `kotikit_*` tools listed. If nothing appears, double-check the configured paths.
+After restarting, ask your assistant to list MCP tools. In Claude Code or Codex, run `/mcp`.
+You should see the `kotikit_*` tools listed. If nothing appears, double-check the configured
+paths and confirm Bun is installed on that machine.
 
 ---
 

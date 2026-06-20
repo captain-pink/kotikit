@@ -143,12 +143,13 @@ export const uiStoryFile = (
  * otherwise returns the original start directory.
  */
 export const findProjectRoot = (start?: string): string => {
-  let current = resolve(start ?? process.cwd());
+  const initial = start ?? process.env.CLAUDE_PROJECT_DIR ?? process.cwd();
+  let current = resolve(initial);
   while (true) {
     if (existsSync(`${current}/.kotikit`)) return current;
     const parent = dirname(current);
     if (parent === current) break; // reached filesystem root
     current = parent;
   }
-  return resolve(start ?? process.cwd());
+  return resolve(initial);
 };

@@ -36,6 +36,7 @@ const CODEX_CO_AUTHOR: CoAuthor = {
 
 const CODEX_STARTUP_TIMEOUT_SEC = 20;
 const CODEX_TOOL_TIMEOUT_SEC = 900;
+const CLAUDE_TOOL_TIMEOUT_MS = 900_000;
 
 function isNotFound(err: unknown): boolean {
   return err instanceof Error && "code" in err && err.code === "ENOENT";
@@ -114,6 +115,7 @@ function buildClaudeConfig(existing: string | null, kotikitRoot: string): string
           type: "stdio",
           command: "bun",
           args: ["run", serverPath(kotikitRoot)],
+          timeout: CLAUDE_TOOL_TIMEOUT_MS,
         },
       },
     },
@@ -179,9 +181,15 @@ function configWithCoAuthor(existing: string, coAuthor: CoAuthor): string {
 }
 
 async function writeClaudeConfig(result: ScaffoldAgentsResult, targetRoot: string, kotikitRoot: string): Promise<void> {
-  const path = join(targetRoot, ".claude", "mcp.json");
+  const path = join(targetRoot, ".mcp.json");
   await writeTextAtomic(path, buildClaudeConfig(await readTextIfExists(path), kotikitRoot));
   result.written.push(path);
+  result.notes.push(`Claude Code project MCP config written to ${path}. Open Claude Code in the target project and approve kotikit if prompted.`);
+
+  const legacyPath = join(targetRoot, ".claude", "mcp.json");
+  if (await readTextIfExists(legacyPath) !== null) {
+    result.notes.push(`Existing legacy Claude config left unchanged: ${legacyPath}. Current Claude Code project MCP config lives at ${path}.`);
+  }
 }
 
 async function writeCodexConfig(result: ScaffoldAgentsResult, targetRoot: string, kotikitRoot: string): Promise<void> {

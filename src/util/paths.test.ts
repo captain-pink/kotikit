@@ -57,6 +57,40 @@ describe("paths", () => {
     expect(findProjectRoot(nested)).toBe(tmp);
   });
 
+  it("findProjectRoot defaults to CLAUDE_PROJECT_DIR when Claude Code launches MCP outside the project", () => {
+    const previous = process.env.CLAUDE_PROJECT_DIR;
+    mkdirSync(join(tmp, ".kotikit"), { recursive: true });
+    process.env.CLAUDE_PROJECT_DIR = tmp;
+
+    try {
+      expect(findProjectRoot()).toBe(tmp);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.CLAUDE_PROJECT_DIR;
+      } else {
+        process.env.CLAUDE_PROJECT_DIR = previous;
+      }
+    }
+  });
+
+  it("findProjectRoot explicit start takes precedence over CLAUDE_PROJECT_DIR", () => {
+    const previous = process.env.CLAUDE_PROJECT_DIR;
+    const explicit = join(tmp, "explicit");
+    mkdirSync(join(tmp, ".kotikit"), { recursive: true });
+    mkdirSync(join(explicit, ".kotikit"), { recursive: true });
+    process.env.CLAUDE_PROJECT_DIR = tmp;
+
+    try {
+      expect(findProjectRoot(explicit)).toBe(explicit);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.CLAUDE_PROJECT_DIR;
+      } else {
+        process.env.CLAUDE_PROJECT_DIR = previous;
+      }
+    }
+  });
+
   describe("design-system path helpers", () => {
     it("designSystemDir returns root/design-system", () => {
       expect(designSystemDir("/tmp/proj")).toBe("/tmp/proj/design-system");

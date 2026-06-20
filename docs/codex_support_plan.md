@@ -43,7 +43,7 @@ Status: implemented for local testing.
 
 Add a Codex setup path to `README.md` and any developer setup docs. The setup
 must explain that Codex reads MCP servers from `config.toml`, not from
-`.claude/mcp.json`.
+Claude Code's `.mcp.json`.
 
 Recommended user-facing config:
 
@@ -62,9 +62,10 @@ Implementation details:
   "Claude Code" and "Codex" subsections.
 - Tell users to place project-scoped Codex config in `.codex/config.toml` only
   for trusted projects. Otherwise, use `~/.codex/config.toml`.
-- Include `cwd`. Kotikit resolves the target project from `process.cwd()` and
-  by walking for `.kotikit`, so the server process must start from the target
-  React app, not from the kotikit repository.
+- Include `cwd`. Kotikit resolves Codex projects from `process.cwd()` and by
+  walking for `.kotikit`, so the Codex server process must start from the
+  target React app, not from the kotikit repository. Claude Code sets
+  `CLAUDE_PROJECT_DIR`, which kotikit also honors.
 - Include a verification command: in Codex, run `/mcp` and confirm that the
   `kotikit_*` tools are listed.
 - Document that `FIGMA_TOKEN` still belongs in the target project's `.env`,
@@ -326,7 +327,7 @@ Installer responsibilities:
   - Claude Code
   - Codex
   - both
-- Write `.claude/mcp.json` when Claude Code is selected.
+- Write project-scoped `.mcp.json` when Claude Code is selected.
 - Write `.codex/config.toml` or print a global config block when Codex is
   selected.
 - Offer to install or link the Codex skill.
