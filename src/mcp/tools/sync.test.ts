@@ -361,8 +361,9 @@ describe("kotikit_sync_ds", () => {
 
     const result = await callTool(registry, "kotikit_sync_ds", {});
     expect(result.isError).toBeFalsy();
-    // The summary should mention Enterprise so free-plan users understand the skip
+    // The summary should mention Enterprise and the plugin fallback path.
     expect(result.content[0]?.text).toContain("Enterprise");
+    expect(result.content[0]?.text).toContain("Sync Variables From Open File");
   });
 
   it("surfaces zero components and zero icons as a visible sync problem", async () => {

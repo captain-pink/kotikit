@@ -29,6 +29,7 @@ describe("MCP server", () => {
       "kotikit_ds_search", "kotikit_ds_get_component",
       "kotikit_icons_search",
       "kotikit_sync_ds",
+      "kotikit_sync_plugin_variables",
       // Phase 3
       "kotikit_plan_code",
       "kotikit_implement_code_start", "kotikit_implement_code_save", "kotikit_implement_code_gate",

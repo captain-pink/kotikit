@@ -320,10 +320,12 @@ Then in Figma: Plugins → Development → Import plugin from manifest → pick
 **Start the bridge before using the plugin:**
 
 ```bash
-cd ~/kotikit && bun run bridge
+cd /path/to/your-project && kotikit mcp --bridge
 ```
 
-Your terminal will print a one-time connection address. Copy it exactly as printed.
+Run this from the project where you ran `kotikit init`. If you are developing kotikit from
+this source checkout, `bun run bridge` is equivalent. Your terminal will print a one-time
+connection address. Copy it exactly as printed.
 
 In Figma: Plugins → Development → kotikit → paste that address into the Connect dialog.
 
@@ -341,10 +343,30 @@ token so only your Figma session can connect. Nothing leaves your machine.
 - Connects your Figma file to the running kotikit session.
 - Shows a compact setup/review checklist backed by the same kotikit MCP tools your assistant uses.
 - Runs `kotikit_doctor` through the bridge so you can spot setup issues without leaving Figma.
+- Syncs local variables from the open design-system file into `design-system/variables.json`
+  when Figma's REST Variables API is unavailable on your plan.
 - Loads the latest design review report, including open/fixed comments and pending replies.
 - Enables browserless review-comment lookup: the assistant can call `kotikit_design_review_comments` to fetch Figma comments and map comments on known nodes back to the relevant generated frame or component.
 - Records compact design adjustments and review reports in `.kotikit/design-review.db`.
 - Learns project design preference candidates from repeated feedback, supports dismiss/edit/deactivate lifecycle controls, then uses active promoted preferences in future design context.
+
+**Import variables on a Professional plan:**
+
+Run `kotikit_sync_ds` first. If the sync says variables are blocked by Figma's REST API,
+use the plugin fallback:
+
+1. Ask your assistant to start the kotikit bridge, or run:
+   ```bash
+   cd /path/to/your-project && kotikit mcp --bridge
+   ```
+2. Open the source design-system file in Figma, not a random draft file.
+3. Run Plugins → Development → kotikit.
+4. Paste the bridge URL printed by the terminal.
+5. Click **Sync Variables From Open File**.
+
+The plugin reads Figma variables from the currently open file and sends a compact payload
+to kotikit over the local bridge. kotikit then merges those variables into
+`design-system/variables.json`, preserving style tokens that were already synced.
 
 **What is coming:** richer fallback mapping for comments outside known nodes, semantic clustering of repeated feedback, and a full plan-checklist view inside the plugin. See `NEXT_STEPS.md` for the full list.
 
@@ -479,9 +501,12 @@ This is a notice, not an error. Figma's Variables endpoint is gated to Enterpris
 kotikit detects the 403 and skips it gracefully. Your color, text, and effect **styles**
 were still synced normally — only variable-based tokens are unavailable.
 
-Fix: if you need variable-style design tokens on a Free or Professional plan, define them
-manually in a `tokens.json` file (or use [Style Dictionary](https://amzn.github.io/style-dictionary/))
-and import them in your project.
+Fix: if you are on a Professional plan, open the source design-system file in Figma and
+use the kotikit plugin's **Sync Variables From Open File** button. The plugin uses Figma's
+Plugin API from your active Figma session, then kotikit merges the result into
+`design-system/variables.json`. If you cannot open the source design-system file, you can
+still proceed with synced components and styles; custom surfaces and spacing may be less
+systematic until variables are imported.
 
 ---
 

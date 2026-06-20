@@ -17,6 +17,10 @@ type PendingRpc = {
   reject: (error: Error) => void;
 };
 
+type PluginVariableMessage =
+  | { type: "local-variables-exported"; payload: unknown }
+  | { type: "local-variables-export-failed"; message: string };
+
 const statusColor = {
   pending: "#777",
   ready: "#0b65c2",
@@ -46,6 +50,7 @@ export function App(): React.ReactElement {
   const [tools, setTools] = useState<string[]>([]);
   const [doctor, setDoctor] = useState<ToolResult | null>(null);
   const [reviewReport, setReviewReport] = useState<ToolResult | null>(null);
+  const [variablesResult, setVariablesResult] = useState<ToolResult | null>(null);
   const [scope, setScope] = useState("");
   const [screen, setScreen] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -76,9 +81,38 @@ export function App(): React.ReactElement {
     return result as ToolResult;
   };
 
+  const requestLocalVariables = (): Promise<unknown> =>
+    new Promise((resolve, reject) => {
+      let timeout: number | undefined;
+      const cleanup = (onMessage: (event: MessageEvent) => void): void => {
+        if (timeout !== undefined) window.clearTimeout(timeout);
+        window.removeEventListener("message", onMessage);
+      };
+      const onMessage = (event: MessageEvent): void => {
+        const message = (event.data as { pluginMessage?: PluginVariableMessage }).pluginMessage;
+        if (message === undefined) return;
+        if (message.type === "local-variables-exported") {
+          cleanup(onMessage);
+          resolve(message.payload);
+          return;
+        }
+        if (message.type === "local-variables-export-failed") {
+          cleanup(onMessage);
+          reject(new Error(message.message));
+        }
+      };
+
+      window.addEventListener("message", onMessage);
+      timeout = window.setTimeout(() => {
+        cleanup(onMessage);
+        reject(new Error("Figma did not return variables. Reopen the kotikit plugin and try again."));
+      }, 30_000);
+      parent.postMessage({ pluginMessage: { type: "export-local-variables" } }, "*");
+    });
+
   const handleConnect = (): void => {
     if (!connectUrl.startsWith("ws://localhost") && !connectUrl.startsWith("ws://127.0.0.1")) {
-      setError("Use the localhost bridge URL printed by bun run bridge.");
+      setError("Use the localhost bridge URL printed by kotikit mcp --bridge.");
       return;
     }
 
@@ -144,6 +178,19 @@ export function App(): React.ReactElement {
       setReviewReport(await callTool("kotikit_design_review_report", args));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load review report.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const syncVariables = async (): Promise<void> => {
+    setBusy("variables");
+    setError(null);
+    try {
+      const payload = await requestLocalVariables();
+      setVariablesResult(await callTool("kotikit_sync_plugin_variables", { payload }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not sync variables.");
     } finally {
       setBusy(null);
     }
@@ -245,6 +292,22 @@ export function App(): React.ReactElement {
                   </div>
                 ))}
               </div>
+            ) : null}
+          </section>
+
+          <section style={{ marginTop: 18 }}>
+            <h3 style={{ fontSize: 13, margin: "0 0 8px" }}>Variables</h3>
+            <button
+              onClick={syncVariables}
+              disabled={busy !== null || !tools.includes("kotikit_sync_plugin_variables")}
+              style={{ ...buttonStyle, width: "100%" }}
+            >
+              {busy === "variables" ? "Syncing..." : "Sync Variables From Open File"}
+            </button>
+            {variablesResult !== null ? (
+              <p style={{ color: variablesResult.isError ? "#b00020" : "#17803b", fontSize: 12, margin: "8px 0 0" }}>
+                {variablesResult.content[0]?.text.split("\n\n")[0] ?? "Variables synced."}
+              </p>
             ) : null}
           </section>
         </main>

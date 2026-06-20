@@ -47,8 +47,9 @@ The sync module owns everything needed to pull a Figma design system into a loca
 - `clearCheckpoint(root)` — remove checkpoint after a successful sync
 - `hasCheckpoint(root)` — boolean probe
 
-**Variables** (`src/sync/variables.ts`)
+**Variables** (`src/sync/variables.ts`, `src/sync/plugin-variables.ts`)
 - `mergeVariables({ variables, styles, styleDetailsByNodeId })` — combines local variables with styles into a unified `VariablesJson`
+- `importPluginVariables(root, payload)` — merges variables exported by the Figma plugin into the existing `variables.json`, preserving style tokens and letting variables win on name collisions
 - `writeVariablesJson(root, json)` — persist merged variables
 - `VariablesJson`, `buildComponentJson`, `buildPropsString`
 

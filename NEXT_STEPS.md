@@ -64,6 +64,7 @@ payloads.
 - **Duplicate logical name policy** — move beyond last-file-wins for large multi-library setups: expose namespace hints, configurable priority, and clear conflict output before rows overwrite each other.
 - **Richer normalization diagnostics** — extend the compact report with sampled warning messages, confidence hints for icon classification, and suggested next actions for each warning code.
 - **Importability smoke check** — add an optional Figma-plugin smoke path that verifies a small set of synced component keys can be imported into a draft. This should be opt-in because it needs a live Figma session.
+- **Enabled-library variable import** — the plugin can now sync variables from the currently open source DS file. Add a second path for draft files where the published library is enabled: request Figma `teamlibrary` permission, enumerate available library variable collections, import selected variables by key, and persist the same compact `variables.json` payload. Keep source-file sync as the default because it is simpler and avoids mutating a draft just to inspect tokens.
 - **Component-set import evaluation** — investigate whether importing component sets directly is reliable enough to support. Until then, keep storing concrete component keys as `ComponentJson.key` and component-set keys as metadata.
 - **Schema-drift guardrails** — add tests for unknown Figma property types and new/extra API fields so future Figma changes degrade with warnings instead of breaking sync.
 

@@ -118,8 +118,8 @@ export function registerSyncTools(
       const variablesSkipped = report.skipped?.some((s) => s.stage === "variables") ?? false;
       if (variablesSkipped) {
         summary +=
-          ` Note: Figma Variables API requires an Enterprise plan — color/text/effect styles were still synced normally.` +
-          ` If you need variable-style design tokens, define them manually (e.g. in a tokens.json).`;
+          ` Note: Figma Variables REST API requires an Enterprise plan - color/text/effect styles were still synced normally.` +
+          ` To import variables on Professional, ask your assistant to start the kotikit bridge, open the design-system file in Figma, run the kotikit plugin, and click "Sync Variables From Open File".`;
       }
 
       return toolText(summary, report);

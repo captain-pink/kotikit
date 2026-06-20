@@ -80,7 +80,14 @@ Use this when the user asks to sync Figma or connect a design system.
    key and call `kotikit_config_init` with `figmaFiles`.
 3. Call `kotikit_sync_ds`.
 4. Summarize the sync result in plain language.
-5. Present the "What next?" menu.
+5. If the sync says Figma Variables REST API requires Enterprise, explain that
+   components and styles are usable, then offer the plugin-assisted fallback:
+   start the kotikit bridge in the initialized project, ask the designer to
+   open the source design-system file in Figma, run the kotikit plugin, connect
+   to the bridge URL, and click "Sync Variables From Open File". Do not ask the
+   designer to hand-edit token JSON unless they explicitly prefer a manual
+   token workflow.
+6. Present the "What next?" menu.
 
 ## Code Workflow
 
