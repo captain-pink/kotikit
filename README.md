@@ -321,8 +321,9 @@ Then in Figma: Plugins → Development → Import plugin from manifest → pick
 
 Ask your assistant: **"Start the kotikit Figma plugin bridge."**
 
-The assistant calls `kotikit_bridge_start` and gives you a one-time connection address.
-Copy it exactly as printed.
+The assistant calls `kotikit_bridge_start`, prepares the plugin build if needed,
+patches the plugin manifest for the chosen local port, and gives you a one-time
+connection address. Copy it exactly as printed.
 
 Manual fallback for kotikit developers:
 

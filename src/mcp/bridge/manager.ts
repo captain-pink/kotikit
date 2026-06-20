@@ -9,6 +9,12 @@ import {
   type BridgeConfig,
 } from "./token.js";
 import { startBridgeServer, type BridgeServer, type BridgeOpts } from "./server.js";
+import {
+  defaultPluginRoot,
+  patchPluginManifestAllowedDomains,
+  preparePluginBuild,
+  type PreparePluginBuildResult,
+} from "./plugin-preflight.js";
 
 export interface BridgeStatus {
   running: boolean;
@@ -18,6 +24,7 @@ export interface BridgeStatus {
   port?: number;
   url?: string;
   startedAt?: string;
+  setupWarning?: string;
 }
 
 export interface BridgeStopResult {
@@ -34,6 +41,7 @@ export interface BridgeManager {
 interface ActiveBridge {
   config: BridgeConfig;
   server: BridgeServer;
+  setupWarning?: string;
 }
 
 interface BridgeManagerDeps {
@@ -43,12 +51,15 @@ interface BridgeManagerDeps {
   writeBridgeConfig: (root: string, config: BridgeConfig) => Promise<void>;
   readBridgeConfig: (root: string) => Promise<BridgeConfig | null>;
   clearBridgeConfig: (root: string) => Promise<void>;
+  preparePluginBuild: (pluginRoot: string) => Promise<PreparePluginBuildResult>;
+  patchPluginManifestAllowedDomains: (pluginRoot: string, port: number) => Promise<string[]>;
 }
 
 export interface CreateBridgeManagerInput {
   registry: ToolRegistry;
   root: string;
   projectName?: string;
+  pluginRoot?: string;
   portRange?: number;
   deps?: Partial<BridgeManagerDeps>;
 }
@@ -67,6 +78,7 @@ const statusForActive = (active: ActiveBridge): BridgeStatus => ({
   port: active.config.port,
   url: bridgeUrlForConfig(active.config),
   startedAt: active.config.startedAt,
+  ...(active.setupWarning ? { setupWarning: active.setupWarning } : {}),
 });
 
 const inactiveStatus = (root: string, projectName: string): BridgeStatus => ({
@@ -78,6 +90,7 @@ const inactiveStatus = (root: string, projectName: string): BridgeStatus => ({
 
 export function createBridgeManager(input: CreateBridgeManagerInput): BridgeManager {
   const projectName = input.projectName ?? basename(input.root);
+  const pluginRoot = input.pluginRoot ?? defaultPluginRoot();
   const portRange = input.portRange ?? DEFAULT_PORT_RANGE;
   const deps: BridgeManagerDeps = {
     nowIso,
@@ -86,6 +99,8 @@ export function createBridgeManager(input: CreateBridgeManagerInput): BridgeMana
     writeBridgeConfig,
     readBridgeConfig,
     clearBridgeConfig,
+    preparePluginBuild,
+    patchPluginManifestAllowedDomains,
     ...input.deps,
   };
   let active: ActiveBridge | null = null;
@@ -94,6 +109,7 @@ export function createBridgeManager(input: CreateBridgeManagerInput): BridgeMana
     async start(startInput = {}): Promise<BridgeStatus> {
       if (active !== null) return statusForActive(active);
 
+      const pluginSetup = await deps.preparePluginBuild(pluginRoot);
       const preferredPort = startInput.preferredPort ?? DEFAULT_BRIDGE_PORT;
       const ports = Array.from({ length: portRange }, (_, index) => preferredPort + index);
       for (const port of ports) {
@@ -113,13 +129,14 @@ export function createBridgeManager(input: CreateBridgeManagerInput): BridgeMana
         }
 
         try {
+          await deps.patchPluginManifestAllowedDomains(pluginRoot, config.port);
           await deps.writeBridgeConfig(input.root, config);
         } catch (err) {
           await server.close().catch(() => {});
           throw err;
         }
 
-        active = { config, server };
+        active = { config, server, setupWarning: pluginSetup.warning };
         return statusForActive(active);
       }
 

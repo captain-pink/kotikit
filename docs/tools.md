@@ -278,7 +278,7 @@ See also: `kotikit_scaffold_start`, `kotikit_audit`.
 
 ### kotikit_bridge_start
 
-Purpose: Start the local Figma plugin bridge from the running kotikit MCP process and return the pasteable plugin URL.
+Purpose: Prepare the Figma plugin if needed, patch its manifest for the selected localhost port, start the local bridge from the running kotikit MCP process, and return the pasteable plugin URL.
 Input: `{ preferredPort?: number }`
 Output: `{ running, staleConfig, projectRoot, projectName, port, url, startedAt }` plus a designer-facing summary.
 Token cost: ~90.

@@ -6,7 +6,7 @@
   "ui": "dist/ui.html",
   "editorType": ["figma", "dev"],
   "networkAccess": {
-    "allowedDomains": ["http://localhost:*", "ws://localhost:*", "https://localhost:*"],
+    "allowedDomains": ["http://localhost:53124", "ws://localhost:53124", "https://localhost:53124"],
     "reasoning": "Connects to the local kotikit bridge over WebSocket."
   }
 }

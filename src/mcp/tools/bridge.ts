@@ -52,7 +52,8 @@ export function registerBridgeTools(registry: ToolRegistry, ctx: ToolContext): v
       const parsed = BridgeStartArgsSchema.parse(args);
       const status = await ctx.bridge.start(parsed);
       const summary =
-        `Figma plugin bridge is running. Paste this URL into the kotikit Figma plugin: ${status.url}`;
+        `Figma plugin bridge is running. Paste this URL into the kotikit Figma plugin: ${status.url}` +
+        (status.setupWarning ? `\n${status.setupWarning}` : "");
       return toolText(summary, status);
     } catch (err) {
       if (err instanceof z.ZodError) {

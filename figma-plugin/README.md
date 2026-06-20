@@ -20,7 +20,8 @@ This produces `dist/code.js` and `dist/ui.html`.
 ## Use
 
 1. Ask your assistant to start the kotikit Figma plugin bridge.
-   Copy the URL it returns (`ws://localhost:53124?token=...`).
+   It will build `dist/` if needed, patch `manifest.json` for the chosen
+   localhost port, and return a URL (`ws://localhost:53124?token=...`).
 2. In Figma: Plugins -> Development -> kotikit. Paste the URL into Connect.
 3. To import variables on a Professional plan, open the source design-system
    file in Figma and click **Sync Variables From Open File**.

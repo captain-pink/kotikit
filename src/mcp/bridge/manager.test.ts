@@ -4,6 +4,7 @@ import { createBridgeManager, bridgeUrlForConfig } from "./manager.js";
 import type { BridgeConfig } from "./token.js";
 import type { BridgeServer } from "./server.js";
 import type { ToolRegistry } from "../server.js";
+import type { CreateBridgeManagerInput } from "./manager.js";
 
 const registry = (): ToolRegistry => ({
   tools: [] as Tool[],
@@ -20,6 +21,14 @@ function fakeServer(closed: string[]): BridgeServer {
   };
 }
 
+const pluginDeps = (
+  overrides: NonNullable<CreateBridgeManagerInput["deps"]> = {}
+): NonNullable<CreateBridgeManagerInput["deps"]> => ({
+  preparePluginBuild: async () => ({ rebuilt: false }),
+  patchPluginManifestAllowedDomains: async () => [],
+  ...overrides,
+});
+
 describe("bridge manager", () => {
   it("starts a bridge, writes config, and returns the pasteable URL", async () => {
     const written: BridgeConfig[] = [];
@@ -27,14 +36,14 @@ describe("bridge manager", () => {
       registry: registry(),
       root,
       projectName: "Project",
-      deps: {
+      deps: pluginDeps({
         nowIso: () => "2026-06-20T00:00:00.000Z",
         generateToken: () => "tok123456789",
         startBridgeServer: ({ config }) => fakeServer([`server:${config.port}`]),
         writeBridgeConfig: async (_root, config) => { written.push(config); },
         clearBridgeConfig: async () => {},
         readBridgeConfig: async () => null,
-      },
+      }),
     });
 
     const result = await manager.start({ preferredPort: 53124 });
@@ -56,14 +65,14 @@ describe("bridge manager", () => {
       registry: registry(),
       root,
       projectName: "Project",
-      deps: {
+      deps: pluginDeps({
         nowIso: () => "2026-06-20T00:00:00.000Z",
         generateToken: () => `tok${++starts}23456789`,
         startBridgeServer: () => fakeServer([]),
         writeBridgeConfig: async () => {},
         clearBridgeConfig: async () => {},
         readBridgeConfig: async () => null,
-      },
+      }),
     });
 
     const first = await manager.start({ preferredPort: 53124 });
@@ -75,11 +84,13 @@ describe("bridge manager", () => {
 
   it("tries the next port when the preferred port is unavailable", async () => {
     const ports: number[] = [];
+    const patchedPorts: number[] = [];
+    let prepared = 0;
     const manager = createBridgeManager({
       registry: registry(),
       root,
       projectName: "Project",
-      deps: {
+      deps: pluginDeps({
         nowIso: () => "2026-06-20T00:00:00.000Z",
         generateToken: () => "tok123456789",
         startBridgeServer: ({ config }) => {
@@ -87,15 +98,19 @@ describe("bridge manager", () => {
           if (config.port === 53124) throw new Error("in use");
           return fakeServer([]);
         },
+        preparePluginBuild: async () => { prepared += 1; return { rebuilt: false }; },
+        patchPluginManifestAllowedDomains: async (_pluginRoot, port) => { patchedPorts.push(port); return []; },
         writeBridgeConfig: async () => {},
         clearBridgeConfig: async () => {},
         readBridgeConfig: async () => null,
-      },
+      }),
     });
 
     const result = await manager.start({ preferredPort: 53124 });
 
     expect(ports).toEqual([53124, 53125]);
+    expect(prepared).toBe(1);
+    expect(patchedPorts).toEqual([53125]);
     expect(result.port).toBe(53125);
   });
 
@@ -106,14 +121,14 @@ describe("bridge manager", () => {
       registry: registry(),
       root,
       projectName: "Project",
-      deps: {
+      deps: pluginDeps({
         nowIso: () => "2026-06-20T00:00:00.000Z",
         generateToken: () => "tok123456789",
         startBridgeServer: () => fakeServer(closed),
         writeBridgeConfig: async () => {},
         clearBridgeConfig: async () => { cleared += 1; },
         readBridgeConfig: async () => null,
-      },
+      }),
     });
 
     await manager.start();
@@ -130,7 +145,7 @@ describe("bridge manager", () => {
       registry: registry(),
       root,
       projectName: "Project",
-      deps: {
+      deps: pluginDeps({
         nowIso: () => "2026-06-20T00:00:00.000Z",
         generateToken: () => "tok123456789",
         startBridgeServer: () => fakeServer([]),
@@ -144,7 +159,7 @@ describe("bridge manager", () => {
           projectName: "Project",
           startedAt: "2026-06-20T00:00:00.000Z",
         }),
-      },
+      }),
     });
 
     const status = await manager.status();
