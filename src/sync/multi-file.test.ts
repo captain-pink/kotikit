@@ -7,7 +7,8 @@ import { syncAllFiles } from "./multi-file.js";
 import { FigmaClient } from "./figma-client.js";
 import { createLimiter } from "./rate-limit.js";
 import { SyncManifestSchema } from "./manifest.js";
-import { manifestPath, componentJsonPath, variablesJsonPath, syncReportPath, registryDbPath } from "../util/paths.js";
+import { SyncPausedError } from "./errors.js";
+import { manifestPath, componentJsonPath, variablesJsonPath, syncReportPath, registryDbPath, checkpointPath } from "../util/paths.js";
 import { openDb } from "../db/sqlite.js";
 import { initRegistryDb, getRegistry, upsertRegistry } from "../db/registry-db.js";
 import { nullProgressEmitter, recordingProgressEmitter } from "./progress.js";
@@ -176,6 +177,59 @@ describe("syncAllFiles", () => {
     });
     await syncAllFiles({ root, files: [{ key: "FX", name: "FX" }], client, progress: nullProgressEmitter() });
     expect(existsSync(`${root}/design-system/.sync-checkpoint.json`)).toBe(false);
+  });
+
+  it("pauses near the soft deadline after a node-details batch checkpoint is written", async () => {
+    const root = mkTmp();
+    const components = Array.from({ length: 101 }, (_, index) => ({
+      key: `component-key-${index}`,
+      node_id: `component-node-${index}`,
+      name: `Component ${index}`,
+    }));
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch: makeFetch({
+        FX: {
+          file: () => ({
+            name: "FX",
+            document: {
+              children: [
+                {
+                  id: "page-1",
+                  name: "Components",
+                  children: components.map((component) => ({
+                    id: component.node_id,
+                    name: component.name,
+                  })),
+                },
+              ],
+            },
+          }),
+          components: () => ({ meta: { components } }),
+          nodes: () => ({ nodes: {} }),
+        },
+      }),
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+      backoffOpts: FAST,
+    });
+
+    await expect(
+      syncAllFiles({
+        root,
+        files: [{ key: "FX", name: "FX" }],
+        client,
+        progress: nullProgressEmitter(),
+        softDeadlineMs: 0,
+      })
+    ).rejects.toBeInstanceOf(SyncPausedError);
+
+    const checkpoint = JSON.parse(readFileSync(checkpointPath(root), "utf-8"));
+    expect(checkpoint.files[0]).toMatchObject({
+      fileKey: "FX",
+      stage: "node_details",
+      cursor: { processed: 100, batchSize: 100 },
+    });
+    expect(existsSync(manifestPath(root))).toBe(false);
   });
 
   it("with no files: returns an empty report and writes empty artifacts", async () => {

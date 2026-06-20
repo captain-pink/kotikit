@@ -29,6 +29,8 @@ export interface SyncAllOpts {
   client: FigmaClient;
   /** Live progress emitter. Defaults to stderrProgressEmitter. */
   progress?: ProgressEmitter;
+  /** Optional wall-clock budget; sync pauses after a checkpointed batch when reached. */
+  softDeadlineMs?: number;
 }
 
 export interface SyncReport {
@@ -71,6 +73,9 @@ async function writeReport(root: string, report: SyncReport): Promise<void> {
 export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
   const { root, files, client, progress = stderrProgressEmitter } = opts;
   const syncStart = Date.now();
+  const softDeadlineAt = opts.softDeadlineMs === undefined
+    ? undefined
+    : syncStart + opts.softDeadlineMs;
 
   await mkdir(designSystemDir(root), { recursive: true });
 
@@ -89,6 +94,10 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
     startedAt: nowIso(),
     files: files.map((f) => ({ fileKey: f.key, stage: "metadata" as const })),
   };
+  const shouldPause = (): boolean =>
+    softDeadlineAt !== undefined && Date.now() >= softDeadlineAt;
+  const completedFileCount = (): number =>
+    checkpoint.files.filter((file) => file.stage === "done").length;
 
   // Track which files have a resume point already in the checkpoint.
   const fileEntryByKey: Map<string, FileCheckpoint> = new Map();
@@ -190,18 +199,31 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
       await writeFileCheckpoint(stage, cursor);
     };
 
-    const result = await syncOneFile({
-      root,
-      client,
-      fileKey: file.key,
-      fileName: file.name,
-      componentsDb,
-      iconsDb,
-      ...(resumeFrom ? { resumeFrom } : {}),
-      onStage,
-      progress,
-      fileCtx,
-    });
+    let result: FileResult;
+    try {
+      result = await syncOneFile({
+        root,
+        client,
+        fileKey: file.key,
+        fileName: file.name,
+        componentsDb,
+        iconsDb,
+        ...(resumeFrom ? { resumeFrom } : {}),
+        onStage,
+        progress,
+        fileCtx,
+        ...(softDeadlineAt !== undefined ? { shouldPause } : {}),
+        pauseContext: {
+          filesCompleted: completedFileCount(),
+          totalFiles: files.length,
+        },
+      });
+    } catch (err) {
+      componentsDb.close();
+      iconsDb.close();
+      regDb.close();
+      throw err;
+    }
 
     for (const s of result.skipped) {
       skipped.push({ fileKey: file.key, stage: s.stage, reason: s.reason });

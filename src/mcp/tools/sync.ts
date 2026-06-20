@@ -7,12 +7,17 @@ import type { ProgressEmitter } from "../../sync/progress.js";
 import { toolText, toolError, KotikitError } from "../../util/result.js";
 import { hasCheckpoint } from "../../sync/checkpoint.js";
 import { resolveFigmaToken } from "../../sync/figma-token.js";
+import { SyncPausedError } from "../../sync/errors.js";
+
+const SYNC_SOFT_DEADLINE_MS = 45_000;
 
 export interface RegisterSyncToolsOpts {
   /** For tests. If omitted, the real FigmaClient is constructed. */
   figmaClientFactory?: (token: string) => FigmaClient;
   /** For tests. If omitted, defaults to stderrProgressEmitter inside syncAllFiles. */
   progress?: ProgressEmitter;
+  /** For tests. Production uses a 45s soft deadline below MCP's 60s timeout. */
+  softDeadlineMs?: number;
 }
 
 export function registerSyncTools(
@@ -77,6 +82,7 @@ export function registerSyncTools(
         root: ctx.root,
         files: config.figma.designSystemFiles,
         client,
+        softDeadlineMs: opts.softDeadlineMs ?? SYNC_SOFT_DEADLINE_MS,
         ...(opts.progress !== undefined ? { progress: opts.progress } : {}),
       });
 
@@ -106,6 +112,20 @@ export function registerSyncTools(
 
       return toolText(summary, report);
     } catch (err) {
+      if (err instanceof SyncPausedError) {
+        return toolText(
+          `Sync paused to avoid timeout - progress saved. ` +
+            `Run sync again and it will resume from where it stopped. ` +
+            `(${err.filesCompleted}/${err.totalFiles} file(s) fully done, paused during ${err.lastStage})`,
+          {
+            paused: true,
+            filesCompleted: err.filesCompleted,
+            totalFiles: err.totalFiles,
+            lastStage: err.lastStage,
+          }
+        );
+      }
+
       // Attempt to detect a lingering checkpoint for resume hint
       let hint: string | undefined;
       try {

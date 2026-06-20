@@ -15,6 +15,7 @@ import { withTransaction } from "../db/sqlite.js";
 import { mergeVariables } from "./variables.js";
 import type { ProgressEmitter, FileContext } from "./progress.js";
 import { formatMs } from "./progress.js";
+import { SyncPausedError } from "./errors.js";
 
 export interface SyncOneFileOpts {
   root: string;
@@ -30,6 +31,10 @@ export interface SyncOneFileOpts {
   progress?: ProgressEmitter;
   /** File context for progress emitter (index, total, display name). */
   fileCtx?: FileContext;
+  /** Optional pause check used by MCP handlers to return before client timeouts. */
+  shouldPause?: () => boolean;
+  /** Counts included when shouldPause requests a checkpointed pause. */
+  pauseContext?: { filesCompleted: number; totalFiles: number };
 }
 
 export interface SyncOneFileResult {
@@ -55,7 +60,20 @@ export interface SyncOneFileResult {
  * Those are returned for the multi-file orchestrator to write at the end.
  */
 export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileResult> {
-  const { root: _root, client, fileKey, fileName, componentsDb, iconsDb, resumeFrom, onStage, progress, fileCtx } = opts;
+  const {
+    root: _root,
+    client,
+    fileKey,
+    fileName,
+    componentsDb,
+    iconsDb,
+    resumeFrom,
+    onStage,
+    progress,
+    fileCtx,
+    shouldPause,
+    pauseContext,
+  } = opts;
   void _root;
 
   const startStage = resumeFrom?.stage;
@@ -210,6 +228,13 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
           total: allIds.length,
           label: processed >= allIds.length ? formatMs(Date.now() - nodeDetailsStart) : undefined,
         });
+      }
+      if (shouldPause?.()) {
+        throw new SyncPausedError(
+          pauseContext?.filesCompleted ?? 0,
+          pauseContext?.totalFiles ?? 1,
+          "node_details"
+        );
       }
     }
     if (allIds.length === 0) {

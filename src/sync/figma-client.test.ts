@@ -1,7 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import { FigmaClient, figmaRateLimitFromEnv } from "./figma-client.js";
 import { KotikitError } from "../util/result.js";
-import { createLimiter } from "./rate-limit.js";
+import { createAdaptiveLimiter, createLimiter } from "./rate-limit.js";
 
 function jsonResponse(body: unknown, init?: ResponseInit): Response {
   return new Response(JSON.stringify(body), {
@@ -20,6 +20,26 @@ function errorResponse(status: number, headers?: Record<string, string>): Respon
 
 const FAST_BACKOFF = { initialMs: 1, maxMs: 5, jitterMs: 0, maxAttempts: 6 };
 const FAST_LIMITER = createLimiter({ minTime: 0, maxConcurrent: 5 });
+
+function deferred<T = void>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+  reject: (reason: unknown) => void;
+} {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+function timeout(ms: number): Promise<never> {
+  return new Promise((_, reject) => {
+    setTimeout(() => reject(new Error(`Timed out after ${ms}ms`)), ms);
+  });
+}
 
 describe("FigmaClient", () => {
   it("uses adaptive rate limit defaults", () => {
@@ -135,6 +155,55 @@ describe("FigmaClient", () => {
     expect(result).toEqual([]);
     expect(reportedRetryAfterMs).toBe(2);
     expect(successCount).toBe(1);
+  });
+
+  it("releases the adaptive limiter slot while a retry is waiting", async () => {
+    const limiter = createAdaptiveLimiter({
+      initialMinTime: 0,
+      minMinTime: 0,
+      maxMinTime: 100,
+      maxConcurrent: 1,
+    });
+    const firstAttemptStarted = deferred();
+    const allowFirst429 = deferred();
+    const retryStarted = deferred();
+    const finishRetry = deferred();
+    let componentCalls = 0;
+
+    const fetch = async (url: string | URL) => {
+      const u = url.toString();
+      if (u.includes("/components")) {
+        componentCalls++;
+        if (componentCalls === 1) {
+          firstAttemptStarted.resolve();
+          await allowFirst429.promise;
+          return errorResponse(429, { "Retry-After": "0" });
+        }
+        retryStarted.resolve();
+        await finishRetry.promise;
+        return jsonResponse({ meta: { components: [] } });
+      }
+      if (u.includes("/styles")) return jsonResponse({ meta: { styles: [] } });
+      return jsonResponse({ name: "f", document: { children: [] } });
+    };
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      limiter,
+      backoffOpts: FAST_BACKOFF,
+    });
+
+    const first = client.getComponents("k1");
+    await firstAttemptStarted.promise;
+    const second = client.getStyles("k1");
+    allowFirst429.resolve();
+
+    await expect(Promise.race([second, timeout(50)])).resolves.toEqual([]);
+    expect(componentCalls).toBe(1);
+
+    await retryStarted.promise;
+    finishRetry.resolve();
+    await expect(first).resolves.toEqual([]);
   });
 
   it("retries on 500 and eventually succeeds", async () => {

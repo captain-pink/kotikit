@@ -134,9 +134,9 @@ export class FigmaClient {
     init: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${path}`;
-    return this.limiter.schedule(() =>
-      withBackoff(
-        async () => {
+    return withBackoff(
+      () =>
+        this.limiter.schedule(async () => {
           const res = await this.fetchImpl(url, {
             ...init,
             headers: {
@@ -155,10 +155,9 @@ export class FigmaClient {
           const parsed = schema.parse(data);
           this.limiter.recordSuccess?.();
           return parsed;
-        },
-        isRetryable,
-        this.backoffOpts
-      )
+        }),
+      isRetryable,
+      this.backoffOpts
     );
   }
 
