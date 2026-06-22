@@ -2,7 +2,7 @@ import type { FigmaShim } from "./figma-shim.js";
 
 interface FakeNode {
   id: string;
-  type: "PAGE" | "FRAME" | "INSTANCE";
+  type: "PAGE" | "SECTION" | "FRAME" | "INSTANCE";
   name?: string;
   parentId?: string;
   children: string[];
@@ -13,6 +13,7 @@ interface FakeNode {
   itemSpacing?: number;
   componentKey?: string;
   variantProperties?: Record<string, string>;
+  metadata?: Record<string, string>;
 }
 
 export class FakeFigmaShim implements FigmaShim {
@@ -39,6 +40,10 @@ export class FakeFigmaShim implements FigmaShim {
     this.variables.set(name, id);
   }
 
+  seedPage(id: string, name: string): void {
+    this.nodes.set(id, { id, type: "PAGE", name, children: [] });
+  }
+
   getFileKey(): string | undefined {
     return this.fileKey;
   }
@@ -53,10 +58,45 @@ export class FakeFigmaShim implements FigmaShim {
     return { id };
   }
 
+  async getCurrentPageInfo(): Promise<{ id: string; name: string } | null> {
+    const page = this.currentPageId === null ? null : this.nodes.get(this.currentPageId);
+    return page?.type === "PAGE" && page.name !== undefined ? { id: page.id, name: page.name } : null;
+  }
+
+  async getPageById(pageId: string): Promise<{ id: string; name: string } | null> {
+    const page = this.nodes.get(pageId);
+    return page?.type === "PAGE" && page.name !== undefined ? { id: page.id, name: page.name } : null;
+  }
+
   async setCurrentPage(pageId: string): Promise<void> {
     this.check("setCurrentPage");
     if (!this.nodes.has(pageId)) throw new Error(`Page not found: ${pageId}`);
     this.currentPageId = pageId;
+  }
+
+  async findOrCreateSection(input: {
+    pageId: string;
+    name: string;
+    metadata: Record<string, string>;
+  }): Promise<{ id: string; name: string }> {
+    this.check("findOrCreateSection");
+    const page = this.nodes.get(input.pageId);
+    if (!page || page.type !== "PAGE") throw new Error(`Page not found: ${input.pageId}`);
+    const existing = page.children
+      .map((childId) => this.nodes.get(childId))
+      .find((node) => node?.type === "SECTION" && node.name === input.name);
+    if (existing?.name !== undefined) return { id: existing.id, name: existing.name };
+    const id = this.mkId();
+    this.nodes.set(id, {
+      id,
+      type: "SECTION",
+      name: input.name,
+      parentId: input.pageId,
+      children: [],
+      metadata: input.metadata,
+    });
+    page.children.push(id);
+    return { id, name: input.name };
   }
 
   async createFrame(input: { name: string; parentId: string; width: number; height: number | "auto" }): Promise<{ id: string }> {

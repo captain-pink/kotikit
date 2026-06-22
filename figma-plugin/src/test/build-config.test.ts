@@ -35,4 +35,12 @@ describe("Figma plugin build config", () => {
     expect(config.compilerOptions.module).toBe("ES2015");
     expect(config.compilerOptions.lib).toEqual(["ES2015", "ES2017"]);
   });
+
+  it("uses dynamic-page document access for safer page-scoped writes", () => {
+    const manifest = JSON.parse(readFileSync(pluginPath("manifest.json"), "utf-8")) as {
+      documentAccess?: string;
+    };
+
+    expect(manifest.documentAccess).toBe("dynamic-page");
+  });
 });

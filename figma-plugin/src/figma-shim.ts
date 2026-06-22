@@ -1,7 +1,14 @@
 export interface FigmaShim {
   getFileKey(): string | undefined;
   findOrCreatePage(name: string): Promise<{ id: string }>;
+  getCurrentPageInfo(): Promise<{ id: string; name: string } | null>;
+  getPageById(pageId: string): Promise<{ id: string; name: string } | null>;
   setCurrentPage(pageId: string): Promise<void>;
+  findOrCreateSection(input: {
+    pageId: string;
+    name: string;
+    metadata: Record<string, string>;
+  }): Promise<{ id: string; name: string }>;
   createFrame(input: {
     name: string;
     parentId: string;

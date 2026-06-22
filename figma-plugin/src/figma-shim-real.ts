@@ -13,13 +13,40 @@ export const realFigmaShim: FigmaShim = {
     page.name = name;
     return { id: page.id };
   },
+  async getCurrentPageInfo() {
+    const page = figma.currentPage;
+    return page ? { id: page.id, name: page.name } : null;
+  },
+  async getPageById(pageId) {
+    const node = await figma.getNodeByIdAsync(pageId);
+    return node?.type === "PAGE" ? { id: node.id, name: node.name } : null;
+  },
   async setCurrentPage(pageId) {
-    const page = figma.root.findChild((n: { id: string }) => n.id === pageId);
+    const page = await figma.getNodeByIdAsync(pageId);
     if (!page) throw new Error(`Page not found: ${pageId}`);
-    figma.currentPage = page;
+    if (typeof figma.setCurrentPageAsync === "function") {
+      await figma.setCurrentPageAsync(page);
+    } else {
+      figma.currentPage = page;
+    }
+  },
+  async findOrCreateSection({ pageId, name, metadata }) {
+    const page = await figma.getNodeByIdAsync(pageId);
+    if (!page || page.type !== "PAGE") throw new Error(`Page not found: ${pageId}`);
+    const existing = page.children.find((node: { type: string; name: string; id: string }) =>
+      node.type === "SECTION" && node.name === name
+    );
+    if (existing) return { id: existing.id, name: existing.name };
+    const section = figma.createSection();
+    section.name = name;
+    for (const [key, value] of Object.entries(metadata)) {
+      section.setSharedPluginData("kotikit", key, value);
+    }
+    page.appendChild(section);
+    return { id: section.id, name: section.name };
   },
   async createFrame({ name, parentId, width, height }) {
-    const parent = figma.getNodeById(parentId);
+    const parent = await figma.getNodeByIdAsync(parentId);
     if (!parent) throw new Error(`Parent not found: ${parentId}`);
     const frame = figma.createFrame();
     frame.name = name;
@@ -28,7 +55,7 @@ export const realFigmaShim: FigmaShim = {
     return { id: frame.id };
   },
   async getNodeSize(nodeId) {
-    const node = figma.getNodeById(nodeId);
+    const node = await figma.getNodeByIdAsync(nodeId);
     if (!node || typeof node.width !== "number") return null;
     return {
       width: node.width,
@@ -36,7 +63,7 @@ export const realFigmaShim: FigmaShim = {
     };
   },
   async setAutoLayout(frameId, opts) {
-    const frame = figma.getNodeById(frameId);
+    const frame = await figma.getNodeByIdAsync(frameId);
     if (!frame) throw new Error(`Frame not found: ${frameId}`);
     frame.layoutMode = opts.direction;
     frame.paddingTop = opts.padding;
@@ -50,15 +77,15 @@ export const realFigmaShim: FigmaShim = {
     return { id: component.id };
   },
   async appendInstance(parentId, componentId) {
-    const parent = figma.getNodeById(parentId);
-    const component = figma.getNodeById(componentId);
+    const parent = await figma.getNodeByIdAsync(parentId);
+    const component = await figma.getNodeByIdAsync(componentId);
     if (!parent || !component) throw new Error("Parent or component not found");
     const instance = component.createInstance();
     parent.appendChild(instance);
     return { instanceId: instance.id };
   },
   async setVariantProperties(instanceId, props) {
-    const instance = figma.getNodeById(instanceId);
+    const instance = await figma.getNodeByIdAsync(instanceId);
     if (!instance) throw new Error(`Instance not found: ${instanceId}`);
     instance.setProperties(props);
   },
@@ -72,7 +99,7 @@ export const realFigmaShim: FigmaShim = {
     return null;
   },
   async setBoundVariable(nodeId, property, variableId) {
-    const node = figma.getNodeById(nodeId);
+    const node = await figma.getNodeByIdAsync(nodeId);
     if (!node) throw new Error(`Node not found: ${nodeId}`);
     const variable = await figma.variables.getVariableByIdAsync(variableId);
     if (!variable) throw new Error(`Variable not found: ${variableId}`);

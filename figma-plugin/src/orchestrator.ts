@@ -7,6 +7,7 @@ export interface DesignPlan {
   scope: string;
   screen?: string;
   pageName: string;
+  target?: FigmaDraftTarget;
   states: string[];
   layout?: {
     version: 1;
@@ -27,6 +28,24 @@ export interface DesignPlan {
   };
   steps: DesignPlanStep[];
   createdAt: string;
+}
+
+export interface FigmaDraftTarget {
+  fileKey: string;
+  pageId: string;
+  pageName: string;
+  pageUrl: string;
+  boundAt: string;
+  source: "user-url" | "plugin-current-page";
+  section?: {
+    id?: string;
+    name: string;
+  };
+  safety: {
+    requireDraftPageName: true;
+    allowPageCreation: false;
+    requireKotikitSection: true;
+  };
 }
 
 export type ComponentRole =
@@ -100,11 +119,15 @@ export interface OrchestratorOpts {
 
 interface OrchestratorState {
   pageId: string | null;
+  pageName: string | null;
+  sectionId: string | null;
+  sectionName: string | null;
   frameByState: Map<string, string>;
   frameByZone: Map<string, string>;
 }
 
 const zoneKey = (state: string, zone: LayoutZoneId): string => `${state}:${zone}`;
+const isDraftPageName = (name: string): boolean => /\bdrafts?\b/i.test(name);
 
 const resultWithContext = (
   result: ApplyStepResult,
@@ -114,14 +137,43 @@ const resultWithContext = (
 ): ApplyStepResult => ({
   ...result,
   ...(shim.getFileKey() !== undefined ? { fileKey: shim.getFileKey() } : {}),
-  ...(state.pageId !== null ? { page: { id: state.pageId, name: plan.pageName } } : {}),
+  ...(state.pageId !== null && state.pageName !== null ? { page: { id: state.pageId, name: state.pageName } } : {}),
 });
 
 async function ensureState(state: OrchestratorState, shim: FigmaShim, plan: DesignPlan): Promise<void> {
-  if (state.pageId !== null) return;
-  const page = await shim.findOrCreatePage(plan.pageName);
+  if (state.pageId !== null && state.sectionId !== null) return;
+  const target = plan.target;
+  if (target === undefined) {
+    throw new Error("Design plan is missing a Figma draft target.");
+  }
+  const fileKey = shim.getFileKey();
+  if (fileKey !== target.fileKey) {
+    throw new Error("This plugin is open in a different Figma file than the bound draft target.");
+  }
+  const page = await shim.getPageById(target.pageId);
+  if (page === null) {
+    throw new Error("The bound Figma draft page could not be found.");
+  }
+  if (!isDraftPageName(page.name)) {
+    throw new Error("The bound Figma page name must contain Draft or Drafts before kotikit can write to it.");
+  }
   await shim.setCurrentPage(page.id);
+  const sectionName = target.section?.name ?? `kotikit / ${plan.scope}${plan.screen ? ` / ${plan.screen}` : ""}`;
+  const section = await shim.findOrCreateSection({
+    pageId: page.id,
+    name: sectionName,
+    metadata: {
+      scope: plan.scope,
+      ...(plan.screen !== undefined ? { screen: plan.screen } : {}),
+      targetPageId: page.id,
+      targetFileKey: target.fileKey,
+      createdAt: target.boundAt,
+    },
+  });
   state.pageId = page.id;
+  state.pageName = page.name;
+  state.sectionId = section.id;
+  state.sectionName = section.name;
 }
 
 async function applyStepInner(
@@ -137,7 +189,7 @@ async function applyStepInner(
     if (step.kind === "define-state-frame") {
       const frame = await shim.createFrame({
         name: step.state,
-        parentId: state.pageId!,
+        parentId: state.sectionId!,
         width: step.width,
         height: step.height,
       });
@@ -253,7 +305,14 @@ async function applyStepInner(
 }
 
 export async function applyAll(opts: OrchestratorOpts): Promise<ApplyStepResult[]> {
-  const state: OrchestratorState = { pageId: null, frameByState: new Map(), frameByZone: new Map() };
+  const state: OrchestratorState = {
+    pageId: null,
+    pageName: null,
+    sectionId: null,
+    sectionName: null,
+    frameByState: new Map(),
+    frameByZone: new Map(),
+  };
   const results: ApplyStepResult[] = [];
   for (let i = 0; i < opts.plan.steps.length; i++) {
     const step = opts.plan.steps[i]!;
@@ -265,7 +324,14 @@ export async function applyAll(opts: OrchestratorOpts): Promise<ApplyStepResult[
 }
 
 export async function applyStep(opts: OrchestratorOpts & { stepIndex: number }): Promise<ApplyStepResult> {
-  const state: OrchestratorState = { pageId: null, frameByState: new Map(), frameByZone: new Map() };
+  const state: OrchestratorState = {
+    pageId: null,
+    pageName: null,
+    sectionId: null,
+    sectionName: null,
+    frameByState: new Map(),
+    frameByZone: new Map(),
+  };
   // Rebuild state frame map by re-running all preceding define-state-frame steps.
   // For Phase 5 MVP, applyStep is a "place a single item somewhere" — it requires
   // the state frame to already exist. We do a minimal re-init: if any earlier
