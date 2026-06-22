@@ -46,7 +46,7 @@ See also: `kotikit_config_status`, `kotikit_config_init`.
 
 ### kotikit_doctor
 
-Purpose: Diagnose local kotikit setup across config, git, Figma token resolution, design-system artifacts, stale sync checkpoints, code gates, and bridge state.
+Purpose: Diagnose local kotikit setup across config, git, schema versions, Figma token resolution, design-system artifacts, stale sync checkpoints, code gates, and bridge state.
 Input: `{}`
 Output: `{ ok: boolean; root: string; checks: { id, label, status, message, hint? }[]; nextSteps: string[] }`
 Token cost: ~300.

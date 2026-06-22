@@ -7,12 +7,14 @@ The config module owns everything related to `.kotikit/config.json`: the Zod sch
 ## Public surface
 
 **Schema and types** (`src/config/schema.ts`)
+- `CONFIG_SCHEMA_VERSION` — latest numeric schema version for `.kotikit/config.json`
 - `ConfigSchema` — Zod schema for the full config object
 - `Config` — TypeScript type inferred from `ConfigSchema`
 - `defaultConfig()` — returns a fully-defaulted `Config` with no user overrides
 - `parseConfig(raw)` — parse raw JSON into `Config`, throwing a plain-English error on failure
 
 **Fields on `Config`:**
+- `schemaVersion` — numeric config schema marker; missing values are normalized in memory
 - `figma.token` — optional Figma PAT or secret reference
 - `figma.designSystemFiles` — array of `{ key, name }` objects
 - `project.framework` — `"react"` (the only value currently supported)
@@ -45,6 +47,12 @@ Figma sync treats project `.env` as the default token source. If `.kotikit/confi
 
 The init wizard (`buildConfig`) is a thin merge layer. It calls `defaultConfig()` to get a clean base, then overlays only the keys the designer actually provided in `InitAnswers`, then runs the result through `ConfigSchema.parse` to guarantee a valid typed object. This means the wizard never needs to know about every field — omitted answers fall back to defaults automatically. Agent-specific wrappers can provide `git.coAuthor` during setup, for example Codex can pass `{ "name": "Codex", "email": "noreply@openai.com" }`, while shared runtime behavior stays agent-neutral.
 
+Config JSON uses lazy migration. Existing configs without `schemaVersion` are
+loaded into the latest in-memory shape and are written back with
+`schemaVersion` only when kotikit updates the config. Configs from a future
+schema version are rejected with a user-facing error so an older kotikit build
+does not overwrite unknown settings.
+
 ## When to extend it
 
 - Adding a new top-level config key (e.g. a `deploy` block) — add the field to `ConfigSchema`, update `defaultConfig`, and add a question to the MCP `kotikit_config_init` tool.
@@ -56,4 +64,5 @@ The init wizard (`buildConfig`) is a thin merge layer. It calls `defaultConfig()
 
 - [util](./util.md) — `configPath`, `findProjectRoot`, and all `.kotikit/` path helpers live here
 - [mcp](./mcp.md) — `kotikit_config_status` and `kotikit_config_init` are the MCP tools that call `loadConfig`, `configExists`, and `buildConfig`
+- [migrations](./migrations.md) — lazy JSON migration model
 - `planning/phase-1.md` — design rationale for the config schema and init flow

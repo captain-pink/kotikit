@@ -485,6 +485,18 @@ systematic until variables are imported.
 
 ---
 
+**8. "Some kotikit files use older formats"**
+
+This is usually safe. Kotikit reads older specs and config files without
+rewriting your whole project. When you edit one of those files through kotikit,
+that specific file is saved back in the latest format.
+
+Fix: no action is required unless kotikit says a file was created by a newer
+version. In that case, update your local kotikit checkout before editing the
+project.
+
+---
+
 ## Where to learn more
 
 - `docs/tools.md` — every kotikit MCP tool, with examples.
@@ -493,6 +505,7 @@ systematic until variables are imported.
 - `docs/codex_support_plan.md` — the Codex support implementation plan and local test checklist.
 - `docs/coding_guidelines.md` — coding standards for agents and engineers extending kotikit.
 - `docs/modules/setup.md` — how the local agent scaffold command works.
+- `docs/modules/migrations.md` — how kotikit reads older local files and updates them lazily.
 - `docs/modules/` — how each piece of kotikit works under the hood (for engineers or
   curious designers).
 - `docs/TOKENS.md` — keeping conversations cheap: what costs tokens and how to reduce it.

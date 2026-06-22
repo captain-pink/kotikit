@@ -7,8 +7,10 @@ The spec module owns the on-disk representation of design intent: the `ScreenSpe
 ## Public surface
 
 **Schemas and types** (`src/spec/schema.ts`)
-- `ScreenSpecSchema`, `ScreenSpec` — the per-screen spec shape (id, title, context, requirements, components, acceptanceCriteria, metadata)
-- `FlowManifestSchema`, `FlowManifest` — the flow-level manifest (id, title, description, screens list, transitions, sharedState, metadata)
+- `SCREEN_SPEC_SCHEMA_VERSION` — latest numeric schema version for screen specs
+- `FLOW_MANIFEST_SCHEMA_VERSION` — latest numeric schema version for flow manifests
+- `ScreenSpecSchema`, `ScreenSpec` — the per-screen spec shape (schemaVersion, id, title, context, requirements, components, acceptanceCriteria, metadata)
+- `FlowManifestSchema`, `FlowManifest` — the flow-level manifest (schemaVersion, id, title, description, screens list, transitions, sharedState, metadata)
 - `newScreenSpec({ title, description, flowRef? })` — factory that stamps timestamps, generates a UUID, and sets status to `"draft"`
 - `newFlowManifest({ title, description, screens })` — factory for a flow manifest
 - `parseScreenSpec(raw)` — parse and validate; throws a plain-English error on malformed input
@@ -46,9 +48,16 @@ The index at `.kotikit/index.json` is a flat JSON array of `IndexEntry` objects.
 
 Status flows one direction: `"draft"` → `"active"`. The MCP tools that create specs always start in `"draft"`. A separate update path (exposed via `kotikit_spec_update`) sets status to `"active"` once the designer confirms the spec is implementation-ready.
 
+Spec JSON uses lazy migration. Missing `schemaVersion` means the file is a
+legacy but readable artifact. `parseScreenSpec` and `parseFlowManifest`
+normalize those files into the latest in-memory shape without rewriting the file.
+Any later write through `writeScreenSpec` or `writeFlowManifest` serializes the
+latest schema. Future schema versions are rejected so an older kotikit build does
+not accidentally edit files created by a newer one.
+
 ## When to extend it
 
-- Adding a new field to `ScreenSpec` (e.g. `analytics.eventNames`) — extend `ScreenSpecSchema`, update `newScreenSpec`, bump `version`, and update any tool that reads the spec to handle both old and new shapes.
+- Adding a new field to `ScreenSpec` (e.g. `analytics.eventNames`) — extend `ScreenSpecSchema`, update `newScreenSpec`, bump `SCREEN_SPEC_SCHEMA_VERSION` only if the persisted shape meaningfully changes, and update any tool that reads the spec to handle both old and new shapes.
 - Adding a new scope kind beyond `"screen"` and `"flow"` — extend the `kind` union in `IndexEntry` and add a corresponding engine function following the same read/write/upsert-index pattern.
 - Adding transitions to a single-screen scope — `ScreenSpec` currently carries no transition data; that lives in `FlowManifest`. If single screens need transitions, add a `nextScreenRef` field.
 - Changing the status lifecycle (e.g. adding `"archived"`) — extend the `status` enum in both the schema and the `IndexEntry` type.
@@ -59,4 +68,5 @@ Status flows one direction: `"draft"` → `"active"`. The MCP tools that create 
 - [util](./util.md) — all spec path helpers (`scopeDir`, `screenSpecPath`, `singleSpecPath`, `flowManifestPath`, `indexPath`) live here
 - [git](./git.md) — `autoCommitSpec` stages spec files after every write
 - [mcp](./mcp.md) — `kotikit_spec_create`, `kotikit_flow_create`, `kotikit_spec_update`, `kotikit_spec_list` are the tool wrappers
+- [migrations](./migrations.md) — lazy JSON migration model
 - `planning/phase-1.md` — spec schema design rationale

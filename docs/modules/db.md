@@ -66,7 +66,9 @@ The design review database is intentionally compact. It does not store long
 design-change narratives. A review pass stores comment metadata and mapping
 status, each fix stores a short adjustment row, and repeated adjustment evidence
 can become a preference candidate. Only promoted `design_preferences` are fed
-back into design context by `kotikit_design_get_screen`.
+back into design context by `kotikit_design_get_screen`. The DB now sets
+`PRAGMA user_version = 1` on open so future schema additions can use the same
+idempotent migration style as the registry DB.
 
 ## When to extend it
 
@@ -81,5 +83,6 @@ back into design context by `kotikit_design_get_screen`.
 - [sync](./sync.md) — `initComponentsDb`, `upsertComponent`, `initIconsDb`, `upsertIcon`, `initRegistryDb`, `upsertRegistryDsRow` are all called by the sync orchestrator
 - [codegen](./codegen.md) — the registry is read by the scaffold tool to find `design-only` components
 - [util](./util.md) — `componentsDbPath`, `iconsDbPath`, `registryDbPath`, and `designReviewDbPath` are the canonical path helpers
+- [migrations](./migrations.md) — JSON artifacts are lazy; SQLite migrates on open
 - `planning/phase-2.md` — FTS5 tokenizer decision; camel-token rationale
 - `planning/phase-4.md` — registry v1 schema and `upsertRegistryDsRow` merge rules
