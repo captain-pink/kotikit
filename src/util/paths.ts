@@ -72,6 +72,16 @@ export const designPlanPath = (
   return `${root}/.kotikit/specs/${scope}/${name}`;
 };
 
+/** Path to the component-creation plan that must be completed before a screen can proceed. */
+export const componentPlanPath = (
+  root: string,
+  scope: string,
+  screen: string | null
+): string => {
+  const name = screen ? `${screen}.component.plan.json` : "component.plan.json";
+  return `${root}/.kotikit/specs/${scope}/${name}`;
+};
+
 /** Path to the per-screen apply log (JSONL). */
 export const designApplyLogPath = (
   root: string,
