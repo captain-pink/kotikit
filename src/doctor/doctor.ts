@@ -8,6 +8,7 @@ import { reactAdapter } from "../codegen/react/adapter.js";
 import { resolveFigmaToken } from "../sync/figma-token.js";
 import { hasCheckpoint } from "../sync/checkpoint.js";
 import { readBridgeConfig } from "../mcp/bridge/token.js";
+import { inspectProjectSchemaVersions } from "../migrations/schema-inventory.js";
 import {
   bridgeConfigPath,
   componentsDbPath,
@@ -51,6 +52,45 @@ const designSystemArtifactsPresent = (root: string): boolean =>
   existsSync(componentsDbPath(root)) &&
   existsSync(iconsDbPath(root)) &&
   existsSync(manifestPath(root));
+
+const schemaVersionCheck = async (root: string): Promise<DoctorCheck> => {
+  const inventory = await inspectProjectSchemaVersions(root);
+  if (inventory.future > 0) {
+    return check({
+      id: "schema-versions",
+      label: "Schema versions",
+      status: "error",
+      message: `${inventory.future} kotikit file(s) were created by a newer kotikit version.`,
+      hint: "Update kotikit before editing these files.",
+    });
+  }
+  if (inventory.unreadable > 0) {
+    return check({
+      id: "schema-versions",
+      label: "Schema versions",
+      status: "warn",
+      message: `${inventory.unreadable} kotikit file(s) could not be inspected for schema version.`,
+      hint: "Open the reported file(s) only if a tool later says they cannot be read.",
+    });
+  }
+  if (inventory.legacyOrOlder > 0) {
+    return check({
+      id: "schema-versions",
+      label: "Schema versions",
+      status: "warn",
+      message: `${inventory.legacyOrOlder} older kotikit file(s) can be read safely.`,
+      hint: "They will be updated automatically when edited; no project-wide migration is required.",
+    });
+  }
+  return check({
+    id: "schema-versions",
+    label: "Schema versions",
+    status: "ok",
+    message: inventory.checked === 0
+      ? "No versioned kotikit files found yet."
+      : "Versioned kotikit files are current.",
+  });
+};
 
 const bridgeMessage = async (root: string): Promise<DoctorCheck> => {
   const bridge = await readBridgeConfig(root);
@@ -137,6 +177,8 @@ export async function runKotikitDoctor(
       : "Project is not inside a git repository; auto-commits will be skipped.",
     hint: gitRepo ? undefined : "Run git init if you want kotikit auto-commit support.",
   }));
+
+  checks.push(await schemaVersionCheck(root));
 
   const token = await resolveFigmaToken(root, config);
   const figmaFiles = config?.figma.designSystemFiles.length ?? 0;

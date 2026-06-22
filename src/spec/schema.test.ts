@@ -2,12 +2,14 @@ import { describe, it, expect } from "bun:test";
 import {
   ScreenSpecSchema,
   FlowManifestSchema,
+  SCREEN_SPEC_SCHEMA_VERSION,
+  FLOW_MANIFEST_SCHEMA_VERSION,
   newScreenSpec,
   newFlowManifest,
   parseScreenSpec,
   parseFlowManifest,
 } from "./schema";
-import { parseConfig, defaultConfig } from "../config/schema";
+import { CONFIG_SCHEMA_VERSION, parseConfig, defaultConfig } from "../config/schema";
 
 describe("ScreenSpecSchema", () => {
   it("accepts a valid minimal screen spec", () => {
@@ -20,6 +22,34 @@ describe("ScreenSpecSchema", () => {
     const parsed = parseScreenSpec(spec);
     expect(parsed.title).toBe("Cart");
     expect(parsed.type).toBe("screen");
+    expect(parsed.schemaVersion).toBe(SCREEN_SPEC_SCHEMA_VERSION);
+  });
+
+  it("normalizes legacy specs without schemaVersion to the latest in-memory schema", () => {
+    const legacy = {
+      ...newScreenSpec({ title: "Legacy", description: "Old spec" }),
+      schemaVersion: undefined,
+      components: [{ name: "Button", dsKey: "button-key" }],
+    };
+    delete legacy.schemaVersion;
+
+    const parsed = parseScreenSpec(legacy);
+
+    expect(parsed.schemaVersion).toBe(SCREEN_SPEC_SCHEMA_VERSION);
+    expect(parsed.components[0]?.resolution).toEqual({
+      kind: "existing-ds",
+      status: "approved",
+      variablePolicy: "require-existing-variables",
+    });
+  });
+
+  it("rejects specs from a future schema version with a readable field name", () => {
+    expect(() =>
+      parseScreenSpec({
+        ...newScreenSpec({ title: "Future", description: "x" }),
+        schemaVersion: SCREEN_SPEC_SCHEMA_VERSION + 1,
+      })
+    ).toThrow(/schemaVersion/);
   });
 
   it('accepts "inherits" for responsive', () => {
@@ -122,6 +152,21 @@ describe("FlowManifestSchema", () => {
     });
     const parsed = parseFlowManifest(m);
     expect(parsed.title).toBe("Checkout");
+    expect(parsed.schemaVersion).toBe(FLOW_MANIFEST_SCHEMA_VERSION);
+  });
+
+  it("normalizes legacy flow manifests without schemaVersion to the latest in-memory schema", () => {
+    const legacy = {
+      ...newFlowManifest({
+        title: "Checkout",
+        description: "desc",
+        screens: [{ id: "cart", path: "cart.spec.json", title: "Cart" }],
+      }),
+      schemaVersion: undefined,
+    };
+    delete legacy.schemaVersion;
+
+    expect(parseFlowManifest(legacy).schemaVersion).toBe(FLOW_MANIFEST_SCHEMA_VERSION);
   });
 
   it("rejects a manifest with zero screens", () => {
@@ -146,6 +191,7 @@ describe("ConfigSchema", () => {
 
   it("defaultConfig has expected shape", () => {
     const c = defaultConfig();
+    expect(c.schemaVersion).toBe(CONFIG_SCHEMA_VERSION);
     expect(c.project.framework).toBe("react");
     expect(c.project.tests).toBe(true);
     expect(c.git.autoCommit).toBe(true);

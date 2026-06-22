@@ -1,7 +1,15 @@
 import { z } from "zod";
 import { KotikitError } from "../util/result.js";
 
+export const CONFIG_SCHEMA_VERSION = 1;
+
 export const ConfigSchema = z.object({
+  schemaVersion: z
+    .number()
+    .int()
+    .positive()
+    .max(CONFIG_SCHEMA_VERSION)
+    .default(CONFIG_SCHEMA_VERSION),
   figma: z
     .object({
       token: z.string().optional(),
@@ -52,6 +60,7 @@ export type Config = z.infer<typeof ConfigSchema>;
 /** Returns a fully-defaulted Config object with no user overrides. */
 export function defaultConfig(): Config {
   return ConfigSchema.parse({
+    schemaVersion: CONFIG_SCHEMA_VERSION,
     project: {
       framework: "react",
       codeComponentsDir: "src/components",

@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { uuid, nowIso } from "../util/ids";
 
+export const SCREEN_SPEC_SCHEMA_VERSION = 2;
+export const FLOW_MANIFEST_SCHEMA_VERSION = 2;
+
 // Helper: a field that is either the string "inherits" or an object with overrides
 const InheritOr = <T extends z.ZodTypeAny>(overrides: T) =>
   z.union([z.literal("inherits"), z.object({ overrides })]);
@@ -60,6 +63,12 @@ export type ScreenComponent = z.infer<typeof ScreenComponentSchema>;
 // ─── Screen Spec ─────────────────────────────────────────────────────────────
 
 export const ScreenSpecSchema = z.object({
+  schemaVersion: z
+    .number()
+    .int()
+    .positive()
+    .max(SCREEN_SPEC_SCHEMA_VERSION)
+    .default(SCREEN_SPEC_SCHEMA_VERSION),
   id: z.string().uuid(),
   version: z.string().default("1.0.0"),
   status: z.enum(["draft", "active"]).default("draft"),
@@ -94,6 +103,12 @@ export type ScreenSpec = z.infer<typeof ScreenSpecSchema>;
 // ─── Flow Manifest ────────────────────────────────────────────────────────────
 
 export const FlowManifestSchema = z.object({
+  schemaVersion: z
+    .number()
+    .int()
+    .positive()
+    .max(FLOW_MANIFEST_SCHEMA_VERSION)
+    .default(FLOW_MANIFEST_SCHEMA_VERSION),
   id: z.string().uuid(),
   title: z.string().min(1, "title is required"),
   description: z.string().min(1, "description is required"),
@@ -133,6 +148,7 @@ export function newScreenSpec(input: {
 }): ScreenSpec {
   const now = nowIso();
   return ScreenSpecSchema.parse({
+    schemaVersion: SCREEN_SPEC_SCHEMA_VERSION,
     id: uuid(),
     version: "1.0.0",
     status: "draft",
@@ -166,6 +182,7 @@ export function newFlowManifest(input: {
 }): FlowManifest {
   const now = nowIso();
   return FlowManifestSchema.parse({
+    schemaVersion: FLOW_MANIFEST_SCHEMA_VERSION,
     id: uuid(),
     title: input.title,
     description: input.description,

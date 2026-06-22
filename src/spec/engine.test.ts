@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { writeScreenSpec, readScreenSpec, writeFlowManifest, readFlowManifest, listScopes, scopeExists } from "./engine";
 import { readIndex } from "./index-store";
-import { newScreenSpec, newFlowManifest } from "./schema";
+import { SCREEN_SPEC_SCHEMA_VERSION, newScreenSpec, newFlowManifest } from "./schema";
 import { KotikitError } from "../util/result";
 
 let tmp: string;
@@ -39,6 +39,28 @@ describe("single-screen spec (spec.json)", () => {
     expect(index[0].scope).toBe("profile-page");
     expect(index[0].kind).toBe("screen");
     expect(index[0].status).toBe("draft");
+  });
+
+  it("rewrites a legacy spec in the latest schema only when that spec is touched", async () => {
+    const legacy = newScreenSpec({ title: "Legacy", description: "x" });
+    const dir = join(tmp, ".kotikit", "specs", "legacy");
+    mkdirSync(dir, { recursive: true });
+    const path = join(dir, "spec.json");
+    const { schemaVersion: _schemaVersion, ...legacyWithoutSchemaVersion } = legacy;
+    writeFileSync(path, JSON.stringify(legacyWithoutSchemaVersion, null, 2) + "\n", "utf-8");
+
+    expect(JSON.parse(readFileSync(path, "utf-8")).schemaVersion).toBeUndefined();
+
+    const loaded = await readScreenSpec(tmp, "legacy", null);
+    expect(loaded.schemaVersion).toBe(SCREEN_SPEC_SCHEMA_VERSION);
+    expect(JSON.parse(readFileSync(path, "utf-8")).schemaVersion).toBeUndefined();
+
+    loaded.title = "Legacy Updated";
+    await writeScreenSpec(tmp, "legacy", null, loaded);
+
+    const written = JSON.parse(readFileSync(path, "utf-8")) as { schemaVersion?: number; title?: string };
+    expect(written.schemaVersion).toBe(SCREEN_SPEC_SCHEMA_VERSION);
+    expect(written.title).toBe("Legacy Updated");
   });
 });
 

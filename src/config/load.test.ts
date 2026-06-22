@@ -4,7 +4,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { loadConfig, configExists, writeConfig, resolveSecret, resolveSecretImpl } from "./load";
 import { buildConfig } from "./init";
-import { defaultConfig, parseConfig } from "./schema";
+import { CONFIG_SCHEMA_VERSION, defaultConfig, parseConfig } from "./schema";
 
 let tmp: string;
 
@@ -34,6 +34,7 @@ describe("writeConfig + loadConfig round-trip", () => {
     await writeConfig(tmp, cfg);
     const loaded = await loadConfig(tmp);
     expect(loaded).not.toBeNull();
+    expect(loaded!.schemaVersion).toBe(CONFIG_SCHEMA_VERSION);
     expect(loaded!.project.framework).toBe("react");
     expect(loaded!.project.tests).toBe(true);
     expect(loaded!.git.autoCommit).toBe(true);
@@ -158,6 +159,22 @@ describe("buildConfig", () => {
 });
 
 describe("parseConfig — testFramework back-fill", () => {
+  it("normalizes an existing config without schemaVersion to the latest in-memory schema", () => {
+    const raw = {
+      project: {
+        framework: "react",
+        codeComponentsDir: "src/components",
+        tests: true,
+      },
+      defaults: {
+        breakpoints: [375, 768, 1024, 1440],
+        themes: ["light", "dark"],
+      },
+    };
+    const cfg = parseConfig(raw);
+    expect(cfg.schemaVersion).toBe(CONFIG_SCHEMA_VERSION);
+  });
+
   it("parses an existing config without testFramework and fills default", () => {
     const raw = {
       project: {
@@ -221,5 +238,14 @@ describe("parseConfig — testFramework back-fill", () => {
       },
     };
     expect(() => parseConfig(raw)).toThrow();
+  });
+
+  it("rejects configs from a future schema version", () => {
+    expect(() =>
+      parseConfig({
+        ...defaultConfig(),
+        schemaVersion: CONFIG_SCHEMA_VERSION + 1,
+      })
+    ).toThrow(/schemaVersion/);
   });
 });

@@ -197,6 +197,8 @@ export interface DesignReviewStore {
   }): DesignPreferenceRow[];
 }
 
+const DESIGN_REVIEW_DB_VERSION = 1;
+
 const nullable = (value: string | undefined): string | null => value ?? null;
 const targetToJson = (target: unknown): string | null =>
   target === undefined ? null : JSON.stringify(target);
@@ -343,6 +345,7 @@ export function initDesignReviewDb(db: Database): void {
       updated_at     TEXT NOT NULL
     );
   `);
+  db.exec(`PRAGMA user_version = ${DESIGN_REVIEW_DB_VERSION}`);
 }
 
 const rowToReviewSession = (row: Record<string, unknown>): ReviewSessionRow => ({

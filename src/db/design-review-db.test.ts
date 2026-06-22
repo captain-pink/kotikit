@@ -17,6 +17,13 @@ afterEach(() => {
 });
 
 describe("design review db", () => {
+  it("initializes the SQLite user_version for future migrations", () => {
+    const store = openDesignReviewDb(mkTmp());
+    const row = store.db.query("PRAGMA user_version").get() as { user_version: number };
+
+    expect(row.user_version).toBe(1);
+  });
+
   it("records a review session and upserts compact comment rows", () => {
     const db = openDesignReviewDb(mkTmp());
     const session = db.recordReviewSession({
