@@ -37,11 +37,16 @@ See [docs/tools.md](../tools.md) for the complete cheat-sheet. The 41 tools are 
 - Phase 6: `kotikit_audit`, `kotikit_get_system_prompt`
 - Tooling: `kotikit_doctor`
 
+Phase 3 and Phase 4 implementation tools are currently experimental. They stay
+registered so engineering work can continue, but guided designer flows should
+prefer specs, design-system sync, Figma design creation/refinement, and comment
+review.
+
 ## How it works
 
 `buildServer` is the single composition root. It constructs one `ToolRegistry` object, finds the project root via `findProjectRoot()`, builds a `ToolContext`, then calls each `register*` function with both. Each registrar pushes one or more `Tool` objects (the MCP JSON Schema description) onto `registry.tools` and one handler function per tool onto `registry.handlers`. The server's `CallToolRequestSchema` handler is a single dispatcher: it looks up the tool name in `handlers`, calls the handler, and lets `toolError` convert any thrown error into a safe MCP error response.
 
-The server also exposes `KOTIKIT_MCP_INSTRUCTIONS` during MCP initialization. These instructions are agent-neutral and front-load the workflow: translate tool JSON into plain language, fetch long system prompts by reference, search design-system indexes before reading exact files, and keep user-facing errors friendly.
+The server also exposes `KOTIKIT_MCP_INSTRUCTIONS` during MCP initialization. These instructions are agent-neutral and front-load the workflow: translate tool JSON into plain language, fetch long system prompts by reference, search design-system indexes before reading exact files, keep user-facing errors friendly, and treat kotikit as design-first until design-to-code returns in a later version.
 
 The stdio transport and the WebSocket bridge share the identical handler map. The bridge's `tools/call` JSON-RPC handler looks up the tool name in `registry.handlers` and calls it with the parsed arguments, exactly as the stdio dispatcher does. This means every feature automatically works in stdio MCP clients such as Claude Code and Codex, and in the Figma plugin bridge, without duplication. Browserless Figma review uses the same path: `kotikit_design_review_comments` reads comments through the REST API, maps them through the local node map written by apply-step results, and stores compact review state in `.kotikit/design-review.db`.
 

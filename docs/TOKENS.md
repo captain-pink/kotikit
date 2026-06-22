@@ -9,14 +9,18 @@ This doc tells you what each tool costs and how to keep your conversations cheap
 ## TL;DR — three things you can do today
 
 1. **Brainstorm one screen per session.** Start a new chat for the next screen so the prior brainstorm doesn't sit in context.
-2. **Scaffold in batches of 3.** kotikit pages scaffolding by default. Resist asking the agent to "scaffold all 30 components at once".
-3. **Don't `expand: true` unless you actually need it.** The default `componentRefs` shape saves ~15-20% tokens per call; the agent can fetch any one component on demand.
+2. **Sync and review in focused sessions.** Design-system sync, Figma design creation, and comment review each work best when they are not mixed into one long conversation.
+3. **Use search before detail.** `kotikit_ds_search`, `kotikit_icons_search`, and design memory search are small; fetch exact details only after narrowing the target.
 
 ---
 
 ## Why this matters
 
-Sonnet 4.6's weekly token budget covers tens of conversations of normal-length work. A single naive `kotikit_implement_code_start` followed by `kotikit_scaffold_start` for 20 components, both with `expand: true`, can consume 100KB+ of tool results — eating half a day's budget on one screen.
+Sonnet 4.6's weekly token budget covers tens of conversations of normal-length work. A single naive experimental `kotikit_implement_code_start` followed by `kotikit_scaffold_start` for 20 components, both with `expand: true`, can consume 100KB+ of tool results — eating half a day's budget on one screen.
+
+The guided kotikit workflow is currently design-first. Implementation and
+scaffold tools are measured here for engineering visibility, but agents should
+not use them in `/kotikit-auto` or `kotikit:auto` until design-to-code returns.
 
 Phase 6 cuts steady-state tool-result traffic by ~25-30%, with larger savings on the pathological `expand: true` paths. A typical "build one screen with 5-component scaffold" session drops from ~25KB of tool returns to ~18KB after the Phase 6 cuts. The Phase 6 changes that drove this:
 
@@ -82,7 +86,7 @@ After Phase 6, those tools return a `systemPromptRef: "react" | "brainstorm" | "
 
 **First-turn recommendation:** If you call `implement_code_start` or `scaffold_start` early in a fresh conversation, make your first tool call `kotikit_get_system_prompt({ kind: 'react' })` to fetch the doctrine into context. After that, every subsequent implement/scaffold call references it for free. Without that priming call, the model has only the short `systemPromptRef` stub and may ask to fetch the doctrine mid-flow, costing an extra round-trip.
 
-### 2. Scaffold pagination
+### 2. Experimental scaffold pagination
 
 `kotikit_scaffold_start` defaults:
 
@@ -92,7 +96,8 @@ After Phase 6, those tools return a `systemPromptRef: "react" | "brainstorm" | "
 
 A 20-component design system scaffolds in 7 round-trips of ~5KB each instead of one 50KB blob (~13,157 tokens → ~9,562 tokens across the full set). Each batch is small enough to review and correct before committing to the next.
 
-**Tip for designers:** ask the agent "scaffold the first 3 components" and review each batch before continuing. This also means mistakes are caught early — not after 20 components are generated.
+This is engineering guidance for the experimental scaffold track. It is not part
+of the current designer-facing guided workflow.
 
 ### 3. `componentRefs` lazy expansion
 
@@ -110,8 +115,8 @@ These are the highest-leverage habits for keeping sessions cheap:
 
 - **Brainstorm one screen per session.** Close the chat when you finish a screen. The brainstorm context is the longest-lived blob in a conversation; carrying it forward into implementation doubles your context size for free.
 - **Don't call sync or audit in the middle of a brainstorm.** Start a fresh session for sync or audit work — those tools return their own payloads and don't benefit from the brainstorm context already being warm.
-- **Scaffold incrementally.** 3-5 components at a time. Review the output, fix any issues, then continue. This is faster in practice because you're catching mistakes early rather than untangling a 30-component generation.
-- **Run the audit at the end of a session, not the start.** The report is compact (~261 tokens) but reading it adds context. If you run it at the start, it sits in context for the whole session even if you don't act on it.
+- **Review comments in batches.** Pull a focused set of Figma comments, make the adjustments, record them, then continue.
+- **Avoid experimental code tools in design sessions.** `implement_code_start`, `scaffold_start`, and audit reports add code context that the current design-first workflow does not need.
 - **Use search tools to narrow before fetching.** `ds_search`, `icons_search`, and `registry_search` are all under 200 tokens. Run one first, then fetch the specific component you need. This avoids pulling full DS JSON for things you won't use.
 
 ---

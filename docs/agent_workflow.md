@@ -9,6 +9,13 @@ The designer-facing experience must stay plain-language and product-focused.
 Tool calls, JSON, schema names, internal file paths, and git terminology are
 implementation details.
 
+Current product stage: kotikit is design-first. Use the guided workflow for
+screen specs, Figma design-system sync, Figma design creation/refinement, and
+Figma comment review. Do not generate React code or scaffold code components in
+the guided workflow yet. If the designer asks for implementation, explain that
+design-to-code is coming in a later version once design creation is stable, and
+offer to create or refine the Figma design now.
+
 ## Entry Point
 
 `/kotikit-auto` in Claude Code and `kotikit:auto` in Codex are the primary
@@ -125,8 +132,8 @@ exactly as returned. Do not paraphrase or add technical context.
 ## Step 6: What Next?
 
 After every major action - saving a spec, updating a spec, listing specs,
-generating a plan, syncing a design system, scaffolding components, or
-implementing code - present this menu:
+generating a design plan, syncing a design system, creating or refining a Figma
+design, or reviewing comments - present this menu:
 
 ```text
 What next?
@@ -134,7 +141,8 @@ What next?
   - Edit a screen
   - See everything I've specced so far
   - Sync my design system
-  - Generate code
+  - Create or refine the Figma design
+  - Review Figma comments
   - I'm done for now
 ```
 
@@ -146,38 +154,50 @@ Route each choice as follows:
 - See everything I've specced so far: call `kotikit_spec_list({})` and present
   a readable list of screen names and status. Do not show raw JSON.
 - Sync my design system: call `kotikit_sync_ds`.
-- Generate code: use the code track described below.
+- Create or refine the Figma design: use the Design Track described below.
+- Review Figma comments: use the Review Track described below.
 - I'm done for now: close gracefully with "All set. Come back any time to keep
   building."
 
 The designer must never be left at a blank prompt after a completed action.
 
-## Code Track
+## Design Track
 
-For screen implementation:
+For creating or refining a Figma design from a saved spec:
 
-1. Call `kotikit_implement_code_start({ scope, screen? })`.
-2. If the React doctrine has not been fetched in this session, call
-   `kotikit_get_system_prompt({ kind: "react" })`.
-3. Use `componentRefs` by default. Fetch only the component JSON needed with
-   `kotikit_ds_get_component({ path })`.
-4. Write the component and test files into the returned target paths.
-5. Call `kotikit_implement_code_save`.
-6. If gates fail, fix files in place and call `kotikit_implement_code_gate`.
+1. Ask which saved spec or screen to use if it is not clear.
+2. Make sure the Figma design system has been synced if the design should use
+   design-system components.
+3. Call `kotikit_plan_design`.
+4. Call `kotikit_design_get_screen`.
+5. If the Figma plugin bridge is not running, call `kotikit_bridge_start` and
+   give the designer the returned bridge URL.
+6. Ask the designer to open the target Figma draft, run the kotikit plugin, and
+   connect to the bridge URL.
+7. Apply the design plan step by step through the plugin, recording each result
+   with `kotikit_design_apply_step`.
+8. Summarize what was created or refined in plain language.
 
-Do not ask the designer about TypeScript, Tailwind classes, test internals, or
-tool names unless they ask.
+Do not ask the designer about implementation details, file paths, TypeScript,
+or test internals.
 
-## Scaffold Track
+## Review Track
 
-For design-system component scaffolding:
+For Figma comments and refinement feedback:
 
-1. Call `kotikit_scaffold_start`.
-2. Keep batches small; default pagination is intentional.
-3. If the scaffold doctrine has not been fetched in this session, call
-   `kotikit_get_system_prompt({ kind: "scaffold" })`.
-4. Refine the returned shapes into production code.
-5. Call `kotikit_scaffold_save`.
+1. Call `kotikit_design_review_comments`.
+2. Summarize mapped comments, unmapped comments, and suggested fixes in plain
+   language.
+3. After each design adjustment, call `kotikit_design_adjustment_record`.
+4. When fixes are ready to report, use the review report and comment reply
+   tools to prepare designer-facing replies.
+
+## Design-to-Code Notice
+
+If the designer asks for React code, code generation, component scaffolding, or
+implementation work, do not call code-generation or scaffold tools. Say:
+"Design-to-code is coming in a later version once the design creation process is
+stable. I can help create or refine the Figma design now."
 
 ## UX Rules
 

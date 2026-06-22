@@ -177,7 +177,7 @@ Input: `{ path: string }`
 Output: Full `ComponentJson` (name, key, optional componentSetKey, variants, properties, slots, description, updatedAt). The `key` is the importable component key; `componentSetKey` is logical set metadata when available.
 Token cost: ~158.
 Example: "Get the full JSON for the Button component."
-See also: `kotikit_ds_search`, `kotikit_implement_code_start`.
+See also: `kotikit_ds_search`, `kotikit_design_get_screen`.
 
 ---
 
@@ -192,7 +192,12 @@ See also: `kotikit_ds_search`, `kotikit_sync_ds`.
 
 ---
 
-## Code track
+## Experimental code track
+
+These tools are retained for internal experiments and future design-to-code
+work. They are not part of the guided `/kotikit-auto` or `kotikit:auto`
+designer workflow yet. Agents should not call them for designers unless a
+developer explicitly opts into experimental implementation work.
 
 ### kotikit_plan_code
 
@@ -242,7 +247,7 @@ See also: `kotikit_implement_code_save`.
 
 ### kotikit_scaffold_start ⚠
 
-Purpose: Gather scaffolding context for DS components — returns component skeletons, DS JSON, and target paths, paginated.
+Purpose: Gather experimental scaffolding context for DS components — returns component skeletons, DS JSON, and target paths, paginated.
 Input: `{ names?: string[]; pageSize?: number; cursor?: string; compact?: boolean; expand?: boolean }`
 Output: `{ components: { name, kebabName, targetPath, storyPath?, dsJson, scaffoldShape }[]; nextCursor?: string; hasMore: boolean; totalRemaining: number; systemPromptRef: "react"; hasStorybook: boolean; skipped: { name, reason }[]; testFramework: string }`
 Token cost: ~1366 (default compact, pageSize 3) / ~1506 (expand: true) ⚠.

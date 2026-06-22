@@ -3,8 +3,12 @@
 This document describes the minimum work required to make kotikit work well in
 Codex in addition to Claude Code. The goal is local testability first: a
 developer should be able to connect Codex to the existing kotikit MCP server,
-run the same workflows, and verify that the generated specs, code, gates, and
-commits behave correctly.
+run the same design-first workflows, and verify that generated specs, Figma
+design plans, review state, and local save-points behave correctly.
+
+Historical note: this plan was created when kotikit still presented itself as a
+design-system-to-code workflow. The current guided product surface is
+design-first; design-to-code stays experimental until design creation is stable.
 
 The current architecture is already close. Kotikit is a standard stdio MCP
 server, so Codex can call the existing tools without a transport rewrite. The
@@ -105,7 +109,8 @@ Recommended implementation:
    - "run kotikit auto"
    - "build a screen with kotikit"
    - "sync my Figma design system"
-   - "generate React code from my Figma components"
+   - "create a Figma design from a saved spec"
+   - "review Figma comments"
 
 5. The skill should tell Codex to use the `kotikit_*` MCP tools and follow the
    same six-step flow:
@@ -155,11 +160,13 @@ Recommended content:
 
 - First 512 characters must stand alone. Codex uses this early when deciding
   how to use the server.
-- State that kotikit is a local design-system-to-code workflow.
+- State that kotikit is currently a local design-first workflow.
 - State that tools return internal JSON and the agent must translate results
   into plain language for designers.
+- State that design-to-code is coming in a later version and agents should not
+  call implementation or scaffold tools in the guided workflow yet.
 - State that `kotikit_get_system_prompt` should be fetched once per session
-  before implementation, scaffold, or brainstorm-heavy work.
+  before brainstorm-heavy work.
 - State that design-system lookups should use search first, then fetch one
   component JSON by path, never load whole indexes.
 
@@ -185,9 +192,8 @@ Local test checklist:
 - Start Codex with the kotikit MCP server configured.
 - Run `/mcp verbose` or inspect MCP server details.
 - Confirm instructions are visible or reflected in Codex's behavior.
-- Ask Codex to implement a screen and confirm it fetches
-  `kotikit_get_system_prompt` before using `kotikit_implement_code_start`
-  results to write code.
+- Ask Codex to build a screen with `kotikit:auto` and confirm it creates a spec,
+  then offers to create or refine the Figma design instead of writing code.
 
 ## Step 4: Make Commit Attribution Agent-Aware
 

@@ -5,8 +5,14 @@ describe("KOTIKIT_MCP_INSTRUCTIONS", () => {
   it("starts with standalone workflow guidance for MCP clients", () => {
     const prefix = KOTIKIT_MCP_INSTRUCTIONS.slice(0, 512);
     expect(prefix).toContain("kotikit");
-    expect(prefix).toContain("design-system-to-code");
+    expect(prefix).toContain("design-first");
     expect(prefix).toContain("plain language");
+  });
+
+  it("tells agents that code generation is not part of the guided workflow yet", () => {
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("Do not generate React code");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("design-to-code is coming in a later version");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).not.toContain("For code generation, use kotikit_implement_code_start");
   });
 
   it("mentions prompt refs and design-system search discipline", () => {

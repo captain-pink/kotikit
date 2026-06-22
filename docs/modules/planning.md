@@ -4,6 +4,10 @@
 
 The planning module manages ephemeral, regenerable plans that guide an agent through multi-step code generation and design application. It owns two independent plan tracks: the code track (Phase 3) that breaks screen implementation into ordered steps, and the design track (Phase 5) that describes how to build a screen in Figma using the bridge. Plans are written next to their spec files inside `.kotikit/specs/<scope>/`, deleted once the work is done, and regenerated if ever needed again.
 
+Current product stage: the design track is the guided workflow. The code track
+remains available for engineering experiments and future design-to-code work,
+but `/kotikit-auto` and `kotikit:auto` should not call it for designers yet.
+
 ## Public surface
 
 **Code plans** (`src/planning/code-plan-schema.ts`, `src/planning/plan-store.ts`, `src/planning/code-planner.ts`)

@@ -4,6 +4,11 @@
 
 The codegen module owns everything that turns a `ScreenSpec` into runnable code: a framework-agnostic `Adapter` interface, the React adapter that implements it (including the quality-bar-encoded system prompt, CVA-pattern component scaffolder, and Storybook story emitter), the gate runner that executes `tsc / eslint / prettier / vitest` and returns structured results, the environment verifier that checks for required binaries before generation starts, and the `autoCommitCode` helper that creates a conventional commit once generated files are written.
 
+Current product stage: codegen is experimental and is not part of the guided
+`/kotikit-auto` or `kotikit:auto` designer workflow. Keep the module maintained
+for future design-to-code work, but route designers toward Figma design creation
+and review until that workflow is stable.
+
 ## Public surface
 
 **Adapter interface** (`src/codegen/adapter.ts`)

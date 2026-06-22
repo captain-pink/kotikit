@@ -1,6 +1,6 @@
 ---
 name: kotikit-auto
-description: Run the kotikit auto workflow with MCP tools. Use when the user says kotikit:auto, run kotikit auto, build a screen with kotikit, sync my Figma design system, generate React code from Figma components, scaffold design-system components, or work on kotikit specs/code generation.
+description: Run the kotikit auto workflow with MCP tools. Use when the user says kotikit:auto, run kotikit auto, build a screen with kotikit, sync my Figma design system, create a Figma design from a saved spec, review Figma comments, or work on kotikit screen and flow specs.
 ---
 
 # Kotikit Auto
@@ -34,6 +34,9 @@ target project and run `/mcp`.
 - Never ask the user to edit JSON/TOML unless the MCP tools are unavailable.
 - Never load whole design-system directories, manifests, icon lists, or
   databases into context.
+- Do not generate React code or scaffold code components in the guided workflow
+  yet. If asked, explain that design-to-code is coming in a later version once
+  design creation is stable, then offer to create or refine the Figma design.
 
 ## Init Workflow
 
@@ -90,30 +93,44 @@ Use this when the user asks to sync Figma or connect a design system.
    prefer a manual token workflow.
 6. Present the "What next?" menu.
 
-## Code Workflow
+## Design Workflow
 
-For implementation work:
-
-1. Run the Init Workflow.
-2. Ask which saved spec/screen to implement if it is not clear.
-3. Call `kotikit_implement_code_start`.
-4. Fetch `kotikit_get_system_prompt({ kind: "react" })` once per session.
-5. Use returned `componentRefs`; fetch exact component JSON with
-   `kotikit_ds_get_component` only when needed.
-6. Write the returned target files.
-7. Call `kotikit_implement_code_save`.
-8. If gates fail, fix files in place and call `kotikit_implement_code_gate`.
-
-## Scaffold Workflow
-
-For design-system component scaffolding:
+Use this when the user asks to create or refine a Figma design from a saved
+screen or flow spec.
 
 1. Run the Init Workflow.
-2. Call `kotikit_scaffold_start`.
-3. Keep batches small and use pagination.
-4. Fetch `kotikit_get_system_prompt({ kind: "scaffold" })` once per session.
-5. Refine returned component shapes into production code.
-6. Call `kotikit_scaffold_save`.
+2. Ask which saved spec or screen to use if it is not clear.
+3. Make sure the Figma design system has been synced if the design should use
+   design-system components.
+4. Call `kotikit_plan_design`.
+5. Call `kotikit_design_get_screen`.
+6. If the Figma plugin bridge is not running, call `kotikit_bridge_start` and
+   give the designer the returned bridge URL.
+7. Ask the designer to open the target Figma draft, run the kotikit plugin, and
+   connect to the bridge URL.
+8. Apply the design plan step by step through the plugin, recording each result
+   with `kotikit_design_apply_step`.
+9. Summarize what was created or refined, then present the "What next?" menu.
+
+## Review Workflow
+
+Use this when the user asks to read, review, or resolve Figma comments.
+
+1. Run the Init Workflow.
+2. Call `kotikit_design_review_comments`.
+3. Summarize mapped comments, unmapped comments, and suggested fixes in plain
+   language.
+4. After each design adjustment, call `kotikit_design_adjustment_record`.
+5. When fixes are ready to report, use the review report and comment reply tools
+   to prepare designer-facing replies.
+6. Present the "What next?" menu.
+
+## Design-to-Code Notice
+
+If the designer asks for React code, code generation, component scaffolding, or
+implementation work, do not call code-generation or scaffold tools. Say:
+"Design-to-code is coming in a later version once the design creation process is
+stable. I can help create or refine the Figma design now."
 
 ## What Next Menu
 
@@ -125,7 +142,8 @@ What next?
   - Edit a screen
   - See everything I've specced so far
   - Sync my design system
-  - Generate code
+  - Create or refine the Figma design
+  - Review Figma comments
   - I'm done for now
 ```
 
@@ -135,7 +153,8 @@ Route choices with kotikit tools:
 - Edit a screen: ask what should change, then call `kotikit_spec_update`.
 - See everything: call `kotikit_spec_list` and present a readable list.
 - Sync my design system: run Sync Workflow.
-- Generate code: run Code Workflow.
+- Create or refine the Figma design: run Design Workflow.
+- Review Figma comments: run Review Workflow.
 - I'm done for now: close gracefully.
 
 ## Design-System Search Discipline

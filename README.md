@@ -1,17 +1,22 @@
 # kotikit
 
-kotikit turns your Figma design system into real, working React code through a conversation
-with an AI coding assistant such as Claude Code or Codex. You describe a screen, the agent
-asks the right questions, kotikit saves a precise spec, then pulls your Figma components,
-generates React code, and saves everything as you go. No code to write. No developer to chase.
+kotikit is currently a design-first workflow for designers using Claude Code,
+Codex, or another MCP-capable assistant. You describe a screen, the agent asks
+the right questions, kotikit saves a precise spec, syncs your Figma design
+system, then helps create and refine Figma drafts from that shared context.
+
+Design-to-code is coming in a later version once the design creation workflow is
+stable. The guided `kotikit-auto` flow should not be used to generate app code
+yet.
 
 ---
 
 ## Who this is for
 
-Designers who use Claude Code or Codex, have a Figma design system, and want to ship screens
-as React components without writing code by hand. You do not need to know React, git commands,
-or anything about the terminal beyond copy-paste.
+Designers who use Claude Code or Codex, have a Figma design system, and want a
+guided way to plan screens, compose Figma drafts, review comments, and preserve
+design decisions locally. You do not need to know React, git commands, or
+anything about the terminal beyond copy-paste.
 
 ---
 
@@ -23,22 +28,16 @@ or anything about the terminal beyond copy-paste.
   - Codex: install the Codex CLI or IDE extension and sign in.
 - **A Figma personal access token** — open Figma, go to Settings → Account → Personal access
   tokens, and create one with the "File read" scope. Copy it somewhere safe.
-- **A target React project** — kotikit generates code into a React project on your machine.
-  If you do not have one yet, create it now:
+- **A local project folder** — kotikit stores specs, design-system indexes,
+  review notes, and design memory next to your work. A React project is fine,
+  but the guided workflow does not generate app code yet. If you do not have a
+  folder yet, a minimal Vite project works:
 
   ```bash
   bun create vite my-app --template react-ts
   cd my-app && bun install
   ```
 
-  Your target project also needs Tailwind CSS configured and the following runtime deps
-  installed (kotikit's generated components use them):
-
-  ```bash
-  bun add class-variance-authority clsx tailwind-merge
-  ```
-
-  If you already have a React project, just add those three packages to it.
 - **Your project should be a folder tracked by version control** — if you are not sure, open
   your project folder in Terminal and run `git init`. That is all you need.
   If version control asks you for a name and email (e.g. "Please tell me who you are"), run:
@@ -75,7 +74,7 @@ cd ~/kotikit && bun install
 
 **4. Add kotikit to your assistant's MCP config.**
 
-This config belongs to YOUR TARGET PROJECT (the React app you are building), not in
+This config belongs to YOUR TARGET PROJECT (the local workspace you are using), not in
 `~/kotikit`.
 
 Claude Code and Codex both speak MCP, but they read different config files.
@@ -108,8 +107,8 @@ If you already scaffolded an older `kotikit-auto` skill that points at
 `docs/agent_workflow.md`, rerun the command after pulling the latest kotikit. The scaffold
 command replaces that known-broken skill with the portable self-contained version.
 
-For Codex-only projects where `.kotikit/config.json` already exists and you want generated
-commit footers to say Codex, run:
+For Codex-only projects where `.kotikit/config.json` already exists and you want
+generated save-point footers to say Codex, run:
 
 ```bash
 bun run scaffold:agents -- --target /Users/YOUR_USERNAME/path/to/your-react-project --agents codex --co-author codex
@@ -171,10 +170,10 @@ the product-specific skill location:
 - Claude Code: `.claude/skills/kotikit-auto/SKILL.md`, then run `/kotikit-auto`.
 - Codex: `.agents/skills/kotikit-auto/SKILL.md`, then run `kotikit:auto`.
 
-When Codex runs the `kotikit-auto` skill, first-time setup passes a Codex co-author identity
-to kotikit automatically. If you initialize manually and want generated commits to say Codex
-instead of the backward-compatible Claude Code default, set this inside the existing `git`
-block in `.kotikit/config.json`:
+When Codex runs the `kotikit-auto` skill, first-time setup passes a Codex
+co-author identity to kotikit automatically. If you initialize manually and want
+local save-points to say Codex instead of the backward-compatible Claude Code
+default, set this inside the existing `git` block in `.kotikit/config.json`:
 
 ```json
 {
@@ -227,9 +226,10 @@ Then type:
 
 > *"Sync my Figma design system."*
 
-The assistant will ask for your Figma file URL (or you can paste it during setup). It pulls every
-component from Figma into a local snapshot that kotikit uses to generate code. You will see
-a count like "Sync complete: 48 components, 312 icons."
+The assistant will ask for your Figma file URL (or you can paste it during
+setup). It pulls published components, icons, styles, and available variables
+from Figma into a local search index that kotikit uses while composing Figma
+drafts. You will see a count like "Sync complete: 48 components, 312 icons."
 
 You only need to sync again when your Figma components change.
 
@@ -256,50 +256,38 @@ asking until the picture is complete. When it is, the assistant summarizes the s
 > appears below the password field without clearing the email. On success, the user lands on
 > the dashboard. Does this look right?"
 
-Confirm (or ask for changes), and kotikit saves the spec. Then type:
-
-> *"Write the code for the login screen."*
-
-The assistant generates a production-ready React component using your Figma components, with
-accessibility, keyboard navigation, and error handling included. It saves the file and records
-a save-point automatically.
+Confirm or ask for changes. Once the spec is saved, choose **Create or refine
+the Figma design** from the menu. The assistant will start the local Figma
+plugin bridge, ask you to open a target draft in Figma, and apply the design
+plan step by step using your synced design system where possible.
 
 ---
 
-### 1 minute: generate React versions of my Figma components
+### 2 minutes: review Figma comments
 
-If you want React component files generated directly from your Figma components (without
-designing a full screen first), type:
+After you or a teammate leave comments on the Figma draft, type:
 
-> *"Generate React versions of my Figma components."*
+> *"Review the Figma comments for the Members screen."*
 
-The assistant will walk through your unscaffolded Figma components in small batches, generate a
-TypeScript + CVA component file for each one, and save them to your components folder.
+kotikit reads comments through the Figma API, maps comments on known nodes back
+to the generated design plan, and helps the assistant make focused refinements.
+Repeated feedback can become reusable design preferences for future screens.
 
 ---
 
-### 1 minute: run the drift audit
+### 1 minute: import variables on non-Enterprise plans
 
-After you have been building for a while, type:
+If `sync_ds` says Figma variables require an Enterprise plan, use the plugin
+fallback:
 
-> *"Run a drift audit."*
+1. Ask your assistant: *"Start the kotikit Figma plugin bridge."*
+2. Open the source design-system file in Figma.
+3. Run Plugins -> Development -> kotikit.
+4. Paste the bridge URL.
+5. Click **Sync Variables From Open File**.
 
-kotikit compares every component in your Figma design system against the code files it knows
-about, and gives you a short report:
-
-```
-Audit complete: 14 entries
-  11 synced-ok
-   1 mismatched  (Button — Figma has "size" axis, code does not)
-   2 design-only (Card, Avatar — in Figma but not yet in code)
-```
-
-"Synced-ok" means Figma and code agree. "Mismatched" means a variant axis exists on one side
-but not the other — the report tells you exactly which axis. "Design-only" means kotikit has
-not scaffolded those components yet.
-
-For each `synced-mismatched` row, open the named component file, add or rename the variant
-prop to match what the report says Figma has, then re-run the audit to confirm the fix.
+This imports variables through Figma's Plugin API from your active session and
+stores them in `design-system/variables.json` for future design work.
 
 ---
 
@@ -387,8 +375,8 @@ Practical tips that help:
 
 - Run sync_ds in its own conversation, not mixed in with design work.
 - Brainstorm one screen per session, then start a fresh chat.
-- Scaffold in batches of three to five components, not all at once.
-- Run the drift audit at the end of a session, not the start.
+- Review comments in focused batches instead of trying to fix every open note in
+  one pass.
 
 For the full explanation of what costs tokens and how to control it, see `docs/TOKENS.md`.
 
@@ -396,16 +384,9 @@ For the full explanation of what costs tokens and how to control it, see `docs/T
 
 ## Composing with Chrome DevTools MCP
 
-After kotikit commits your generated code, you can ask your assistant to visually validate it. If
-you have [Chrome DevTools MCP](https://github.com/modelcontextprotocol/servers) installed
-alongside kotikit, type:
-
-> *"Open localhost:6006 and take a screenshot of the login screen."*
-
-The assistant will open your Storybook or dev server and validate the rendered output against what
-you described. Chrome DevTools MCP is a separate tool that the assistant orchestrates alongside
-kotikit — kotikit handles the spec and code, Chrome DevTools MCP handles the live browser.
-Neither one depends on the other.
+Chrome DevTools MCP is not required for the current design-first workflow. It may
+be useful later when design-to-code returns, but current Figma comment review and
+design refinement work without a browser.
 
 ---
 
@@ -426,27 +407,13 @@ to `op://vault-name/item-name/field-name` and kotikit will fetch it via the 1Pas
 
 ---
 
-**2. "Cannot find module 'class-variance-authority'" (or clsx / tailwind-merge)**
+**2. "Some required gate tools aren't installed in your project."**
 
-The runtime dependencies kotikit's generated components rely on are not installed in your
-target project.
+This usually matters only for experimental implementation tools. The guided
+design workflow can continue without installing code gate tools.
 
-Fix: in your target project folder, run:
-
-```bash
-bun add class-variance-authority clsx tailwind-merge
-```
-
-This is covered in the Prerequisites section — if you skipped it, add these three packages
-and the generated components will compile.
-
----
-
-**3. "Some required gate tools aren't installed in your project."**
-
-The code quality checks kotikit runs before saving code need a few dev tools in your project.
-
-Fix: in your project folder, run:
+Fix, if you intentionally use experimental implementation tools: in your project
+folder, run:
 
 ```bash
 bun add -d typescript eslint eslint-plugin-jsx-a11y prettier vitest
@@ -456,36 +423,31 @@ Then try again.
 
 ---
 
-**4. "No registry yet — run sync_ds first."**
+**3. "No registry yet — run sync_ds first."**
 
-kotikit tried to audit or scaffold but has not synced your design system yet.
+kotikit tried to use design-system data but has not synced your design system
+yet.
 
-Fix: type *"Sync my Figma design system."* in your assistant. After sync completes, try the
-audit or scaffold command again.
-
----
-
-**5. "Storybook not detected — story files skipped."**
-
-This is a notice, not an error. kotikit looked for Storybook in your project and did not
-find it, so it skipped generating `.stories.tsx` files.
-
-Fix: if you want story files, install Storybook (`npx storybook@latest init`) and run the
-scaffold command again. If you do not use Storybook, you can ignore this message entirely.
+Fix: type *"Sync my Figma design system."* in your assistant. After sync
+completes, try the design action again.
 
 ---
 
-**6. "That file path is outside your scaffold directory."**
+**4. "Storybook not detected — story files skipped."**
 
-kotikit refused to write a file outside the components folder it is configured to use.
-
-Fix: do not move generated component files to a different location before saving them.
-If you need the components folder to be somewhere else, update the `codeComponentsDir` path
-in your kotikit config by asking your assistant: *"Change my components folder to src/ui."*
+This notice belongs to experimental component scaffolding. It is not relevant to
+the guided design workflow.
 
 ---
 
-**7. Sync returned 0 components even though my Figma file has them**
+**5. "That file path is outside your scaffold directory."**
+
+This notice belongs to experimental component scaffolding. It is not relevant to
+the guided design workflow.
+
+---
+
+**6. Sync returned 0 components even though my Figma file has them**
 
 Figma's published-component API only returns components from files that have been
 explicitly published as a team library. Kotikit needs those published/importable keys
@@ -500,7 +462,7 @@ contains published components.
 
 ---
 
-**8. "Figma Variables API requires an Enterprise plan"**
+**7. "Figma Variables API requires an Enterprise plan"**
 
 This is a notice, not an error. Figma's Variables endpoint is gated to Enterprise plans;
 kotikit detects the 403 and skips it gracefully. Your color, text, and effect **styles**

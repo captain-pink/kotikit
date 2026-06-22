@@ -61,6 +61,10 @@ describe("scaffoldAgents", () => {
     expect(skill).toContain("kotikit_config_init");
     expect(skill).toContain("Claude Code");
     expect(skill).toContain("Codex");
+    expect(skill).toContain("Do not generate React code");
+    expect(skill).toContain("design-to-code is coming in a later version");
+    expect(skill).toContain("Create or refine the Figma design");
+    expect(skill).not.toContain("Generate code");
     expect(skill).not.toContain("../../../docs");
     expect(skill).not.toContain("docs/agent_workflow");
   });
