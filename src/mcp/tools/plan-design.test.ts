@@ -13,6 +13,7 @@ import { writeConfig } from "../../config/load.js";
 import { defaultConfig } from "../../config/schema.js";
 import { DesignPlanSchema } from "../../planning/design-plan-schema.js";
 import { designPlanPath } from "../../util/paths.js";
+import type { FigmaDraftTarget } from "../../figma/draft-target.js";
 
 const tmpDirs: string[] = [];
 async function mkTmpRepo(opts?: { autoCommit?: boolean }): Promise<string> {
@@ -47,11 +48,27 @@ async function callTool(registry: ToolRegistry, name: string, args: unknown) {
   return handler(args);
 }
 
+const target = (pageName = "Draft - Profile"): FigmaDraftTarget => ({
+  fileKey: "fig-file",
+  pageId: "0:1",
+  pageName,
+  pageUrl: "https://www.figma.com/design/fig-file/App?node-id=0-1",
+  boundAt: "2026-06-22T00:00:00.000Z",
+  source: "user-url",
+  section: { name: "kotikit / profile-page / 2026-06-22" },
+  safety: {
+    requireDraftPageName: true,
+    allowPageCreation: false,
+    requireKotikitSection: true,
+  },
+});
+
 describe("kotikit_plan_design", () => {
   it("single-screen: writes <scope>/design.plan.json", async () => {
     const root = await mkTmpRepo();
     const spec = newScreenSpec({ title: "Profile Page", description: "User profile." });
     spec.requirements.states = { default: "x" };
+    spec.figmaTarget = target();
     await writeScreenSpec(root, "profile-page", null, spec);
 
     const registry = makeRegistry();
@@ -64,6 +81,7 @@ describe("kotikit_plan_design", () => {
     const onDisk = JSON.parse(readFileSync(`${root}/.kotikit/specs/profile-page/design.plan.json`, "utf-8"));
     const plan = DesignPlanSchema.parse(onDisk);
     expect(plan.pageName).toBe("ProfilePage");
+    expect(plan.target?.pageName).toBe("Draft - Profile");
   });
 
   it("multi-screen: writes <scope>/<screen>.design.plan.json", async () => {
@@ -72,6 +90,7 @@ describe("kotikit_plan_design", () => {
       title: "Checkout", description: "x",
       screens: [{ id: "cart", path: "cart.spec.json", title: "Cart" }],
     });
+    manifest.figmaTarget = target("Checkout Drafts");
     await writeFlowManifest(root, "checkout-flow", manifest);
     const spec = newScreenSpec({ title: "Cart", description: "y", flowRef: "checkout-flow/flow.json" });
     spec.requirements.states = { loading: "x" };
@@ -83,6 +102,20 @@ describe("kotikit_plan_design", () => {
 
     expect(result.isError).toBeFalsy();
     expect(existsSync(`${root}/.kotikit/specs/checkout-flow/cart.design.plan.json`)).toBe(true);
+  });
+
+  it("blocks design planning until a draft target is bound", async () => {
+    const root = await mkTmpRepo();
+    const spec = newScreenSpec({ title: "Profile Page", description: "User profile." });
+    spec.requirements.states = { default: "x" };
+    await writeScreenSpec(root, "profile-page", null, spec);
+
+    const registry = makeRegistry();
+    registerPlanDesignTools(registry, makeCtx(root));
+    const result = await callTool(registry, "kotikit_plan_design", { scope: "profile-page" });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain("draft page link");
   });
 
   it("missing spec: friendly error", async () => {
@@ -98,6 +131,7 @@ describe("kotikit_plan_design", () => {
     const root = await mkTmpRepo({ autoCommit: true });
     const spec = newScreenSpec({ title: "Profile Page", description: "x" });
     spec.requirements.states = { default: "x" };
+    spec.figmaTarget = target();
     await writeScreenSpec(root, "profile-page", null, spec);
 
     const registry = makeRegistry();
@@ -116,6 +150,7 @@ describe("kotikit_plan_design", () => {
       title: "Checkout", description: "x",
       screens: [{ id: "cart", path: "cart.spec.json", title: "Cart" }],
     });
+    manifest.figmaTarget = target("Checkout Drafts");
     await writeFlowManifest(root, "checkout-flow", manifest);
     const spec = newScreenSpec({ title: "Cart", description: "y", flowRef: "checkout-flow/flow.json" });
     spec.requirements.states = { default: "x" };
@@ -135,6 +170,7 @@ describe("kotikit_plan_design", () => {
     const root = await mkTmpRepo({ autoCommit: true });
     const spec = newScreenSpec({ title: "P", description: "x" });
     spec.requirements.states = { default: "x" };
+    spec.figmaTarget = target();
     await writeScreenSpec(root, "profile-page", null, spec);
 
     const registry = makeRegistry();
@@ -153,6 +189,7 @@ describe("kotikit_plan_design", () => {
     const root = await mkTmpRepo({ autoCommit: false });
     const spec = newScreenSpec({ title: "P", description: "x" });
     spec.requirements.states = { default: "x" };
+    spec.figmaTarget = target();
     await writeScreenSpec(root, "profile-page", null, spec);
 
     const registry = makeRegistry();

@@ -1,6 +1,7 @@
 import { nowIso, componentNameFor } from "../util/ids.js";
 import type { ScreenSpec, FlowManifest } from "../spec/schema.js";
 import type { Config } from "../config/schema.js";
+import type { FigmaDraftTarget } from "../figma/draft-target.js";
 import {
   DesignPlanSchema,
   type DesignPlan,
@@ -17,6 +18,7 @@ export interface GenerateDesignPlanInput {
   spec: ScreenSpec;
   flowManifest?: FlowManifest;
   config: Config;
+  target?: FigmaDraftTarget;
 }
 
 /**
@@ -34,7 +36,7 @@ export interface GenerateDesignPlanInput {
  * subset (e.g. only "loading" state steps) without depending on later steps.
  */
 export function generateDesignPlan(input: GenerateDesignPlanInput): DesignPlan {
-  const { scope, screen, spec } = input;
+  const { scope, screen, spec, target } = input;
 
   // Page name: PascalCase of screen slug for flows; PascalCase of scope for single-screen.
   const pageName = componentNameFor(scope, screen);
@@ -94,6 +96,7 @@ export function generateDesignPlan(input: GenerateDesignPlanInput): DesignPlan {
     scope,
     ...(screen !== null ? { screen } : {}),
     pageName,
+    ...(target !== undefined ? { target } : {}),
     states,
     layout,
     steps,

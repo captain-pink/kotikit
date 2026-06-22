@@ -5,6 +5,7 @@ import { defaultConfig } from "../../config/schema.js";
 import { readScreenSpec, readFlowManifest } from "../../spec/engine.js";
 import { generateDesignPlan } from "../../planning/design-planner.js";
 import { writeDesignPlan, readDesignPlan } from "../../planning/design-plan-store.js";
+import { readFigmaDraftTarget } from "../../figma/draft-target-store.js";
 import { autoCommit } from "../../git/auto-commit.js";
 import { designPlanPath } from "../../util/paths.js";
 import { toolText, toolError, KotikitError } from "../../util/result.js";
@@ -47,6 +48,14 @@ export function registerPlanDesignTools(
         flowManifest = undefined;
       }
 
+      const target = await readFigmaDraftTarget(root, scope, screen ?? null);
+      if (target === null) {
+        throw new KotikitError(
+          "This screen needs a Figma draft page before I can create a design plan.",
+          `Ask the designer for the exact Figma draft page link, then call kotikit_figma_target_bind.`
+        );
+      }
+
       // Determine kind based on whether plan already exists
       const existing = await readDesignPlan(root, scope, screen ?? null);
       const kind: "create" | "update" = existing ? "update" : "create";
@@ -58,6 +67,7 @@ export function registerPlanDesignTools(
         spec,
         flowManifest,
         config,
+        target,
       });
 
       // Write plan

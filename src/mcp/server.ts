@@ -24,6 +24,7 @@ import { registerImplementCodeTools } from "./tools/implement-code.js";
 import { registerRegistryTools } from "./tools/registry.js";
 import { registerScaffoldTools } from "./tools/scaffold.js";
 import { registerComponentPlanTools } from "./tools/component-plan.js";
+import { registerFigmaTargetTools } from "./tools/figma-target.js";
 import { registerPlanDesignTools } from "./tools/plan-design.js";
 import { registerDesignScreenTools } from "./tools/design-screen.js";
 import { registerDesignApplyTools } from "./tools/design-apply.js";
@@ -87,6 +88,7 @@ export function buildServer(): { server: Server; registry: ToolRegistry; bridge:
   registerRegistryTools(registry, ctx);
   registerScaffoldTools(registry, ctx);
   registerComponentPlanTools(registry, ctx);
+  registerFigmaTargetTools(registry, ctx);
   registerPlanDesignTools(registry, ctx);
   registerDesignScreenTools(registry, ctx);
   registerDesignApplyTools(registry, ctx);

@@ -12,6 +12,7 @@ import { writeDesignPlan } from "../../planning/design-plan-store.js";
 import { generateDesignPlan } from "../../planning/design-planner.js";
 import { defaultConfig } from "../../config/schema.js";
 import { openDesignReviewDb } from "../../db/design-review-db.js";
+import type { FigmaDraftTarget } from "../../figma/draft-target.js";
 
 const tmpDirs: string[] = [];
 function mkTmp(): string {
@@ -56,6 +57,21 @@ function seedDsComponentJson(root: string, name: string): void {
   writeFileSync(`${dir}/${slug}.json`, JSON.stringify(json, null, 2));
 }
 
+const target = (pageName = "Draft - Cart"): FigmaDraftTarget => ({
+  fileKey: "fig-file",
+  pageId: "0:1",
+  pageName,
+  pageUrl: "https://www.figma.com/design/fig-file/App?node-id=0-1",
+  boundAt: "2026-06-22T00:00:00.000Z",
+  source: "user-url",
+  section: { name: "kotikit / cart / 2026-06-22" },
+  safety: {
+    requireDraftPageName: true,
+    allowPageCreation: false,
+    requireKotikitSection: true,
+  },
+});
+
 describe("kotikit_design_get_screen", () => {
   it("happy path: returns plan + spec + dsComponents + skipped", async () => {
     const root = mkTmp();
@@ -67,7 +83,7 @@ describe("kotikit_design_get_screen", () => {
     seedDsComponentJson(root, "Button");
     seedDsComponentJson(root, "Input");
 
-    const plan = generateDesignPlan({ scope: "cart", screen: null, spec, config: defaultConfig() });
+    const plan = generateDesignPlan({ scope: "cart", screen: null, spec, config: defaultConfig(), target: target() });
     await writeDesignPlan(root, "cart", null, plan);
 
     const registry = makeRegistry();
@@ -81,6 +97,7 @@ describe("kotikit_design_get_screen", () => {
       skipped: { name: string }[];
     };
     expect(detail.plan.pageName).toBe("Cart");
+    expect(detail.plan.target?.pageName).toBe("Draft - Cart");
     expect(detail.spec.title).toBe("Cart");
     expect(Object.keys(detail.dsComponents).sort()).toEqual(["Button", "Input"]);
     expect(detail.skipped).toHaveLength(0);
@@ -97,6 +114,23 @@ describe("kotikit_design_get_screen", () => {
     const result = await callTool(registry, "kotikit_design_get_screen", { scope: "x" });
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("plan_design");
+  });
+
+  it("legacy design plan without target: blocks before returning apply context", async () => {
+    const root = mkTmp();
+    const spec = newScreenSpec({ title: "Cart", description: "x" });
+    spec.requirements.states = { default: "x" };
+    await writeScreenSpec(root, "cart", null, spec);
+
+    const plan = generateDesignPlan({ scope: "cart", screen: null, spec, config: defaultConfig() });
+    await writeDesignPlan(root, "cart", null, plan);
+
+    const registry = makeRegistry();
+    registerDesignScreenTools(registry, makeCtx(root));
+    const result = await callTool(registry, "kotikit_design_get_screen", { scope: "cart" });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain("draft page");
   });
 
   it("missing spec: friendly error", async () => {
@@ -117,7 +151,7 @@ describe("kotikit_design_get_screen", () => {
     seedDsComponentJson(root, "Button");
     // Note: "Missing" JSON intentionally not seeded
 
-    const plan = generateDesignPlan({ scope: "cart", screen: null, spec, config: defaultConfig() });
+    const plan = generateDesignPlan({ scope: "cart", screen: null, spec, config: defaultConfig(), target: target() });
     await writeDesignPlan(root, "cart", null, plan);
 
     const registry = makeRegistry();
@@ -149,7 +183,7 @@ describe("kotikit_design_get_screen", () => {
     await writeScreenSpec(root, "cart", null, spec);
     seedDsComponentJson(root, "Button");
 
-    const plan = generateDesignPlan({ scope: "cart", screen: null, spec, config: defaultConfig() });
+    const plan = generateDesignPlan({ scope: "cart", screen: null, spec, config: defaultConfig(), target: target() });
     await writeDesignPlan(root, "cart", null, plan);
 
     const registry = makeRegistry();
@@ -178,7 +212,13 @@ describe("kotikit_design_get_screen", () => {
     spec.requirements.states = { default: "x" };
     await writeScreenSpec(root, "checkout-flow", "cart", spec);
 
-    const plan = generateDesignPlan({ scope: "checkout-flow", screen: "cart", spec, config: defaultConfig() });
+    const plan = generateDesignPlan({
+      scope: "checkout-flow",
+      screen: "cart",
+      spec,
+      config: defaultConfig(),
+      target: target("Checkout Drafts"),
+    });
     await writeDesignPlan(root, "checkout-flow", "cart", plan);
 
     const registry = makeRegistry();
@@ -195,7 +235,13 @@ describe("kotikit_design_get_screen", () => {
     spec.requirements.states = { default: "x" };
     await writeScreenSpec(root, "members", null, spec);
 
-    const plan = generateDesignPlan({ scope: "members", screen: null, spec, config: defaultConfig() });
+    const plan = generateDesignPlan({
+      scope: "members",
+      screen: null,
+      spec,
+      config: defaultConfig(),
+      target: target("Members Draft"),
+    });
     await writeDesignPlan(root, "members", null, plan);
 
     const reviewDb = openDesignReviewDb(root);

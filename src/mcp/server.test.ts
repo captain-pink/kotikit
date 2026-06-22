@@ -38,6 +38,7 @@ describe("MCP server", () => {
       "kotikit_scaffold_start", "kotikit_scaffold_save",
       // Phase 5
       "kotikit_component_plan_create",
+      "kotikit_figma_target_bind",
       "kotikit_plan_design",
       "kotikit_design_get_screen",
       "kotikit_design_apply_step",

@@ -66,6 +66,12 @@ function registerDesignGetScreen(registry: ToolRegistry, ctx: ToolContext): void
           `Call plan_design first to generate the plan.`
         );
       }
+      if (plan.target === undefined) {
+        throw new KotikitError(
+          "This design plan was created before Figma draft-page protection was added.",
+          "Ask the designer for the exact Figma draft page link, bind it with kotikit_figma_target_bind, then regenerate the design plan."
+        );
+      }
 
       // 5. For each unique componentName in place-component steps, try to load the DS JSON
       const componentNames = Array.from(new Set(
