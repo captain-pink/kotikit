@@ -46,10 +46,34 @@ function makeRegistry(): ToolRegistry {
   return { tools, handlers: handlers as ToolRegistry["handlers"] };
 }
 
-/** Helper: pick a port unlikely to collide. */
-let nextPort = 53200;
-function pickPort(): number {
-  return nextPort++;
+let nextPort = 54000 + Math.floor(Math.random() * 4000);
+
+const isPortInUse = (err: unknown): boolean =>
+  (err as { code?: string }).code === "EADDRINUSE";
+
+function startTestBridge(input: {
+  registry: ToolRegistry;
+  token?: string;
+  onReady?: (info: { url: string }) => void;
+}): { bridge: BridgeServer; port: number; token: string } {
+  const token = input.token ?? "tok123456789abc";
+  const candidates = Array.from({ length: 50 }, (_, index) => nextPort + index);
+  nextPort += candidates.length;
+
+  for (const port of candidates) {
+    try {
+      const bridge = startBridgeServer({
+        registry: input.registry,
+        config: configFor(port, token),
+        ...(input.onReady !== undefined ? { onReady: input.onReady } : {}),
+      });
+      return { bridge, port, token };
+    } catch (err) {
+      if (!isPortInUse(err)) throw err;
+    }
+  }
+
+  throw new Error("Could not allocate a bridge test port.");
 }
 
 function configFor(port: number, token: string = "tok123456789abc") {
@@ -92,12 +116,8 @@ async function callRpc(
 
 describe("startBridgeServer", () => {
   it("tools/list returns registered tool names", async () => {
-    const port = pickPort();
-    const token = "tok123456789abc";
-    activeBridge = startBridgeServer({
-      registry: makeRegistry(),
-      config: configFor(port, token),
-    });
+    const { bridge, port, token } = startTestBridge({ registry: makeRegistry() });
+    activeBridge = bridge;
     const reply = await callRpc(
       `ws://127.0.0.1:${port}?token=${token}`,
       "tools/list",
@@ -110,12 +130,8 @@ describe("startBridgeServer", () => {
   });
 
   it("tools/call returns the handler result", async () => {
-    const port = pickPort();
-    const token = "tok123456789abc";
-    activeBridge = startBridgeServer({
-      registry: makeRegistry(),
-      config: configFor(port, token),
-    });
+    const { bridge, port, token } = startTestBridge({ registry: makeRegistry() });
+    activeBridge = bridge;
     const reply = await callRpc(
       `ws://127.0.0.1:${port}?token=${token}`,
       "tools/call",
@@ -128,12 +144,8 @@ describe("startBridgeServer", () => {
   });
 
   it("connect with invalid token is rejected with HTTP 403", async () => {
-    const port = pickPort();
-    const token = "tok123456789abc";
-    activeBridge = startBridgeServer({
-      registry: makeRegistry(),
-      config: configFor(port, token),
-    });
+    const { bridge, port } = startTestBridge({ registry: makeRegistry() });
+    activeBridge = bridge;
     // Use fetch to test the upgrade rejection
     const res = await fetch(`http://127.0.0.1:${port}/?token=wrong`, {
       headers: { upgrade: "websocket" },
@@ -142,11 +154,8 @@ describe("startBridgeServer", () => {
   });
 
   it("GET /handshake works without auth", async () => {
-    const port = pickPort();
-    activeBridge = startBridgeServer({
-      registry: makeRegistry(),
-      config: configFor(port),
-    });
+    const { bridge, port } = startTestBridge({ registry: makeRegistry() });
+    activeBridge = bridge;
     const res = await fetch(`http://127.0.0.1:${port}/handshake`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as { projectName: string };
@@ -154,12 +163,8 @@ describe("startBridgeServer", () => {
   });
 
   it("calling an unknown tool returns a JSON-RPC error response", async () => {
-    const port = pickPort();
-    const token = "tok123456789abc";
-    activeBridge = startBridgeServer({
-      registry: makeRegistry(),
-      config: configFor(port, token),
-    });
+    const { bridge, port, token } = startTestBridge({ registry: makeRegistry() });
+    activeBridge = bridge;
     const reply = await callRpc(
       `ws://127.0.0.1:${port}?token=${token}`,
       "tools/call",
@@ -174,12 +179,8 @@ describe("startBridgeServer", () => {
   });
 
   it("calling a tool that throws returns a JSON-RPC error response (no crash)", async () => {
-    const port = pickPort();
-    const token = "tok123456789abc";
-    activeBridge = startBridgeServer({
-      registry: makeRegistry(),
-      config: configFor(port, token),
-    });
+    const { bridge, port, token } = startTestBridge({ registry: makeRegistry() });
+    activeBridge = bridge;
     const reply = await callRpc(
       `ws://127.0.0.1:${port}?token=${token}`,
       "tools/call",
@@ -194,11 +195,7 @@ describe("startBridgeServer", () => {
   });
 
   it("close() releases the port", async () => {
-    const port = pickPort();
-    const bridge = startBridgeServer({
-      registry: makeRegistry(),
-      config: configFor(port),
-    });
+    const { bridge, port } = startTestBridge({ registry: makeRegistry() });
     await bridge.close();
     // Wait a tick for port release
     await new Promise((r) => setTimeout(r, 100));
@@ -212,26 +209,20 @@ describe("startBridgeServer", () => {
   });
 
   it("onReady is called with the connect URL", async () => {
-    const port = pickPort();
     const token = "tok123456789abc";
     let captured = "";
-    activeBridge = startBridgeServer({
+    const { bridge, port } = startTestBridge({
       registry: makeRegistry(),
-      config: configFor(port, token),
-      onReady: (info) => {
-        captured = info.url;
-      },
+      token,
+      onReady: (info) => { captured = info.url; },
     });
+    activeBridge = bridge;
     expect(captured).toBe(`ws://localhost:${port}?token=${token}`);
   });
 
   it("invalid JSON message yields a JSON-RPC parse error", async () => {
-    const port = pickPort();
-    const token = "tok123456789abc";
-    activeBridge = startBridgeServer({
-      registry: makeRegistry(),
-      config: configFor(port, token),
-    });
+    const { bridge, port, token } = startTestBridge({ registry: makeRegistry() });
+    activeBridge = bridge;
     const reply = await new Promise<unknown>((resolve, reject) => {
       const ws = new WebSocket(`ws://127.0.0.1:${port}?token=${token}`);
       ws.onopen = () => ws.send("not valid json {{{");

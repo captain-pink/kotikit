@@ -12,6 +12,7 @@ import { registerBrainstormTools } from "../../src/mcp/tools/brainstorm.js";
 import { registerPlanDesignTools } from "../../src/mcp/tools/plan-design.js";
 import { registerDesignScreenTools } from "../../src/mcp/tools/design-screen.js";
 import { registerDesignApplyTools } from "../../src/mcp/tools/design-apply.js";
+import { registerFigmaTargetTools } from "../../src/mcp/tools/figma-target.js";
 import { loadConfig, writeConfig } from "../../src/config/load.js";
 import { defaultConfig } from "../../src/config/schema.js";
 import type { ToolContext } from "../../src/mcp/context.js";
@@ -48,6 +49,17 @@ function buildPhase5Registry(root: string): ToolRegistry {
   registerSpecTools(registry, ctx);
   registerFlowTools(registry, ctx);
   registerBrainstormTools(registry, ctx);
+  registerFigmaTargetTools(registry, ctx, {
+    figmaClientFactory: () => ({
+      getNodes: async (_fileKey, ids) => Object.fromEntries(
+        ids.map((id) => [
+          id,
+          { document: { id, name: "Drafts", type: "CANVAS" } },
+        ])
+      ),
+    }),
+    now: () => "2026-06-22T00:00:00.000Z",
+  });
   registerPlanDesignTools(registry, ctx);
   registerDesignScreenTools(registry, ctx);
   registerDesignApplyTools(registry, ctx);
@@ -93,8 +105,70 @@ async function setupRepoWithConfig(): Promise<string> {
   await git.addConfig("user.name", "Test Runner");
   const cfg = defaultConfig();
   cfg.git.autoCommit = true;
+  cfg.figma.token = "figd_test";
   await writeConfig(tmp, cfg);
   return tmp;
+}
+
+let nextBridgePort = 58000 + Math.floor(Math.random() * 4000);
+
+const isPortInUse = (err: unknown): boolean =>
+  (err as { code?: string }).code === "EADDRINUSE";
+
+type StartedBridge = {
+  bridge: BridgeServer;
+  cfg: {
+    version: 1;
+    port: number;
+    token: string;
+    projectRoot: string;
+    projectName: string;
+    startedAt: string;
+  };
+};
+
+function startPhase5Bridge(input: {
+  registry: ToolRegistry;
+  root: string;
+  token?: string;
+}): StartedBridge {
+  const token = input.token ?? "tok123456789xyz";
+  const candidates = Array.from({ length: 50 }, (_, index) => nextBridgePort + index);
+  nextBridgePort += candidates.length;
+
+  for (const port of candidates) {
+    const cfg = {
+      version: 1 as const,
+      port,
+      token,
+      projectRoot: input.root,
+      projectName: "proj",
+      startedAt: new Date().toISOString(),
+    };
+    try {
+      return {
+        bridge: startBridgeServer({ registry: input.registry, config: cfg }),
+        cfg,
+      };
+    } catch (err) {
+      if (!isPortInUse(err)) throw err;
+    }
+  }
+
+  throw new Error("Could not allocate a bridge test port.");
+}
+
+async function bindDraftTarget(
+  registry: ToolRegistry,
+  scope: string,
+  screen?: string
+): Promise<void> {
+  const result = await callTool(registry, "kotikit_figma_target_bind", {
+    scope,
+    ...(screen !== undefined ? { screen } : {}),
+    pageUrl: "https://www.figma.com/design/FILE123/Kotikit?node-id=1-2",
+  });
+  expect(result.isError).toBeFalsy();
 }
 
 // ─── Test 1: happy path spec → plan → get → apply log ────────────────────────
@@ -121,6 +195,7 @@ describe("Phase 5 E2E — design plan happy path", () => {
     expect(createResult.isError).toBeFalsy();
     seedDsComponentJson(root, "Button");
     seedDsComponentJson(root, "Input");
+    await bindDraftTarget(registry, "profile-page");
 
     // 2. plan_design
     const planResult = await callTool(registry, "kotikit_plan_design", { scope: "profile-page" });
@@ -208,6 +283,7 @@ describe("Phase 5 E2E — multi-screen flow", () => {
       sharedState: [],
     };
     await callTool(registry, "kotikit_flow_create", { draft });
+    await bindDraftTarget(registry, "checkout-flow", "cart");
 
     const planResult = await callTool(registry, "kotikit_plan_design", {
       scope: "checkout-flow",
@@ -248,15 +324,9 @@ describe("Phase 5 E2E — bridge", () => {
     const root = await setupRepoWithConfig();
     const registry = buildPhase5Registry(root);
 
-    const cfg = {
-      version: 1 as const,
-      port: 53300,
-      token: "tok123456789xyz",
-      projectRoot: root,
-      projectName: "proj",
-      startedAt: new Date().toISOString(),
-    };
-    bridge = startBridgeServer({ registry, config: cfg });
+    const started = startPhase5Bridge({ registry, root });
+    bridge = started.bridge;
+    const { cfg } = started;
 
     const reply = await new Promise<unknown>((resolve, reject) => {
       const ws = new WebSocket(`ws://127.0.0.1:${cfg.port}?token=${cfg.token}`);
@@ -305,16 +375,11 @@ describe("Phase 5 E2E — bridge", () => {
       },
     };
     await callTool(registry, "kotikit_spec_create", { draft });
+    await bindDraftTarget(registry, "profile-page");
 
-    const cfg = {
-      version: 1 as const,
-      port: 53301,
-      token: "tok123456789xyz",
-      projectRoot: root,
-      projectName: "proj",
-      startedAt: new Date().toISOString(),
-    };
-    bridge = startBridgeServer({ registry, config: cfg });
+    const started = startPhase5Bridge({ registry, root });
+    bridge = started.bridge;
+    const { cfg } = started;
 
     const reply = await new Promise<unknown>((resolve, reject) => {
       const ws = new WebSocket(`ws://127.0.0.1:${cfg.port}?token=${cfg.token}`);
@@ -354,15 +419,9 @@ describe("Phase 5 E2E — bridge", () => {
     const root = await setupRepoWithConfig();
     const registry = buildPhase5Registry(root);
 
-    const cfg = {
-      version: 1 as const,
-      port: 53302,
-      token: "tok123456789xyz",
-      projectRoot: root,
-      projectName: "proj",
-      startedAt: new Date().toISOString(),
-    };
-    bridge = startBridgeServer({ registry, config: cfg });
+    const started = startPhase5Bridge({ registry, root });
+    bridge = started.bridge;
+    const { cfg } = started;
 
     const res = await fetch(`http://127.0.0.1:${cfg.port}/?token=wrong`, {
       headers: { upgrade: "websocket" },
