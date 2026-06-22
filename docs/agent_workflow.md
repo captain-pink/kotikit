@@ -168,33 +168,39 @@ For creating or refining a Figma design from a saved spec:
 1. Ask which saved spec or screen to use if it is not clear.
 2. Make sure the Figma design system has been synced if the design should use
    design-system components.
-3. Call `kotikit_plan_design`.
-4. Call `kotikit_design_get_screen`.
-5. If `kotikit_design_get_screen` says the screen needs a component decision,
+3. Ask the designer for the exact Figma draft page link to use for this screen.
+   The link must include `node-id`, and the page name must contain `Draft` or
+   `Drafts`.
+4. Call `kotikit_figma_target_bind` with the selected scope, optional screen,
+   and page URL.
+5. Call `kotikit_plan_design`.
+6. Call `kotikit_design_get_screen`.
+7. If `kotikit_design_get_screen` says the screen needs a component decision,
    summarize the missing component names and ask the designer which option they
    want:
    - Create reusable draft components first.
    - Build the missing pieces inline in this page only.
-6. If reusable draft components are chosen, call
+8. If reusable draft components are chosen, call
    `kotikit_component_plan_create` with `mode: "create-draft-components"`.
    If inline page-only pieces are chosen, call it with `mode: "inline-draft"`.
    If the tool says variables are unavailable, offer to sync variables through
    the Figma plugin before retrying. Only pass `allowLiteralFallback: true`
    after the designer explicitly approves literal draft values.
-7. When reusable draft components are planned, pause the main screen flow.
+9. When reusable draft components are planned, pause the main screen flow.
    Create and review those draft components first, ask the designer to leave
    comments in Figma if needed, and continue the screen task only after the
    designer confirms the components can be used.
-8. Call `kotikit_design_get_screen` again after component decisions are resolved.
-9. If the response includes `componentCreationRequired`, do not apply the main
+10. Call `kotikit_design_get_screen` again after component decisions are resolved.
+11. If the response includes `componentCreationRequired`, do not apply the main
    screen yet. Tell the designer which components still need creation or review.
-10. If the Figma plugin bridge is not running, call `kotikit_bridge_start` and
+12. If the Figma plugin bridge is not running, call `kotikit_bridge_start` and
    give the designer the returned bridge URL.
-11. Ask the designer to open the target Figma draft, run the kotikit plugin, and
-   connect to the bridge URL.
-12. Apply the design plan step by step through the plugin, recording each result
+13. Ask the designer to open the bound Figma draft file and page, run the
+   kotikit plugin, and connect to the bridge URL. The plugin will create or
+   reuse a kotikit-owned Section and apply all generated frames inside it.
+14. Apply the design plan step by step through the plugin, recording each result
    with `kotikit_design_apply_step`.
-13. Summarize what was created or refined in plain language.
+15. Summarize what was created or refined in plain language.
 
 Do not ask the designer about implementation details, file paths, TypeScript,
 or test internals.

@@ -1,6 +1,6 @@
 # kotikit MCP Tools
 
-42 tools exposed by the kotikit MCP server, organized by what they do.
+43 tools exposed by the kotikit MCP server, organized by what they do.
 Each tool name is what the agent calls; the "Example" line shows how to trigger it from your conversation.
 
 Token costs are approximate response sizes measured against a small fixture project (3 DS components, 1 screen). Re-measure for your project with `bun run measure`. See [docs/TOKENS.md](./TOKENS.md) for optimization strategies.
@@ -316,12 +316,25 @@ See also: `kotikit_bridge_start`, `kotikit_doctor`.
 
 ### kotikit_plan_design
 
-Purpose: Generate and save the per-screen design plan (ordered step list for the Figma plugin) from a spec.
+Purpose: Generate and save the per-screen design plan (ordered step list for the Figma plugin) from a spec and its bound Figma draft target.
 Input: `{ scope: string; screen?: string }`
-Output: `{ planPath: string; plan: { pageName, steps: DesignStep[] }; commit: CommitResult }`
+Output: `{ planPath: string; plan: { target, pageName, steps: DesignStep[] }; commit: CommitResult }`
 Token cost: ~981.
 Example: "Generate a design plan for the checkout screen."
-See also: `kotikit_design_get_screen`, `kotikit_spec_get`.
+Notes: The spec or flow must first be bound to an exact Figma page with `kotikit_figma_target_bind`. The page name must contain `Draft` or `Drafts`.
+See also: `kotikit_figma_target_bind`, `kotikit_design_get_screen`, `kotikit_spec_get`.
+
+---
+
+### kotikit_figma_target_bind
+
+Purpose: Bind a saved spec, screen, or flow to one exact Figma draft page before design creation.
+Input: `{ scope: string; screen?: string; pageUrl: string }`
+Output: `{ target: FigmaDraftTarget; paths: string[]; commit: CommitResult }` plus a designer-facing summary.
+Token cost: ~150 plus one Figma node lookup.
+Example: "Use this Figma Draft page for the Members screen: https://www.figma.com/design/...?...node-id=..."
+Notes: `pageUrl` must include `node-id` for a Figma page node, not a child frame. The page name must contain `Draft` or `Drafts`; kotikit will not bind production pages.
+See also: `kotikit_plan_design`, `kotikit_design_get_screen`.
 
 ---
 
@@ -341,21 +354,22 @@ See also: `kotikit_design_get_screen`, `kotikit_sync_plugin_variables`.
 
 Purpose: Fetch the design plan, spec, optional flow manifest, and DS component bundle for one screen — the full context the Figma plugin needs.
 Input: `{ scope: string; screen?: string }`
-Output: `{ plan: DesignPlan; spec: ScreenSpec; flow?: FlowManifest; dsComponents: Record<string, ComponentJson>; skipped: { name, reason }[] }`
+Output: `{ plan: DesignPlan; spec: ScreenSpec; flow?: FlowManifest; target: FigmaDraftTarget; dsComponents: Record<string, ComponentJson>; skipped: { name, reason }[] }`
 Token cost: ~1513 ⚠.
 Example: "Get the design context for the profile screen."
-See also: `kotikit_plan_design`, `kotikit_design_apply_step`.
+Notes: Legacy design plans without a bound target are blocked. Bind the draft page and regenerate the design plan before applying it in Figma.
+See also: `kotikit_figma_target_bind`, `kotikit_plan_design`, `kotikit_design_apply_step`.
 
 ---
 
 ### kotikit_design_apply_step
 
 Purpose: Record that the Figma plugin applied a design plan step. Appends to an audit log and, when Figma node metadata is provided, updates the screen's `design.node-map.json` for later comment mapping.
-Input: `{ scope: string; screen?: string; stepIndex: number; outcome: "ok" | "warned" | "failed"; note?: string; stepKind?: DesignStepKind; state?: string; componentName?: string; dsKey?: string; figmaFileKey?: string; figmaPageId?: string; figmaPageName?: string; figmaNodeId?: string; figmaNodeKind?: "page" | "frame" | "instance" | "node"; figmaNodeName?: string }`
+Input: `{ scope: string; screen?: string; stepIndex: number; outcome: "ok" | "warned" | "failed"; note?: string; stepKind?: DesignStepKind; state?: string; componentName?: string; dsKey?: string; figmaFileKey?: string; figmaPageId?: string; figmaPageName?: string; figmaPageUrl?: string; figmaSectionId?: string; figmaSectionName?: string; figmaNodeId?: string; figmaNodeKind?: "page" | "frame" | "instance" | "node"; figmaNodeName?: string }`
 Output: `{ line: string }` — the raw JSON line written to the log.
 Token cost: ~60.
 Example: _(called by the Figma plugin, not directly by the designer)_
-Notes: `DesignStepKind` includes `define-state-frame`, `apply-auto-layout`, `define-layout-zone`, `place-component`, and `bind-variable`.
+Notes: `DesignStepKind` includes `define-state-frame`, `apply-auto-layout`, `define-layout-zone`, `place-component`, and `bind-variable`. When node metadata is provided, the tool validates the reported file, page, and kotikit Section against the bound draft target before updating the node map.
 See also: `kotikit_design_get_screen`, `kotikit_plan_design`.
 
 ---

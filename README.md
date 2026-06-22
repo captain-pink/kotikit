@@ -257,9 +257,11 @@ asking until the picture is complete. When it is, the assistant summarizes the s
 > the dashboard. Does this look right?"
 
 Confirm or ask for changes. Once the spec is saved, choose **Create or refine
-the Figma design** from the menu. The assistant will start the local Figma
-plugin bridge, ask you to open a target draft in Figma, and apply the design
-plan step by step using your synced design system where possible.
+the Figma design** from the menu. The assistant will ask for the exact Figma
+draft page link where it is allowed to work. Use a page whose name contains
+`Draft` or `Drafts`, and copy the page link so it includes `node-id`. Kotikit
+will refuse production-looking pages, start the local Figma plugin bridge, then
+apply the design inside a kotikit-owned Section on that draft page.
 
 If a requested screen needs a component that is not in your synced design
 system, kotikit will pause and ask how to proceed. You can ask it to create
@@ -344,6 +346,8 @@ Claude Code or Codex normally stops the MCP process too.
 **What the plugin currently does:**
 
 - Connects your Figma file to the running kotikit session.
+- Applies generated screens only on the bound Draft/Drafts page and keeps each
+  screen inside a kotikit-owned Section.
 - Shows a compact setup/review checklist backed by the same kotikit MCP tools your assistant uses.
 - Runs `kotikit_doctor` through the bridge so you can spot setup issues without leaving Figma.
 - Syncs local variables from the open design-system file into `design-system/variables.json`

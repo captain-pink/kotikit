@@ -23,9 +23,15 @@ This produces `dist/code.js` and `dist/ui.html`.
    It will build `dist/` if needed, patch `manifest.json` for the chosen
    localhost port, and return a URL (`ws://localhost:53124?token=...`).
 2. In Figma: Plugins -> Development -> kotikit. Paste the URL into Connect.
-3. To import variables on a Professional plan, open the source design-system
+3. Before creating or refining a screen, send your assistant the exact Figma
+   draft page link. The page name must contain `Draft` or `Drafts`. Kotikit
+   binds that page, and the plugin applies generated frames inside a
+   kotikit-owned Section on that page.
+4. To import variables on a Professional plan, open the source design-system
    file in Figma and click **Sync Variables From Open File**.
-4. (P5-D4 -- coming) pick a screen, click Run All.
+5. For screen creation, use the assistant flow: ask to create or refine the
+   Figma design, connect the plugin, then let the plugin run the returned plan
+   step by step.
 
 When developing from this repository, this manual fallback starts the same bridge:
 

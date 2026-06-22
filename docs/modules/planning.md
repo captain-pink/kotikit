@@ -21,7 +21,7 @@ but `/kotikit-auto` and `kotikit:auto` should not call it for designers yet.
 - `deleteCodePlan(root, scope, screenSlug | null)` — async; removes the plan file
 
 **Design plans** (`src/planning/design-plan-schema.ts`, `src/planning/design-plan-store.ts`, `src/planning/design-planner.ts`)
-- `DesignPlan`, `DesignPlanSchema` — the plan shape (version, scope, screen, pageName, states, layout, steps, createdAt)
+- `DesignPlan`, `DesignPlanSchema` — the plan shape (version, scope, screen, target, pageName, states, layout, steps, createdAt)
 - `DesignPlanStepKind` — `"define-state-frame" | "apply-auto-layout" | "define-layout-zone" | "place-component" | "bind-variable"`
 - `DesignPlanStep` — a discriminated union of the five step kinds, each with its own validated fields
 - `LayoutContract` (`src/planning/layout-contract.ts`) — semantic zones and component placements derived from the spec, independent of any specific design system
@@ -32,7 +32,7 @@ but `/kotikit-auto` and `kotikit:auto` should not call it for designers yet.
 - `deleteDesignPlan(root, scope, screen | null)` — async
 
 **Component plans** (`src/planning/component-plan-schema.ts`, `src/planning/component-plan-store.ts`, `src/planning/component-planner.ts`)
-- `ComponentPlan`, `ComponentPlanSchema` — the decision artifact for missing components (version, scope, screen, mode, literalFallbackAllowed, requiresHumanReview, steps, createdAt)
+- `ComponentPlan`, `ComponentPlanSchema` — the decision artifact for missing components (version, scope, screen, target, mode, literalFallbackAllowed, requiresHumanReview, steps, createdAt)
 - `ComponentPlanMode` — `"create-draft-components" | "inline-draft"`
 - `ComponentPlanStep` — either `"create-draft-component"` with a `componentSpecRef`, or `"create-inline-draft"` for page-only pieces
 - `ComponentTokenRef` — compact references to existing variables or styles the component decision should use; literals are recorded only after explicit designer approval
@@ -57,6 +57,8 @@ The code plan's `steps` array maps directly to the code generation loop in `koti
 
 The design plan's steps use a discriminated union on `kind`. Each step kind carries exactly the fields the corresponding Figma operation needs: `define-state-frame` carries dimensions; `apply-auto-layout` carries direction, padding, and spacing; `define-layout-zone` creates a semantic auto-layout container; `place-component` carries the component name, DS key, variant overrides, semantic role, and target zone; `bind-variable` carries the variable name and the CSS property to bind it to. The bridge flow reads one step at a time, executes it in the Figma plugin, and records the result through `kotikit_design_apply_step`.
 
+Every design plan must include a bound `FigmaDraftTarget`. The target is written to the screen spec or flow manifest by `kotikit_figma_target_bind` after validating the designer-provided page URL. `generateDesignPlan` copies that target into the disposable plan so the plugin can verify the open Figma file, switch to the exact draft page, and create or reuse a Section named `kotikit / <scope> / <screen> / <date>`. All generated frames are parented to that Section, and apply-step logging rejects nodes reported from a different file, page, or Section. This gives Professional-plan teams a branch-free safety boundary for production files.
+
 The component plan sits before design application. When `kotikit_design_get_screen`
 finds a component that is not in the synced design system, agents must ask the
 designer whether to create reusable draft components or build the pieces inline
@@ -71,14 +73,14 @@ Design layout is intentionally generic. `generateDesignPlan` does not know about
 
 The Figma shim exposes parent node size inspection so zone frames can inherit a sensible width from their parent frame before components are appended. This is still a layout scaffold, not a visual QA engine: later review/gate passes should check overlap, clipping, minimum target size, and responsive state quality.
 
-Apply results are recorded in two forms. The JSONL apply log stays as the append-only audit trail. The optional `design.node-map.json` is a compact, validated map from design-plan steps to Figma node IDs. `kotikit_design_review_comments` uses that map with Figma comment `client_meta.node_id` values to tell the agent which planned component or frame a review comment targets. Comments without node IDs, or comments whose node IDs are outside the map, are returned as unmapped rather than inferred from text.
+Apply results are recorded in two forms. The JSONL apply log stays as the append-only audit trail. The optional `design.node-map.json` is a compact, validated map from design-plan steps to Figma node IDs. The map also stores the bound target, page, and Section metadata so future comment review and refinements can prove they are operating inside the approved draft area. `kotikit_design_review_comments` uses that map with Figma comment `client_meta.node_id` values to tell the agent which planned component or frame a review comment targets. Comments without node IDs, or comments whose node IDs are outside the map, are returned as unmapped rather than inferred from text.
 
 Review results and refinements live in `.kotikit/design-review.db`. Agents record micro-adjustments through `kotikit_design_adjustment_record` instead of expanding specs or prompts with verbose change history. Repeated feedback can become a design memory candidate; promoted preferences are returned by `kotikit_design_get_screen` as `designPreferences` so future design passes can apply project taste before the same comment appears again.
 
 ## When to extend it
 
 - Adding a new code step kind (e.g. `"compose-animation"`) — extend `CodePlanStepKindSchema`, add logic to `generateCodePlan` to include it when the spec signals animation requirements, and update the MCP `implement_code_start` tool to handle the new kind.
-- Adding a new design step kind (e.g. `"export-asset"`) — add a new variant to `DesignPlanStepSchema` as a discriminated union member with its own Zod schema, then handle it in the bridge apply loop and `kotikit_design_apply_step` schema.
+- Adding a new design step kind (e.g. `"export-asset"`) — add a new variant to `DesignPlanStepSchema` as a discriminated union member with its own Zod schema, then handle it in the bridge apply loop and `kotikit_design_apply_step` schema. Keep file/page/Section validation transport-level; individual step handlers should not decide whether a Figma page is safe.
 - Adding a new generic layout role or zone — update `layout-contract.ts`, add planner tests with minimized specs, extend `DesignPlanSchema` enums, and keep the plugin behavior semantic rather than design-system-specific.
 - Adding component creation execution — extend the component plan schema only if the existing reusable/inline split cannot describe the new action, then update the Figma plugin apply flow to consume component plans and keep human review as the completion gate.
 - Adding a design-to-code synchronization step — a new plan kind (e.g. `SyncPlan`) would follow the same store pattern; add `syncPlanPath` to `src/util/paths.ts` first.

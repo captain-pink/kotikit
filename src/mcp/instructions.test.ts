@@ -25,4 +25,10 @@ describe("KOTIKIT_MCP_INSTRUCTIONS", () => {
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit_component_plan_create");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("explicit designer approval");
   });
+
+  it("requires a bound draft page before Figma design application", () => {
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit_figma_target_bind");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("page name must contain Draft or Drafts");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit-owned Section");
+  });
 });
