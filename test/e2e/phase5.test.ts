@@ -1,6 +1,6 @@
 import { describe, it, expect, afterAll, afterEach } from "bun:test";
 import { rm } from "fs/promises";
-import { existsSync, mkdtempSync, readFileSync } from "fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import simpleGit from "simple-git";
@@ -70,6 +70,21 @@ function parseDetail(text: string): unknown {
   return JSON.parse(text.slice(i + 2));
 }
 
+function seedDsComponentJson(root: string, name: string): void {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  const dir = `${root}/design-system/components`;
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(`${dir}/${slug}.json`, JSON.stringify({
+    name,
+    key: `k-${slug}`,
+    fileKey: "f",
+    path: `components/${slug}.json`,
+    variants: [],
+    properties: {},
+    updatedAt: "2026-05-29T00:00:00.000Z",
+  }, null, 2));
+}
+
 async function setupRepoWithConfig(): Promise<string> {
   const tmp = mkTmp();
   const git = simpleGit(tmp);
@@ -104,6 +119,8 @@ describe("Phase 5 E2E — design plan happy path", () => {
     };
     const createResult = await callTool(registry, "kotikit_spec_create", { draft });
     expect(createResult.isError).toBeFalsy();
+    seedDsComponentJson(root, "Button");
+    seedDsComponentJson(root, "Input");
 
     // 2. plan_design
     const planResult = await callTool(registry, "kotikit_plan_design", { scope: "profile-page" });
@@ -115,7 +132,7 @@ describe("Phase 5 E2E — design plan happy path", () => {
     expect(plan.pageName).toBe("ProfilePage");
     expect(plan.steps.length).toBeGreaterThan(0);
 
-    // 3. design_get_screen — returns plan + spec + (empty) dsComponents + skipped
+    // 3. design_get_screen — returns plan + spec + synced DS components
     const getResult = await callTool(registry, "kotikit_design_get_screen", { scope: "profile-page" });
     expect(getResult.isError).toBeFalsy();
     const getDetail = parseDetail(getResult.content[0]!.text) as {
@@ -126,9 +143,8 @@ describe("Phase 5 E2E — design plan happy path", () => {
     };
     expect(getDetail.plan.pageName).toBe("ProfilePage");
     expect(getDetail.spec.title).toBe("Profile Page");
-    // No design-system synced, so dsComponents is empty and skipped has 2 entries
-    expect(Object.keys(getDetail.dsComponents)).toEqual([]);
-    expect(getDetail.skipped.map((s) => s.name).sort()).toEqual(["Button", "Input"]);
+    expect(Object.keys(getDetail.dsComponents).sort()).toEqual(["Button", "Input"]);
+    expect(getDetail.skipped).toEqual([]);
 
     // 4. design_apply_step — record three applications
     await callTool(registry, "kotikit_design_apply_step", {
