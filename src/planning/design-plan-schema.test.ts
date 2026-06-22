@@ -142,6 +142,24 @@ describe("DesignPlanSchema", () => {
       placements: [],
     });
   });
+
+  it("accepts a bound Figma draft target", () => {
+    const parsed = DesignPlanSchema.parse({
+      ...validPlan(),
+      target: {
+        fileKey: "fig-file",
+        pageId: "0:1",
+        pageName: "Draft - Cart",
+        pageUrl: "https://www.figma.com/design/fig-file/App?node-id=0-1",
+        boundAt: "2026-06-22T00:00:00.000Z",
+        source: "user-url",
+        section: { name: "kotikit / cart / 2026-06-22" },
+      },
+    });
+
+    expect(parsed.target?.pageName).toBe("Draft - Cart");
+    expect(parsed.target?.safety.requireKotikitSection).toBe(true);
+  });
 });
 
 describe("parseDesignPlan", () => {

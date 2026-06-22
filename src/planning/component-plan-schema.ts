@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { KotikitError } from "../util/result.js";
 import { ComponentVariablePolicySchema } from "../spec/schema.js";
+import { FigmaDraftTargetSchema } from "../figma/draft-target.js";
 
 export const ComponentPlanModeSchema = z.enum(["create-draft-components", "inline-draft"]);
 export type ComponentPlanMode = z.infer<typeof ComponentPlanModeSchema>;
@@ -37,6 +38,7 @@ export const ComponentPlanSchema = z.object({
   version: z.literal(1),
   scope: z.string(),
   screen: z.string().optional(),
+  target: FigmaDraftTargetSchema.optional(),
   mode: ComponentPlanModeSchema,
   literalFallbackAllowed: z.boolean().default(false),
   requiresHumanReview: z.boolean().default(true),

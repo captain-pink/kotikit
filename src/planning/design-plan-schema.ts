@@ -5,6 +5,7 @@ import {
   EMPTY_LAYOUT_CONTRACT,
   LAYOUT_ZONE_IDS,
 } from "./layout-contract.js";
+import { FigmaDraftTargetSchema } from "../figma/draft-target.js";
 
 // ─── Step kinds ──────────────────────────────────────────────────────────────
 
@@ -102,6 +103,7 @@ export const DesignPlanSchema = z.object({
   scope: z.string(),
   screen: z.string().optional(),
   pageName: z.string(),
+  target: FigmaDraftTargetSchema.optional(),
   states: z.array(z.string()).min(1),
   layout: LayoutContractSchema.default(EMPTY_LAYOUT_CONTRACT),
   steps: z.array(DesignPlanStepSchema).min(1),

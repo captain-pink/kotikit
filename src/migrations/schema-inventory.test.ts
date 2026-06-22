@@ -4,7 +4,12 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { defaultConfig } from "../config/schema.js";
 import { writeConfig } from "../config/load.js";
-import { newFlowManifest, newScreenSpec } from "../spec/schema.js";
+import {
+  FLOW_MANIFEST_SCHEMA_VERSION,
+  SCREEN_SPEC_SCHEMA_VERSION,
+  newFlowManifest,
+  newScreenSpec,
+} from "../spec/schema.js";
 import { inspectProjectSchemaVersions } from "./schema-inventory.js";
 
 const tmpDirs: string[] = [];
@@ -53,14 +58,14 @@ describe("inspectProjectSchemaVersions", () => {
       kind: "screen",
       status: "legacy-or-older",
       schemaVersion: null,
-      latestVersion: 2,
+      latestVersion: SCREEN_SPEC_SCHEMA_VERSION,
       reason: "missing schemaVersion",
     }));
     expect(inventory.findings).toContainEqual(expect.objectContaining({
       kind: "flow",
       status: "future",
       schemaVersion: 999,
-      latestVersion: 2,
+      latestVersion: FLOW_MANIFEST_SCHEMA_VERSION,
     }));
     expect(inventory.findings).toContainEqual(expect.objectContaining({
       kind: "screen",

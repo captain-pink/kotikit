@@ -129,6 +129,24 @@ describe("ScreenSpecSchema", () => {
       variablePolicy: "require-existing-variables",
     });
   });
+
+  it("accepts a bound Figma draft target", () => {
+    const parsed = parseScreenSpec({
+      ...newScreenSpec({ title: "Members", description: "x" }),
+      figmaTarget: {
+        fileKey: "fig-file",
+        pageId: "0:1",
+        pageName: "Draft - Members",
+        pageUrl: "https://www.figma.com/design/fig-file/App?node-id=0-1",
+        boundAt: "2026-06-22T00:00:00.000Z",
+        source: "user-url",
+        section: { name: "kotikit / members / 2026-06-22" },
+      },
+    });
+
+    expect(parsed.figmaTarget?.pageName).toBe("Draft - Members");
+    expect(parsed.figmaTarget?.safety.allowPageCreation).toBe(false);
+  });
 });
 
 describe("FlowManifestSchema", () => {
@@ -167,6 +185,27 @@ describe("FlowManifestSchema", () => {
     delete legacy.schemaVersion;
 
     expect(parseFlowManifest(legacy).schemaVersion).toBe(FLOW_MANIFEST_SCHEMA_VERSION);
+  });
+
+  it("accepts a flow-level Figma draft target", () => {
+    const parsed = parseFlowManifest({
+      ...newFlowManifest({
+        title: "Checkout",
+        description: "desc",
+        screens: [{ id: "cart", path: "cart.spec.json", title: "Cart" }],
+      }),
+      figmaTarget: {
+        fileKey: "fig-file",
+        pageId: "0:1",
+        pageName: "Checkout Drafts",
+        pageUrl: "https://www.figma.com/design/fig-file/App?node-id=0-1",
+        boundAt: "2026-06-22T00:00:00.000Z",
+        source: "user-url",
+        section: { name: "kotikit / checkout / 2026-06-22" },
+      },
+    });
+
+    expect(parsed.figmaTarget?.pageName).toBe("Checkout Drafts");
   });
 
   it("rejects a manifest with zero screens", () => {

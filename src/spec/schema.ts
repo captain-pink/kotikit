@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { uuid, nowIso } from "../util/ids";
+import { FigmaDraftTargetSchema } from "../figma/draft-target.js";
 
-export const SCREEN_SPEC_SCHEMA_VERSION = 2;
-export const FLOW_MANIFEST_SCHEMA_VERSION = 2;
+export const SCREEN_SPEC_SCHEMA_VERSION = 3;
+export const FLOW_MANIFEST_SCHEMA_VERSION = 3;
 
 // Helper: a field that is either the string "inherits" or an object with overrides
 const InheritOr = <T extends z.ZodTypeAny>(overrides: T) =>
@@ -75,6 +76,7 @@ export const ScreenSpecSchema = z.object({
   title: z.string().min(1, "title is required"),
   type: z.literal("screen"),
   flowRef: z.string().optional(),
+  figmaTarget: FigmaDraftTargetSchema.optional(),
   context: z.object({
     description: z.string().min(1, "context.description is required"),
     userTypes: z.array(z.string()).default([]),
@@ -131,6 +133,7 @@ export const FlowManifestSchema = z.object({
     )
     .default([]),
   sharedState: z.array(z.string()).default([]),
+  figmaTarget: FigmaDraftTargetSchema.optional(),
   metadata: z.object({
     createdAt: z.string(),
     updatedAt: z.string(),
