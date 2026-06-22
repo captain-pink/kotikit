@@ -104,14 +104,19 @@ const FigmaStylesResponseSchema = z.object({
 export const FigmaLocalVariablesSchema = z.object({
   variables: z.record(z.string(), z.object({
     id: z.string(),
+    key: z.string().optional(),
     name: z.string(),
     resolvedType: z.enum(["BOOLEAN", "FLOAT", "STRING", "COLOR"]),
     valuesByMode: z.record(z.string(), z.unknown()).optional(),
     description: z.string().optional(),
+    variableCollectionId: z.string().optional(),
+    scopes: z.array(z.string()).optional(),
   }).passthrough()).optional(),
   variableCollections: z.record(z.string(), z.object({
     id: z.string(),
+    key: z.string().optional(),
     name: z.string(),
+    defaultModeId: z.string().optional(),
     modes: z.array(z.object({ modeId: z.string(), name: z.string() })).optional(),
   }).passthrough()).optional(),
 }).passthrough();

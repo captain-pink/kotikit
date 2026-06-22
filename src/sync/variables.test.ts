@@ -57,10 +57,18 @@ describe("mergeVariables", () => {
     const out = mergeVariables({
       variables: {
         variables: {
-          v1: { id: "v1", name: "primary", resolvedType: "COLOR", valuesByMode: { m1: "#ff0000" } },
+          v1: {
+            id: "v1",
+            key: "var-key-1",
+            name: "primary",
+            resolvedType: "COLOR",
+            valuesByMode: { m1: "#ff0000" },
+            variableCollectionId: "c1",
+            scopes: ["FRAME_FILL"],
+          },
         },
         variableCollections: {
-          c1: { id: "c1", name: "Brand", modes: [{ modeId: "m1", name: "default" }] },
+          c1: { id: "c1", key: "collection-key-1", name: "Brand", modes: [{ modeId: "m1", name: "default" }] },
         },
       },
       styles: [],
@@ -71,6 +79,11 @@ describe("mergeVariables", () => {
     expect(out.entries[0]?.kind).toBe("color");
     expect(out.entries[0]?.source).toBe("variable");
     expect(out.entries[0]?.value).toBe("#ff0000");
+    expect(out.entries[0]?.id).toBe("v1");
+    expect(out.entries[0]?.key).toBe("var-key-1");
+    expect(out.entries[0]?.variableCollectionId).toBe("c1");
+    expect(out.entries[0]?.variableCollectionKey).toBe("collection-key-1");
+    expect(out.entries[0]?.scopes).toEqual(["FRAME_FILL"]);
     expect(out.entries[0]?.modes).toBeUndefined(); // only one mode → modes omitted
   });
 

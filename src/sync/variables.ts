@@ -11,12 +11,17 @@ import type {
 // ─── Output schema ───────────────────────────────────────────────────────────
 
 export const VariableEntrySchema = z.object({
+  id: z.string().optional(),
+  key: z.string().optional(),
   name: z.string(),
   kind: z.enum(["color", "text", "effect", "number", "spacing"]),
   source: z.enum(["variable", "style"]),
   value: z.unknown(),
   modes: z.record(z.string(), z.unknown()).optional(),
   description: z.string().optional(),
+  variableCollectionId: z.string().optional(),
+  variableCollectionKey: z.string().optional(),
+  scopes: z.array(z.string()).optional(),
 });
 export type VariableEntry = z.infer<typeof VariableEntrySchema>;
 
@@ -41,10 +46,15 @@ function styleTypeToKind(styleType: FigmaStyle["style_type"]): VariableEntry["ki
   }
 }
 
-function variableTypeToKind(resolved: "BOOLEAN" | "FLOAT" | "STRING" | "COLOR"): VariableEntry["kind"] | null {
+const SPACING_NAME_PATTERN = /(^|[/\s_-])(space|spacing|gap|padding|margin|radius)([/\s_-]|$)/i;
+
+function variableTypeToKind(
+  resolved: "BOOLEAN" | "FLOAT" | "STRING" | "COLOR",
+  name = ""
+): VariableEntry["kind"] | null {
   switch (resolved) {
     case "COLOR":   return "color";
-    case "FLOAT":   return "number";
+    case "FLOAT":   return SPACING_NAME_PATTERN.test(name) ? "spacing" : "number";
     case "STRING":  return "text";
     case "BOOLEAN": return null; // skipped — not modelled
   }
@@ -73,6 +83,8 @@ export function mergeVariables(input: {
     if (kind === null) continue;
     const detail = style.node_id ? input.styleDetailsByNodeId[style.node_id] : undefined;
     const entry: VariableEntry = {
+      ...(style.node_id !== undefined ? { id: style.node_id } : {}),
+      key: style.key,
       name: style.name,
       kind,
       source: "style",
@@ -86,8 +98,12 @@ export function mergeVariables(input: {
   if (input.variables?.variables) {
     // Build a mode name lookup from collections so modes can be keyed by display name
     const modeNameById: Record<string, string> = {};
+    const collectionKeyById: Record<string, string> = {};
     if (input.variables.variableCollections) {
       for (const collection of Object.values(input.variables.variableCollections)) {
+        if (collection.key !== undefined) {
+          collectionKeyById[collection.id] = collection.key;
+        }
         for (const mode of collection.modes ?? []) {
           modeNameById[mode.modeId] = mode.name;
         }
@@ -95,17 +111,24 @@ export function mergeVariables(input: {
     }
 
     for (const v of Object.values(input.variables.variables)) {
-      const kind = variableTypeToKind(v.resolvedType);
+      const kind = variableTypeToKind(v.resolvedType, v.name);
       if (kind === null) continue;
       const valuesByMode = v.valuesByMode ?? {};
       const modeIds = Object.keys(valuesByMode);
       const entry: VariableEntry = {
+        id: v.id,
+        ...(v.key !== undefined ? { key: v.key } : {}),
         name: v.name,
         kind,
         source: "variable",
         // value defaults to the first mode's value for the single-mode case
         value: modeIds.length > 0 ? valuesByMode[modeIds[0] as string] : null,
         ...(v.description !== undefined ? { description: v.description } : {}),
+        ...(v.variableCollectionId !== undefined ? { variableCollectionId: v.variableCollectionId } : {}),
+        ...(v.variableCollectionId !== undefined && collectionKeyById[v.variableCollectionId] !== undefined
+          ? { variableCollectionKey: collectionKeyById[v.variableCollectionId] }
+          : {}),
+        ...(v.scopes !== undefined ? { scopes: v.scopes } : {}),
       };
       if (modeIds.length > 1) {
         const modes: Record<string, unknown> = {};
