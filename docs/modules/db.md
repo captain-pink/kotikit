@@ -2,7 +2,7 @@
 
 ## What it does
 
-The db module wraps `bun:sqlite` with the conventions kotikit uses everywhere: WAL journal mode, normal synchronous writes, foreign key enforcement, and a thin transaction helper. On top of that base it owns four SQLite databases — a full-text-search components store, a full-text-search icons store, a registry that tracks which design system components have been scaffolded into code, and a design review ledger that stores comment review state and project design preferences — plus the CamelCase token splitter that makes component names searchable by their parts.
+The db module wraps `bun:sqlite` with the conventions kotikit uses everywhere: WAL journal mode, normal synchronous writes, foreign key enforcement, and a thin transaction helper. On top of that base it owns four SQLite databases — a full-text-search components store, a full-text-search icons store, a registry that tracks which design system components have been scaffolded into code, and a design review ledger that stores comment review state, standalone design-quality audits, bounded Figma evidence cache rows, and project design preferences — plus the CamelCase token splitter that makes component names searchable by their parts.
 
 ## Public surface
 
@@ -40,6 +40,12 @@ The db module wraps `bun:sqlite` with the conventions kotikit uses everywhere: W
 
 **Design review database** (`src/db/design-review-db.ts`)
 - `openDesignReviewDb(root)` — open `.kotikit/design-review.db`, initialize tables, and return the review store
+- `upsertReviewTargetCache(input)` / `getReviewTargetCache(input)` — store and read versioned shallow Figma evidence cache rows; cache hits require matching schema version, source fingerprint, and expiry
+- `recordDesignAuditSession(input)` — persist a standalone design-quality review target, brief, and bounded evidence bundle
+- `recordDesignAuditFindings(input)` — persist structured findings authored by the reviewing agent
+- `prepareDesignAuditComments(input)` — create pending root-comment outbox rows for commentable findings
+- `markDesignAuditCommentPosted(input)` / `markDesignAuditCommentFailed(input)` — update standalone design-review comment outbox state after Figma API calls
+- `getDesignAuditReport(input)` — return compact audit findings and pending root comments
 - `recordReviewSession(input)` — persist a comment-reading pass and compact comment rows
 - `recordDesignAdjustment(input)` — persist a micro-adjustment and mark linked comments fixed
 - `prepareCommentReplies(input)` — create pending reply outbox rows for fixed comments
@@ -63,12 +69,19 @@ The registry schema has two versions. `PRAGMA user_version = 0` is the Phase 3 b
 `upsertRegistryDsRow` is the only function that understands component lifecycle rules. When the sync runs again on an already-scaffolded component, this function updates `ds_path` without touching `code_path` or status, preserving the `"synced"` label. When a component was `"code-only"` (scaffolded before the DS was synced), it promotes the row to `"synced"` if `code_path` is non-null.
 
 The design review database is intentionally compact. It does not store long
-design-change narratives. A review pass stores comment metadata and mapping
-status, each fix stores a short adjustment row, and repeated adjustment evidence
-can become a preference candidate. Only promoted `design_preferences` are fed
-back into design context by `kotikit_design_get_screen`. The DB now sets
-`PRAGMA user_version = 1` on open so future schema additions can use the same
-idempotent migration style as the registry DB.
+design-change narratives. Comment-review passes store comment metadata and
+mapping status, each fix stores a short adjustment row, and repeated adjustment
+evidence can become a preference candidate. Standalone design-quality reviews
+store a bounded target evidence bundle, structured findings, and root-comment
+outbox rows only after the user approves posting. Only promoted
+`design_preferences` are fed back into design context by
+`kotikit_design_get_screen`.
+
+The DB sets `PRAGMA user_version = 2` on open. The target cache is deliberately
+defensive: rows carry a cache schema version, source fingerprint, and expiry.
+Normal review starts collect fresh shallow Figma evidence; cached evidence is
+for continuity and repeat reports, not a hidden substitute for fresh source of
+truth.
 
 ## When to extend it
 

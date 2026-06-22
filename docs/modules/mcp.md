@@ -2,7 +2,7 @@
 
 ## What it does
 
-The mcp module is the boundary between kotikit's engines and the AI model. It owns the MCP server process (stdio transport, used by Claude Code, Codex, and other MCP clients), the optional WebSocket bridge (used by the Figma plugin), the `ToolRegistry` pattern that all tool registrars write to, and the `ToolContext` that every tool handler receives. It registers all 43 tools and routes `tools/list` and `tools/call` requests from both transports through a single shared handler map.
+The mcp module is the boundary between kotikit's engines and the AI model. It owns the MCP server process (stdio transport, used by Claude Code, Codex, and other MCP clients), the optional WebSocket bridge (used by the Figma plugin), the `ToolRegistry` pattern that all tool registrars write to, and the `ToolContext` that every tool handler receives. It registers all 48 tools and routes `tools/list` and `tools/call` requests from both transports through a single shared handler map.
 
 ## Public surface
 
@@ -27,13 +27,13 @@ The mcp module is the boundary between kotikit's engines and the AI model. It ow
 
 **Tool registrars** (each in `src/mcp/tools/<name>.ts`)
 
-See [docs/tools.md](../tools.md) for the complete cheat-sheet. The 43 tools are grouped here by phase:
+See [docs/tools.md](../tools.md) for the complete cheat-sheet. The 48 tools are grouped here by phase:
 
 - Phase 1: `kotikit_config_status`, `kotikit_config_init`, `kotikit_config_get`, `kotikit_spec_create`, `kotikit_spec_get`, `kotikit_spec_list`, `kotikit_spec_update`, `kotikit_flow_create`, `kotikit_brainstorm_start`, `kotikit_brainstorm_assess`
 - Phase 2: `kotikit_sync_ds`, `kotikit_sync_plugin_variables`, `kotikit_ds_search`, `kotikit_ds_get_component`, `kotikit_icons_search`
 - Phase 3: `kotikit_plan_code`, `kotikit_implement_code_start`, `kotikit_implement_code_save`, `kotikit_implement_code_gate`, `kotikit_registry_search`
 - Phase 4: `kotikit_scaffold_start`, `kotikit_scaffold_save`
-- Phase 5: `kotikit_bridge_start`, `kotikit_bridge_stop`, `kotikit_bridge_status`, `kotikit_figma_target_bind`, `kotikit_component_plan_create`, `kotikit_plan_design`, `kotikit_design_get_screen`, `kotikit_design_apply_step`, `kotikit_design_review_comments`, `kotikit_design_adjustment_record`, `kotikit_design_review_report`, `kotikit_design_comment_reply_prepare`, `kotikit_design_comment_reply_post`, `kotikit_design_memory_candidates`, `kotikit_design_memory_promote`, `kotikit_design_memory_dismiss`, `kotikit_design_memory_update`, `kotikit_design_memory_search`
+- Phase 5: `kotikit_bridge_start`, `kotikit_bridge_stop`, `kotikit_bridge_status`, `kotikit_figma_target_bind`, `kotikit_component_plan_create`, `kotikit_plan_design`, `kotikit_design_get_screen`, `kotikit_design_apply_step`, `kotikit_design_review_comments`, `kotikit_design_adjustment_record`, `kotikit_design_review_report`, `kotikit_design_comment_reply_prepare`, `kotikit_design_comment_reply_post`, `kotikit_design_memory_candidates`, `kotikit_design_memory_promote`, `kotikit_design_memory_dismiss`, `kotikit_design_memory_update`, `kotikit_design_memory_search`, `kotikit_design_review_start`, `kotikit_design_review_record`, `kotikit_design_review_get`, `kotikit_design_review_comment_prepare`, `kotikit_design_review_comment_post`
 - Phase 6: `kotikit_audit`, `kotikit_get_system_prompt`
 - Tooling: `kotikit_doctor`
 
@@ -48,7 +48,7 @@ review.
 
 The server also exposes `KOTIKIT_MCP_INSTRUCTIONS` during MCP initialization. These instructions are agent-neutral and front-load the workflow: translate tool JSON into plain language, fetch long system prompts by reference, search design-system indexes before reading exact files, keep user-facing errors friendly, and treat kotikit as design-first until design-to-code returns in a later version.
 
-The stdio transport and the WebSocket bridge share the identical handler map. The bridge's `tools/call` JSON-RPC handler looks up the tool name in `registry.handlers` and calls it with the parsed arguments, exactly as the stdio dispatcher does. This means every feature automatically works in stdio MCP clients such as Claude Code and Codex, and in the Figma plugin bridge, without duplication. Browserless Figma review uses the same path: `kotikit_design_review_comments` reads comments through the REST API, maps them through the local node map written by apply-step results, and stores compact review state in `.kotikit/design-review.db`.
+The stdio transport and the WebSocket bridge share the identical handler map. The bridge's `tools/call` JSON-RPC handler looks up the tool name in `registry.handlers` and calls it with the parsed arguments, exactly as the stdio dispatcher does. This means every feature automatically works in stdio MCP clients such as Claude Code and Codex, and in the Figma plugin bridge, without duplication. Browserless Figma comment review uses the same path: `kotikit_design_review_comments` reads comments through the REST API, maps them through the local node map written by apply-step results, and stores compact review state in `.kotikit/design-review.db`. Standalone design-quality review uses `kotikit_design_review_start` to gather bounded shallow Figma evidence, then stores agent-authored findings and optional approved root comments in the same review DB.
 
 Figma design creation is fail-closed around explicit draft targets. The agent first calls `kotikit_figma_target_bind` with the designer's exact Figma draft page URL. The tool verifies the URL points to a page node, the page name contains `Draft` or `Drafts`, and the target is saved in the screen spec or flow manifest. `kotikit_plan_design` refuses to build a plugin plan until that target exists. The plugin then switches to the bound page and creates or reuses a kotikit-owned Section for the generated screen; `kotikit_design_apply_step` validates reported file, page, and Section metadata before updating comment-review maps.
 

@@ -1,6 +1,6 @@
 # kotikit MCP Tools
 
-43 tools exposed by the kotikit MCP server, organized by what they do.
+48 tools exposed by the kotikit MCP server, organized by what they do.
 Each tool name is what the agent calls; the "Example" line shows how to trigger it from your conversation.
 
 Token costs are approximate response sizes measured against a small fixture project (3 DS components, 1 screen). Re-measure for your project with `bun run measure`. See [docs/TOKENS.md](./TOKENS.md) for optimization strategies.
@@ -426,6 +426,61 @@ Output: `{ posted, failed }`
 Token cost: ~120 plus posted/failed count.
 Example: "Post the prepared replies for fixed comments."
 See also: `kotikit_design_comment_reply_prepare`.
+
+---
+
+### kotikit_design_review_start
+
+Purpose: Start a standalone design-quality review for an exact Figma page, section, frame, or component. Returns bounded evidence: shallow target summary, limited child regions, and a temporary Figma image URL when available.
+Input: `{ figmaUrl?: string; fileKey?: string; nodeId?: string; scope?: string; screen?: string; surfaceType?: string; audience?: string; primaryUserGoal?: string; reviewGoal?: string; strictness?: "quick" | "standard" | "deep"; notes?: string; maxRegions?: number }`
+Output: `{ sessionId, target, evidence, next }`
+Token cost: bounded by `maxRegions`; defaults to 8 shallow regions and does not load the full Figma tree.
+Example: "Review this Figma section like a design director: https://www.figma.com/design/...?...node-id=..."
+See also: `kotikit_design_review_record`, `kotikit_design_review_get`.
+
+---
+
+### kotikit_design_review_record
+
+Purpose: Persist structured findings produced by the agent's design review.
+Input: `{ sessionId: string; findings: Array<{ category, severity, confidence, title, observation, rationale, recommendation, nodeId?, region?, commentable, suggestedComment? }> }`
+Output: `{ findings }`
+Token cost: depends on finding count; keep broad strategy notes concise and mark them `commentable: false`.
+Example: "Record these review findings for the Members screen."
+See also: `kotikit_design_review_start`, `kotikit_design_review_comment_prepare`.
+
+---
+
+### kotikit_design_review_get
+
+Purpose: Return a compact standalone design-review report with findings and pending Figma comment outbox rows.
+Input: `{ sessionId?: string; fileKey?: string; limit?: number }`
+Output: `{ session, summary, findings, pendingComments }`
+Token cost: depends on `limit`; defaults to 25.
+Example: "Show the latest design-quality review report."
+See also: `kotikit_design_review_record`.
+
+---
+
+### kotikit_design_review_comment_prepare
+
+Purpose: Prepare pending root Figma comments for commentable design-review findings without posting them.
+Input: `{ sessionId: string; findingIds?: string[]; limit?: number }`
+Output: `{ comments }`
+Token cost: depends on comment count; defaults to at most 12.
+Example: "Prepare Figma comments for the high-severity findings."
+See also: `kotikit_design_review_comment_post`.
+
+---
+
+### kotikit_design_review_comment_post
+
+Purpose: Post prepared design-review comments to Figma. Requires `confirm: true` after explicit user approval and a token with `file_comments:write`.
+Input: `{ sessionId?: string; fileKey?: string; outboxIds?: string[]; limit?: number; confirm: true }`
+Output: `{ posted, failed }`
+Token cost: small; Figma API calls are serialized through the same adaptive client and exponential backoff used by design-system sync.
+Example: "Post the approved review comments to Figma."
+See also: `kotikit_design_review_comment_prepare`.
 
 ---
 

@@ -147,6 +147,29 @@ Use this when the user asks to read, review, or resolve Figma comments.
    to prepare designer-facing replies.
 6. Present the "What next?" menu.
 
+## Design Review Workflow
+
+Use this when the user asks to review design quality, audit a Figma screen,
+run `kotikit:design-review`, or run `/kotikit-design-review`.
+
+1. Run the Init Workflow.
+2. Ask for the exact Figma URL if the user did not provide one. The link must
+   include `node-id`.
+3. Ask one short context question only if the surface type or review goal is
+   unclear.
+4. Call `kotikit_design_review_start` with the URL, brief context, and bounded
+   evidence. Use `maxRegions: 8` for normal reviews and `maxRegions: 12` for
+   deep reviews unless the user asks for broader coverage.
+5. Review the returned evidence like a Design Director. Focus on hierarchy,
+   layout, spacing, typography, color/contrast, design-system fit, interaction
+   states, responsive behavior, copy clarity, accessibility, and craft issues.
+6. Call `kotikit_design_review_record` with structured findings.
+7. Summarize findings in plain language and ask whether the user wants selected
+   comments posted to Figma.
+8. If approved, call `kotikit_design_review_comment_prepare`, then
+   `kotikit_design_review_comment_post` with `confirm: true`.
+9. Present the "What next?" menu.
+
 ## Design-to-Code Notice
 
 If the designer asks for React code, code generation, component scaffolding, or
@@ -166,6 +189,7 @@ What next?
   - Sync my design system
   - Create or refine the Figma design
   - Review Figma comments
+  - Review design quality
   - I'm done for now
 ```
 
@@ -177,6 +201,7 @@ Route choices with kotikit tools:
 - Sync my design system: run Sync Workflow.
 - Create or refine the Figma design: run Design Workflow.
 - Review Figma comments: run Review Workflow.
+- Review design quality: run Design Review Workflow.
 - I'm done for now: close gracefully.
 
 ## Design-System Search Discipline

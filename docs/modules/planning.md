@@ -42,12 +42,13 @@ but `/kotikit-auto` and `kotikit:auto` should not call it for designers yet.
 - `readComponentPlan(root, scope, screen | null)` — async; returns `ComponentPlan | null`
 - `deleteComponentPlan(root, scope, screen | null)` — async
 
-**Design node maps, comments, and preferences** (`src/planning/design-node-map.ts`, `src/planning/design-comments.ts`, `src/db/design-review-db.ts`)
+**Design node maps, review evidence, comments, and preferences** (`src/planning/design-node-map.ts`, `src/planning/design-review.ts`, `src/planning/design-comments.ts`, `src/db/design-review-db.ts`)
 - `DesignNodeMap` — persisted per-screen Figma node map written by `kotikit_design_apply_step` when the plugin reports Figma node metadata
 - `readDesignNodeMap(root, scope, screen | null)` — async; returns `DesignNodeMap | null`
 - `upsertDesignNodeMapEntry(root, scope, screen | null, update)` — async; merges a step's latest target node metadata into the map
+- `collectDesignReviewEvidence(input)` — fetches bounded depth-1 Figma target evidence, limits returned child regions, records a versioned cache row, and returns a temporary screenshot URL when available
 - `mapCommentsToDesignNodes(comments, nodeMap, options)` — pure mapper that links Figma comments by `client_meta.node_id` and leaves unmatched comments unmapped instead of guessing
-- `design-review.db` — local review ledger for comment sessions, micro-adjustments, reply outbox rows, preference candidates, and active design preferences
+- `design-review.db` — local review ledger for comment sessions, standalone design-quality reviews, shallow evidence cache rows, micro-adjustments, reply/comment outbox rows, preference candidates, and active design preferences
 
 ## How it works
 
@@ -75,7 +76,7 @@ The Figma shim exposes parent node size inspection so zone frames can inherit a 
 
 Apply results are recorded in two forms. The JSONL apply log stays as the append-only audit trail. The optional `design.node-map.json` is a compact, validated map from design-plan steps to Figma node IDs. The map also stores the bound target, page, and Section metadata so future comment review and refinements can prove they are operating inside the approved draft area. `kotikit_design_review_comments` uses that map with Figma comment `client_meta.node_id` values to tell the agent which planned component or frame a review comment targets. Comments without node IDs, or comments whose node IDs are outside the map, are returned as unmapped rather than inferred from text.
 
-Review results and refinements live in `.kotikit/design-review.db`. Agents record micro-adjustments through `kotikit_design_adjustment_record` instead of expanding specs or prompts with verbose change history. Repeated feedback can become a design memory candidate; promoted preferences are returned by `kotikit_design_get_screen` as `designPreferences` so future design passes can apply project taste before the same comment appears again.
+Review results and refinements live in `.kotikit/design-review.db`. Agents record micro-adjustments through `kotikit_design_adjustment_record` instead of expanding specs or prompts with verbose change history. Standalone design-quality reviews start with `kotikit_design_review_start`, which gathers screenshot-led, shallow, bounded Figma evidence instead of loading a whole file tree. The reviewing agent records structured findings with `kotikit_design_review_record`; Figma comments are prepared and posted only after user approval. Repeated feedback can become a design memory candidate; promoted preferences are returned by `kotikit_design_get_screen` as `designPreferences` so future design passes can apply project taste before the same comment appears again.
 
 ## When to extend it
 

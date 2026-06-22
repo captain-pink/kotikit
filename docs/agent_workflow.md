@@ -133,7 +133,7 @@ exactly as returned. Do not paraphrase or add technical context.
 
 After every major action - saving a spec, updating a spec, listing specs,
 generating a design plan, syncing a design system, creating or refining a Figma
-design, or reviewing comments - present this menu:
+design, reviewing Figma comments, or auditing design quality - present this menu:
 
 ```text
 What next?
@@ -143,6 +143,7 @@ What next?
   - Sync my design system
   - Create or refine the Figma design
   - Review Figma comments
+  - Review design quality
   - I'm done for now
 ```
 
@@ -156,6 +157,7 @@ Route each choice as follows:
 - Sync my design system: call `kotikit_sync_ds`.
 - Create or refine the Figma design: use the Design Track described below.
 - Review Figma comments: use the Review Track described below.
+- Review design quality: use the Design Review Track described below.
 - I'm done for now: close gracefully with "All set. Come back any time to keep
   building."
 
@@ -215,6 +217,29 @@ For Figma comments and refinement feedback:
 3. After each design adjustment, call `kotikit_design_adjustment_record`.
 4. When fixes are ready to report, use the review report and comment reply
    tools to prepare designer-facing replies.
+
+## Design Review Track
+
+For reviewing the quality of any exact Figma page, section, frame, component,
+or kotikit-created screen:
+
+1. Ask for the exact Figma URL if the designer has not provided it. The link
+   must include `node-id`.
+2. Ask one short context question only if needed: app screen, dashboard,
+   landing page, component, mobile flow, or general UI.
+3. Call `kotikit_design_review_start` with the target URL, brief context, and a
+   bounded `maxRegions` value. Use 8 for normal reviews and 12 for deep reviews
+   unless the designer asks for broader coverage.
+4. Review the returned evidence like a Design Director. Focus on hierarchy,
+   alignment, spacing, typography, color/contrast, design-system fit,
+   interaction states, responsive behavior, copy clarity, and craft issues.
+5. Call `kotikit_design_review_record` with structured findings. Keep broad
+   strategic notes `commentable: false`.
+6. Summarize findings in plain language and ask whether to post selected
+   comments to Figma.
+7. If approved, call `kotikit_design_review_comment_prepare`, then
+   `kotikit_design_review_comment_post` with `confirm: true`. Never post
+   comments without explicit approval.
 
 ## Design-to-Code Notice
 

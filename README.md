@@ -87,8 +87,8 @@ bun run scaffold:agents -- --target /Users/YOUR_USERNAME/path/to/your-react-proj
 ```
 
 This writes or updates `.mcp.json` for Claude Code, `.codex/config.toml`, installs the
-`kotikit-auto` skill for both assistants, and creates `.env` with a `FIGMA_TOKEN=`
-placeholder if needed.
+`kotikit-auto` and `kotikit-design-review` skills for both assistants, and creates
+`.env` with a `FIGMA_TOKEN=` placeholder if needed.
 
 For a Claude Code-only laptop setup, run:
 
@@ -99,13 +99,15 @@ bun run scaffold:agents -- --target /Users/YOUR_USERNAME/path/to/your-react-proj
 
 Then open Claude Code from the target project, approve the project MCP server if prompted,
 and run `/mcp`. You should see the `kotikit` server with the `kotikit_*` tools. The
-scaffold also installs `.claude/skills/kotikit-auto/SKILL.md`, so you can run
-`/kotikit-auto` in Claude Code for the same guided workflow that Codex gets from
-`kotikit:auto`.
+scaffold also installs `.claude/skills/kotikit-auto/SKILL.md` and
+`.claude/skills/kotikit-design-review/SKILL.md`, so you can run `/kotikit-auto`
+for the guided workflow or `/kotikit-design-review` for focused design critique.
+Codex gets the same workflows from `kotikit:auto` and `kotikit:design-review`.
 
 If you already scaffolded an older `kotikit-auto` skill that points at
 `docs/agent_workflow.md`, rerun the command after pulling the latest kotikit. The scaffold
-command replaces that known-broken skill with the portable self-contained version.
+command replaces that known-broken skill with the portable self-contained version and
+adds the design-review skill.
 
 For Codex-only projects where `.kotikit/config.json` already exists and you want
 generated save-point footers to say Codex, run:
@@ -163,12 +165,14 @@ lets large Figma design-system syncs finish under API rate limits instead of bei
 Codex at two minutes. If you prefer global Codex config, put the same block in
 `~/.codex/config.toml`.
 
-Claude Code and Codex can also use the repo-scoped skill at
-`.agents/skills/kotikit-auto/SKILL.md`. If you are setting up manually, copy that file to
-the product-specific skill location:
+Claude Code and Codex can also use the repo-scoped skills in `.agents/skills`.
+If you are setting up manually, copy the relevant `SKILL.md` files to the
+product-specific skill location:
 
 - Claude Code: `.claude/skills/kotikit-auto/SKILL.md`, then run `/kotikit-auto`.
+- Claude Code design review: `.claude/skills/kotikit-design-review/SKILL.md`, then run `/kotikit-design-review`.
 - Codex: `.agents/skills/kotikit-auto/SKILL.md`, then run `kotikit:auto`.
+- Codex design review: `.agents/skills/kotikit-design-review/SKILL.md`, then run `kotikit:design-review`.
 
 When Codex runs the `kotikit-auto` skill, first-time setup passes a Codex
 co-author identity to kotikit automatically. If you initialize manually and want
@@ -356,6 +360,7 @@ Claude Code or Codex normally stops the MCP process too.
 - Enables browserless review-comment lookup: the assistant can call `kotikit_design_review_comments` to fetch Figma comments and map comments on known nodes back to the relevant generated frame or component.
 - Records compact design adjustments and review reports in `.kotikit/design-review.db`.
 - Learns project design preference candidates from repeated feedback, supports dismiss/edit/deactivate lifecycle controls, then uses active promoted preferences in future design context.
+- Supports standalone design-quality review for any exact Figma page, section, frame, or component link. Kotikit gathers bounded shallow evidence, stores structured findings, and can post approved comments back to Figma.
 
 **Import variables on a Professional plan:**
 
@@ -373,7 +378,7 @@ The plugin reads Figma variables from the currently open file and sends a compac
 to kotikit over the local bridge. kotikit then merges those variables into
 `design-system/variables.json`, preserving style tokens that were already synced.
 
-**What is coming:** richer fallback mapping for comments outside known nodes, semantic clustering of repeated feedback, and a full plan-checklist view inside the plugin. See `NEXT_STEPS.md` for the full list.
+**What is coming:** richer fallback mapping for comments outside known nodes, deeper optional drill-down for design-review evidence, and a full plan-checklist view inside the plugin. See `NEXT_STEPS.md` for the full list.
 
 ---
 

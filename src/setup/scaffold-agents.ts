@@ -200,15 +200,18 @@ async function writeCodexConfig(result: ScaffoldAgentsResult, targetRoot: string
   result.written.push(path);
 }
 
-function kotikitAutoSkillSourcePath(kotikitRoot: string): string {
-  return join(kotikitRoot, ".agents", "skills", "kotikit-auto", "SKILL.md");
+const KOTIKIT_SKILL_NAMES = ["kotikit-auto", "kotikit-design-review"] as const;
+type KotikitSkillName = typeof KOTIKIT_SKILL_NAMES[number];
+
+function kotikitSkillSourcePath(kotikitRoot: string, name: KotikitSkillName): string {
+  return join(kotikitRoot, ".agents", "skills", name, "SKILL.md");
 }
 
-function kotikitAutoSkillTargetPath(targetRoot: string, agent: AgentKind): string {
+function kotikitSkillTargetPath(targetRoot: string, agent: AgentKind, name: KotikitSkillName): string {
   if (agent === "claude") {
-    return join(targetRoot, ".claude", "skills", "kotikit-auto", "SKILL.md");
+    return join(targetRoot, ".claude", "skills", name, "SKILL.md");
   }
-  return join(targetRoot, ".agents", "skills", "kotikit-auto", "SKILL.md");
+  return join(targetRoot, ".agents", "skills", name, "SKILL.md");
 }
 
 function agentLabel(agent: AgentKind): string {
@@ -219,21 +222,22 @@ function isOutdatedKotikitAutoSkill(existing: string): boolean {
   return existing.includes("../../../docs/agent_workflow.md") || existing.includes("docs/agent_workflow.md");
 }
 
-async function installKotikitAutoSkill(
+async function installKotikitSkill(
   result: ScaffoldAgentsResult,
   targetRoot: string,
   kotikitRoot: string,
-  agent: AgentKind
+  agent: AgentKind,
+  name: KotikitSkillName
 ): Promise<void> {
-  const sourcePath = kotikitAutoSkillSourcePath(kotikitRoot);
-  const targetPath = kotikitAutoSkillTargetPath(targetRoot, agent);
+  const sourcePath = kotikitSkillSourcePath(kotikitRoot, name);
+  const targetPath = kotikitSkillTargetPath(targetRoot, agent, name);
   const label = agentLabel(agent);
   await assertReadableFile(sourcePath, `${label} skill source`);
   const source = await readFile(sourcePath, "utf8");
   const existing = await readTextIfExists(targetPath);
 
   if (existing !== null && existing !== source) {
-    if (isOutdatedKotikitAutoSkill(existing)) {
+    if (name === "kotikit-auto" && isOutdatedKotikitAutoSkill(existing)) {
       await writeTextAtomic(targetPath, source);
       result.written.push(targetPath);
       result.notes.push(`Replaced outdated ${label} skill: ${targetPath}`);
@@ -300,7 +304,11 @@ export async function scaffoldAgents(options: ScaffoldAgentsOptions): Promise<Sc
   const installSkills = options.installSkills ?? options.installCodexSkill ?? true;
   if (installSkills) {
     await Promise.all(
-      agents.map((agent) => installKotikitAutoSkill(result, targetRoot, kotikitRoot, agent))
+      agents.flatMap((agent) =>
+        KOTIKIT_SKILL_NAMES.map((name) =>
+          installKotikitSkill(result, targetRoot, kotikitRoot, agent, name)
+        )
+      )
     );
   }
 

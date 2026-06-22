@@ -12,9 +12,9 @@ function readJson(path: string): unknown {
   return JSON.parse(readFileSync(path, "utf8"));
 }
 
-function currentKotikitSkill(): string {
+function currentKotikitSkill(name: string = "kotikit-auto"): string {
   return readFileSync(
-    join(import.meta.dir, "..", "..", ".agents", "skills", "kotikit-auto", "SKILL.md"),
+    join(import.meta.dir, "..", "..", ".agents", "skills", name, "SKILL.md"),
     "utf8"
   );
 }
@@ -22,11 +22,13 @@ function currentKotikitSkill(): string {
 function seedKotikitRoot(): void {
   mkdirSync(join(kotikitRoot, "src", "mcp"), { recursive: true });
   writeFileSync(join(kotikitRoot, "src", "mcp", "server.ts"), "export {};\n");
-  mkdirSync(join(kotikitRoot, ".agents", "skills", "kotikit-auto"), { recursive: true });
-  writeFileSync(
-    join(kotikitRoot, ".agents", "skills", "kotikit-auto", "SKILL.md"),
-    currentKotikitSkill()
-  );
+  ["kotikit-auto", "kotikit-design-review"].forEach((name) => {
+    mkdirSync(join(kotikitRoot, ".agents", "skills", name), { recursive: true });
+    writeFileSync(
+      join(kotikitRoot, ".agents", "skills", name, "SKILL.md"),
+      currentKotikitSkill(name)
+    );
+  });
 }
 
 beforeEach(() => {
@@ -69,6 +71,15 @@ describe("scaffoldAgents", () => {
     expect(skill).not.toContain("docs/agent_workflow");
   });
 
+  it("ships a portable focused kotikit design-review skill", () => {
+    const skill = currentKotikitSkill("kotikit-design-review");
+    expect(skill).toContain("kotikit_design_review_start");
+    expect(skill).toContain("kotikit_design_review_record");
+    expect(skill).toContain("confirm: true");
+    expect(skill).toContain("Design Director");
+    expect(skill).not.toContain("../../../docs");
+  });
+
   it("writes Claude project MCP config while preserving existing servers", async () => {
     writeFileSync(
       join(targetRoot, ".mcp.json"),
@@ -89,6 +100,10 @@ describe("scaffoldAgents", () => {
       mcpServers: Record<string, { command: string; args: string[]; type?: string; timeout?: number }>;
     };
     const installedSkill = readFileSync(join(targetRoot, ".claude", "skills", "kotikit-auto", "SKILL.md"), "utf8");
+    const installedReviewSkill = readFileSync(
+      join(targetRoot, ".claude", "skills", "kotikit-design-review", "SKILL.md"),
+      "utf8"
+    );
     expect(config.mcpServers.browser.command).toBe("npx");
     expect(config.mcpServers.kotikit).toEqual({
       type: "stdio",
@@ -97,9 +112,11 @@ describe("scaffoldAgents", () => {
       timeout: 900000,
     });
     expect(installedSkill).toBe(currentKotikitSkill());
+    expect(installedReviewSkill).toBe(currentKotikitSkill("kotikit-design-review"));
     expect(installedSkill).toContain("Use this self-contained skill");
     expect(result.written).toContain(join(targetRoot, ".mcp.json"));
     expect(result.written).toContain(join(targetRoot, ".claude", "skills", "kotikit-auto", "SKILL.md"));
+    expect(result.written).toContain(join(targetRoot, ".claude", "skills", "kotikit-design-review", "SKILL.md"));
     expect(result.notes.join("\n")).toContain("Claude Code project MCP config");
   });
 
@@ -167,7 +184,12 @@ describe("scaffoldAgents", () => {
     expect(codexConfig).toContain(`cwd = "${targetRoot}"`);
     expect(codexConfig).toContain("tool_timeout_sec = 900");
     const installedSkill = readFileSync(join(targetRoot, ".agents", "skills", "kotikit-auto", "SKILL.md"), "utf8");
+    const installedReviewSkill = readFileSync(
+      join(targetRoot, ".agents", "skills", "kotikit-design-review", "SKILL.md"),
+      "utf8"
+    );
     expect(installedSkill).toBe(currentKotikitSkill());
+    expect(installedReviewSkill).toBe(currentKotikitSkill("kotikit-design-review"));
     expect(installedSkill).not.toContain("../../../docs");
     expect(readFileSync(join(targetRoot, ".env"), "utf8")).toBe("FIGMA_TOKEN=\n");
     expect(result.written).toContain(join(targetRoot, ".codex", "config.toml"));

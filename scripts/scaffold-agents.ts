@@ -66,7 +66,7 @@ function helpText(): string {
     "  --kotikit-root /path/to/kotikit          Kotikit repo root. Default: this repo.",
     "  --co-author auto|none|claude|codex       Update existing .kotikit/config.json co-author. Default: auto.",
     "  --no-env                                Do not create or append FIGMA_TOKEN= in .env.",
-    "  --no-skill                              Do not install kotikit-auto skills into the target project.",
+    "  --no-skill                              Do not install kotikit skills into the target project.",
     "  --help                                  Show this help.",
   ].join("\n");
 }
@@ -105,9 +105,10 @@ async function main(): Promise<void> {
   console.log("Next: restart your assistant and confirm the kotikit_* MCP tools are listed.");
   if (opts.agents.includes("claude")) {
     console.log(`For Claude Code, open the target project (${opts.targetRoot}), approve the project MCP server if prompted, then run /mcp and /kotikit-auto.`);
+    console.log("For design review, run /kotikit-design-review.");
   }
   if (opts.agents.includes("codex")) {
-    console.log("For Codex, start a new session in the target project and run /mcp or kotikit:auto.");
+    console.log("For Codex, start a new session in the target project and run /mcp, kotikit:auto, or kotikit:design-review.");
   }
 }
 
