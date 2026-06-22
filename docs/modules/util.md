@@ -18,6 +18,7 @@ Core kotikit state:
 - `flowManifestPath(root, scope)` — `.kotikit/specs/<scope>/flow.json`
 - `codePlanPath(root, scope, screenSlug | null)` — `.kotikit/specs/<scope>/<slug>.code.plan.json` or `code.plan.json`
 - `designPlanPath(root, scope, screen | null)` — `.kotikit/specs/<scope>/<screen>.design.plan.json`
+- `componentPlanPath(root, scope, screen | null)` — `.kotikit/specs/<scope>/<screen>.component.plan.json`
 - `designApplyLogPath(root, scope, screen | null)` — `.kotikit/specs/<scope>/<screen>.design.apply.log`
 - `bridgeConfigPath(root)` — `.kotikit/bridge.json`
 - `registryDbPath(root)` — `.kotikit/registry.db`
@@ -80,7 +81,7 @@ All path helpers are pure functions that take `root` as their first argument and
 - [spec](./spec.md) — uses `scopeDir`, `screenSpecPath`, `singleSpecPath`, `flowManifestPath`, `indexPath`
 - [sync](./sync.md) — uses all `design-system/` path helpers and `checkpointPath`
 - [codegen](./codegen.md) — uses `codeComponentDir`, `codeComponentFile`, `uiDir`, `uiComponentFile`, `uiStoryFile`
-- [planning](./planning.md) — uses `codePlanPath`, `designPlanPath`, `designApplyLogPath`
+- [planning](./planning.md) — uses `codePlanPath`, `designPlanPath`, `componentPlanPath`, `designApplyLogPath`
 - [db](./db.md) — uses `componentsDbPath`, `iconsDbPath`, `registryDbPath`
 - [mcp](./mcp.md) — uses `findProjectRoot`, `bridgeConfigPath`
 - [git](./git.md) — uses `KotikitError` (re-exported from result)

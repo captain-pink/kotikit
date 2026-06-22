@@ -51,6 +51,7 @@ You don't have to know about any of this. The defaults are conservative on purpo
 | kotikit_scaffold_start (full dsJson, pageSize 3) | 5,723 | 1,506 |
 | kotikit_registry_search | 653 | 172 |
 | kotikit_plan_design | 3,727 | 981 |
+| kotikit_component_plan_create | ~1,200-2,600 | ~315-685 |
 | kotikit_design_get_screen | 5,751 | 1,513 |
 | kotikit_audit | 992 | 261 |
 | kotikit_get_system_prompt (react) | 1,741 | 458 |

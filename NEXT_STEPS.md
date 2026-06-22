@@ -33,6 +33,7 @@ plugin review dashboard. The remaining items make that loop more visual,
 collaborative, and precise.
 
 - **Full plan-checklist UI in the Figma plugin** — the deferred P5-D4 task: two-pane view with per-step Run buttons + streaming status log.
+- **Component creation executor in the Figma plugin** — consume `component.plan.json` steps, create reusable draft components or page-only inline pieces with bound variables where available, then hold completion until the designer reviews the component and confirms it can be used by the main screen task.
 - **Semantic feedback clustering** — current design memory clusters deterministic normalized adjustment summaries. Add embedding-free similarity heuristics first (shared nouns, category, target component, repeated reviewer phrasing), then consider embeddings only if local heuristics are too weak.
 - **Coordinate fallback for unmapped comments** — investigate whether frame-relative `client_meta` offsets can be matched against generated node bounds in the node map. Keep it conservative: only map when the geometry is unambiguous.
 - **Official resolve support if Figma exposes it** — if Figma adds a REST endpoint for resolving comments, add a confirm-first tool that marks threads resolved after replies are posted.

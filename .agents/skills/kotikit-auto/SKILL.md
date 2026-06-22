@@ -104,13 +104,29 @@ screen or flow spec.
    design-system components.
 4. Call `kotikit_plan_design`.
 5. Call `kotikit_design_get_screen`.
-6. If the Figma plugin bridge is not running, call `kotikit_bridge_start` and
+6. If `kotikit_design_get_screen` says a component decision is needed,
+   summarize the missing components and ask the user how to proceed:
+   - Create reusable draft components first.
+   - Build the missing pieces inline in this page only.
+7. Call `kotikit_component_plan_create` with
+   `mode: "create-draft-components"` for reusable draft components, or
+   `mode: "inline-draft"` for page-only inline pieces.
+8. If the tool says variables are unavailable, offer the plugin variable sync
+   before retrying. Only pass `allowLiteralFallback: true` after the user
+   explicitly approves draft-only literal values.
+9. For reusable draft components, pause the main screen flow until the
+   components are created and the user confirms they can be used. Ask the user
+   to leave Figma comments if they want refinements.
+10. Call `kotikit_design_get_screen` again after component decisions are
+   resolved. If it returns `componentCreationRequired`, do not apply the main
+   screen yet; explain which components still need creation or review.
+11. If the Figma plugin bridge is not running, call `kotikit_bridge_start` and
    give the designer the returned bridge URL.
-7. Ask the designer to open the target Figma draft, run the kotikit plugin, and
+12. Ask the designer to open the target Figma draft, run the kotikit plugin, and
    connect to the bridge URL.
-8. Apply the design plan step by step through the plugin, recording each result
+13. Apply the design plan step by step through the plugin, recording each result
    with `kotikit_design_apply_step`.
-9. Summarize what was created or refined, then present the "What next?" menu.
+14. Summarize what was created or refined, then present the "What next?" menu.
 
 ## Review Workflow
 

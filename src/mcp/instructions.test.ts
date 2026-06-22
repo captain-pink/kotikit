@@ -20,4 +20,9 @@ describe("KOTIKIT_MCP_INSTRUCTIONS", () => {
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("Search first");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("never load whole indexes");
   });
+
+  it("tells agents to ask before planning missing components", () => {
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit_component_plan_create");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("explicit designer approval");
+  });
 });

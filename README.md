@@ -261,6 +261,14 @@ the Figma design** from the menu. The assistant will start the local Figma
 plugin bridge, ask you to open a target draft in Figma, and apply the design
 plan step by step using your synced design system where possible.
 
+If a requested screen needs a component that is not in your synced design
+system, kotikit will pause and ask how to proceed. You can ask it to create
+reusable draft components first, or to build the missing pieces inline in that
+page only. Kotikit uses synced variables for those decisions when they are
+available. If variables are missing, it will suggest the Figma plugin variable
+sync before falling back to literal values, and literals are used only after you
+explicitly approve that draft-only fallback.
+
 ---
 
 ### 2 minutes: review Figma comments

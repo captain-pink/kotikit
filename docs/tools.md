@@ -1,6 +1,6 @@
 # kotikit MCP Tools
 
-41 tools exposed by the kotikit MCP server, organized by what they do.
+42 tools exposed by the kotikit MCP server, organized by what they do.
 Each tool name is what the agent calls; the "Example" line shows how to trigger it from your conversation.
 
 Token costs are approximate response sizes measured against a small fixture project (3 DS components, 1 screen). Re-measure for your project with `bun run measure`. See [docs/TOKENS.md](./TOKENS.md) for optimization strategies.
@@ -322,6 +322,18 @@ Output: `{ planPath: string; plan: { pageName, steps: DesignStep[] }; commit: Co
 Token cost: ~981.
 Example: "Generate a design plan for the checkout screen."
 See also: `kotikit_design_get_screen`, `kotikit_spec_get`.
+
+---
+
+### kotikit_component_plan_create
+
+Purpose: Record how missing screen components should be handled before Figma design creation continues.
+Input: `{ scope: string; screen?: string; components?: string[]; mode: "create-draft-components" | "inline-draft"; allowLiteralFallback?: boolean }`
+Output: `{ planPath: string; specPath: string; plan: ComponentPlan; commit: CommitResult }`
+Token cost: ~300-700 depending on missing component count.
+Example: "The Members screen is missing a status toggle. Plan reusable draft components first."
+Notes: Use this only after the designer chooses whether missing components should become reusable draft components or page-only inline pieces. If variables are unavailable, sync variables through the Figma plugin first; pass `allowLiteralFallback` only after explicit designer approval.
+See also: `kotikit_design_get_screen`, `kotikit_sync_plugin_variables`.
 
 ---
 

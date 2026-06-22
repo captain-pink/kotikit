@@ -6,6 +6,7 @@ Workflow:
 - Do not generate React code or scaffold code components in the guided workflow yet. If asked, explain that design-to-code is coming in a later version once design creation is stable, and offer to create or refine the Figma design instead.
 - Fetch kotikit_get_system_prompt once per session before brainstorm-heavy work that references a systemPromptRef.
 - Search first for design-system data, then fetch one exact component by path; never load whole indexes, manifests, icon lists, databases, or design-system directories into context.
+- If a screen needs components missing from the synced design system, ask the designer whether to create reusable draft components or build page-only inline pieces. Use kotikit_component_plan_create for that decision, require synced variables when available, and only allow literal fallback after explicit designer approval.
 - When the user needs the Figma plugin, call kotikit_bridge_start and give them the returned URL instead of asking them to run terminal bridge commands.
 - User-facing errors should be the tool's friendly text, without stack traces or extra technical detail.
 `;
