@@ -29,6 +29,7 @@ import { registerPlanDesignTools } from "./tools/plan-design.js";
 import { registerDesignScreenTools } from "./tools/design-screen.js";
 import { registerDesignApplyTools } from "./tools/design-apply.js";
 import { registerDesignCommentTools } from "./tools/design-comments.js";
+import { registerDesignReviewTools } from "./tools/design-review.js";
 import { registerAuditTools } from "./tools/audit.js";
 import { registerSystemPromptTools } from "./tools/system-prompt.js";
 import { registerDoctorTools } from "./tools/doctor.js";
@@ -93,6 +94,7 @@ export function buildServer(): { server: Server; registry: ToolRegistry; bridge:
   registerDesignScreenTools(registry, ctx);
   registerDesignApplyTools(registry, ctx);
   registerDesignCommentTools(registry, ctx);
+  registerDesignReviewTools(registry, ctx);
   registerAuditTools(registry, ctx);
   registerSystemPromptTools(registry, ctx);
   registerDoctorTools(registry, ctx);

@@ -52,6 +52,11 @@ describe("MCP server", () => {
       "kotikit_design_memory_dismiss",
       "kotikit_design_memory_update",
       "kotikit_design_memory_search",
+      "kotikit_design_review_start",
+      "kotikit_design_review_record",
+      "kotikit_design_review_get",
+      "kotikit_design_review_comment_prepare",
+      "kotikit_design_review_comment_post",
       // Phase 6
       "kotikit_audit",
       "kotikit_get_system_prompt",
