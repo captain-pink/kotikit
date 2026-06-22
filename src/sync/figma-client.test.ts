@@ -411,6 +411,33 @@ describe("FigmaClient", () => {
     expect(comments[0]?.client_meta?.node_id).toBe("node-1");
   });
 
+  it("getImageUrls fetches temporary image URLs for review screenshots", async () => {
+    let seenUrl = "";
+    const fetch = async (url: string | URL) => {
+      seenUrl = url.toString();
+      return jsonResponse({
+        err: null,
+        images: {
+          "12:34": "https://figma-images.example/12-34.png",
+        },
+      });
+    };
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      limiter: FAST_LIMITER,
+      backoffOpts: FAST_BACKOFF,
+    });
+
+    const urls = await client.getImageUrls("k1", ["12:34"], { format: "png", scale: 1 });
+
+    expect(seenUrl).toContain("/v1/images/k1");
+    expect(seenUrl).toContain("ids=12%3A34");
+    expect(seenUrl).toContain("format=png");
+    expect(seenUrl).toContain("scale=1");
+    expect(urls["12:34"]).toBe("https://figma-images.example/12-34.png");
+  });
+
   it("getComments maps 403 to a file_comments scope hint", async () => {
     const fetch = async () => errorResponse(403);
     const client = new FigmaClient({

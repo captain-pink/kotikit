@@ -9,6 +9,7 @@ import {
   FigmaStylesResponseSchema,
   FigmaVariablesResponseSchema,
   FigmaNodesResponseSchema,
+  FigmaImagesResponseSchema,
   FigmaCommentsResponseSchema,
   FigmaCommentSchema,
   type FigmaFile,
@@ -275,6 +276,32 @@ export class FigmaClient {
       return node.document as unknown as FigmaTreeNode;
     } catch (err) {
       throw this.mapError(err, fileKey, "nodes");
+    }
+  }
+
+  /** GET /v1/images/:key — temporary image URLs for visual review evidence. */
+  async getImageUrls(
+    fileKey: string,
+    ids: string[],
+    opts: { format?: "png" | "jpg" | "svg"; scale?: number } = {}
+  ): Promise<Record<string, string>> {
+    const params = new URLSearchParams({
+      ids: ids.join(","),
+      format: opts.format ?? "png",
+    });
+    if (opts.scale !== undefined) params.set("scale", String(opts.scale));
+    try {
+      const res = await this.request(
+        `/v1/images/${fileKey}?${params.toString()}`,
+        FigmaImagesResponseSchema
+      );
+      return Object.fromEntries(
+        Object.entries(res.images).flatMap(([nodeId, url]) =>
+          url === null ? [] : [[nodeId, url] as const]
+        )
+      );
+    } catch (err) {
+      throw this.mapError(err, fileKey, "images");
     }
   }
 

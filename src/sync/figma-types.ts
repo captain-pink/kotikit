@@ -142,6 +142,13 @@ const FigmaNodesResponseSchema = z.object({
   nodes: z.record(z.string(), z.union([FigmaNodeSchema, z.null()])),
 }).passthrough();
 
+// ─── GET /v1/images/:key ───────────────────────────────────────────────────
+
+const FigmaImagesResponseSchema = z.object({
+  err: z.unknown().nullable().optional(),
+  images: z.record(z.string(), z.string().nullable()),
+}).passthrough();
+
 // ─── GET /v1/files/:key/comments ─────────────────────────────────────────────
 
 export const FigmaCommentClientMetaSchema = z.object({
@@ -181,6 +188,7 @@ export {
   FigmaStylesResponseSchema,
   FigmaVariablesResponseSchema,
   FigmaNodesResponseSchema,
+  FigmaImagesResponseSchema,
   FigmaCommentsResponseSchema,
 };
 
