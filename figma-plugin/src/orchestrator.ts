@@ -98,6 +98,10 @@ export interface ApplyStepResult {
     id: string;
     name: string;
   };
+  section?: {
+    id: string;
+    name: string;
+  };
   node?: {
     id: string;
     kind: "page" | "frame" | "instance" | "node";
@@ -138,6 +142,9 @@ const resultWithContext = (
   ...result,
   ...(shim.getFileKey() !== undefined ? { fileKey: shim.getFileKey() } : {}),
   ...(state.pageId !== null && state.pageName !== null ? { page: { id: state.pageId, name: state.pageName } } : {}),
+  ...(state.sectionId !== null && state.sectionName !== null
+    ? { section: { id: state.sectionId, name: state.sectionName } }
+    : {}),
 });
 
 async function ensureState(state: OrchestratorState, shim: FigmaShim, plan: DesignPlan): Promise<void> {

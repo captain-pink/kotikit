@@ -7,6 +7,9 @@ import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
 import { registerDesignApplyTools } from "./design-apply.js";
 import { designApplyLogPath, designNodeMapPath } from "../../util/paths.js";
+import { newScreenSpec } from "../../spec/schema.js";
+import { writeScreenSpec } from "../../spec/engine.js";
+import type { FigmaDraftTarget } from "../../figma/draft-target.js";
 
 const tmpDirs: string[] = [];
 function mkTmp(): string {
@@ -27,6 +30,31 @@ async function callTool(registry: ToolRegistry, name: string, args: unknown) {
   if (!handler) throw new Error("missing handler " + name);
   return handler(args);
 }
+
+const target = (): FigmaDraftTarget => ({
+  fileKey: "fig-file",
+  pageId: "page-1",
+  pageName: "Draft - Cart",
+  pageUrl: "https://www.figma.com/design/fig-file/App?node-id=page-1",
+  boundAt: "2026-06-22T00:00:00.000Z",
+  source: "user-url",
+  section: { id: "section-1", name: "kotikit / checkout-flow / cart / 2026-06-22" },
+  safety: {
+    requireDraftPageName: true,
+    allowPageCreation: false,
+    requireKotikitSection: true,
+  },
+});
+
+const seedTargetSpec = async (
+  root: string,
+  scope = "checkout-flow",
+  screen: string | null = "cart"
+): Promise<void> => {
+  const spec = newScreenSpec({ title: "Cart", description: "Cart" });
+  spec.figmaTarget = target();
+  await writeScreenSpec(root, scope, screen, spec);
+};
 
 describe("kotikit_design_apply_step", () => {
   it("advertises every design plan step kind accepted by the apply log", () => {
@@ -116,6 +144,7 @@ describe("kotikit_design_apply_step", () => {
 
   it("updates the design node map when Figma node metadata is provided", async () => {
     const root = mkTmp();
+    await seedTargetSpec(root);
     const registry = makeRegistry();
     registerDesignApplyTools(registry, makeCtx(root));
 
@@ -130,7 +159,10 @@ describe("kotikit_design_apply_step", () => {
       dsKey: "button-key",
       figmaFileKey: "fig-file",
       figmaPageId: "page-1",
-      figmaPageName: "Cart",
+      figmaPageName: "Draft - Cart",
+      figmaPageUrl: "https://www.figma.com/design/fig-file/App?node-id=page-1",
+      figmaSectionId: "section-1",
+      figmaSectionName: "kotikit / checkout-flow / cart / 2026-06-22",
       figmaNodeId: "instance-1",
       figmaNodeKind: "instance",
       figmaNodeName: "Button",
@@ -140,9 +172,59 @@ describe("kotikit_design_apply_step", () => {
       readFileSync(designNodeMapPath(root, "checkout-flow", "cart"), "utf-8")
     );
     expect(map.figmaFileKey).toBe("fig-file");
-    expect(map.page.name).toBe("Cart");
+    expect(map.target.pageUrl).toBe("https://www.figma.com/design/fig-file/App?node-id=page-1");
+    expect(map.page.name).toBe("Draft - Cart");
+    expect(map.section.name).toBe("kotikit / checkout-flow / cart / 2026-06-22");
     expect(map.nodes[0].nodeId).toBe("instance-1");
     expect(map.nodes[0].componentName).toBe("Button");
+  });
+
+  it("rejects node metadata that points to a different Figma file", async () => {
+    const root = mkTmp();
+    await seedTargetSpec(root);
+    const registry = makeRegistry();
+    registerDesignApplyTools(registry, makeCtx(root));
+
+    const result = await callTool(registry, "kotikit_design_apply_step", {
+      scope: "checkout-flow",
+      screen: "cart",
+      stepIndex: 2,
+      stepKind: "place-component",
+      outcome: "ok",
+      figmaFileKey: "other-file",
+      figmaPageId: "page-1",
+      figmaPageName: "Draft - Cart",
+      figmaNodeId: "instance-1",
+      figmaNodeKind: "instance",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain("different Figma file");
+    expect(existsSync(designNodeMapPath(root, "checkout-flow", "cart"))).toBe(false);
+  });
+
+  it("rejects node metadata that points outside the bound draft page", async () => {
+    const root = mkTmp();
+    await seedTargetSpec(root);
+    const registry = makeRegistry();
+    registerDesignApplyTools(registry, makeCtx(root));
+
+    const result = await callTool(registry, "kotikit_design_apply_step", {
+      scope: "checkout-flow",
+      screen: "cart",
+      stepIndex: 2,
+      stepKind: "place-component",
+      outcome: "ok",
+      figmaFileKey: "fig-file",
+      figmaPageId: "other-page",
+      figmaPageName: "Draft - Other",
+      figmaNodeId: "instance-1",
+      figmaNodeKind: "instance",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain("bound draft page");
+    expect(existsSync(designNodeMapPath(root, "checkout-flow", "cart"))).toBe(false);
   });
 
   it("does not write a design node map without Figma node metadata", async () => {

@@ -5,6 +5,8 @@ import { z } from "zod";
 import { designNodeMapPath } from "../util/paths.js";
 import { KotikitError } from "../util/result.js";
 import { DesignPlanStepKindSchema } from "./design-plan-schema.js";
+import { FigmaDraftSectionSchema, FigmaDraftTargetSchema } from "../figma/draft-target.js";
+import type { FigmaDraftSection, FigmaDraftTarget } from "../figma/draft-target.js";
 
 export const DesignNodeKindSchema = z.enum(["page", "frame", "instance", "node"]);
 export type DesignNodeKind = z.infer<typeof DesignNodeKindSchema>;
@@ -27,10 +29,12 @@ export const DesignNodeMapSchema = z.object({
   scope: z.string(),
   screen: z.string().optional(),
   figmaFileKey: z.string().optional(),
+  target: FigmaDraftTargetSchema.optional(),
   page: z.object({
     id: z.string(),
     name: z.string(),
   }).optional(),
+  section: FigmaDraftSectionSchema.optional(),
   nodes: z.array(DesignNodeMapEntrySchema),
   updatedAt: z.string(),
 });
@@ -41,20 +45,24 @@ export interface DesignNodeMapUpdate {
   screen?: string;
   updatedAt: string;
   figmaFileKey?: string;
+  target?: FigmaDraftTarget;
   page?: {
     id: string;
     name: string;
   };
+  section?: FigmaDraftSection;
   entry: DesignNodeMapEntry;
 }
 
 export interface DesignNodeMapUpsert {
   updatedAt: string;
   figmaFileKey?: string;
+  target?: FigmaDraftTarget;
   page?: {
     id: string;
     name: string;
   };
+  section?: FigmaDraftSection;
   entry: DesignNodeMapEntry;
 }
 
@@ -89,7 +97,9 @@ export const mergeDesignNodeMap = (
     ...(update.figmaFileKey ?? existing?.figmaFileKey
       ? { figmaFileKey: update.figmaFileKey ?? existing?.figmaFileKey }
       : {}),
+    ...(update.target ?? existing?.target ? { target: update.target ?? existing?.target } : {}),
     ...(update.page ?? existing?.page ? { page: update.page ?? existing?.page } : {}),
+    ...(update.section ?? existing?.section ? { section: update.section ?? existing?.section } : {}),
     nodes,
     updatedAt: update.updatedAt,
   };

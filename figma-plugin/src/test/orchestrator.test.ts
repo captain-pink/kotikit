@@ -47,6 +47,7 @@ describe("orchestrator.applyAll", () => {
     expect(results.every(r => r.outcome === "ok")).toBe(true);
     expect(results[0]?.fileKey).toBe("fig-file");
     expect(results[0]?.page?.name).toBe("Draft - Cart");
+    expect(results[0]?.section?.name).toBe("kotikit / cart / 2026-06-22");
     expect(results[0]?.node?.kind).toBe("frame");
     expect(results[2]?.node?.kind).toBe("instance");
     expect(results[2]?.componentName).toBe("Button");
