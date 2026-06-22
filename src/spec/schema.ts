@@ -5,6 +5,58 @@ import { uuid, nowIso } from "../util/ids";
 const InheritOr = <T extends z.ZodTypeAny>(overrides: T) =>
   z.union([z.literal("inherits"), z.object({ overrides })]);
 
+// ─── Component resolution ───────────────────────────────────────────────────
+
+export const ComponentVariablePolicySchema = z.enum([
+  "require-existing-variables",
+  "suggest-plugin-sync",
+  "allow-literals-after-user-confirmation",
+]);
+export type ComponentVariablePolicy = z.infer<typeof ComponentVariablePolicySchema>;
+
+export const ComponentResolutionSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("existing-ds"),
+    status: z.enum(["approved"]).default("approved"),
+    variablePolicy: ComponentVariablePolicySchema.default("require-existing-variables"),
+  }),
+  z.object({
+    kind: z.literal("create-draft-component"),
+    status: z.enum(["planned", "in-progress", "review", "approved"]).default("planned"),
+    componentSpecRef: z.string().optional(),
+    variablePolicy: ComponentVariablePolicySchema.default("require-existing-variables"),
+  }),
+  z.object({
+    kind: z.literal("inline-draft"),
+    status: z.enum(["planned", "approved"]).default("planned"),
+    variablePolicy: ComponentVariablePolicySchema.default("require-existing-variables"),
+  }),
+]);
+export type ComponentResolution = z.infer<typeof ComponentResolutionSchema>;
+
+const ScreenComponentSchema = z
+  .object({
+    name: z.string(),
+    dsKey: z.string().optional(),
+    usage: z.string().optional(),
+    resolution: ComponentResolutionSchema.optional(),
+  })
+  .transform((component) => ({
+    ...component,
+    ...(component.resolution !== undefined
+      ? { resolution: component.resolution }
+      : component.dsKey !== undefined
+        ? {
+            resolution: {
+              kind: "existing-ds" as const,
+              status: "approved" as const,
+              variablePolicy: "require-existing-variables" as const,
+            },
+          }
+        : {}),
+  }));
+export type ScreenComponent = z.infer<typeof ScreenComponentSchema>;
+
 // ─── Screen Spec ─────────────────────────────────────────────────────────────
 
 export const ScreenSpecSchema = z.object({
@@ -28,13 +80,7 @@ export const ScreenSpecSchema = z.object({
     themes: InheritOr(z.object({ themes: z.array(z.string()) })),
   }),
   components: z
-    .array(
-      z.object({
-        name: z.string(),
-        dsKey: z.string().optional(),
-        usage: z.string().optional(),
-      })
-    )
+    .array(ScreenComponentSchema)
     .default([]),
   acceptanceCriteria: z.array(z.string()).default([]),
   metadata: z.object({

@@ -76,14 +76,31 @@ function registerDesignGetScreen(registry: ToolRegistry, ctx: ToolContext): void
           .map((s) => s.componentName)
       ));
 
+      const specComponentByName = new Map(spec.components.map((component) => [component.name, component]));
       const dsComponents: Record<string, ComponentJson> = {};
       const skipped: { name: string; reason: string }[] = [];
+      const componentCreationRequired: { name: string; componentSpecRef?: string }[] = [];
+      const inlineDraftRequired: { name: string }[] = [];
+      const unresolvedComponents: string[] = [];
 
       for (const name of componentNames) {
+        const specComponent = specComponentByName.get(name);
+        const resolution = specComponent?.resolution;
         const slug = slugifyComponentName(name);
         const filePath = `${designSystemDir(root)}/components/${slug}.json`;
         if (!existsSync(filePath)) {
-          skipped.push({ name, reason: "DS component JSON not found" });
+          if (resolution?.kind === "create-draft-component") {
+            componentCreationRequired.push({
+              name,
+              ...(resolution.componentSpecRef !== undefined ? { componentSpecRef: resolution.componentSpecRef } : {}),
+            });
+            continue;
+          }
+          if (resolution?.kind === "inline-draft" && resolution.status === "approved") {
+            inlineDraftRequired.push({ name });
+            continue;
+          }
+          unresolvedComponents.push(name);
           continue;
         }
         try {
@@ -95,13 +112,32 @@ function registerDesignGetScreen(registry: ToolRegistry, ctx: ToolContext): void
         }
       }
 
+      if (unresolvedComponents.length > 0) {
+        throw new KotikitError(
+          `This screen needs a component decision before I can create the Figma design.`,
+          `Missing component${unresolvedComponents.length === 1 ? "" : "s"}: ${unresolvedComponents.join(", ")}.\n` +
+            `Ask the designer how to proceed:\n` +
+            `- Create reusable draft components first\n` +
+            `- Build them inline in this page only`
+        );
+      }
+
       const designPreferences = existsSync(designReviewDbPath(root))
         ? openDesignReviewDb(root).searchDesignPreferences({ scope, limit: 10 })
         : [];
 
       return toolText(
         `Design plan for ${plan.pageName}: ${plan.steps.length} steps.`,
-        { plan, spec, ...(flow ? { flow } : {}), dsComponents, skipped, designPreferences }
+        {
+          plan,
+          spec,
+          ...(flow ? { flow } : {}),
+          dsComponents,
+          skipped,
+          componentCreationRequired,
+          inlineDraftRequired,
+          designPreferences,
+        }
       );
     } catch (err) {
       return toolError(err);

@@ -108,7 +108,7 @@ describe("kotikit_design_get_screen", () => {
     expect(result.content[0]?.text).toContain("couldn't find");
   });
 
-  it("missing DS component JSON: skipped entry, no error", async () => {
+  it("missing DS component JSON: blocks until the designer chooses how to proceed", async () => {
     const root = mkTmp();
     const spec = newScreenSpec({ title: "Cart", description: "x" });
     spec.requirements.states = { default: "x" };
@@ -123,14 +123,47 @@ describe("kotikit_design_get_screen", () => {
     const registry = makeRegistry();
     registerDesignScreenTools(registry, makeCtx(root));
     const result = await callTool(registry, "kotikit_design_get_screen", { scope: "cart" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain("needs a component decision");
+    expect(result.content[0]?.text).toContain("Create reusable draft components first");
+    expect(result.content[0]?.text).toContain("Build them inline in this page only");
+    expect(result.content[0]?.text).toContain("Missing");
+  });
+
+  it("planned draft components are returned as creation requirements instead of skipped", async () => {
+    const root = mkTmp();
+    const spec = newScreenSpec({ title: "Cart", description: "x" });
+    spec.requirements.states = { default: "x" };
+    spec.components = [
+      { name: "Button" },
+      {
+        name: "Missing",
+        resolution: {
+          kind: "create-draft-component",
+          status: "planned",
+          componentSpecRef: "components/missing.component.json",
+          variablePolicy: "require-existing-variables",
+        },
+      },
+    ];
+    await writeScreenSpec(root, "cart", null, spec);
+    seedDsComponentJson(root, "Button");
+
+    const plan = generateDesignPlan({ scope: "cart", screen: null, spec, config: defaultConfig() });
+    await writeDesignPlan(root, "cart", null, plan);
+
+    const registry = makeRegistry();
+    registerDesignScreenTools(registry, makeCtx(root));
+    const result = await callTool(registry, "kotikit_design_get_screen", { scope: "cart" });
     expect(result.isError).toBeFalsy();
     const detail = parseDetail(result.content[0]!.text) as {
       dsComponents: Record<string, unknown>;
-      skipped: { name: string }[];
+      componentCreationRequired: { name: string; componentSpecRef?: string }[];
     };
     expect(detail.dsComponents.Button).toBeDefined();
-    expect(detail.skipped).toHaveLength(1);
-    expect(detail.skipped[0]?.name).toBe("Missing");
+    expect(detail.componentCreationRequired).toHaveLength(1);
+    expect(detail.componentCreationRequired[0]?.name).toBe("Missing");
+    expect(detail.componentCreationRequired[0]?.componentSpecRef).toBe("components/missing.component.json");
   });
 
   it("with a flow manifest: flow field is populated", async () => {

@@ -56,6 +56,49 @@ describe("ScreenSpecSchema", () => {
     const spec = newScreenSpec({ title: "Cart", description: "x" });
     expect(spec.flowRef).toBeUndefined();
   });
+
+  it("accepts component resolution decisions for missing design-system components", () => {
+    const spec = newScreenSpec({ title: "Members", description: "x" });
+    spec.components = [
+      {
+        name: "Member status toggle",
+        usage: "Toggle a member between active and inactive",
+        resolution: {
+          kind: "create-draft-component",
+          status: "planned",
+          componentSpecRef: "components/member-status-toggle.component.json",
+          variablePolicy: "require-existing-variables",
+        },
+      },
+      {
+        name: "Row action button",
+        resolution: {
+          kind: "inline-draft",
+          status: "approved",
+          variablePolicy: "allow-literals-after-user-confirmation",
+        },
+      },
+    ];
+
+    const parsed = ScreenSpecSchema.parse(spec);
+
+    expect(parsed.components[0]?.resolution?.kind).toBe("create-draft-component");
+    expect(parsed.components[0]?.resolution?.status).toBe("planned");
+    expect(parsed.components[1]?.resolution?.kind).toBe("inline-draft");
+  });
+
+  it("defaults existing design-system components to existing-ds resolution", () => {
+    const parsed = ScreenSpecSchema.parse({
+      ...newScreenSpec({ title: "Members", description: "x" }),
+      components: [{ name: "Button", dsKey: "button-key" }],
+    });
+
+    expect(parsed.components[0]?.resolution).toEqual({
+      kind: "existing-ds",
+      status: "approved",
+      variablePolicy: "require-existing-variables",
+    });
+  });
 });
 
 describe("FlowManifestSchema", () => {
