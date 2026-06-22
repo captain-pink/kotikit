@@ -29,6 +29,17 @@ export type DesignAdjustmentCategory =
 export type ReplyStatus = "pending" | "posted" | "failed" | "skipped";
 export type PreferenceCandidateStatus = "candidate" | "promoted" | "dismissed";
 export type DesignPreferenceStatus = "active" | "inactive";
+export type DesignAuditTargetKind = "page" | "section" | "frame" | "component" | "unknown";
+export type DesignAuditStrictness = "quick" | "standard" | "deep";
+export type DesignAuditFindingCategory =
+  | DesignAdjustmentCategory
+  | "accessibility"
+  | "content"
+  | "system"
+  | "visual";
+export type DesignAuditFindingSeverity = "critical" | "high" | "medium" | "polish";
+export type DesignAuditFindingConfidence = "observed" | "inferred" | "needs-decision";
+export type DesignAuditFindingStatus = "open" | "prepared" | "posted" | "dismissed" | "fixed";
 
 export interface ReviewSessionInput {
   scope?: string;
@@ -147,6 +158,129 @@ export interface DesignPreferenceRow {
   updatedAt: string;
 }
 
+export interface ReviewTargetCacheInput {
+  fileKey: string;
+  nodeId: string;
+  depth: number;
+  sourceFingerprint: string;
+  summary: unknown;
+  createdAt?: string;
+  expiresAt: string;
+}
+
+export interface ReviewTargetCacheRow {
+  cacheKey: string;
+  schemaVersion: number;
+  fileKey: string;
+  nodeId: string;
+  depth: number;
+  sourceFingerprint: string;
+  summaryJson: string;
+  createdAt: string;
+  expiresAt: string;
+  lastUsedAt: string;
+}
+
+export interface DesignAuditTargetInput {
+  source: "figma";
+  fileKey: string;
+  nodeId: string;
+  targetKind: DesignAuditTargetKind;
+  targetName: string;
+  figmaUrl: string;
+  scope?: string;
+  screen?: string;
+}
+
+export interface DesignAuditBriefInput {
+  surfaceType?: string;
+  audience?: string;
+  primaryUserGoal?: string;
+  reviewGoal?: string;
+  strictness: DesignAuditStrictness;
+  notes?: string;
+}
+
+export interface DesignAuditSessionInput {
+  target: DesignAuditTargetInput;
+  brief: DesignAuditBriefInput;
+  evidence: unknown;
+}
+
+export interface DesignAuditSessionRow {
+  sessionId: string;
+  source: "figma";
+  fileKey: string;
+  nodeId: string;
+  targetKind: DesignAuditTargetKind;
+  targetName: string;
+  figmaUrl: string;
+  scope: string | null;
+  screen: string | null;
+  briefJson: string;
+  evidenceJson: string;
+  startedAt: string;
+  updatedAt: string;
+}
+
+export interface DesignAuditFindingInput {
+  category: DesignAuditFindingCategory;
+  severity: DesignAuditFindingSeverity;
+  confidence: DesignAuditFindingConfidence;
+  title: string;
+  observation: string;
+  rationale: string;
+  recommendation: string;
+  nodeId?: string;
+  region?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  commentable: boolean;
+  suggestedComment?: string;
+}
+
+export interface DesignAuditFindingRow extends DesignAuditFindingInput {
+  findingId: string;
+  sessionId: string;
+  status: DesignAuditFindingStatus;
+  regionJson: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DesignAuditCommentOutboxRow {
+  outboxId: string;
+  sessionId: string;
+  findingId: string;
+  fileKey: string;
+  message: string;
+  clientMetaJson: string | null;
+  status: ReplyStatus;
+  postedCommentId: string | null;
+  error: string | null;
+  createdAt: string;
+  postedAt: string | null;
+}
+
+export interface DesignAuditReport {
+  session: DesignAuditSessionRow | null;
+  summary: {
+    totalFindings: number;
+    critical: number;
+    high: number;
+    medium: number;
+    polish: number;
+    open: number;
+    preparedComments: number;
+    postedComments: number;
+  };
+  findings: DesignAuditFindingRow[];
+  pendingComments: DesignAuditCommentOutboxRow[];
+}
+
 export interface ReviewReport {
   session: ReviewSessionRow | null;
   summary: {
@@ -168,6 +302,33 @@ export interface ReviewReport {
 
 export interface DesignReviewStore {
   db: Database;
+  upsertReviewTargetCache(input: ReviewTargetCacheInput): ReviewTargetCacheRow;
+  getReviewTargetCache(input: {
+    fileKey: string;
+    nodeId: string;
+    depth: number;
+    sourceFingerprint: string;
+    now?: string;
+  }): ReviewTargetCacheRow | null;
+  recordDesignAuditSession(input: DesignAuditSessionInput): { sessionId: string };
+  recordDesignAuditFindings(input: {
+    sessionId: string;
+    findings: DesignAuditFindingInput[];
+  }): DesignAuditFindingRow[];
+  getDesignAuditReport(input?: { sessionId?: string; fileKey?: string; limit?: number }): DesignAuditReport;
+  prepareDesignAuditComments(input: {
+    sessionId: string;
+    findingIds?: string[];
+    limit?: number;
+  }): DesignAuditCommentOutboxRow[];
+  listPendingDesignAuditComments(input?: {
+    sessionId?: string;
+    fileKey?: string;
+    outboxIds?: string[];
+    limit?: number;
+  }): DesignAuditCommentOutboxRow[];
+  markDesignAuditCommentPosted(input: { outboxId: string; postedCommentId: string }): void;
+  markDesignAuditCommentFailed(input: { outboxId: string; error: string }): void;
   recordReviewSession(input: ReviewSessionInput): { sessionId: string };
   getReviewReport(input?: { sessionId?: string; scope?: string; screen?: string; limit?: number }): ReviewReport;
   recordDesignAdjustment(input: DesignAdjustmentInput): DesignAdjustmentRow;
@@ -197,11 +358,45 @@ export interface DesignReviewStore {
   }): DesignPreferenceRow[];
 }
 
-const DESIGN_REVIEW_DB_VERSION = 1;
+const DESIGN_REVIEW_DB_VERSION = 2;
+const REVIEW_TARGET_CACHE_SCHEMA_VERSION = 1;
 
 const nullable = (value: string | undefined): string | null => value ?? null;
 const targetToJson = (target: unknown): string | null =>
   target === undefined ? null : JSON.stringify(target);
+const jsonString = (value: unknown): string => JSON.stringify(value);
+const nullableJson = (value: unknown | undefined): string | null =>
+  value === undefined ? null : JSON.stringify(value);
+
+const reviewTargetCacheKey = (input: {
+  fileKey: string;
+  nodeId: string;
+  depth: number;
+}): string => [
+  REVIEW_TARGET_CACHE_SCHEMA_VERSION,
+  input.fileKey,
+  input.nodeId,
+  input.depth,
+].join(":");
+
+const commentMetaForFinding = (finding: Pick<DesignAuditFindingInput, "nodeId" | "region">): unknown | null => {
+  if (finding.region !== undefined) {
+    return {
+      x: finding.region.x,
+      y: finding.region.y,
+      region_width: finding.region.width,
+      region_height: finding.region.height,
+      comment_pin_corner: "bottom-right",
+    };
+  }
+  if (finding.nodeId !== undefined) {
+    return {
+      node_id: finding.nodeId,
+      node_offset: { x: 0, y: 0 },
+    };
+  }
+  return null;
+};
 
 const confidenceFor = (evidenceCount: number, distinctScreens: number): number =>
   Math.min(0.95, 0.35 + evidenceCount * 0.1 + distinctScreens * 0.05);
@@ -344,6 +539,83 @@ export function initDesignReviewDb(db: Database): void {
       created_at     TEXT NOT NULL,
       updated_at     TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS review_target_cache (
+      cache_key          TEXT PRIMARY KEY,
+      schema_version     INTEGER NOT NULL,
+      file_key           TEXT NOT NULL,
+      node_id            TEXT NOT NULL,
+      depth              INTEGER NOT NULL,
+      source_fingerprint TEXT NOT NULL,
+      summary_json       TEXT NOT NULL,
+      created_at         TEXT NOT NULL,
+      expires_at         TEXT NOT NULL,
+      last_used_at       TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS review_target_cache_lookup_idx
+      ON review_target_cache (file_key, node_id, depth);
+
+    CREATE TABLE IF NOT EXISTS design_audit_sessions (
+      session_id    TEXT PRIMARY KEY,
+      source        TEXT NOT NULL CHECK (source IN ('figma')),
+      file_key      TEXT NOT NULL,
+      node_id       TEXT NOT NULL,
+      target_kind   TEXT NOT NULL CHECK (target_kind IN ('page','section','frame','component','unknown')),
+      target_name   TEXT NOT NULL,
+      figma_url     TEXT NOT NULL,
+      scope         TEXT,
+      screen        TEXT,
+      brief_json    TEXT NOT NULL,
+      evidence_json TEXT NOT NULL,
+      started_at    TEXT NOT NULL,
+      updated_at    TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS design_audit_sessions_target_idx
+      ON design_audit_sessions (file_key, node_id, updated_at);
+
+    CREATE TABLE IF NOT EXISTS design_audit_findings (
+      finding_id        TEXT PRIMARY KEY,
+      session_id        TEXT NOT NULL,
+      category          TEXT NOT NULL,
+      severity          TEXT NOT NULL CHECK (severity IN ('critical','high','medium','polish')),
+      confidence        TEXT NOT NULL CHECK (confidence IN ('observed','inferred','needs-decision')),
+      title             TEXT NOT NULL,
+      observation       TEXT NOT NULL,
+      rationale         TEXT NOT NULL,
+      recommendation    TEXT NOT NULL,
+      node_id           TEXT,
+      region_json       TEXT,
+      commentable       INTEGER NOT NULL,
+      suggested_comment TEXT,
+      status            TEXT NOT NULL CHECK (status IN ('open','prepared','posted','dismissed','fixed')),
+      created_at        TEXT NOT NULL,
+      updated_at        TEXT NOT NULL,
+      FOREIGN KEY(session_id) REFERENCES design_audit_sessions(session_id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS design_audit_findings_session_idx
+      ON design_audit_findings (session_id, status);
+
+    CREATE TABLE IF NOT EXISTS design_audit_comment_outbox (
+      outbox_id         TEXT PRIMARY KEY,
+      session_id        TEXT NOT NULL,
+      finding_id        TEXT NOT NULL,
+      file_key          TEXT NOT NULL,
+      message           TEXT NOT NULL,
+      client_meta_json  TEXT,
+      status            TEXT NOT NULL CHECK (status IN ('pending','posted','failed','skipped')),
+      posted_comment_id TEXT,
+      error             TEXT,
+      created_at        TEXT NOT NULL,
+      posted_at         TEXT,
+      FOREIGN KEY(session_id) REFERENCES design_audit_sessions(session_id) ON DELETE CASCADE,
+      FOREIGN KEY(finding_id) REFERENCES design_audit_findings(finding_id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS design_audit_comment_outbox_status_idx
+      ON design_audit_comment_outbox (status, session_id);
   `);
   db.exec(`PRAGMA user_version = ${DESIGN_REVIEW_DB_VERSION}`);
 }
@@ -445,8 +717,409 @@ const rowToPreference = (row: Record<string, unknown>): DesignPreferenceRow => (
   updatedAt: String(row.updatedAt),
 });
 
+const rowToReviewTargetCache = (row: Record<string, unknown>): ReviewTargetCacheRow => ({
+  cacheKey: String(row.cacheKey),
+  schemaVersion: Number(row.schemaVersion),
+  fileKey: String(row.fileKey),
+  nodeId: String(row.nodeId),
+  depth: Number(row.depth),
+  sourceFingerprint: String(row.sourceFingerprint),
+  summaryJson: String(row.summaryJson),
+  createdAt: String(row.createdAt),
+  expiresAt: String(row.expiresAt),
+  lastUsedAt: String(row.lastUsedAt),
+});
+
+const rowToDesignAuditSession = (row: Record<string, unknown>): DesignAuditSessionRow => ({
+  sessionId: String(row.sessionId),
+  source: "figma",
+  fileKey: String(row.fileKey),
+  nodeId: String(row.nodeId),
+  targetKind: row.targetKind as DesignAuditTargetKind,
+  targetName: String(row.targetName),
+  figmaUrl: String(row.figmaUrl),
+  scope: row.scope === null ? null : String(row.scope),
+  screen: row.screen === null ? null : String(row.screen),
+  briefJson: String(row.briefJson),
+  evidenceJson: String(row.evidenceJson),
+  startedAt: String(row.startedAt),
+  updatedAt: String(row.updatedAt),
+});
+
+const rowToDesignAuditFinding = (row: Record<string, unknown>): DesignAuditFindingRow => ({
+  findingId: String(row.findingId),
+  sessionId: String(row.sessionId),
+  category: row.category as DesignAuditFindingCategory,
+  severity: row.severity as DesignAuditFindingSeverity,
+  confidence: row.confidence as DesignAuditFindingConfidence,
+  title: String(row.title),
+  observation: String(row.observation),
+  rationale: String(row.rationale),
+  recommendation: String(row.recommendation),
+  nodeId: row.nodeId === null ? undefined : String(row.nodeId),
+  region: row.regionJson === null ? undefined : JSON.parse(String(row.regionJson)),
+  regionJson: row.regionJson === null ? null : String(row.regionJson),
+  commentable: Number(row.commentable) === 1,
+  suggestedComment: row.suggestedComment === null ? undefined : String(row.suggestedComment),
+  status: row.status as DesignAuditFindingStatus,
+  createdAt: String(row.createdAt),
+  updatedAt: String(row.updatedAt),
+});
+
+const rowToDesignAuditComment = (row: Record<string, unknown>): DesignAuditCommentOutboxRow => ({
+  outboxId: String(row.outboxId),
+  sessionId: String(row.sessionId),
+  findingId: String(row.findingId),
+  fileKey: String(row.fileKey),
+  message: String(row.message),
+  clientMetaJson: row.clientMetaJson === null ? null : String(row.clientMetaJson),
+  status: row.status as ReplyStatus,
+  postedCommentId: row.postedCommentId === null ? null : String(row.postedCommentId),
+  error: row.error === null ? null : String(row.error),
+  createdAt: String(row.createdAt),
+  postedAt: row.postedAt === null ? null : String(row.postedAt),
+});
+
+const emptyDesignAuditReport = (): DesignAuditReport => ({
+  session: null,
+  summary: {
+    totalFindings: 0,
+    critical: 0,
+    high: 0,
+    medium: 0,
+    polish: 0,
+    open: 0,
+    preparedComments: 0,
+    postedComments: 0,
+  },
+  findings: [],
+  pendingComments: [],
+});
+
+const designAuditSummary = (
+  findings: DesignAuditFindingRow[],
+  pendingComments: DesignAuditCommentOutboxRow[],
+  postedComments: number
+): DesignAuditReport["summary"] => {
+  const severityCount = (severity: DesignAuditFindingSeverity): number =>
+    findings.filter((finding) => finding.severity === severity).length;
+  return {
+    totalFindings: findings.length,
+    critical: severityCount("critical"),
+    high: severityCount("high"),
+    medium: severityCount("medium"),
+    polish: severityCount("polish"),
+    open: findings.filter((finding) => finding.status === "open").length,
+    preparedComments: pendingComments.length,
+    postedComments,
+  };
+};
+
 class SqliteDesignReviewStore implements DesignReviewStore {
   constructor(public readonly db: Database) {}
+
+  upsertReviewTargetCache(input: ReviewTargetCacheInput): ReviewTargetCacheRow {
+    const ts = input.createdAt ?? nowIso();
+    const cacheKey = reviewTargetCacheKey(input);
+    this.db.prepare(`
+      INSERT INTO review_target_cache (
+        cache_key, schema_version, file_key, node_id, depth, source_fingerprint,
+        summary_json, created_at, expires_at, last_used_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(cache_key) DO UPDATE SET
+        schema_version = excluded.schema_version,
+        source_fingerprint = excluded.source_fingerprint,
+        summary_json = excluded.summary_json,
+        created_at = excluded.created_at,
+        expires_at = excluded.expires_at,
+        last_used_at = excluded.last_used_at
+    `).run(
+      cacheKey,
+      REVIEW_TARGET_CACHE_SCHEMA_VERSION,
+      input.fileKey,
+      input.nodeId,
+      input.depth,
+      input.sourceFingerprint,
+      jsonString(input.summary),
+      ts,
+      input.expiresAt,
+      ts
+    );
+    return this.getReviewTargetCache({
+      fileKey: input.fileKey,
+      nodeId: input.nodeId,
+      depth: input.depth,
+      sourceFingerprint: input.sourceFingerprint,
+      now: ts,
+    })!;
+  }
+
+  getReviewTargetCache(input: {
+    fileKey: string;
+    nodeId: string;
+    depth: number;
+    sourceFingerprint: string;
+    now?: string;
+  }): ReviewTargetCacheRow | null {
+    const row = this.db.prepare(`
+      SELECT
+        cache_key as cacheKey, schema_version as schemaVersion, file_key as fileKey,
+        node_id as nodeId, depth, source_fingerprint as sourceFingerprint,
+        summary_json as summaryJson, created_at as createdAt, expires_at as expiresAt,
+        last_used_at as lastUsedAt
+      FROM review_target_cache
+      WHERE cache_key = ?
+        AND schema_version = ?
+        AND source_fingerprint = ?
+        AND expires_at > ?
+    `).get(
+      reviewTargetCacheKey(input),
+      REVIEW_TARGET_CACHE_SCHEMA_VERSION,
+      input.sourceFingerprint,
+      input.now ?? nowIso()
+    ) as Record<string, unknown> | undefined;
+    if (!row) return null;
+    const usedAt = input.now ?? nowIso();
+    this.db.prepare(`
+      UPDATE review_target_cache
+      SET last_used_at = ?
+      WHERE cache_key = ?
+    `).run(usedAt, row.cacheKey);
+    return rowToReviewTargetCache({ ...row, lastUsedAt: usedAt });
+  }
+
+  recordDesignAuditSession(input: DesignAuditSessionInput): { sessionId: string } {
+    const sessionId = uuid();
+    const ts = nowIso();
+    this.db.prepare(`
+      INSERT INTO design_audit_sessions (
+        session_id, source, file_key, node_id, target_kind, target_name,
+        figma_url, scope, screen, brief_json, evidence_json, started_at, updated_at
+      ) VALUES (?, 'figma', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      sessionId,
+      input.target.fileKey,
+      input.target.nodeId,
+      input.target.targetKind,
+      input.target.targetName,
+      input.target.figmaUrl,
+      nullable(input.target.scope),
+      nullable(input.target.screen),
+      jsonString(input.brief),
+      jsonString(input.evidence),
+      ts,
+      ts
+    );
+    return { sessionId };
+  }
+
+  recordDesignAuditFindings(input: {
+    sessionId: string;
+    findings: DesignAuditFindingInput[];
+  }): DesignAuditFindingRow[] {
+    const ts = nowIso();
+    return withTransaction(this.db, () =>
+      input.findings.map((finding) => {
+        const findingId = uuid();
+        this.db.prepare(`
+          INSERT INTO design_audit_findings (
+            finding_id, session_id, category, severity, confidence, title,
+            observation, rationale, recommendation, node_id, region_json,
+            commentable, suggested_comment, status, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)
+        `).run(
+          findingId,
+          input.sessionId,
+          finding.category,
+          finding.severity,
+          finding.confidence,
+          finding.title,
+          finding.observation,
+          finding.rationale,
+          finding.recommendation,
+          nullable(finding.nodeId),
+          nullableJson(finding.region),
+          finding.commentable ? 1 : 0,
+          nullable(finding.suggestedComment),
+          ts,
+          ts
+        );
+        return {
+          ...finding,
+          findingId,
+          sessionId: input.sessionId,
+          status: "open" as const,
+          regionJson: nullableJson(finding.region),
+          createdAt: ts,
+          updatedAt: ts,
+        };
+      })
+    );
+  }
+
+  getDesignAuditReport(input: { sessionId?: string; fileKey?: string; limit?: number } = {}): DesignAuditReport {
+    const session = this.findDesignAuditSession(input);
+    if (!session) return emptyDesignAuditReport();
+
+    const limit = input.limit ?? 25;
+    const findings = this.db.prepare(`
+      SELECT
+        finding_id as findingId, session_id as sessionId, category, severity,
+        confidence, title, observation, rationale, recommendation,
+        node_id as nodeId, region_json as regionJson, commentable,
+        suggested_comment as suggestedComment, status, created_at as createdAt,
+        updated_at as updatedAt
+      FROM design_audit_findings
+      WHERE session_id = ?
+      ORDER BY
+        CASE severity
+          WHEN 'critical' THEN 0
+          WHEN 'high' THEN 1
+          WHEN 'medium' THEN 2
+          ELSE 3
+        END,
+        created_at
+      LIMIT ?
+    `).all(session.sessionId, limit).map(rowToDesignAuditFinding);
+    const pendingComments = this.listPendingDesignAuditComments({ sessionId: session.sessionId, limit });
+    const posted = this.db.prepare(`
+      SELECT COUNT(*) as count
+      FROM design_audit_comment_outbox
+      WHERE session_id = ? AND status = 'posted'
+    `).get(session.sessionId) as { count: number };
+
+    return {
+      session,
+      summary: designAuditSummary(findings, pendingComments, Number(posted.count)),
+      findings,
+      pendingComments,
+    };
+  }
+
+  prepareDesignAuditComments(input: {
+    sessionId: string;
+    findingIds?: string[];
+    limit?: number;
+  }): DesignAuditCommentOutboxRow[] {
+    const findings = this.commentableFindings(input);
+    const session = this.findDesignAuditSession({ sessionId: input.sessionId });
+    if (!session) {
+      throw new KotikitError(
+        "I couldn't find that design review session.",
+        "Start a design review before preparing Figma comments."
+      );
+    }
+    const ts = nowIso();
+    return withTransaction(this.db, () =>
+      findings.map((finding) => {
+        const existing = this.db.prepare(`
+          SELECT
+            outbox_id as outboxId, session_id as sessionId, finding_id as findingId,
+            file_key as fileKey, message, client_meta_json as clientMetaJson,
+            status, posted_comment_id as postedCommentId, error,
+            created_at as createdAt, posted_at as postedAt
+          FROM design_audit_comment_outbox
+          WHERE finding_id = ? AND status = 'pending'
+        `).get(finding.findingId) as Record<string, unknown> | undefined;
+        if (existing) return rowToDesignAuditComment(existing);
+
+        const outboxId = uuid();
+        const meta = commentMetaForFinding(finding);
+        this.db.prepare(`
+          INSERT INTO design_audit_comment_outbox (
+            outbox_id, session_id, finding_id, file_key, message, client_meta_json,
+            status, posted_comment_id, error, created_at, posted_at
+          ) VALUES (?, ?, ?, ?, ?, ?, 'pending', NULL, NULL, ?, NULL)
+        `).run(
+          outboxId,
+          input.sessionId,
+          finding.findingId,
+          session.fileKey,
+          finding.suggestedComment ?? finding.recommendation,
+          nullableJson(meta),
+          ts
+        );
+        this.db.prepare(`
+          UPDATE design_audit_findings
+          SET status = 'prepared', updated_at = ?
+          WHERE finding_id = ? AND status = 'open'
+        `).run(ts, finding.findingId);
+        return {
+          outboxId,
+          sessionId: input.sessionId,
+          findingId: finding.findingId,
+          fileKey: session.fileKey,
+          message: finding.suggestedComment ?? finding.recommendation,
+          clientMetaJson: nullableJson(meta),
+          status: "pending" as const,
+          postedCommentId: null,
+          error: null,
+          createdAt: ts,
+          postedAt: null,
+        };
+      })
+    );
+  }
+
+  listPendingDesignAuditComments(input: {
+    sessionId?: string;
+    fileKey?: string;
+    outboxIds?: string[];
+    limit?: number;
+  } = {}): DesignAuditCommentOutboxRow[] {
+    const conditions = ["status = 'pending'"];
+    const bindings: (string | number)[] = [];
+    if (input.sessionId !== undefined) {
+      conditions.push("session_id = ?");
+      bindings.push(input.sessionId);
+    }
+    if (input.fileKey !== undefined) {
+      conditions.push("file_key = ?");
+      bindings.push(input.fileKey);
+    }
+    if (input.outboxIds !== undefined && input.outboxIds.length > 0) {
+      conditions.push(`outbox_id IN (${input.outboxIds.map(() => "?").join(",")})`);
+      bindings.push(...input.outboxIds);
+    }
+    bindings.push(input.limit ?? 25);
+    return this.db.prepare(`
+      SELECT
+        outbox_id as outboxId, session_id as sessionId, finding_id as findingId,
+        file_key as fileKey, message, client_meta_json as clientMetaJson,
+        status, posted_comment_id as postedCommentId, error,
+        created_at as createdAt, posted_at as postedAt
+      FROM design_audit_comment_outbox
+      WHERE ${conditions.join(" AND ")}
+      ORDER BY created_at
+      LIMIT ?
+    `).all(...bindings).map(rowToDesignAuditComment);
+  }
+
+  markDesignAuditCommentPosted(input: { outboxId: string; postedCommentId: string }): void {
+    const ts = nowIso();
+    withTransaction(this.db, () => {
+      this.db.prepare(`
+        UPDATE design_audit_comment_outbox
+        SET status = 'posted', posted_comment_id = ?, error = NULL, posted_at = ?
+        WHERE outbox_id = ?
+      `).run(input.postedCommentId, ts, input.outboxId);
+      this.db.prepare(`
+        UPDATE design_audit_findings
+        SET status = 'posted', updated_at = ?
+        WHERE finding_id IN (
+          SELECT finding_id FROM design_audit_comment_outbox WHERE outbox_id = ?
+        )
+      `).run(ts, input.outboxId);
+    });
+  }
+
+  markDesignAuditCommentFailed(input: { outboxId: string; error: string }): void {
+    this.db.prepare(`
+      UPDATE design_audit_comment_outbox
+      SET status = 'failed', error = ?, posted_at = ?
+      WHERE outbox_id = ?
+    `).run(input.error, nowIso(), input.outboxId);
+  }
 
   recordReviewSession(input: ReviewSessionInput): { sessionId: string } {
     const sessionId = uuid();
@@ -909,6 +1582,73 @@ class SqliteDesignReviewStore implements DesignReviewStore {
       LIMIT 1
     `).get(...bindings) as Record<string, unknown> | undefined;
     return row ? rowToReviewSession(row) : null;
+  }
+
+  private findDesignAuditSession(input: { sessionId?: string; fileKey?: string }): DesignAuditSessionRow | null {
+    if (input.sessionId !== undefined) {
+      const row = this.db.prepare(`
+        SELECT
+          session_id as sessionId, source, file_key as fileKey, node_id as nodeId,
+          target_kind as targetKind, target_name as targetName, figma_url as figmaUrl,
+          scope, screen, brief_json as briefJson, evidence_json as evidenceJson,
+          started_at as startedAt, updated_at as updatedAt
+        FROM design_audit_sessions
+        WHERE session_id = ?
+      `).get(input.sessionId) as Record<string, unknown> | undefined;
+      return row ? rowToDesignAuditSession(row) : null;
+    }
+    const conditions = input.fileKey !== undefined ? "WHERE file_key = ?" : "";
+    const bindings = input.fileKey !== undefined ? [input.fileKey] : [];
+    const row = this.db.prepare(`
+      SELECT
+        session_id as sessionId, source, file_key as fileKey, node_id as nodeId,
+        target_kind as targetKind, target_name as targetName, figma_url as figmaUrl,
+        scope, screen, brief_json as briefJson, evidence_json as evidenceJson,
+        started_at as startedAt, updated_at as updatedAt
+      FROM design_audit_sessions
+      ${conditions}
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `).get(...bindings) as Record<string, unknown> | undefined;
+    return row ? rowToDesignAuditSession(row) : null;
+  }
+
+  private commentableFindings(input: {
+    sessionId: string;
+    findingIds?: string[];
+    limit?: number;
+  }): DesignAuditFindingRow[] {
+    const conditions = [
+      "session_id = ?",
+      "commentable = 1",
+      "status IN ('open','prepared')",
+      "(suggested_comment IS NOT NULL OR recommendation IS NOT NULL)",
+    ];
+    const bindings: (string | number)[] = [input.sessionId];
+    if (input.findingIds !== undefined && input.findingIds.length > 0) {
+      conditions.push(`finding_id IN (${input.findingIds.map(() => "?").join(",")})`);
+      bindings.push(...input.findingIds);
+    }
+    bindings.push(input.limit ?? 12);
+    return this.db.prepare(`
+      SELECT
+        finding_id as findingId, session_id as sessionId, category, severity,
+        confidence, title, observation, rationale, recommendation,
+        node_id as nodeId, region_json as regionJson, commentable,
+        suggested_comment as suggestedComment, status, created_at as createdAt,
+        updated_at as updatedAt
+      FROM design_audit_findings
+      WHERE ${conditions.join(" AND ")}
+      ORDER BY
+        CASE severity
+          WHEN 'critical' THEN 0
+          WHEN 'high' THEN 1
+          WHEN 'medium' THEN 2
+          ELSE 3
+        END,
+        created_at
+      LIMIT ?
+    `).all(...bindings).map(rowToDesignAuditFinding);
   }
 
   private commentsForReplyPreparation(input: {
