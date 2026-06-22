@@ -13,9 +13,16 @@ active edit produce current, predictable JSON.
 ## Public surface
 
 **Schema inventory** (`src/migrations/schema-inventory.ts`)
-- `SchemaInventory` — `{ checked, legacyOrOlder, future, unreadable, samples }`
+- `SchemaInventory` — `{ checked, current, legacyOrOlder, future, unreadable, samples, findings }`
+- `SchemaArtifactFinding` — per-file `{ path, kind, status, schemaVersion, latestVersion, reason }`
 - `inspectProjectSchemaVersions(root)` — read-only project scan used by doctor;
   inspects `.kotikit/config.json` and spec files under `.kotikit/specs/`
+
+**Dry run** (`src/migrations/dry-run.ts`)
+- `runMigrationDryRun(root)` — read-only report used by `kotikit migrate --dry-run`
+- `formatMigrationDryRunReport(report)` — terminal formatter for the CLI
+- `formatSchemaInventoryDetails(root, inventory)` — compact detail lines shared
+  by doctor and the dry-run output
 
 ## How it works
 
@@ -37,8 +44,17 @@ open-time migrations. `registry.db` and `design-review.db` both have a versioned
 starting point.
 
 `kotikit doctor` reports old readable artifacts as a warning, not an error:
-those files will update automatically when edited. Future-version artifacts are
-reported as errors and should be handled by updating kotikit before editing.
+those files will update automatically when edited. It also includes capped
+per-file details so users can see which files are old, unreadable, or from a
+newer kotikit version without opening the files manually. Future-version
+artifacts are reported as errors and should be handled by updating kotikit
+before editing.
+
+`kotikit migrate --dry-run` uses the same read-only inventory. It prints counts
+and sample file paths, exits non-zero only for blocking future/unreadable files,
+and always finishes with `No files changed.` There is intentionally no write
+mode yet because the migration model is lazy: active artifacts upgrade when
+kotikit saves them.
 
 ## When to extend it
 

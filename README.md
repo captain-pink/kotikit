@@ -492,8 +492,15 @@ rewriting your whole project. When you edit one of those files through kotikit,
 that specific file is saved back in the latest format.
 
 Fix: no action is required unless kotikit says a file was created by a newer
-version. In that case, update your local kotikit checkout before editing the
-project.
+version or cannot be inspected. To see the exact files without changing
+anything, run:
+
+```sh
+kotikit migrate --dry-run
+```
+
+If the dry run reports future-version files, update your local kotikit checkout
+before editing the project. If it reports unreadable files, fix the JSON first.
 
 ---
 

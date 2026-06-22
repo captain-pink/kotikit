@@ -9,6 +9,7 @@ import { resolveFigmaToken } from "../sync/figma-token.js";
 import { hasCheckpoint } from "../sync/checkpoint.js";
 import { readBridgeConfig } from "../mcp/bridge/token.js";
 import { inspectProjectSchemaVersions } from "../migrations/schema-inventory.js";
+import { formatSchemaInventoryDetails } from "../migrations/dry-run.js";
 import {
   bridgeConfigPath,
   componentsDbPath,
@@ -25,6 +26,7 @@ export interface DoctorCheck {
   status: DoctorStatus;
   message: string;
   hint?: string;
+  details?: string[];
 }
 
 export interface DoctorReport {
@@ -55,6 +57,7 @@ const designSystemArtifactsPresent = (root: string): boolean =>
 
 const schemaVersionCheck = async (root: string): Promise<DoctorCheck> => {
   const inventory = await inspectProjectSchemaVersions(root);
+  const details = formatSchemaInventoryDetails(root, inventory);
   if (inventory.future > 0) {
     return check({
       id: "schema-versions",
@@ -62,6 +65,7 @@ const schemaVersionCheck = async (root: string): Promise<DoctorCheck> => {
       status: "error",
       message: `${inventory.future} kotikit file(s) were created by a newer kotikit version.`,
       hint: "Update kotikit before editing these files.",
+      details,
     });
   }
   if (inventory.unreadable > 0) {
@@ -71,6 +75,7 @@ const schemaVersionCheck = async (root: string): Promise<DoctorCheck> => {
       status: "warn",
       message: `${inventory.unreadable} kotikit file(s) could not be inspected for schema version.`,
       hint: "Open the reported file(s) only if a tool later says they cannot be read.",
+      details,
     });
   }
   if (inventory.legacyOrOlder > 0) {
@@ -80,6 +85,7 @@ const schemaVersionCheck = async (root: string): Promise<DoctorCheck> => {
       status: "warn",
       message: `${inventory.legacyOrOlder} older kotikit file(s) can be read safely.`,
       hint: "They will be updated automatically when edited; no project-wide migration is required.",
+      details,
     });
   }
   return check({
@@ -264,6 +270,7 @@ export function formatDoctorReport(report: DoctorReport): string {
     ...report.checks.flatMap((item) => [
       `[${item.status}] ${item.label}: ${item.message}`,
       ...(item.hint ? [`  hint: ${item.hint}`] : []),
+      ...(item.details?.map((detail) => `  - ${detail}`) ?? []),
     ]),
   ];
 

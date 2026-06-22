@@ -119,6 +119,7 @@ describe("runKotikitDoctor", () => {
     expect(check?.status).toBe("warn");
     expect(check?.message).toContain("1 older kotikit file");
     expect(check?.hint).toContain("updated automatically when edited");
+    expect(check?.details).toContainEqual(expect.stringContaining(".kotikit/specs/legacy/spec.json"));
   });
 });
 
@@ -128,7 +129,13 @@ describe("formatDoctorReport", () => {
       ok: false,
       root: "/app",
       checks: [
-        { id: "config", label: "Config", status: "error", message: "Missing config." },
+        {
+          id: "config",
+          label: "Config",
+          status: "error",
+          message: "Missing config.",
+          details: ["Missing .kotikit/config.json"],
+        },
         { id: "bridge", label: "Bridge", status: "warn", message: "Bridge not running." },
       ],
       nextSteps: ["Run kotikit_config_init before syncing or generating designs."],
@@ -136,6 +143,7 @@ describe("formatDoctorReport", () => {
 
     expect(text).toContain("kotikit doctor: issues found");
     expect(text).toContain("[error] Config: Missing config.");
+    expect(text).toContain("  - Missing .kotikit/config.json");
     expect(text).toContain("Next steps:");
   });
 });
