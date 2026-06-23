@@ -96,6 +96,22 @@ boring, precise at boundaries, easy to test, and hard to misuse.
 - When changing docs only, tests are usually not required; still run targeted
   text scans if the docs reference current APIs or commands.
 
+## Local Quality Gates
+
+- Use `bun run check` for the fast local quality pass. It runs Biome on changed
+  files and cspell across the repo through Bun.
+- Use `bun run check:biome` for formatting, import organization, and lint
+  diagnostics on files changed from `main`.
+- Use `bun run check:spelling` for spell checks. The script runs
+  `bunx --bun cspell` so it follows the repo's Bun-first runtime policy instead
+  of depending on the system Node version.
+- Git hooks are installed with Husky. Pre-commit runs lint-staged on staged
+  files, commit-msg enforces Conventional Commits, and pre-push runs
+  `bun test`.
+- Keep the cspell dictionary focused on project vocabulary, product names,
+  fixture tokens, and intentional technical terms. Do not use it to hide real
+  typos.
+
 ## Git and Generated Work
 
 - Auto-commits must stage only the files they created or updated.

@@ -10,6 +10,12 @@
     "doctor": "bun run src/cli.ts doctor",
     "mcp": "bun run src/mcp/server.ts",
     "bridge": "KOTIKIT_BRIDGE=1 bun run src/mcp/server.ts",
+    "prepare": "husky",
+    "check": "bun run check:biome && bun run check:spelling",
+    "check:biome": "biome check --changed --no-errors-on-unmatched",
+    "check:spelling": "bunx --bun cspell . --no-progress",
+    "format": "biome check --write .",
+    "lint:staged": "lint-staged",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "measure": "bun run scripts/measure-tokens.ts",
@@ -23,6 +29,21 @@
     "simple-git": "^3.27.0"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@biomejs/biome": "^2.5.1",
+    "@commitlint/cli": "^21.0.2",
+    "@commitlint/config-conventional": "^21.0.2",
+    "@types/bun": "latest",
+    "cspell": "^10.0.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.8"
+  },
+  "lint-staged": {
+    "*.{cjs,js,json,jsonc,md,mjs,ts,tsx}": [
+      "biome check --write --no-errors-on-unmatched",
+      "bunx --bun cspell --no-progress --no-summary"
+    ],
+    "*.{css,html,yaml,yml}": [
+      "bunx --bun cspell --no-progress --no-summary"
+    ]
   }
 }
