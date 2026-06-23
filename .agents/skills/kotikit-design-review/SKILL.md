@@ -16,6 +16,9 @@ craft. Be specific and actionable.
 ## Required Behavior
 
 - Use only `kotikit_*` MCP tools for kotikit state.
+- Start with `kotikit_workflow_start({ intent: "design-review", figmaUrl })`
+  when the URL is known, or `kotikit_workflow_next({})` when continuing.
+  Follow the returned `next.allowedTools`.
 - Review exact Figma targets only: page, section, frame, component, or a
   kotikit-created screen.
 - If no exact Figma URL is provided, ask for one with `node-id`.
@@ -38,14 +41,17 @@ craft. Be specific and actionable.
      or general UI
    - review goal: polish, usability, design-system fit, accessibility, or
      production readiness
-4. Call `kotikit_design_review_start` with the Figma URL, brief context, and a
+4. Call `kotikit_workflow_start({ intent: "design-review", figmaUrl })` once
+   the Figma URL is available.
+5. Call `kotikit_design_review_start` with the Figma URL, brief context, and a
    modest `maxRegions` value. Use `8` for normal reviews and `12` for deep
    reviews unless the user explicitly asks for broader coverage.
-5. Review the returned evidence as a Design Director using the rubric below.
-6. Call `kotikit_design_review_record` with structured findings.
-7. Summarize findings by severity in plain language.
-8. Ask whether to post selected comments to Figma.
-9. If yes, prepare and post comments. If no, leave the structured report saved.
+6. Review the returned evidence as a Design Director using the rubric below.
+7. Call `kotikit_design_review_record` with structured findings.
+8. Summarize findings by severity in plain language.
+9. Ask whether to post selected comments to Figma.
+10. If yes, record approval with `kotikit_workflow_event`, then prepare and
+    post comments. If no, leave the structured report saved.
 
 ## Rubric
 

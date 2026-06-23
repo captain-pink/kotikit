@@ -31,6 +31,7 @@ logic.
 The target project owns:
 
 - `.kotikit/config.json`
+- `.kotikit/workflows/*`
 - `.kotikit/specs/*`
 - `.kotikit/index.json`
 - `.kotikit/registry.db`
@@ -38,6 +39,8 @@ The target project owns:
 - `.kotikit/bridge.json` when a bridge is running
 
 Specs and plans are JSON. Review state and memory live in SQLite.
+Workflow sessions are compact JSON pointers to the current task; they keep only
+the latest decision summary so agents can resume without loading old history.
 
 ### Design-System Indexes
 
@@ -85,21 +88,26 @@ This gives teams without Figma branches a practical safety boundary.
    The assistant brainstorms with the user and writes a screen spec or flow
    manifest under `.kotikit/specs`.
 
-2. **Design-system sync**  
+2. **Workflow control**  
+   The assistant asks `kotikit_workflow_start` or `kotikit_workflow_next` what
+   phase is currently allowed. The controller reads only compact state files and
+   returns the next action.
+
+3. **Design-system sync**  
    Figma published-library metadata is normalized into local component and icon
    indexes.
 
-3. **Design plan**  
+4. **Design plan**  
    The planner turns a saved spec plus design-system references into semantic
    Figma plan steps.
 
-4. **Plugin apply**  
+5. **Plugin apply**  
    The plugin applies each step in Figma and reports results back to kotikit.
 
-5. **Review**  
+6. **Review**  
    Comments and design-quality findings are stored in `design-review.db`.
 
-6. **Memory**  
+7. **Memory**  
    Repeated feedback can become a local design preference used in future design
    passes.
 
@@ -113,9 +121,10 @@ This gives teams without Figma branches a practical safety boundary.
 - [modules/planning.md](modules/planning.md) - code plans, design plans,
   component plans, node maps, and review evidence.
 - [modules/mcp.md](modules/mcp.md) - MCP server, tool registry, and bridge.
+- [modules/workflow.md](modules/workflow.md) - compact workflow controller,
+  snapshots, and next-action decisions.
 - [modules/db.md](modules/db.md) - SQLite stores and migrations.
 - [modules/git.md](modules/git.md) - local auto-commit helpers.
 - [modules/codegen.md](modules/codegen.md) - experimental design-to-code track.
 - [modules/util.md](modules/util.md) - path, ID, env, and result helpers.
 - [modules/migrations.md](modules/migrations.md) - lazy JSON migration model.
-

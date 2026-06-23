@@ -4,6 +4,11 @@ These are the main kotikit workflows a designer or product person should know.
 The assistant should run the MCP tools for you; you should not need to call tool
 names directly.
 
+kotikit keeps a compact workflow pointer in the project. If you stop halfway
+through setup, syncing, creating a draft, or reviewing a design, the assistant
+should continue from the next safe step instead of rereading old history or
+guessing what happened.
+
 ## Guided Screen Or Flow Spec
 
 Start with:

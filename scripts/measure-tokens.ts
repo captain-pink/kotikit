@@ -41,6 +41,7 @@ import { registerRegistryTools } from "../src/mcp/tools/registry.js";
 import { registerScaffoldTools } from "../src/mcp/tools/scaffold.js";
 import { registerSpecTools } from "../src/mcp/tools/spec.js";
 import { registerSystemPromptTools } from "../src/mcp/tools/system-prompt.js";
+import { registerWorkflowTools } from "../src/mcp/tools/workflow.js";
 import { componentsDbPath, registryDbPath } from "../src/util/paths.js";
 
 type ToolResult = { content: { type: "text"; text: string }[]; isError?: boolean };
@@ -65,6 +66,7 @@ function buildRegistry(root: string): ToolRegistry {
   registerDesignApplyTools(registry, ctx);
   registerAuditTools(registry, ctx);
   registerSystemPromptTools(registry, ctx);
+  registerWorkflowTools(registry, ctx);
   return registry;
 }
 
@@ -206,6 +208,23 @@ async function main(): Promise<void> {
   // Phase 1
   rows.push(await measure(registry, "kotikit_config_status", {}));
   rows.push(await measure(registry, "kotikit_config_get", {}));
+  rows.push(
+    await measure(
+      registry,
+      "kotikit_workflow_start",
+      { intent: "create-design", scope: "profile-page" },
+      "kotikit_workflow_start (create-design)"
+    )
+  );
+  rows.push(await measure(registry, "kotikit_workflow_next", {}));
+  rows.push(
+    await measure(
+      registry,
+      "kotikit_workflow_event",
+      { event: "tool-completed", summary: "Measured compact workflow state." },
+      "kotikit_workflow_event (latest summary)"
+    )
+  );
   rows.push(await measure(registry, "kotikit_spec_list", {}));
   rows.push(await measure(registry, "kotikit_spec_get", { scope: "profile-page" }));
   rows.push(

@@ -77,6 +77,11 @@ describe("MCP server", () => {
       "kotikit_bridge_start",
       "kotikit_bridge_stop",
       "kotikit_bridge_status",
+      // Workflow controller
+      "kotikit_workflow_start",
+      "kotikit_workflow_status",
+      "kotikit_workflow_next",
+      "kotikit_workflow_event",
     ];
     const registeredNames = registry.tools.map((t) => t.name);
     for (const name of expectedTools) {

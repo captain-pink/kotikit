@@ -154,21 +154,31 @@ describe("kotikit_design_review_comments", () => {
   });
 
   it("returns a friendly error when no token can be resolved", async () => {
-    const root = mkTmp();
-    const cfg = defaultConfig();
-    await writeConfig(root, cfg);
+    const previousToken = process.env.FIGMA_TOKEN;
+    try {
+      delete process.env.FIGMA_TOKEN;
+      const root = mkTmp();
+      const cfg = defaultConfig();
+      await writeConfig(root, cfg);
 
-    const registry = makeRegistry();
-    registerDesignCommentTools(registry, makeCtx(root, cfg), {
-      figmaClientFactory: () => ({ getComments: async () => [] }),
-    });
+      const registry = makeRegistry();
+      registerDesignCommentTools(registry, makeCtx(root, cfg), {
+        figmaClientFactory: () => ({ getComments: async () => [] }),
+      });
 
-    const result = await callTool(registry, "kotikit_design_review_comments", {
-      fileKey: "fig-file",
-    });
+      const result = await callTool(registry, "kotikit_design_review_comments", {
+        fileKey: "fig-file",
+      });
 
-    expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("Figma token");
+      expect(result.isError).toBe(true);
+      expect(result.content[0]?.text).toContain("Figma token");
+    } finally {
+      if (previousToken === undefined) {
+        delete process.env.FIGMA_TOKEN;
+      } else {
+        process.env.FIGMA_TOKEN = previousToken;
+      }
+    }
   });
 
   it("returns a friendly error when neither fileKey nor node map can identify a file", async () => {

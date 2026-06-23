@@ -55,6 +55,56 @@ See also: `kotikit_config_status`, `kotikit_sync_ds`.
 
 ---
 
+## Workflow controller
+
+These tools help agents resume kotikit work without reading old history or
+large generated artifacts. They return a compact `next` object with
+`phase`, `nextAction`, `allowedTools`, `forbiddenTools`, and small refs.
+
+### kotikit_workflow_start
+
+Purpose: Start or restart a compact workflow session for setup, design-system sync, spec creation, Figma design creation, comment review, or design-quality review.
+Input: `{ intent: "setup" | "sync-design-system" | "create-spec" | "create-design" | "review-comments" | "design-review"; scope?: string; screen?: string | null; idea?: string; figmaUrl?: string }`
+Output: `{ session: WorkflowSession; snapshot: WorkflowSnapshot; next: WorkflowNextResult }`
+Token cost: ~300.
+Example: "Start kotikit auto for a Members admin page."
+See also: `kotikit_workflow_next`, `kotikit_workflow_event`.
+
+---
+
+### kotikit_workflow_status
+
+Purpose: Read the compact current workflow state and next recommended action.
+Input: `{ workflowId?: string }`
+Output: `{ session: WorkflowSession; snapshot: WorkflowSnapshot; next: WorkflowNextResult }`
+Token cost: ~300.
+Example: "Where did kotikit leave off?"
+See also: `kotikit_workflow_next`.
+
+---
+
+### kotikit_workflow_next
+
+Purpose: Return the next allowed kotikit action for the current workflow.
+Input: `{ workflowId?: string }`
+Output: `{ session: WorkflowSession; snapshot: WorkflowSnapshot; next: WorkflowNextResult }`
+Token cost: ~300.
+Example: "Continue the current kotikit task."
+See also: `kotikit_workflow_start`, `kotikit_workflow_event`.
+
+---
+
+### kotikit_workflow_event
+
+Purpose: Record one compact workflow event or user decision. Stores only the latest summary; it does not append a long history.
+Input: `{ workflowId?: string; event: "user-approved-literal-fallback" | "user-approved-comment-posting" | "user-selected-component-mode" | "user-confirmed-component-review" | "user-provided-target" | "tool-completed" | "tool-failed"; summary: string }`
+Output: `{ session: WorkflowSession; snapshot: WorkflowSnapshot; next: WorkflowNextResult }`
+Token cost: ~300.
+Example: "Record that the designer approved posting comments to Figma."
+See also: `kotikit_workflow_next`.
+
+---
+
 ## Specs
 
 ### kotikit_brainstorm_start

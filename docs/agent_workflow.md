@@ -19,12 +19,31 @@ offer to create or refine the Figma design now.
 ## Entry Point
 
 `/kotikit-auto` in Claude Code and `kotikit:auto` in Codex are the primary
-conversational entry points. When a designer starts either one, execute the six
-steps below in order. Do not skip steps, do not expose internal formats to the
-designer, and do not end a completed action without presenting the "What next?"
-menu.
+conversational entry points.
+
+Start each substantial request with the workflow controller:
+
+- Use `kotikit_workflow_start` when the user starts a new setup, sync, spec,
+  design, comment-review, or design-review task.
+- Use `kotikit_workflow_next` when continuing an active task.
+- Treat `next.allowedTools` as the allowed next action and
+  `next.forbiddenTools` as blocked for the current phase.
+- Record important user decisions and tool completions with
+  `kotikit_workflow_event`.
+
+The controller returns only compact current state. Do not fetch old workflow
+history, full design-system indexes, component folders, icon lists, databases,
+or generated logs unless the controller points to a small exact artifact.
+
+When the controller says a phase is ready, execute the relevant detailed track
+below. Do not expose internal formats to the designer, and do not end a
+completed action without presenting the "What next?" menu.
 
 ## Step 1: Init Check
+
+Call `kotikit_workflow_start({ "intent": "setup" })` for a fresh setup, or
+`kotikit_workflow_next({})` when resuming. If the controller reports
+`phase: "setup"`, continue with the setup checks below.
 
 Call `kotikit_config_status`.
 
@@ -65,6 +84,11 @@ now."
 Once init is complete, move directly to Step 2.
 
 ## Step 2: Ask What To Build
+
+For a new spec task, call
+`kotikit_workflow_start({ "intent": "create-spec", "idea": "<short user idea>" })`
+once the user has described the task. If setup is still required, complete
+Step 1 first.
 
 Ask the designer: "What do you want to build?"
 
@@ -179,42 +203,48 @@ The designer must never be left at a blank prompt after a completed action.
 
 For creating or refining a Figma design from a saved spec:
 
-1. Ask which saved spec or screen to use if it is not clear.
-2. Make sure the Figma design system has been synced if the design should use
+1. Call `kotikit_workflow_start({ "intent": "create-design", "scope": "...",
+   "screen": "..." })` when the target spec is known, or
+   `kotikit_workflow_next({})` when resuming.
+2. Follow the returned `next.phase` and `next.allowedTools`.
+3. Ask which saved spec or screen to use if it is not clear.
+4. Make sure the Figma design system has been synced if the design should use
    design-system components.
-3. Ask the designer for the exact Figma draft page link to use for this screen.
+5. Ask the designer for the exact Figma draft page link to use for this screen.
    The link must include `node-id`, and the page name must contain `Draft` or
    `Drafts`.
-4. Call `kotikit_figma_target_bind` with the selected scope, optional screen,
+6. Call `kotikit_figma_target_bind` with the selected scope, optional screen,
    and page URL.
-5. Call `kotikit_plan_design`.
-6. Call `kotikit_design_get_screen`.
-7. If `kotikit_design_get_screen` says the screen needs a component decision,
+7. Call `kotikit_plan_design`.
+8. Call `kotikit_design_get_screen`.
+9. If `kotikit_design_get_screen` says the screen needs a component decision,
    summarize the missing component names and ask the designer which option they
    want:
    - Create reusable draft components first.
    - Build the missing pieces inline in this page only.
-8. If reusable draft components are chosen, call
+10. If reusable draft components are chosen, call
    `kotikit_component_plan_create` with `mode: "create-draft-components"`.
    If inline page-only pieces are chosen, call it with `mode: "inline-draft"`.
    If the tool says variables are unavailable, offer to sync variables through
    the Figma plugin before retrying. Only pass `allowLiteralFallback: true`
    after the designer explicitly approves literal draft values.
-9. When reusable draft components are planned, pause the main screen flow.
+11. When reusable draft components are planned, pause the main screen flow.
    Create and review those draft components first, ask the designer to leave
    comments in Figma if needed, and continue the screen task only after the
    designer confirms the components can be used.
-10. Call `kotikit_design_get_screen` again after component decisions are resolved.
-11. If the response includes `componentCreationRequired`, do not apply the main
+12. Call `kotikit_design_get_screen` again after component decisions are
+    resolved.
+13. If the response includes `componentCreationRequired`, do not apply the main
    screen yet. Tell the designer which components still need creation or review.
-12. If the Figma plugin bridge is not running, call `kotikit_bridge_start` and
+14. If the Figma plugin bridge is not running, call `kotikit_bridge_start` and
    give the designer the returned bridge URL.
-13. Ask the designer to open the bound Figma draft file and page, run the
+15. Ask the designer to open the bound Figma draft file and page, run the
    kotikit plugin, and connect to the bridge URL. The plugin will create or
    reuse a kotikit-owned Section and apply all generated frames inside it.
-14. Apply the design plan step by step through the plugin, recording each result
+16. Apply the design plan step by step through the plugin, recording each result
    with `kotikit_design_apply_step`.
-15. Summarize what was created or refined in plain language.
+17. Record major decisions and tool completions with `kotikit_workflow_event`.
+18. Summarize what was created or refined in plain language.
 
 Do not ask the designer about implementation details, file paths, TypeScript,
 or test internals.
@@ -223,11 +253,13 @@ or test internals.
 
 For Figma comments and refinement feedback:
 
-1. Call `kotikit_design_review_comments`.
-2. Summarize mapped comments, unmapped comments, and suggested fixes in plain
+1. Call `kotikit_workflow_start({ "intent": "review-comments" })` or
+   `kotikit_workflow_next({})`.
+2. Call `kotikit_design_review_comments`.
+3. Summarize mapped comments, unmapped comments, and suggested fixes in plain
    language.
-3. After each design adjustment, call `kotikit_design_adjustment_record`.
-4. When fixes are ready to report, use the review report and comment reply
+4. After each design adjustment, call `kotikit_design_adjustment_record`.
+5. When fixes are ready to report, use the review report and comment reply
    tools to prepare designer-facing replies.
 
 ## Design Review Track
@@ -235,21 +267,25 @@ For Figma comments and refinement feedback:
 For reviewing the quality of any exact Figma page, section, frame, component,
 or kotikit-created screen:
 
-1. Ask for the exact Figma URL if the designer has not provided it. The link
+1. Call `kotikit_workflow_start({ "intent": "design-review", "figmaUrl": "..." })`
+   when the URL is known, or `kotikit_workflow_next({})` when resuming.
+2. Ask for the exact Figma URL if the designer has not provided it. The link
    must include `node-id`.
-2. Ask one short context question only if needed: app screen, dashboard,
+3. Ask one short context question only if needed: app screen, dashboard,
    landing page, component, mobile flow, or general UI.
-3. Call `kotikit_design_review_start` with the target URL, brief context, and a
+4. Call `kotikit_design_review_start` with the target URL, brief context, and a
    bounded `maxRegions` value. Use 8 for normal reviews and 12 for deep reviews
    unless the designer asks for broader coverage.
-4. Review the returned evidence like a Design Director. Focus on hierarchy,
+5. Review the returned evidence like a Design Director. Focus on hierarchy,
    alignment, spacing, typography, color/contrast, design-system fit,
    interaction states, responsive behavior, copy clarity, and craft issues.
-5. Call `kotikit_design_review_record` with structured findings. Keep broad
+6. Call `kotikit_design_review_record` with structured findings. Keep broad
    strategic notes `commentable: false`.
-6. Summarize findings in plain language and ask whether to post selected
+7. Summarize findings in plain language and ask whether to post selected
    comments to Figma.
-7. If approved, call `kotikit_design_review_comment_prepare`, then
+8. If approved, call `kotikit_workflow_event` with
+   `event: "user-approved-comment-posting"`, call
+   `kotikit_design_review_comment_prepare`, then
    `kotikit_design_review_comment_post` with `confirm: true`. Never post
    comments without explicit approval.
 

@@ -175,6 +175,7 @@ dist
 .DS_Store
 
 .kotikit/**/*.local.json
+.kotikit/workflows/
 *.log
 .claude/
 

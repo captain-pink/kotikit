@@ -25,6 +25,12 @@ target workspace and run `/mcp`.
 ## Required Behavior
 
 - Use the `kotikit_*` MCP tools.
+- Start every substantial request by calling `kotikit_workflow_start` with the
+  best matching intent, or `kotikit_workflow_next` if a workflow is already
+  active. Treat the returned `next.allowedTools` as the allowed next action.
+- Stay token-efficient: do not fetch old workflow history, full design-system
+  indexes, component folders, icon lists, databases, or generated logs unless a
+  workflow tool explicitly points to a small exact artifact.
 - Keep the designer-facing conversation plain-language and product-focused.
 - Do not expose JSON, tool names, schemas, internal paths, or git terminology
   unless the user explicitly asks.
@@ -40,9 +46,11 @@ target workspace and run `/mcp`.
 
 ## Init Workflow
 
-1. Call `kotikit_config_status`.
-2. If `initialized: true`, continue with the user's requested workflow.
-3. If `initialized: false`, keep setup design-first:
+1. Call `kotikit_workflow_start({ intent: "setup" })` or
+   `kotikit_workflow_next({})` if a workflow is already active.
+2. If the workflow says `phase: "setup"`, call `kotikit_config_status`.
+3. If `initialized: true`, continue with the user's requested workflow.
+4. If `initialized: false`, keep setup design-first:
    - Use the default React project settings silently. They only reserve the
      future design-to-code path and do not mean the designer must write React.
    - Ask whether to keep a local save-point history. Default yes. Do not say
@@ -50,21 +58,24 @@ target workspace and run `/mcp`.
    - Ask whether to connect a Figma design system now. It can be skipped.
    - Ask technical framework, component-directory, or test questions only if the
      user explicitly asks about experimental implementation/code output.
-4. Call `kotikit_config_init` with only the values the user answered. When
+5. Call `kotikit_config_init` with only the values the user answered. When
    running in Codex, include
    `coAuthor: { name: "Codex", email: "noreply@openai.com" }` unless the user
    explicitly asks for different commit metadata.
-5. If setup reports missing gate tools, tell the user the exact friendly
+6. If setup reports missing gate tools, tell the user the exact friendly
    message from the tool and ask whether they want to install the missing
    packages.
-6. After setup, continue with the user's requested workflow.
+7. Record the result with `kotikit_workflow_event` and continue with the user's
+   requested workflow.
 
 ## Auto Workflow
 
 Use this when the user says `/kotikit-auto`, `kotikit:auto`, asks to initialize
 kotikit, or asks to build/spec a screen or flow.
 
-1. Run the Init Workflow.
+1. Call `kotikit_workflow_start({ intent: "create-spec", idea })` once the
+   user has described what they want. If setup is required, run the Init
+   Workflow first.
 2. Ask: "What do you want to build?" unless the user already said it.
 3. Call `kotikit_brainstorm_start({ idea })` and keep the returned
    `sessionId`.
@@ -83,16 +94,19 @@ kotikit, or asks to build/spec a screen or flow.
 8. Save with `kotikit_spec_create` or `kotikit_flow_create`, passing the
    confirmed `brainstormSessionId`. Do not pass `allowUnguided` in the guided
    workflow.
-9. Present the "What next?" menu.
+9. Record the save result with `kotikit_workflow_event`, then present the
+   "What next?" menu.
 
 ## Sync Workflow
 
 Use this when the user asks to sync Figma or connect a design system.
 
-1. Run the Init Workflow.
-2. If no Figma design system is configured, ask for the Figma file URL or file
-   key and call `kotikit_config_init` with `figmaFiles`.
-3. Call `kotikit_sync_ds`.
+1. Call `kotikit_workflow_start({ intent: "sync-design-system" })` or
+   `kotikit_workflow_next({})`.
+2. Follow the returned next action. If no Figma design system is configured,
+   ask for the Figma file URL or file key and call `kotikit_config_init` with
+   `figmaFiles`.
+3. When `next.allowedTools` includes `kotikit_sync_ds`, call `kotikit_sync_ds`.
 4. Summarize the sync result in plain language.
 5. If the sync says Figma Variables REST API requires Enterprise, explain that
    components and styles are usable, then offer the plugin-assisted fallback:
@@ -102,15 +116,18 @@ Use this when the user asks to sync Figma or connect a design system.
    connect to the bridge URL, and click "Sync Variables From Open File".
    Do not ask the designer to hand-edit token JSON unless they explicitly
    prefer a manual token workflow.
-6. Present the "What next?" menu.
+6. Record the sync result with `kotikit_workflow_event`, then present the
+   "What next?" menu.
 
 ## Design Workflow
 
 Use this when the user asks to create or refine a Figma design from a saved
 screen or flow spec.
 
-1. Run the Init Workflow.
-2. Ask which saved spec or screen to use if it is not clear.
+1. Call `kotikit_workflow_start({ intent: "create-design", scope, screen })`
+   once the target spec is known, or `kotikit_workflow_next({})` to resume.
+2. Follow the returned `next.phase` and `next.allowedTools`. Ask which saved
+   spec or screen to use if it is not clear.
 3. Make sure the Figma design system has been synced if the design should use
    design-system components.
 4. Ask the user for the exact Figma draft page link to use for this screen.
@@ -143,13 +160,15 @@ screen or flow spec.
    reuse a kotikit-owned Section and apply all generated frames inside it.
 15. Apply the design plan step by step through the plugin, recording each result
    with `kotikit_design_apply_step`.
-16. Summarize what was created or refined, then present the "What next?" menu.
+16. Record major decisions and tool completions with `kotikit_workflow_event`.
+17. Summarize what was created or refined, then present the "What next?" menu.
 
 ## Review Workflow
 
 Use this when the user asks to read, review, or resolve Figma comments.
 
-1. Run the Init Workflow.
+1. Call `kotikit_workflow_start({ intent: "review-comments", scope, screen })`
+   or `kotikit_workflow_next({})`.
 2. Call `kotikit_design_review_comments`.
 3. Summarize mapped comments, unmapped comments, and suggested fixes in plain
    language.
@@ -163,7 +182,8 @@ Use this when the user asks to read, review, or resolve Figma comments.
 Use this when the user asks to review design quality, audit a Figma screen,
 run `kotikit:design-review`, or run `/kotikit-design-review`.
 
-1. Run the Init Workflow.
+1. Call `kotikit_workflow_start({ intent: "design-review", figmaUrl })` or
+   `kotikit_workflow_next({})`.
 2. Ask for the exact Figma URL if the user did not provide one. The link must
    include `node-id`.
 3. Ask one short context question only if the surface type or review goal is

@@ -40,8 +40,8 @@ an agent can accidentally load:
 
 kotikit reduces that risk by keeping long doctrines behind
 `kotikit_get_system_prompt`, returning refs before details where possible,
-using SQLite search instead of dumping indexes, and paginating expensive
-responses.
+using SQLite search instead of dumping indexes, storing only compact workflow
+state instead of replaying history, and paginating expensive responses.
 
 ## Current Measurements
 
@@ -56,6 +56,9 @@ client, so treat these numbers as regression signals, not exact billing data.
 | --- | ---: | ---: |
 | `kotikit_config_status` | 272 | 72 |
 | `kotikit_config_get` | 639 | 168 |
+| `kotikit_workflow_start` create-design | 2,147 | 565 |
+| `kotikit_workflow_next` | 2,142 | 564 |
+| `kotikit_workflow_event` latest summary | 2,332 | 614 |
 | `kotikit_spec_list` | 133 | 35 |
 | `kotikit_spec_get` | 1,043 | 274 |
 | `kotikit_brainstorm_start` | 1,442 | 379 |
@@ -86,6 +89,10 @@ path design payload.
   detail reads.
 - `kotikit_get_system_prompt` is a one-time session cost per prompt kind. Do
   not inline long doctrines into every tool response.
+- `kotikit_workflow_start`, `kotikit_workflow_next`, and
+  `kotikit_workflow_event` should stay compact. They are the preferred way for
+  agents to resume because they return the current phase and next allowed
+  tools, not the full history of the task.
 - Code and scaffold tools are intentionally measured for engineering
   visibility, but they are not part of the current guided designer workflow.
 - Figma plugin bridge responses do not normally enter the assistant context.

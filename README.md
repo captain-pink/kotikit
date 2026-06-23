@@ -124,9 +124,11 @@ kotikit has four main pieces:
 1. **MCP server**  
    Claude Code, Codex, and other MCP clients call `kotikit_*` tools.
 
-2. **Local project state**  
-   Specs, config, design review state, design memory, and bridge state live in
-   the target project under `.kotikit`.
+2. **Local project state and workflow control**  
+   Specs, config, compact workflow state, design review state, design memory,
+   and bridge state live in the target project under `.kotikit`. The workflow
+   controller tells the assistant the next allowed step so it can resume
+   without rereading old history.
 
 3. **Design-system indexes**  
    Figma components, icons, styles, and variables are synced into
@@ -232,6 +234,10 @@ setup, and variable fallback details.
 kotikit avoids dumping whole design systems into the assistant context. The
 normal pattern is: search first, fetch exact component details second, and keep
 review/design sessions focused.
+
+The workflow controller also keeps sessions cheap. It stores only the current
+task pointer and latest decision summary, then returns a compact next action
+instead of asking the assistant to reconstruct the whole project timeline.
 
 Most users do not need the detailed token table. It exists mainly for
 maintainers and agent-workflow builders who are checking MCP payload sizes. See

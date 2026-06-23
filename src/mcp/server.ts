@@ -33,6 +33,7 @@ import { registerScaffoldTools } from "./tools/scaffold.js";
 import { registerSpecTools } from "./tools/spec.js";
 import { registerSyncTools } from "./tools/sync.js";
 import { registerSystemPromptTools } from "./tools/system-prompt.js";
+import { registerWorkflowTools } from "./tools/workflow.js";
 
 /** The return type every tool handler must produce. */
 type ToolResult = {
@@ -96,6 +97,7 @@ export function buildServer(): { server: Server; registry: ToolRegistry; bridge:
   registerDoctorTools(registry, ctx);
   registerPluginVariableTools(registry, ctx);
   registerBridgeTools(registry, ctx);
+  registerWorkflowTools(registry, ctx);
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
 
