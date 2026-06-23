@@ -4,7 +4,8 @@
 
 The setup module owns local scaffolding for agent config files. It is not the
 runtime MCP server; it is a developer/onboarding helper that writes the files a
-target React project needs before Claude Code or Codex can call kotikit.
+target workspace or app project needs before Claude Code or Codex can call
+kotikit.
 
 ## Public surface
 
@@ -21,9 +22,12 @@ target React project needs before Claude Code or Codex can call kotikit.
 
 ## How it works
 
-The scaffold command resolves two roots: the target React project and the
-kotikit repository. It verifies that `src/mcp/server.ts` exists in the kotikit
-root, then writes agent-specific setup:
+The scaffold command resolves two roots: the target workspace/project and the
+kotikit repository. The target does not have to be a React app for design-only
+work; React only matters for the experimental implementation tools because the
+current code adapter is React-only. The scaffold verifies that
+`src/mcp/server.ts` exists in the kotikit root, then writes agent-specific
+setup:
 
 - Claude Code: project-scoped `.mcp.json`, preserving existing `mcpServers`
   entries and upserting the `kotikit` server with a long per-tool timeout for

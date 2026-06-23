@@ -165,8 +165,14 @@ Requirements:
 - Figma's assistant integration for your assistant installed from inside Figma.
 - A Professional, Organization, or Enterprise Figma account is recommended.
 - A Figma personal access token with file read access.
-- A local target project where kotikit can write `.kotikit/`, `design-system/`,
-  and `.env`.
+- A local target workspace or app project where kotikit can write `.kotikit/`,
+  `design-system/`, and `.env`.
+
+Why a local target workspace? kotikit needs a normal folder to store local
+specs, synced design-system indexes, review memory, assistant config, and your
+Figma token placeholder. For design-only use this can be a scratch workspace. A
+clean React/Vite app is recommended right now only because the future
+design-to-code path and experimental code tools are React-only.
 
 Minimal setup:
 

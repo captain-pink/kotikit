@@ -16,11 +16,26 @@ Codex can call the `kotikit_*` MCP tools.
 - A Figma personal access token with file read access.
 - A published Figma design-system library if you want kotikit to compose new
   drafts from real components.
-- A target project folder where kotikit can write `.kotikit/`,
+- A target workspace/project folder where kotikit can write `.kotikit/`,
   `design-system/`, and `.env`.
 
-The target project can be a clean React/Vite project even though guided
-design-to-code is not enabled yet:
+Why a target workspace? kotikit stores local specs, design-system indexes,
+review memory, assistant config, and your `.env` token placeholder next to the
+work you are asking the assistant to manage. The current guided workflow does
+not require you to write React or run a web app.
+
+For design-only experiments, a plain local folder is enough:
+
+```bash
+mkdir my-kotikit-workspace
+cd my-kotikit-workspace
+git init
+```
+
+A clean React/Vite project is still a good default if you want the workspace to
+be ready for the later design-to-code path. React is mentioned because kotikit's
+experimental implementation adapter is React-only today, not because Figma
+draft creation needs React:
 
 ```bash
 bun create vite my-app --template react-ts
@@ -49,8 +64,8 @@ bun install
 
 ## 3. Scaffold Assistant Config
 
-Run this from the kotikit repo. The `--target` path should point to the project
-where you want to use kotikit.
+Run this from the kotikit repo. The `--target` path should point to the
+workspace or app project where you want to use kotikit.
 
 ```bash
 cd ~/kotikit

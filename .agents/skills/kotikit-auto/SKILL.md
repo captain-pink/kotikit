@@ -6,8 +6,8 @@ description: Run the kotikit auto workflow with MCP tools. Use when the user say
 # Kotikit Auto
 
 Use this self-contained skill to operate kotikit through its MCP tools in
-Claude Code or Codex. It must work after being copied into a target React
-project, so do not try to read workflow docs from the target project.
+Claude Code or Codex. It must work after being copied into a target workspace,
+so do not try to read workflow docs from the target project.
 
 This skill assumes the kotikit MCP server is configured for the current target
 project. If no `kotikit_*` tools are available, stop and tell the user that
@@ -15,12 +15,12 @@ kotikit MCP is not connected in this session. Ask them to run the local scaffold
 from the kotikit repo for their current assistant:
 
 ```bash
-bun run scaffold:agents -- --target /path/to/their-react-project --agents claude
+bun run scaffold:agents -- --target /path/to/their-workspace --agents claude
 ```
 
-Use `--agents codex` for Codex-only projects or `--agents both` when both
+Use `--agents codex` for Codex-only workspaces or `--agents both` when both
 assistants should be configured. Then ask them to restart their assistant in the
-target project and run `/mcp`.
+target workspace and run `/mcp`.
 
 ## Required Behavior
 
@@ -42,13 +42,14 @@ target project and run `/mcp`.
 
 1. Call `kotikit_config_status`.
 2. If `initialized: true`, continue with the user's requested workflow.
-3. If `initialized: false`, ask only the setup questions needed:
-   - Framework. Default to React; it is currently the only supported value.
-   - Components directory. Default to `src/components`.
-   - Whether to generate tests. Default yes.
-   - Whether to keep a local save-point history. Default yes. Do not say
+3. If `initialized: false`, keep setup design-first:
+   - Use the default React project settings silently. They only reserve the
+     future design-to-code path and do not mean the designer must write React.
+   - Ask whether to keep a local save-point history. Default yes. Do not say
      "git" or "commit" unless the user asks.
-   - Whether to connect a Figma design system now. It can be skipped.
+   - Ask whether to connect a Figma design system now. It can be skipped.
+   - Ask technical framework, component-directory, or test questions only if the
+     user explicitly asks about experimental implementation/code output.
 4. Call `kotikit_config_init` with only the values the user answered. When
    running in Codex, include
    `coAuthor: { name: "Codex", email: "noreply@openai.com" }` unless the user

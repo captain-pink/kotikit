@@ -28,7 +28,7 @@ Purpose: Initialize or reinitialize the kotikit config file with project setting
 Input: `{ framework?: "react"; codeComponentsDir?: string; tests?: boolean; autoCommit?: boolean; coAuthor?: { name: string; email: string }; figmaFiles?: { key: string; name: string }[] }`
 Output: `{ configPath: string; notes: string[] }`
 Token cost: ~150.
-Example: "Set kotikit up for this project — I'm using React and my components live in `src/components`."
+Example: "Set kotikit up for this workspace using the design-first defaults."
 See also: `kotikit_config_status`, `kotikit_config_get`.
 
 ---

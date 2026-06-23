@@ -69,6 +69,11 @@ describe("scaffoldAgents", () => {
     expect(skill).toContain("kotikit_brainstorm_answer");
     expect(skill).toContain("kotikit_brainstorm_confirm");
     expect(skill).toContain("brainstormSessionId");
+    expect(skill).toContain("target workspace");
+    expect(skill).toContain("Use the default React project settings silently");
+    expect(skill).not.toContain("target React project");
+    expect(skill).not.toContain("their-react-project");
+    expect(skill).not.toContain("Framework. Default to React");
     expect(skill).not.toContain("Generate code");
     expect(skill).not.toContain("../../../docs");
     expect(skill).not.toContain("docs/agent_workflow");

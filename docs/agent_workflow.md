@@ -34,18 +34,18 @@ If `initialized: false`, run the init conversation. Ask one question at a
 time, in plain language. Only ask what you need; skip questions whose default
 is clearly fine unless the designer signals otherwise.
 
-1. "What framework are you building in? I'll assume React unless you're using
-   something else." This maps to `project.framework`; default `react`;
-   currently the only supported value.
-2. "Where do your components live? I'll default to `src/components` if that
-   works." This maps to `project.codeComponentsDir`.
-3. "Should I generate test files alongside your components?" This maps to
-   `project.tests`; default yes.
-4. "Should I keep a tidy history of your spec files automatically? It's like a
+For the design-first guided workflow, do not ask technical framework,
+component-directory, or test questions. Use kotikit's default React project
+settings silently; they reserve the future design-to-code path and do not mean
+the designer has to write React or run an app. Ask those technical questions
+only if the designer explicitly asks about experimental implementation/code
+output.
+
+1. "Should I keep a tidy history of your spec files automatically? It's like a
    save-point system that lives entirely on your machine." This maps to
    `git.autoCommit`; default yes. Do not use the words "git" or "commit" with
    the designer unless they ask.
-5. "Do you have a Figma design system you'd like to connect? We can skip this
+2. "Do you have a Figma design system you'd like to connect? We can skip this
    for now and add it later." This maps to `figma`; default skip.
 
 After gathering answers, call `kotikit_config_init` with the collected values.
