@@ -19,6 +19,9 @@ This produces `dist/code.js` and `dist/ui.html`.
 1. Open Figma -> Plugins -> Development -> Import plugin from manifest...
 2. Pick `figma-plugin/manifest.json`.
 
+See [../docs/figma.md](../docs/figma.md) for the complete Figma setup flow,
+token scopes, draft page safety rules, and variable fallback.
+
 ## Use
 
 1. Ask your assistant to start the kotikit Figma plugin bridge.

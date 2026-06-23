@@ -132,7 +132,10 @@ boring, precise at boundaries, easy to test, and hard to misuse.
 
 ## Documentation
 
-- Keep live docs current: `README.md`, `docs/tools.md`, and `docs/modules/*`.
+- Keep live docs current: `README.md`, `docs/getting-started.md`,
+  `docs/workflows.md`, `docs/figma.md`, `docs/troubleshooting.md`,
+  `docs/development.md`, `docs/architecture.md`, `docs/tools.md`, and
+  `docs/modules/*`.
 - Keep live docs concise. Do not add large one-off planning documents to the
   root or `docs/`; capture durable decisions in the relevant module doc or
   `NEXT_STEPS.md`.

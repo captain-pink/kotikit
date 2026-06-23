@@ -82,13 +82,14 @@ The variant-name diff catches most renames. Richer signals are deferred.
 
 ## Documentation + onboarding
 
-The README assumes the designer can install Bun. Real designers often hit walls earlier.
+The public README now links to focused setup, workflow, Figma, troubleshooting,
+development, and architecture docs. The remaining onboarding work is about
+making the first run easier for non-engineers.
 
 - **Production-quality agent autoinstaller** — build on the local MVP `bun run scaffold:agents` command. Add interactive prompts, dry-run/diff output, explicit overwrite confirmation, backup/rollback notes, stronger existing-config conflict handling, cross-platform path validation, and a smoke check that starts the MCP server and calls `kotikit_config_status`.
 - **Published `create-kotikit` package** — ship a `bunx create-kotikit` / `npx create-kotikit` flow that detects the target React project, configures Claude Code, Codex, or both, installs or links the Codex skill, handles `.env` safely, and prints exact restart/verification steps.
 - **Video walkthrough of the first hour** — recorded once, evergreen.
 - **Per-tool examples that include real Figma file links** — readers can fork and run the exact flow.
-- **A diagram of the data flow** in the README (spec → design plan → Figma draft → review → memory).
 - **Per-spec / per-flow templates** — "I want to build a SaaS dashboard" pre-seeds a flow with common screens.
 
 ## Architecture (longer-term)

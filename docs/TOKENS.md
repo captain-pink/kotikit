@@ -163,5 +163,5 @@ The fixture is deterministic — the same inputs every time — so byte counts a
 ## Related
 
 - `docs/tools.md` — every tool with its individual cost listed in the description.
-- `README.md` — the "Keeping conversations cheap" section is the designer-facing summary of this doc.
+- `README.md` — the "Keeping Sessions Cheap" section is the designer-facing summary of this doc.
 - `NEXT_STEPS.md` — items including "MCP protocol cache_control" and "session-aware dedup" for future leverage.

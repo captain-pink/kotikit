@@ -22,8 +22,7 @@ bun run /path/to/kotikit/src/mcp/server.ts
 
 Replace `/path/to/kotikit` with the absolute path to this repository.
 
-Claude Code MCP config (`.claude/mcp.json` or the equivalent local MCP config
-file):
+Claude Code project MCP config (`.mcp.json` in the target project):
 
 ```json
 {
