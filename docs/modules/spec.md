@@ -74,4 +74,3 @@ safe draft page before planning or applying Figma changes.
 - [git](./git.md) — `autoCommitSpec` stages spec files after every write
 - [mcp](./mcp.md) — `kotikit_spec_create`, `kotikit_flow_create`, `kotikit_spec_update`, `kotikit_spec_list` are the tool wrappers
 - [migrations](./migrations.md) — lazy JSON migration model
-- `planning/phase-1.md` — spec schema design rationale

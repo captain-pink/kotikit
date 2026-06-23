@@ -21,8 +21,8 @@ The git module provides the auto-commit machinery that records kotikit's work as
 - `CommitKind` — `"create" | "update"`
 
 **Convenience wrappers**
-- `autoCommitSpec(opts)` — Phase 1 backwards-compatible alias; calls `autoCommit` with the default `subjectScope: "spec"`
-- `autoCommitCode(opts)` (in `src/codegen/code-commit.ts`) — Phase 3 wrapper; calls `autoCommit` with `subjectScope: "code"` and constructs `subjectSuffix` from `screen`
+- `autoCommitSpec(opts)` — spec-focused wrapper; calls `autoCommit` with the default `subjectScope: "spec"`
+- `autoCommitCode(opts)` (in `src/codegen/code-commit.ts`) — code-focused wrapper; calls `autoCommit` with `subjectScope: "code"` and constructs `subjectSuffix` from `screen`
 
 **Git utilities**
 - `isGitRepo(root)` — run `git rev-parse --git-dir`; returns `boolean`; never throws
@@ -55,4 +55,3 @@ Every commit body ends with a `Co-authored-by` footer on its own line, preceded 
 - [codegen](./codegen.md) — `autoCommitCode` (in `src/codegen/code-commit.ts`) wraps `autoCommit` for the code generation path
 - [config](./config.md) — `config.git.autoCommit` controls whether commits are enabled; tools pass this value as `enabled`
 - [mcp](./mcp.md) — the `kotikit_config_init` tool calls `gitInit` during project setup
-- `planning/phase-1.md` — auto-commit design; conventional commit format rationale

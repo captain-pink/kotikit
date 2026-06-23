@@ -65,4 +65,3 @@ does not overwrite unknown settings.
 - [util](./util.md) — `configPath`, `findProjectRoot`, and all `.kotikit/` path helpers live here
 - [mcp](./mcp.md) — `kotikit_config_status` and `kotikit_config_init` are the MCP tools that call `loadConfig`, `configExists`, and `buildConfig`
 - [migrations](./migrations.md) — lazy JSON migration model
-- `planning/phase-1.md` — design rationale for the config schema and init flow

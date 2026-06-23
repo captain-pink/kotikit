@@ -22,7 +22,10 @@ The guided kotikit workflow is currently design-first. Implementation and
 scaffold tools are measured here for engineering visibility, but agents should
 not use them in `/kotikit-auto` or `kotikit:auto` until design-to-code returns.
 
-Phase 6 cuts steady-state tool-result traffic by ~25-30%, with larger savings on the pathological `expand: true` paths. A typical "build one screen with 5-component scaffold" session drops from ~25KB of tool returns to ~18KB after the Phase 6 cuts. The Phase 6 changes that drove this:
+Recent payload changes cut steady-state tool-result traffic by roughly
+25-30%, with larger savings on the pathological `expand: true` paths. A
+typical "build one screen with 5-component scaffold" session drops from about
+25KB of tool returns to about 18KB. The changes that drive this:
 
 - Returning `componentRefs` (paths + keys) instead of inline DS JSON.
 - Paginating scaffold bundles at `pageSize: 3` with a `compact: true` DS JSON shape.
@@ -40,7 +43,7 @@ You don't have to know about any of this. The defaults are conservative on purpo
 | kotikit_config_get | 507 | 133 |
 | kotikit_spec_list | 133 | 35 |
 | kotikit_spec_get | 1,018 | 268 |
-| kotikit_brainstorm_start (Phase 6 ref) | 993 | 261 |
+| kotikit_brainstorm_start (cached prompt ref) | 993 | 261 |
 | kotikit_ds_search | 247 | 65 |
 | kotikit_icons_search | 138 | 36 |
 | kotikit_ds_get_component | 599 | 158 |
@@ -69,7 +72,8 @@ Token estimate = bytes / 3.8 (rough JSON-heavy estimate). The real tokenizer can
 
 This is the largest tool by response size, but it is called by the Figma plugin over the
 WebSocket bridge, not directly by the coding assistant. Its bytes hit the bridge transport,
-not the assistant context window. Phase 6 chose not to optimize it. If the plugin's UI needs to render
+not the assistant context window. It is intentionally less optimized than
+assistant-facing tools. If the plugin's UI needs to render
 many screens per session, a componentRefs-style lazy mode could be added; that work is
 tracked in `NEXT_STEPS.md`.
 
@@ -79,9 +83,15 @@ tracked in `NEXT_STEPS.md`.
 
 ### 1. `kotikit_get_system_prompt({ kind })`
 
-Before Phase 6, `kotikit_implement_code_start` and `kotikit_scaffold_start` each inlined the full React doctrine — ~1,500 bytes per call. Brainstorm inlined a separate ~800 byte doctrine on every conversation start.
+Earlier builds inlined the full React doctrine in
+`kotikit_implement_code_start` and `kotikit_scaffold_start` — about 1,500 bytes
+per call. Brainstorm inlined a separate roughly 800 byte doctrine on every
+conversation start.
 
-After Phase 6, those tools return a `systemPromptRef: "react" | "brainstorm" | "scaffold"` field; the long doctrine is fetched once via `kotikit_get_system_prompt({ kind })`. The model's KV cache keeps the doctrine warm for the rest of the session.
+Current builds return a `systemPromptRef: "react" | "brainstorm" | "scaffold"`
+field; the long doctrine is fetched once via
+`kotikit_get_system_prompt({ kind })`. The model's KV cache keeps the doctrine
+warm for the rest of the session.
 
 **Net savings on a typical session:** ~3-5KB of duplicated text across multiple implement/scaffold calls (e.g. three implement calls × 1,500 bytes saved each = 4,500 bytes = ~1,184 tokens avoided).
 

@@ -70,7 +70,7 @@ Storybook story generation uses CSF3 format. Stories are one-per-axis (one story
 
 - Adding a Vue or Svelte adapter — implement the `Adapter` interface in a new `src/codegen/vue/` directory; update the MCP tools that currently hardcode `reactAdapter` to read `config.project.framework` and dispatch to the right adapter.
 - Adding a new gate kind (e.g. a custom lint rule) — extend the `GateKind` union, add an entry to the adapter's `qualityGates()`, and add an `INSTALL_HINTS` entry in `environment.ts`.
-- Changing the CVA default derivation — edit `deriveVariantDefaults`; the current heuristic (first value in the axis array) is documented as a Phase 5+ refinement placeholder.
+- Changing the CVA default derivation — edit `deriveVariantDefaults`; the current heuristic picks the first value in the axis array and should stay deterministic unless stronger DS metadata is available.
 - Adding a new file type from the scaffolder (e.g. a CSS module) — add an entry to `ScaffoldResult.files`; the caller already iterates `files` and writes each one.
 
 ## Related
@@ -79,5 +79,3 @@ Storybook story generation uses CSF3 format. Stories are one-per-axis (one story
 - [planning](./planning.md) — `CodePlan` describes which codegen steps to run for a screen
 - [git](./git.md) — `autoCommitCode` delegates to `autoCommit`
 - [mcp](./mcp.md) — `kotikit_implement_code_start`, `kotikit_scaffold_start`, and related tools orchestrate codegen calls
-- `planning/phase-3.md` — implement_code design; gate-runner architecture
-- `planning/phase-4.md` — scaffold pagination; CVA pattern; Storybook story format

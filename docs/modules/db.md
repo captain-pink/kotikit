@@ -64,7 +64,7 @@ Both `components.db` and `icons.db` use FTS5 virtual tables with the `unicode61 
 
 Because FTS5 virtual tables do not support SQL `INSERT OR REPLACE`, `upsertComponent` and `upsertIcon` use DELETE-then-INSERT within the caller-provided transaction. The `name_tokens` column is denormalized — it stores the original name plus its CamelCase-split parts (`"ButtonGroup"` → `"ButtonGroup Button Group"`), letting the FTS5 engine find `"Button"` when searching for a `ButtonGroup` component. `buildNameTokens` handles acronyms (`"HTTPSConfig"` → `"HTTPSConfig HTTPS Config"`), letter-to-digit transitions, and separator normalization.
 
-The registry schema has two versions. `PRAGMA user_version = 0` is the Phase 3 baseline: a single `registry` table with `(name TEXT PK, code_path, status)`. Version 1, introduced in Phase 4, renames the table, adds the composite `(kind, name)` primary key, and adds the `ds_path` column. The `initRegistryDb` migration is idempotent: it reads `PRAGMA user_version`, creates the v1 schema if `version === 0`, copies existing rows forward as `kind='screen'`, and sets `user_version = 1`. Because bun:sqlite requires `PRAGMA user_version` to be set outside a transaction, the migration commits before issuing the pragma.
+The registry schema has two versions. `PRAGMA user_version = 0` is the original baseline: a single `registry` table with `(name TEXT PK, code_path, status)`. Version 1 renames the table, adds the composite `(kind, name)` primary key, and adds the `ds_path` column. The `initRegistryDb` migration is idempotent: it reads `PRAGMA user_version`, creates the v1 schema if `version === 0`, copies existing rows forward as `kind='screen'`, and sets `user_version = 1`. Because bun:sqlite requires `PRAGMA user_version` to be set outside a transaction, the migration commits before issuing the pragma.
 
 `upsertRegistryDsRow` is the only function that understands component lifecycle rules. When the sync runs again on an already-scaffolded component, this function updates `ds_path` without touching `code_path` or status, preserving the `"synced"` label. When a component was `"code-only"` (scaffolded before the DS was synced), it promotes the row to `"synced"` if `code_path` is non-null.
 
@@ -97,5 +97,3 @@ truth.
 - [codegen](./codegen.md) — the registry is read by the scaffold tool to find `design-only` components
 - [util](./util.md) — `componentsDbPath`, `iconsDbPath`, `registryDbPath`, and `designReviewDbPath` are the canonical path helpers
 - [migrations](./migrations.md) — JSON artifacts are lazy; SQLite migrates on open
-- `planning/phase-2.md` — FTS5 tokenizer decision; camel-token rationale
-- `planning/phase-4.md` — registry v1 schema and `upsertRegistryDsRow` merge rules

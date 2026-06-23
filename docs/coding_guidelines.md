@@ -109,8 +109,9 @@ boring, precise at boundaries, easy to test, and hard to misuse.
 ## Documentation
 
 - Keep live docs current: `README.md`, `docs/tools.md`, and `docs/modules/*`.
-- Treat `planning/` as historical design rationale. Do not churn it unless the
-  task is explicitly about those plans.
+- Keep live docs concise. Do not add large one-off planning documents to the
+  root or `docs/`; capture durable decisions in the relevant module doc or
+  `NEXT_STEPS.md`.
 - Use agent-neutral language in shared docs. Use "Claude Code" or "Codex" only
   when the instruction is specific to that product.
 - Document setup as copy-pasteable commands or config blocks.

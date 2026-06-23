@@ -1,6 +1,7 @@
 # Next steps
 
-What kotikit could grow into. Each item is bite-sized enough to spawn as its own follow-up phase or pull request.
+What kotikit could grow into. Each item is intended to be small enough to ship
+as a focused implementation slice.
 
 Sorted from highest leverage downward within each section.
 
@@ -27,10 +28,10 @@ The React adapter ships and is exercised, but the boundary it implies hasn't bee
 
 ## Design track
 
-Phase 5 ships the bridge, orchestrator, browserless comment reading, compact
-review reporting, reply outbox support, design preference memory, and a first
-plugin review dashboard. The remaining items make that loop more visual,
-collaborative, and precise.
+The current design track ships the bridge, orchestrator, browserless comment
+reading, compact review reporting, reply outbox support, design preference
+memory, standalone design review, and a first plugin review dashboard. The
+remaining items make that loop more visual, collaborative, and precise.
 
 - **Full plan-checklist UI in the Figma plugin** — the deferred P5-D4 task: two-pane view with per-step Run buttons + streaming status log.
 - **Component creation executor in the Figma plugin** — consume `component.plan.json` steps, create reusable draft components or page-only inline pieces with bound variables where available, then hold completion until the designer reviews the component and confirms it can be used by the main screen task.
@@ -41,7 +42,7 @@ collaborative, and precise.
 - **Multi-project bridge selector** inside the plugin — list of running bridges instead of a single-paste connect URL.
 - **Flow-level Figma prototype connections** — read `flow.json` transitions and wire them as Figma prototype arrows.
 - **Variable binding with `nodeNameHint` resolution** — bind a variable to a specific child node (e.g. "Heading text") instead of the frame itself.
-- **Bidirectional sync** — edits in Figma flow back into `.kotikit/specs/`. Major scope; deferred since Phase 5.
+- **Bidirectional sync** — edits in Figma flow back into `.kotikit/specs/`. Major scope; deferred until the one-way design workflow is stable.
 - **Real-time collaboration** — multiple designers, one bridge, conflict resolution.
 - **Measured design-side gates** — after semantic layout zones are applied, inspect generated frames for overlap, clipped text, target sizes below 44px, missing variables, components without DS keys, and obvious responsive breakpoints. Keep this generic and report actionable fixes instead of embedding rules for one design system.
 - **Component metadata-driven layout refinement** — use synced component metadata such as default dimensions, supported variants, role confidence, and importability status to choose better zone direction, spacing, and representative variants before the plugin creates frames.
@@ -69,7 +70,7 @@ payloads.
 - **Component-set import evaluation** — investigate whether importing component sets directly is reliable enough to support. Until then, keep storing concrete component keys as `ComponentJson.key` and component-set keys as metadata.
 - **Schema-drift guardrails** — add tests for unknown Figma property types and new/extra API fields so future Figma changes degrade with warnings instead of breaking sync.
 
-## Audit (post-Phase 6)
+## Audit
 
 The variant-name diff catches most renames. Richer signals are deferred.
 
@@ -87,18 +88,19 @@ The README assumes the designer can install Bun. Real designers often hit walls 
 - **Published `create-kotikit` package** — ship a `bunx create-kotikit` / `npx create-kotikit` flow that detects the target React project, configures Claude Code, Codex, or both, installs or links the Codex skill, handles `.env` safely, and prints exact restart/verification steps.
 - **Video walkthrough of the first hour** — recorded once, evergreen.
 - **Per-tool examples that include real Figma file links** — readers can fork and run the exact flow.
-- **A diagram of the data flow** in the README (spec → plan → code → registry → audit).
+- **A diagram of the data flow** in the README (spec → design plan → Figma draft → review → memory).
 - **Per-spec / per-flow templates** — "I want to build a SaaS dashboard" pre-seeds a flow with common screens.
 
 ## Architecture (longer-term)
 
-The single-direction Figma → code assumption is core; eventually it might bend.
+The single-direction spec → Figma draft workflow is the stable path today;
+eventually it may expand into broader automation.
 
 - **Code → Figma reverse path** — V2+ explicit. Requires a Figma plugin that mutates the file, which the current plugin doesn't do.
 - **Headless mode for CI** — drop the MCP server, expose a CLI that runs sync + audit + gates in one shot.
 - **Multi-project / monorepo config inheritance** — root config + per-package overrides.
 - **Expand the `kotikit` CLI** — the CLI now has `kotikit doctor` and `kotikit mcp`; add terminal-first routine ops such as `kotikit sync`, `kotikit audit`, and CI-friendly JSON output.
-- **Backend / data layer integration** — currently kotikit stops at the UI; a future phase could wire spec acceptance criteria into typed API contracts.
+- **Backend / data layer integration** — currently kotikit stops at the UI; future work could wire spec acceptance criteria into typed API contracts.
 - **Replace SQLite with a single shared database** for multi-project setups.
 
 ## Tooling + DX
@@ -111,4 +113,5 @@ Smaller items that polish the developer experience.
 
 ---
 
-If you implement any of these, link the PR back to this file with `[done in #PR]`.
+When an item ships, either remove it from this list or replace it with the next
+concrete follow-up. Keep this file short enough to stay useful.

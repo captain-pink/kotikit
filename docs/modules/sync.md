@@ -72,7 +72,7 @@ The sync module owns everything needed to pull a Figma design system into a loca
 
 ## How it works
 
-`syncOneFile` is a sequential 8-stage pipeline: `metadata → components → component_sets → styles → variables → node_details → icons → done`. Each stage writes a checkpoint entry after completion, so a process kill at any point leaves a valid checkpoint. On resume, stages before the checkpoint's recorded stage are skipped. The `node_details` stage is the only one with an intra-stage cursor (it batches node IDs in groups of 100 and records `{ processed, batchSize }`).
+`syncOneFile` is a sequential 8-stage pipeline: `metadata → components → component_sets → styles → variables → node_details → icons → done`. Each stage writes a checkpoint entry after completion, so a process kill at any point leaves a valid checkpoint. On resume, cheap idempotent list stages are fetched again because their outputs live only in memory during one invocation. The expensive `node_details` stage runs in bounded waves, records `{ processed, batchSize }` after each batch, and can pause before the MCP request window closes.
 
 **Published/importable libraries are required.** Figma only returns importable component keys from files that have been published as a library. Those keys are what generated Figma drafts need when they instantiate design-system components. If both `/components` and `/component_sets` return empty arrays, `syncOneFile` does not scrape the document tree and does not write local component rows. It records a skipped entry explaining that the file is not published as a library. This avoids creating a design-system snapshot that looks useful locally but cannot be used by Figma drafts.
 
@@ -106,4 +106,3 @@ The registry writeback uses `upsertRegistryDsRow`, a merge-aware function that n
 - [db](./db.md) — `initComponentsDb`, `upsertComponent`, `initIconsDb`, `upsertIcon`, `initRegistryDb`, `upsertRegistryDsRow` are called by the orchestrator
 - [util](./util.md) — `componentsDbPath`, `iconsDbPath`, `registryDbPath`, `componentJsonPath`, `checkpointPath`, `syncReportPath` are all path helpers
 - [mcp](./mcp.md) — `kotikit_sync_ds` is the MCP tool that invokes `syncAllFiles`
-- `planning/phase-2.md` — sync architecture, rate-limit strategy, multi-file merge rationale

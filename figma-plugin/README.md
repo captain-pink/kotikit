@@ -1,6 +1,8 @@
 # kotikit Figma plugin
 
-Phase 5 of the kotikit design track.
+The local Figma companion for kotikit's design track. The plugin connects to
+the localhost bridge, applies generated design-plan steps, and can export
+variables from an open Figma file when the REST Variables API is unavailable.
 
 ## Install (one-time)
 

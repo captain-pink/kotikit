@@ -1,6 +1,6 @@
 # kotikit MCP Tools
 
-48 tools exposed by the kotikit MCP server, organized by what they do.
+Tools exposed by the kotikit MCP server, organized by what they do.
 Each tool name is what the agent calls; the "Example" line shows how to trigger it from your conversation.
 
 Token costs are approximate response sizes measured against a small fixture project (3 DS components, 1 screen). Re-measure for your project with `bun run measure`. See [docs/TOKENS.md](./TOKENS.md) for optimization strategies.

@@ -2,7 +2,7 @@
 
 ## What it does
 
-The planning module manages regenerable plans that guide an agent through multi-step code generation, component decisions, and design application. It owns three independent plan tracks: the code track (Phase 3) that breaks screen implementation into ordered steps, the component track (Phase 5) that records how missing design-system components should be resolved, and the design track (Phase 5) that describes how to build a screen in Figma using the bridge. Plans are written next to their spec files inside `.kotikit/specs/<scope>/` and can be regenerated if ever needed again.
+The planning module manages regenerable plans that guide an agent through multi-step code generation, component decisions, and design application. It owns three independent plan tracks: the code track that breaks screen implementation into ordered steps, the component track that records how missing design-system components should be resolved, and the design track that describes how to build a screen in Figma using the bridge. Plans are written next to their spec files inside `.kotikit/specs/<scope>/` and can be regenerated if ever needed again.
 
 Current product stage: the design track is the guided workflow. The code track
 remains available for engineering experiments and future design-to-code work,
@@ -93,5 +93,3 @@ Review results and refinements live in `.kotikit/design-review.db`. Agents recor
 - [codegen](./codegen.md) — code plan steps map to codegen operations in the implement flow
 - [util](./util.md) — `codePlanPath`, `designPlanPath`, `componentPlanPath`, and `designNodeMapPath` live here
 - [mcp](./mcp.md) — `kotikit_plan_code`, `kotikit_implement_code_start`, `kotikit_component_plan_create`, `kotikit_plan_design`, `kotikit_design_apply_step`, and the design review/comment/memory tools are the tool wrappers
-- `planning/phase-3.md` — code plan design rationale
-- `planning/phase-5.md` — design plan design rationale; bridge integration
