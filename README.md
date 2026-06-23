@@ -1,535 +1,452 @@
 # kotikit
 
-kotikit is currently a design-first workflow for designers using Claude Code,
-Codex, or another MCP-capable assistant. You describe a screen, the agent asks
-the right questions, kotikit saves a precise spec, syncs your Figma design
-system, then helps create and refine Figma drafts from that shared context.
+Create Figma-ready product drafts from plain language, using your real design
+system.
 
-Design-to-code is coming in a later version once the design creation workflow is
-stable. The guided `kotikit-auto` flow should not be used to generate app code
-yet.
+kotikit is a local-first MCP toolkit for Claude Code, Codex, and other
+MCP-capable agents. It helps an agent ask the right product questions, save a
+structured screen spec, sync your Figma design system, compose safe Figma draft
+pages, review designs, and remember repeated design feedback.
 
----
+```text
+Product idea -> guided questions -> local spec -> Figma DS sync -> safe draft page -> review -> design memory
+```
 
-## Who this is for
+## Public Alpha
 
-Designers who use Claude Code or Codex, have a Figma design system, and want a
-guided way to plan screens, compose Figma drafts, review comments, and preserve
-design decisions locally. You do not need to know React, git commands, or
-anything about the terminal beyond copy-paste.
+kotikit is a public alpha showcase. The repository is public so people can see
+the direction, try it locally, and inspect the agentic workflow.
 
----
+It is not a mature open-source project yet:
 
-## Prerequisites
+- Public PRs are not being accepted right now. I do not have capacity to review
+  external contributions properly.
+- There is no support SLA.
+- APIs, local file formats, and workflows may change.
+- The project was built through AI-assisted/vibe-coded development and still
+  needs deeper independent security, architecture, and production-quality
+  review.
+- Use it for experiments, drafts, and controlled Figma files first. Do not
+  point it at critical production files until you understand the workflow and
+  risks.
 
-- **Bun** — a fast JavaScript runtime (one install command below).
-- **An MCP-capable AI coding assistant** — Claude Code or Codex.
-  - Claude Code: [install it from the VS Code Marketplace.](https://marketplace.visualstudio.com/items?itemName=Anthropic.claude-code)
-  - Codex: install the Codex CLI or IDE extension and sign in.
-- **A Figma personal access token** — open Figma, go to Settings → Account → Personal access
-  tokens, and create one with the "File read" scope. Copy it somewhere safe.
-- **A local project folder** — kotikit stores specs, design-system indexes,
-  review notes, and design memory next to your work. A React project is fine,
-  but the guided workflow does not generate app code yet. If you do not have a
-  folder yet, a minimal Vite project works:
+Design-to-code is intentionally not part of the guided workflow yet. kotikit is
+currently focused on stabilizing the design creation and review loop.
 
-  ```bash
-  bun create vite my-app --template react-ts
-  cd my-app && bun install
-  ```
+## Why This Exists
 
-- **Your project should be a folder tracked by version control** — if you are not sure, open
-  your project folder in Terminal and run `git init`. That is all you need.
-  If version control asks you for a name and email (e.g. "Please tell me who you are"), run:
+Most people can describe the product screen they need, but cannot quickly create
+a useful Figma draft. Product managers and founders can explain a workflow, but
+often need a designer to turn that into a concrete screen. Designers lose time
+on repetitive first drafts, table layouts, forms, states, and review loops.
+Engineers get pulled into implementation before the design is clear.
 
-  ```bash
-  git config user.email "you@example.com" && git config user.name "Your Name"
-  ```
+AI agents can help, but generic AI UI output usually has the same problems:
 
----
+- It ignores your actual design system.
+- It invents components that do not exist.
+- It produces layouts that look plausible but fall apart in Figma.
+- Feedback gets lost in comments instead of becoming reusable project memory.
 
-## Install (5 minutes)
+kotikit is an experiment in closing that gap: let anyone describe what they
+need, then let an agent use structured specs, your Figma library, safe draft
+targets, and review memory to create something inspectable.
 
-Follow these steps in order. Every code block is copy-paste.
+## Demo
 
-**1. Install Bun** (skip if you already have it):
+A 1-minute demo video will live here.
+
+The demo will show kotikit taking a rough request like "build a members admin
+page", asking clarifying questions, syncing a design system, creating a Figma
+draft, then running a design review.
+
+## Who It Is For
+
+- **Product managers and founders** who want to turn a rough product idea into
+  an inspectable design draft without learning Figma deeply.
+- **Designers** who want an agent to handle repetitive screen drafting,
+  state coverage, comment review, and design-system lookup while they keep
+  creative control.
+- **Engineers** who want agent-generated design work to be structured before it
+  turns into implementation work.
+- **Agent workflow builders** who want to inspect a local-first MCP/Figma
+  workflow that combines specs, SQLite indexes, assistant skills, and a Figma
+  plugin bridge.
+
+## What Works Today
+
+kotikit currently supports:
+
+- Guided screen and flow specification through Claude Code or Codex.
+- Local specs stored under `.kotikit/specs`.
+- Figma design-system sync into local SQLite indexes.
+- Adaptive Figma API pacing and resumable design-system sync for larger files.
+- Design-system component and icon search for agents.
+- Safe Figma draft target binding.
+- A Figma plugin bridge for applying generated design plans.
+- Variable import fallback through the Figma plugin for non-Enterprise Figma
+  plans.
+- Browserless Figma comment review.
+- Standalone design-quality review for exact Figma pages, sections, frames, or
+  components.
+- Optional posting of approved review comments back to Figma.
+- Local design memory from repeated review adjustments.
+- Assistant scaffold for Claude Code and Codex.
+
+## What Does Not Work Yet
+
+kotikit is not ready for everything:
+
+- Guided design-to-code is disabled. It is planned for a later stage after
+  design creation is stable.
+- There is no polished npm/homebrew/global installer yet.
+- The Figma plugin is functional but still young.
+- The review workflow is useful, but not a replacement for a senior designer.
+- Public contributions are not open yet.
+- There is no formal security audit.
+
+## How It Works
+
+kotikit has four main pieces:
+
+1. **MCP server**  
+   Claude Code, Codex, and other MCP clients call `kotikit_*` tools.
+
+2. **Local project state**  
+   Specs, config, design review state, design memory, and bridge state live in
+   the target project under `.kotikit`.
+
+3. **Design-system indexes**  
+   Figma components, icons, styles, and variables are synced into
+   `design-system/` so agents can search instead of loading huge files into
+   context.
+
+4. **Figma plugin bridge**  
+   The optional plugin connects the open Figma file to the local MCP server so
+   kotikit can apply draft designs and import variables through Figma's Plugin
+   API.
+
+## Safety Model
+
+kotikit is designed to be local-first and conservative:
+
+- No hosted backend is required.
+- Your Figma token stays in your target project's `.env`.
+- Large design-system data is stored locally and searched through SQLite.
+- Figma design creation is blocked until you bind an exact draft page URL.
+- The target Figma page name must contain `Draft` or `Drafts`.
+- Generated screens are placed inside a kotikit-owned Figma Section.
+- Apply-step logging validates file, page, and Section metadata.
+- Figma review comments are never posted without explicit approval.
+
+This does not make kotikit production-safe by itself. It just gives the workflow
+clear boundaries while the project is still alpha.
+
+## Requirements
+
+- macOS or another environment with Bun available.
+- Bun.
+- Claude Code, Codex, or another MCP-capable assistant.
+- A Figma personal access token with at least File read scope.
+- A local target project folder where kotikit can store `.kotikit/`,
+  `design-system/`, and `.env`.
+
+A React/Vite project is fine even though kotikit does not generate app code in
+the guided workflow yet:
+
+```bash
+bun create vite my-app --template react-ts
+cd my-app
+bun install
+git init
+```
+
+## Quickstart
+
+### 1. Install Bun
+
+Skip this if `bun --version` already works.
 
 ```bash
 curl -fsSL https://bun.sh/install | bash
 ```
 
-Close and reopen Terminal after this finishes so the `bun` command is available.
+Close and reopen your terminal after installing Bun.
 
-**2. Clone kotikit next to your project** (or wherever you keep tools):
+### 2. Clone kotikit
 
 ```bash
 git clone https://github.com/captain-pink/kotikit.git ~/kotikit
+cd ~/kotikit
+bun install
 ```
 
-**3. Install kotikit's dependencies:**
+### 3. Scaffold your assistant config
 
-```bash
-cd ~/kotikit && bun install
-```
-
-**4. Add kotikit to your assistant's MCP config.**
-
-This config belongs to YOUR TARGET PROJECT (the local workspace you are using), not in
-`~/kotikit`.
-
-Claude Code and Codex both speak MCP, but they read different config files.
-
-**Recommended local setup**: run the scaffold command from the kotikit repo:
+Run this from the kotikit repo. The `--target` path should point to the project
+where you want to use kotikit.
 
 ```bash
 cd ~/kotikit
-bun run scaffold:agents -- --target /Users/YOUR_USERNAME/path/to/your-react-project --agents both
+bun run scaffold:agents -- --target /Users/YOUR_USERNAME/path/to/your-project --agents both
 ```
 
-This writes or updates `.mcp.json` for Claude Code, `.codex/config.toml`, installs the
-`kotikit-auto` and `kotikit-design-review` skills for both assistants, and creates
-`.env` with a `FIGMA_TOKEN=` placeholder if needed.
-
-For a Claude Code-only laptop setup, run:
+Use one assistant if needed:
 
 ```bash
-cd ~/kotikit
-bun run scaffold:agents -- --target /Users/YOUR_USERNAME/path/to/your-react-project --agents claude
+bun run scaffold:agents -- --target /Users/YOUR_USERNAME/path/to/your-project --agents claude
+bun run scaffold:agents -- --target /Users/YOUR_USERNAME/path/to/your-project --agents codex
 ```
 
-Then open Claude Code from the target project, approve the project MCP server if prompted,
-and run `/mcp`. You should see the `kotikit` server with the `kotikit_*` tools. The
-scaffold also installs `.claude/skills/kotikit-auto/SKILL.md` and
-`.claude/skills/kotikit-design-review/SKILL.md`, so you can run `/kotikit-auto`
-for the guided workflow or `/kotikit-design-review` for focused design critique.
-Codex gets the same workflows from `kotikit:auto` and `kotikit:design-review`.
+The scaffold writes:
 
-If you already scaffolded an older `kotikit-auto` skill that points at
-`docs/agent_workflow.md`, rerun the command after pulling the latest kotikit. The scaffold
-command replaces that known-broken skill with the portable self-contained version and
-adds the design-review skill.
+- `.mcp.json` for Claude Code.
+- `.codex/config.toml` for Codex.
+- `kotikit-auto` and `kotikit-design-review` skills.
+- `.env` with a `FIGMA_TOKEN=` placeholder if needed.
 
-For Codex-only projects where `.kotikit/config.json` already exists and you want
-generated save-point footers to say Codex, run:
+### 4. Add your Figma token
 
-```bash
-bun run scaffold:agents -- --target /Users/YOUR_USERNAME/path/to/your-react-project --agents codex --co-author codex
-```
+Create a Figma personal access token in Figma account settings, then put it in
+the target project's `.env` file:
 
-For both Claude Code and Codex, the scaffold command leaves an existing `git.coAuthor`
-unchanged because that value is project-wide.
-
-**Manual setup**: if you prefer to write config files yourself, use the blocks below.
-
-**Claude Code**: create (or open) `.mcp.json` inside your target project and add:
-
-```json
-{
-  "mcpServers": {
-    "kotikit": {
-      "type": "stdio",
-      "command": "bun",
-      "args": ["run", "/Users/YOUR_USERNAME/kotikit/src/mcp/server.ts"],
-      "timeout": 900000
-    }
-  }
-}
-```
-
-Replace `YOUR_USERNAME` with your macOS username (run `whoami` in Terminal if unsure). The
-`timeout` value is milliseconds and lets long Figma design-system syncs finish instead of
-being killed early. Claude Code also supports an equivalent command from inside the target
-project:
-
-```bash
-claude mcp add --scope project --transport stdio kotikit -- bun run /Users/YOUR_USERNAME/kotikit/src/mcp/server.ts
-```
-
-If the command form is used, add `"timeout": 900000` to `.mcp.json` afterwards for large
-design-system syncs.
-
-**Codex**: create (or open) `.codex/config.toml` inside your trusted target project and add:
-
-```toml
-[mcp_servers.kotikit]
-command = "bun"
-args = ["run", "/Users/YOUR_USERNAME/kotikit/src/mcp/server.ts"]
-cwd = "/Users/YOUR_USERNAME/path/to/your-react-project"
-startup_timeout_sec = 20
-tool_timeout_sec = 900
-```
-
-Replace both paths. The `cwd` value must point at your target React project so kotikit reads
-the right `.env`, `.kotikit/config.json`, and generated-code folders. The longer tool timeout
-lets large Figma design-system syncs finish under API rate limits instead of being killed by
-Codex at two minutes. If you prefer global Codex config, put the same block in
-`~/.codex/config.toml`.
-
-Claude Code and Codex can also use the repo-scoped skills in `.agents/skills`.
-If you are setting up manually, copy the relevant `SKILL.md` files to the
-product-specific skill location:
-
-- Claude Code: `.claude/skills/kotikit-auto/SKILL.md`, then run `/kotikit-auto`.
-- Claude Code design review: `.claude/skills/kotikit-design-review/SKILL.md`, then run `/kotikit-design-review`.
-- Codex: `.agents/skills/kotikit-auto/SKILL.md`, then run `kotikit:auto`.
-- Codex design review: `.agents/skills/kotikit-design-review/SKILL.md`, then run `kotikit:design-review`.
-
-When Codex runs the `kotikit-auto` skill, first-time setup passes a Codex
-co-author identity to kotikit automatically. If you initialize manually and want
-local save-points to say Codex instead of the backward-compatible Claude Code
-default, set this inside the existing `git` block in `.kotikit/config.json`:
-
-```json
-{
-  "git": {
-    "autoCommit": true,
-    "coAuthor": {
-      "name": "Codex",
-      "email": "noreply@openai.com"
-    }
-  }
-}
-```
-
-**5. Set up your Figma token.**
-
-Create or open `.env` in your target project root (the same folder as `package.json`) and
-set this value:
-
-```
+```env
 FIGMA_TOKEN=figd_...your_token_here...
 ```
 
-Replace the placeholder with the token you copied from Figma. If you used `scaffold:agents`,
-the `.env` file may already exist with `FIGMA_TOKEN=` ready to fill in. This file is
-automatically ignored by git so your token stays private.
+For design-system sync, File read is required. For posting review comments,
+`file_comments:write` is required.
 
-**6. Restart your assistant.**
+### 5. Restart your assistant
 
-- Claude Code: Cmd+Shift+P -> "Developer: Reload Window" in VS Code.
-- Codex: start a new Codex session in your target project.
+Restart Claude Code or start a fresh Codex session in the target project.
 
-After restarting, ask your assistant to list MCP tools. In Claude Code or Codex, run `/mcp`.
-You should see the `kotikit_*` tools listed. If nothing appears, double-check the configured
-paths and confirm Bun is installed on that machine.
+Then run `/mcp` and confirm the `kotikit_*` tools are listed.
 
----
+Start the guided workflow:
 
-## Your first hour with kotikit
+- Claude Code: `/kotikit-auto`
+- Codex: `kotikit:auto`
 
-### 30 seconds: sync your design system
+Start focused design review:
 
-Open your assistant in your project and type:
+- Claude Code: `/kotikit-design-review`
+- Codex: `kotikit:design-review`
 
-> *"Check if kotikit is set up here."*
+## First Workflows
 
-If kotikit is not yet configured for this project, the assistant will walk you through a short setup
-conversation — about two minutes, no technical knowledge required.
+### Sync A Figma Design System
 
-Then type:
+Ask your assistant:
 
-> *"Sync my Figma design system."*
+> Sync my Figma design system.
 
-The assistant will ask for your Figma file URL (or you can paste it during
-setup). It pulls published components, icons, styles, and available variables
-from Figma into a local search index that kotikit uses while composing Figma
-drafts. You will see a count like "Sync complete: 48 components, 312 icons."
+If kotikit is not configured yet, the assistant will walk through setup first.
+Then it will ask for the Figma file URL or file key and run `kotikit_sync_ds`.
 
-You only need to sync again when your Figma components change.
+kotikit syncs published components, component sets, icons, styles, and available
+variables into a local `design-system/` index.
 
----
+Important Figma note: published components are required. If a Figma file is not
+published as a team library, Figma's published-component API will return zero
+usable components.
 
-### 3 minutes: build your first screen
+### Create A Figma Draft
 
-Type:
+Ask:
 
-> *"I want to build a login screen."*
+> I want to build a members admin page.
 
-The assistant starts a conversation. It will ask you about:
+The agent will ask product/design questions until the screen is clear, save a
+local spec, and offer to create or refine the Figma design.
 
-- Who uses this screen and what they are trying to do.
-- What the user sees first, and what they can do from there.
-- What happens when something goes wrong (wrong password, no account yet).
-- Any edge cases specific to your product.
+For Figma creation, kotikit will ask for an exact draft page link. Use a page
+whose name contains `Draft` or `Drafts`, and copy a link that includes
+`node-id`.
 
-Answer naturally — full sentences or bullet points, whichever feels easier. The assistant will keep
-asking until the picture is complete. When it is, the assistant summarizes the screen back to you:
+The assistant will start the local Figma plugin bridge, then the plugin applies
+the design inside a kotikit-owned Section on that draft page.
 
-> "Here is what I have: a login screen for returning users, with an email and password field,
-> a 'Forgot password' link, and a primary 'Log in' button. On failure, an inline error
-> appears below the password field without clearing the email. On success, the user lands on
-> the dashboard. Does this look right?"
+### Review Existing Figma Comments
 
-Confirm or ask for changes. Once the spec is saved, choose **Create or refine
-the Figma design** from the menu. The assistant will ask for the exact Figma
-draft page link where it is allowed to work. Use a page whose name contains
-`Draft` or `Drafts`, and copy the page link so it includes `node-id`. Kotikit
-will refuse production-looking pages, start the local Figma plugin bridge, then
-apply the design inside a kotikit-owned Section on that draft page.
+Ask:
 
-If a requested screen needs a component that is not in your synced design
-system, kotikit will pause and ask how to proceed. You can ask it to create
-reusable draft components first, or to build the missing pieces inline in that
-page only. Kotikit uses synced variables for those decisions when they are
-available. If variables are missing, it will suggest the Figma plugin variable
-sync before falling back to literal values, and literals are used only after you
-explicitly approve that draft-only fallback.
-
----
-
-### 2 minutes: review Figma comments
-
-After you or a teammate leave comments on the Figma draft, type:
-
-> *"Review the Figma comments for the Members screen."*
+> Review the Figma comments for the Members screen.
 
 kotikit reads comments through the Figma API, maps comments on known nodes back
-to the generated design plan, and helps the assistant make focused refinements.
-Repeated feedback can become reusable design preferences for future screens.
+to generated design nodes when possible, and stores a compact review session in
+`.kotikit/design-review.db`.
 
----
+### Run A Design-Quality Review
 
-### 1 minute: import variables on non-Enterprise plans
+Ask:
 
-If `sync_ds` says Figma variables require an Enterprise plan, use the plugin
-fallback:
+> Review this Figma design like a design director: https://www.figma.com/design/...
 
-1. Ask your assistant: *"Start the kotikit Figma plugin bridge."*
+The link must include `node-id`.
+
+kotikit gathers bounded evidence instead of reading the full Figma file:
+
+- shallow target metadata
+- limited child-region summaries
+- temporary screenshot URL when available
+- optional local cache row with schema/fingerprint/expiry
+
+The agent records structured findings, summarizes the design review, then asks
+whether you want selected comments posted back to Figma.
+
+### Import Variables On Non-Enterprise Figma Plans
+
+Figma's REST Variables API is Enterprise-gated. If sync says variables were
+skipped, use the plugin fallback:
+
+1. Ask your assistant: "Start the kotikit Figma plugin bridge."
 2. Open the source design-system file in Figma.
 3. Run Plugins -> Development -> kotikit.
 4. Paste the bridge URL.
 5. Click **Sync Variables From Open File**.
 
-This imports variables through Figma's Plugin API from your active session and
-stores them in `design-system/variables.json` for future design work.
+The plugin reads variables from the open Figma file using Figma's Plugin API and
+sends a compact payload to kotikit over the local bridge.
 
----
+## Figma Plugin
 
-## Working with the Figma plugin
+The plugin is optional for design-system search and comment reading, but needed
+for applying generated draft designs and importing variables through the plugin
+fallback.
 
-kotikit ships a Figma plugin that connects your Figma session to the same kotikit MCP server
-running locally.
-
-**Build and install the plugin (one-time):**
+Build it once:
 
 ```bash
-cd ~/kotikit && bun run plugin:build
+cd ~/kotikit
+bun run plugin:build
 ```
 
-Then in Figma: Plugins → Development → Import plugin from manifest → pick
-`~/kotikit/figma-plugin/manifest.json`.
+Import it in Figma:
 
-**Start the bridge before using the plugin:**
+```text
+Plugins -> Development -> Import plugin from manifest -> ~/kotikit/figma-plugin/manifest.json
+```
 
-Ask your assistant: **"Start the kotikit Figma plugin bridge."**
+Normally you do not run the bridge manually. Ask the assistant:
+
+> Start the kotikit Figma plugin bridge.
 
 The assistant calls `kotikit_bridge_start`, prepares the plugin build if needed,
-patches the plugin manifest for the chosen local port, and gives you a one-time
-connection address. Copy it exactly as printed.
+patches the plugin manifest for the selected localhost port, and gives you a
+one-time `ws://localhost:...?...` URL to paste into the plugin.
 
-Manual fallback for kotikit developers:
+## Updating kotikit
 
-```bash
-cd /path/to/your-react-project
-bun run /path/to/kotikit/src/mcp/server.ts --bridge
-```
-
-In Figma: Plugins → Development → kotikit → paste that address into the Connect dialog.
-
-<details>
-<summary>What's actually happening (for the curious)</summary>
-
-The bridge runs a local WebSocket server. The address it prints looks like
-`ws://localhost:53124?token=abc123` — a secure, local-only URL that includes a one-time
-token so only your Figma session can connect. Nothing leaves your machine.
-If the assistant started the bridge, ask it to stop the bridge when you are done; closing
-Claude Code or Codex normally stops the MCP process too.
-
-</details>
-
-**What the plugin currently does:**
-
-- Connects your Figma file to the running kotikit session.
-- Applies generated screens only on the bound Draft/Drafts page and keeps each
-  screen inside a kotikit-owned Section.
-- Shows a compact setup/review checklist backed by the same kotikit MCP tools your assistant uses.
-- Runs `kotikit_doctor` through the bridge so you can spot setup issues without leaving Figma.
-- Syncs local variables from the open design-system file into `design-system/variables.json`
-  when Figma's REST Variables API is unavailable on your plan.
-- Loads the latest design review report, including open/fixed comments and pending replies.
-- Enables browserless review-comment lookup: the assistant can call `kotikit_design_review_comments` to fetch Figma comments and map comments on known nodes back to the relevant generated frame or component.
-- Records compact design adjustments and review reports in `.kotikit/design-review.db`.
-- Learns project design preference candidates from repeated feedback, supports dismiss/edit/deactivate lifecycle controls, then uses active promoted preferences in future design context.
-- Supports standalone design-quality review for any exact Figma page, section, frame, or component link. Kotikit gathers bounded shallow evidence, stores structured findings, and can post approved comments back to Figma.
-
-**Import variables on a Professional plan:**
-
-Run `kotikit_sync_ds` first. If the sync says variables are blocked by Figma's REST API,
-use the plugin fallback:
-
-1. Ask your assistant to start the kotikit bridge, or run:
-   **"Start the kotikit Figma plugin bridge."**
-2. Open the source design-system file in Figma, not a random draft file.
-3. Run Plugins → Development → kotikit.
-4. Paste the bridge URL your assistant returned.
-5. Click **Sync Variables From Open File**.
-
-The plugin reads Figma variables from the currently open file and sends a compact payload
-to kotikit over the local bridge. kotikit then merges those variables into
-`design-system/variables.json`, preserving style tokens that were already synced.
-
-**What is coming:** richer fallback mapping for comments outside known nodes, deeper optional drill-down for design-review evidence, and a full plan-checklist view inside the plugin. See `NEXT_STEPS.md` for the full list.
-
----
-
-## Keeping conversations cheap
-
-Your assistant has a conversation budget. kotikit is designed to stay well inside it — tool responses
-are kept lean by default, and large design system dictionaries are never loaded into a
-conversation all at once.
-
-Practical tips that help:
-
-- Run sync_ds in its own conversation, not mixed in with design work.
-- Brainstorm one screen per session, then start a fresh chat.
-- Review comments in focused batches instead of trying to fix every open note in
-  one pass.
-
-For the full explanation of what costs tokens and how to control it, see `docs/TOKENS.md`.
-
----
-
-## Composing with Chrome DevTools MCP
-
-Chrome DevTools MCP is not required for the current design-first workflow. It may
-be useful later when design-to-code returns, but current Figma comment review and
-design refinement work without a browser.
-
----
-
-## Troubleshooting
-
-**1. "Your Figma token is missing or invalid."**
-
-kotikit could not find or use your Figma personal access token.
-
-Fix: make sure you completed Install step 5 — a `.env` file in your target project root
-(next to `package.json`) containing `FIGMA_TOKEN=figd_...your_token_here...`. The token
-needs the "File read" scope from Figma Settings -> Account -> Personal access tokens.
-For the standard `.env` setup, `.kotikit/config.json` does not need a `figma.token` field;
-sync uses `FIGMA_TOKEN` automatically unless you configure a different token source.
-
-If your team uses 1Password, you can instead set the token field in `.kotikit/config.json`
-to `op://vault-name/item-name/field-name` and kotikit will fetch it via the 1Password CLI.
-
----
-
-**2. "Some required gate tools aren't installed in your project."**
-
-This usually matters only for experimental implementation tools. The guided
-design workflow can continue without installing code gate tools.
-
-Fix, if you intentionally use experimental implementation tools: in your project
-folder, run:
+In the kotikit repo:
 
 ```bash
-bun add -d typescript eslint eslint-plugin-jsx-a11y prettier vitest
+cd ~/kotikit
+git pull --ff-only
+bun install
 ```
 
-Then try again.
+Then refresh the copied assistant skills/config in each target project:
 
----
-
-**3. "No registry yet — run sync_ds first."**
-
-kotikit tried to use design-system data but has not synced your design system
-yet.
-
-Fix: type *"Sync my Figma design system."* in your assistant. After sync
-completes, try the design action again.
-
----
-
-**4. "Storybook not detected — story files skipped."**
-
-This notice belongs to experimental component scaffolding. It is not relevant to
-the guided design workflow.
-
----
-
-**5. "That file path is outside your scaffold directory."**
-
-This notice belongs to experimental component scaffolding. It is not relevant to
-the guided design workflow.
-
----
-
-**6. Sync returned 0 components even though my Figma file has them**
-
-Figma's published-component API only returns components from files that have been
-explicitly published as a team library. Kotikit needs those published/importable keys
-so generated Figma drafts can instantiate your design-system components. If a file is
-not published, sync will skip component extraction and report that the file is not
-published as a library.
-
-Fix: publish the design-system file as a Figma library, make sure the same account whose
-token you use can access that published library, then run sync again. If it still returns
-0 components, open the file in Figma with that account and confirm the file actually
-contains published components.
-
----
-
-**7. "Figma Variables API requires an Enterprise plan"**
-
-This is a notice, not an error. Figma's Variables endpoint is gated to Enterprise plans;
-kotikit detects the 403 and skips it gracefully. Your color, text, and effect **styles**
-were still synced normally — only variable-based tokens are unavailable.
-
-Fix: if you are on a Professional plan, open the source design-system file in Figma and
-use the kotikit plugin's **Sync Variables From Open File** button. The plugin uses Figma's
-Plugin API from your active Figma session, then kotikit merges the result into
-`design-system/variables.json`. If you cannot open the source design-system file, you can
-still proceed with synced components and styles; custom surfaces and spacing may be less
-systematic until variables are imported.
-
----
-
-**8. "Some kotikit files use older formats"**
-
-This is usually safe. Kotikit reads older specs and config files without
-rewriting your whole project. When you edit one of those files through kotikit,
-that specific file is saved back in the latest format.
-
-Fix: no action is required unless kotikit says a file was created by a newer
-version or cannot be inspected. To see the exact files without changing
-anything, run:
-
-```sh
-kotikit migrate --dry-run
+```bash
+cd ~/kotikit
+bun run scaffold:agents -- --target /Users/YOUR_USERNAME/path/to/your-project --agents both
 ```
 
-If the dry run reports future-version files, update your local kotikit checkout
-before editing the project. If it reports unreadable files, fix the JSON first.
+If you previously customized copied skill files, scaffold may skip them to avoid
+overwriting local changes. If you did not customize them, remove the old copied
+skill folders and rerun scaffold.
 
----
+## Roadmap
 
-## Where to learn more
+Near term:
 
-- `docs/tools.md` — every kotikit MCP tool, with examples.
-- `docs/agent_workflow.md` — the shared Claude Code / Codex workflow for
-  `/kotikit-auto` and `kotikit:auto`.
-- `docs/codex_support_plan.md` — the Codex support implementation plan and local test checklist.
-- `docs/coding_guidelines.md` — coding standards for agents and engineers extending kotikit.
-- `docs/modules/setup.md` — how the local agent scaffold command works.
-- `docs/modules/migrations.md` — how kotikit reads older local files and updates them lazily.
-- `docs/modules/` — how each piece of kotikit works under the hood (for engineers or
-  curious designers).
-- `docs/TOKENS.md` — keeping conversations cheap: what costs tokens and how to reduce it.
-- `NEXT_STEPS.md` — what is coming in future versions.
-- `planning/` — the build-by-build design rationale (written for engineers; skippable).
+- Make Figma draft creation more reliable across different design systems.
+- Improve design-review drilldown without increasing token usage.
+- Improve the Figma plugin UX.
+- Tighten cache invalidation and migration safety.
+- Improve docs and demo material.
 
----
+Later:
+
+- Production-quality installer.
+- Stronger design-system component creation workflow.
+- Better variable/library import flows.
+- Richer design-review reporting.
+- Design-to-code once design creation is stable.
+
+Not promised yet:
+
+- Hosted/cloud service.
+- Public plugin marketplace distribution.
+- Public contribution process.
+- Production design-to-code.
+
+## Project Status And Contributions
+
+This repository is public for visibility and experimentation.
+
+Public contributions are not open yet. Please do not open PRs expecting review
+or merge. The project needs more stabilization before it can responsibly accept
+outside work.
+
+Feedback is useful, but there is no issue triage process or support guarantee
+right now.
 
 ## License
 
-MIT.
+No open-source license is currently granted.
+
+Until a `LICENSE` file is added, the repository is source-available for review
+and local experimentation only. Do not assume permission to redistribute,
+repackage, or use the code in a commercial product.
+
+This may change later once the project is more stable and the intended public
+license is chosen.
+
+## Troubleshooting
+
+### kotikit tools do not appear in `/mcp`
+
+Rerun scaffold for the target project, restart the assistant, and confirm the
+paths in `.mcp.json` or `.codex/config.toml` point to your local kotikit clone.
+
+### Figma token is missing or invalid
+
+Make sure the target project's `.env` file contains:
+
+```env
+FIGMA_TOKEN=figd_...
+```
+
+The file should live in the target project root, not inside the kotikit repo.
+
+### Sync returns zero components
+
+The Figma design-system file must be published as a library. Figma's published
+component endpoints do not return unpublished local components.
+
+### Variables are skipped
+
+This is expected on non-Enterprise Figma plans when using the REST API. Use the
+Figma plugin variable import fallback.
+
+### Old kotikit files are reported
+
+kotikit reads older specs lazily and upgrades files only when it edits them. To
+inspect a target project's artifacts without changing anything, run this from
+that target project:
+
+```bash
+bun run /path/to/kotikit/src/cli.ts migrate --dry-run
+```
+
+## More Docs
+
+- [docs/tools.md](docs/tools.md) - every MCP tool.
+- [docs/agent_workflow.md](docs/agent_workflow.md) - shared Claude/Codex
+  workflow.
+- [docs/coding_guidelines.md](docs/coding_guidelines.md) - engineering style
+  used inside the repo.
+- [docs/TOKENS.md](docs/TOKENS.md) - token-cost strategy.
+- [NEXT_STEPS.md](NEXT_STEPS.md) - internal roadmap and future work.
