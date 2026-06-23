@@ -252,6 +252,48 @@ describe("kotikit_spec_create — single screen", () => {
     expect(spec.title).toBe("Profile Page");
   });
 
+  it("reports nested draft field errors for brainstorm-backed single screens", async () => {
+    const brainstormSessionId = await completeSingleScreenBrainstorm();
+    const result = await call("kotikit_spec_create", {
+      brainstormSessionId,
+      draft: {
+        ...singleDraft,
+        screen: {
+          ...singleDraft.screen,
+          components: [{ name: "Button", dsKey: null }],
+        },
+      },
+    });
+
+    const text = getText(result);
+    expect(result.isError).toBe(true);
+    expect(text).toContain("doesn't match a kotikit draft shape");
+    expect(text).toContain("screen.components.0.dsKey");
+    expect(text).not.toContain("Something went wrong");
+  });
+
+  it("reports nested draft field errors for flow screens", async () => {
+    const result = await call("kotikit_spec_create", {
+      allowUnguided: true,
+      draft: {
+        ...flowDraft,
+        screens: [
+          {
+            ...flowDraft.screens[0],
+            states: { default: null },
+          },
+          ...flowDraft.screens.slice(1),
+        ],
+      },
+    });
+
+    const text = getText(result);
+    expect(result.isError).toBe(true);
+    expect(text).toContain("doesn't match a kotikit draft shape");
+    expect(text).toContain("screens.0.states.default");
+    expect(text).not.toContain("Something went wrong");
+  });
+
   it("rejects malformed drafts instead of writing undefined/flow.json", async () => {
     const result = await call("kotikit_spec_create", {
       allowUnguided: true,

@@ -279,4 +279,30 @@ describe("kotikit_flow_create", () => {
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("Finish the brainstorm");
   });
+
+  it("reports nested draft field errors instead of a generic failure", async () => {
+    const registry = makeRegistry();
+    registerFlowTools(registry, makeCtx(tmpDir));
+
+    const draft = make5ScreenDraft();
+    const result = await call(registry, "kotikit_flow_create", {
+      allowUnguided: true,
+      draft: {
+        ...draft,
+        screens: [
+          {
+            ...draft.screens[0],
+            components: [{ name: "Button", dsKey: null }],
+          },
+          ...draft.screens.slice(1),
+        ],
+      },
+    });
+
+    const text = result.content[0].text;
+    expect(result.isError).toBe(true);
+    expect(text).toContain("doesn't match a kotikit draft shape");
+    expect(text).toContain("screens.0.components.0.dsKey");
+    expect(text).not.toContain("Something went wrong");
+  });
 });
