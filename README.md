@@ -144,6 +144,8 @@ Requirements:
 
 - Bun.
 - Claude Code, Codex, or another MCP-capable assistant.
+- Figma's assistant integration for your assistant installed from inside Figma.
+- A Professional, Organization, or Enterprise Figma account is recommended.
 - A Figma personal access token with file read access.
 - A local target project where kotikit can write `.kotikit/`, `design-system/`,
   and `.env`.
@@ -185,13 +187,18 @@ See [docs/workflows.md](docs/workflows.md) for step-by-step examples.
 
 ## Figma Notes
 
-Design-system sync works with published Figma libraries. Figma does not return
-importable component keys for unpublished local components, and those keys are
-required when kotikit creates draft designs from real design-system components.
+Design-system sync is intended for published Figma libraries on paid Figma
+plans. Free/Starter accounts have very low API limits for some file endpoints,
+so even small sync jobs can be slow or unreliable.
 
-Variables through Figma's REST API are Enterprise-gated. On Professional plans,
-use the local Figma plugin to export variables from the open source design
-system file.
+kotikit can inspect some draft-file data, but generated Figma drafts need
+importable component keys. Those keys come from published libraries. If you
+point kotikit at an unpublished draft file, treat it as inspection or
+experimentation, not as a usable design system for composing new drafts.
+
+Variables through Figma's REST API are Enterprise-gated. On Professional or
+Organization plans, kotikit guides you through the local Figma plugin flow when
+variables or tokens are needed.
 
 See [docs/figma.md](docs/figma.md) for token scopes, draft page rules, plugin
 setup, and variable fallback details.

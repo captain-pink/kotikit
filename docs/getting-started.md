@@ -11,7 +11,11 @@ Codex can call the `kotikit_*` MCP tools.
 - Figma's assistant plugin/integration for your assistant installed from inside
   Figma, for example the Claude Code or Codex integration. This is separate
   from kotikit's local Figma plugin.
+- A Professional, Organization, or Enterprise Figma account is recommended.
+  Free/Starter accounts can hit very low API limits during design-system sync.
 - A Figma personal access token with file read access.
+- A published Figma design-system library if you want kotikit to compose new
+  drafts from real components.
 - A target project folder where kotikit can write `.kotikit/`,
   `design-system/`, and `.env`.
 
@@ -96,6 +100,15 @@ FIGMA_TOKEN=figd_...your_token_here...
 For design-system sync, file read access is required. For posting review
 comments, `file_comments:write` is required. Comment review needs
 `file_comments:read`.
+
+For best results, sync a published Figma library rather than an unpublished
+draft file. kotikit may inspect some draft-file data, but Figma drafts can only
+reuse design-system components when Figma exposes importable component keys from
+a published library.
+
+Figma's REST Variables API is Enterprise-only. If you need variables or tokens
+on Professional or Organization plans, kotikit will guide you through starting
+the local plugin and exporting variables from the open Figma file.
 
 ## 6. Restart The Assistant
 

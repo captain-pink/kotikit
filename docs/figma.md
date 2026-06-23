@@ -26,6 +26,19 @@ Recommended scopes:
 Do not put the token in the kotikit repo. It belongs in the target project root
 next to `.kotikit/`.
 
+## Account And Rate Limits
+
+Professional, Organization, or Enterprise Figma accounts are the practical
+target for kotikit design-system sync. Free/Starter accounts can have very low
+monthly or per-minute limits on file endpoints, so sync may pause repeatedly or
+fail before a useful design-system index is built.
+
+kotikit uses adaptive pacing and exponential backoff instead of hardcoding one
+Figma quota. That helps across different seats and plans, but it cannot turn a
+very low quota into a reliable large-library sync. If the assistant reports
+rate-limit pauses often, retry later, use a paid workspace token, or sync a
+smaller published library first.
+
 ## Published Libraries
 
 Design-system sync uses Figma's published component APIs. The source file must
@@ -35,6 +48,11 @@ If a file is not published, Figma may still show components in the UI, but the
 published-component API returns zero usable components. Kotikit does not scrape
 the full document tree as a substitute, because draft creation needs importable
 keys.
+
+kotikit can still inspect some draft-file data for experiments and review
+workflows. That is different from composing a new Figma draft with reusable
+design-system components. Generated drafts need importable component keys, and
+those keys come from published libraries.
 
 ## Draft Page Safety
 
@@ -87,6 +105,11 @@ one-time `ws://localhost:...?...` URL to paste into the plugin.
 Figma's REST Variables API is Enterprise-gated. On Professional plans, sync may
 import components and styles but skip variables.
 
+When variables or tokens are important on non-Enterprise plans, use the local
+plugin fallback. The plugin reads variables from the currently open Figma file
+through Figma's Plugin API and sends them to kotikit over localhost. Kotikit
+should guide the user through this flow when REST variable sync is unavailable.
+
 Use the plugin fallback:
 
 1. Open the source design-system file in Figma.
@@ -108,3 +131,6 @@ Large design systems may pause before the MCP request timeout and ask you to
 run sync again. The checkpoint is saved locally and the next run resumes or
 restarts safely.
 
+Free/Starter tokens are not a reliable target for large design-system sync.
+They are useful for tiny experiments, but the normal kotikit workflow assumes a
+paid workspace token with access to the published library being synced.
