@@ -27,6 +27,11 @@ export const configPath = (root: string): string => `${root}/.kotikit/config.jso
 
 export const indexPath = (root: string): string => `${root}/.kotikit/index.json`;
 
+export const brainstormSessionsDir = (root: string): string => `${root}/.kotikit/brainstorms`;
+
+export const brainstormSessionPath = (root: string, sessionId: string): string =>
+  `${brainstormSessionsDir(root)}/${sessionId}.json`;
+
 export const scopeDir = (root: string, scope: string): string => `${root}/.kotikit/specs/${scope}`;
 
 export const screenSpecPath = (root: string, scope: string, screenSlug: string): string =>

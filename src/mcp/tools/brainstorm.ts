@@ -1,4 +1,15 @@
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import {
+  answeredDimensions,
+  type BrainstormDimension,
+  BrainstormDimensionSchema,
+  confirmBrainstormSession,
+  createBrainstormSession,
+  nextQuestion,
+  openDimensions,
+  recordBrainstormAnswer,
+  requiredDimensionsFor,
+} from "../../spec/brainstorm-session.js";
 import { toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
@@ -7,14 +18,7 @@ import type { ToolRegistry } from "../server.js";
 // Types
 // ---------------------------------------------------------------------------
 
-type DimensionKey =
-  | "states"
-  | "visualEdgeCases"
-  | "accessibility"
-  | "interactions"
-  | "dataContracts"
-  | "responsive"
-  | "flowConnectivity";
+type DimensionKey = BrainstormDimension;
 
 type Classification = "multiScreen" | "singleScreen";
 
@@ -86,18 +90,7 @@ function classify(idea: string): Classification {
 }
 
 function buildChecklist(classification: Classification): DimensionKey[] {
-  const base: DimensionKey[] = [
-    "states",
-    "visualEdgeCases",
-    "accessibility",
-    "interactions",
-    "dataContracts",
-    "responsive",
-  ];
-  if (classification === "multiScreen") {
-    base.push("flowConnectivity");
-  }
-  return base;
+  return requiredDimensionsFor(classification);
 }
 
 function generateFirstQuestions(idea: string, classification: Classification): string[] {
@@ -257,6 +250,10 @@ const brainstormStartTool: Tool = {
         type: "string",
         description: "A plain-language description of the screen or flow to brainstorm.",
       },
+      scope: {
+        type: "string",
+        description: "Optional spec scope slug to bind this brainstorm to.",
+      },
     },
     required: ["idea"],
   },
@@ -287,19 +284,78 @@ const brainstormAssessTool: Tool = {
   },
 };
 
+const brainstormAnswerTool: Tool = {
+  name: "kotikit_brainstorm_answer",
+  description:
+    "Record the designer's answer for one brainstorm dimension. Returns the next open question or readiness for confirmation.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      sessionId: {
+        type: "string",
+        description: "Brainstorm session id returned by kotikit_brainstorm_start.",
+      },
+      dimension: {
+        type: "string",
+        enum: [
+          "states",
+          "visualEdgeCases",
+          "accessibility",
+          "interactions",
+          "dataContracts",
+          "responsive",
+          "flowConnectivity",
+        ],
+        description: "The dimension being answered.",
+      },
+      answer: {
+        type: "string",
+        description: "The designer's answer in plain language.",
+      },
+    },
+    required: ["sessionId", "dimension", "answer"],
+  },
+};
+
+const brainstormConfirmTool: Tool = {
+  name: "kotikit_brainstorm_confirm",
+  description:
+    "Mark a fully answered brainstorm session as confirmed by the designer before saving a spec.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      sessionId: {
+        type: "string",
+        description: "Brainstorm session id returned by kotikit_brainstorm_start.",
+      },
+      summary: {
+        type: "string",
+        description: "The plain-language summary the designer confirmed.",
+      },
+    },
+    required: ["sessionId", "summary"],
+  },
+};
+
 // ---------------------------------------------------------------------------
 // Registration
 // ---------------------------------------------------------------------------
 
-export function registerBrainstormTools(registry: ToolRegistry, _ctx: ToolContext): void {
-  registry.tools.push(brainstormStartTool, brainstormAssessTool);
+export function registerBrainstormTools(registry: ToolRegistry, ctx: ToolContext): void {
+  registry.tools.push(
+    brainstormStartTool,
+    brainstormAssessTool,
+    brainstormAnswerTool,
+    brainstormConfirmTool
+  );
 
   // Handler: kotikit_brainstorm_start
   registry.handlers.set("kotikit_brainstorm_start", async (args: unknown) => {
     try {
-      const { idea } = args as { idea: string };
+      const { idea, scope } = args as { idea: string; scope?: string };
       const classification = classify(idea);
-      const coverageChecklist = buildChecklist(classification);
+      const session = await createBrainstormSession(ctx.root, { idea, scope, classification });
+      const coverageChecklist = session.requiredDimensions;
       const firstQuestions = generateFirstQuestions(idea, classification);
 
       const QUALITY_BAR_SENTENCE =
@@ -307,7 +363,12 @@ export function registerBrainstormTools(registry: ToolRegistry, _ctx: ToolContex
 
       return toolText("Ready to brainstorm.", {
         classification,
+        sessionId: session.id,
+        scope: session.scope,
+        status: session.status,
         coverageChecklist,
+        openDimensions: openDimensions(session),
+        nextQuestion: nextQuestion(session),
         systemPromptRef: "brainstorm",
         systemPrompt:
           "For the full brainstorm doctrine, call kotikit_get_system_prompt({ kind: 'brainstorm' }). The quality bar to enforce: " +
@@ -354,6 +415,52 @@ export function registerBrainstormTools(registry: ToolRegistry, _ctx: ToolContex
           draftTemplate,
         }
       );
+    } catch (err) {
+      return toolError(err);
+    }
+  });
+
+  registry.handlers.set("kotikit_brainstorm_answer", async (args: unknown) => {
+    try {
+      const { sessionId, dimension, answer } = args as {
+        sessionId: string;
+        dimension: string;
+        answer: string;
+      };
+      const session = await recordBrainstormAnswer(ctx.root, {
+        sessionId,
+        dimension: BrainstormDimensionSchema.parse(dimension),
+        answer,
+      });
+      const open = openDimensions(session);
+      const next = nextQuestion(session);
+
+      return toolText(
+        open.length === 0 ? "All brainstorm dimensions are answered." : "Answer recorded.",
+        {
+          status: session.status,
+          sessionId: session.id,
+          answeredDimensions: answeredDimensions(session),
+          openDimensions: open,
+          nextQuestion: next,
+        }
+      );
+    } catch (err) {
+      return toolError(err);
+    }
+  });
+
+  registry.handlers.set("kotikit_brainstorm_confirm", async (args: unknown) => {
+    try {
+      const { sessionId, summary } = args as { sessionId: string; summary: string };
+      const session = await confirmBrainstormSession(ctx.root, { sessionId, summary });
+
+      return toolText("Brainstorm confirmed. You can now save the spec.", {
+        status: session.status,
+        sessionId: session.id,
+        scope: session.scope,
+        classification: session.classification,
+      });
     } catch (err) {
       return toolError(err);
     }

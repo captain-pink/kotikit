@@ -1,4 +1,7 @@
-import { describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { mkdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { ToolContext } from "../../context.js";
 import type { ToolRegistry } from "../../server.js";
@@ -8,6 +11,8 @@ import { BRAINSTORM_SYSTEM_PROMPT, registerBrainstormTools } from "../brainstorm
 // Test harness helpers
 // ---------------------------------------------------------------------------
 
+let tmp: string;
+
 function makeRegistry(): ToolRegistry {
   return {
     tools: [] as Tool[],
@@ -16,7 +21,7 @@ function makeRegistry(): ToolRegistry {
 }
 
 function makeCtx(): ToolContext {
-  return { root: "/tmp/test-kotikit", loadConfig: async () => null };
+  return { root: tmp, loadConfig: async () => null };
 }
 
 function setup() {
@@ -44,6 +49,15 @@ function parseDetail(text: string): unknown {
   if (jsonStart === -1) return {};
   return JSON.parse(text.slice(jsonStart + 2));
 }
+
+beforeEach(() => {
+  tmp = join(tmpdir(), `kotikit-brainstorm-tools-test-${Date.now()}-${Math.random()}`);
+  mkdirSync(tmp, { recursive: true });
+});
+
+afterEach(() => {
+  rmSync(tmp, { recursive: true, force: true });
+});
 
 // ---------------------------------------------------------------------------
 // 1. brainstorm_start — multi-screen classification
@@ -155,6 +169,26 @@ describe("kotikit_brainstorm_start", () => {
     expect(detail.systemPrompt).toContain(
       "any developer or designer could build this identically from the spec alone"
     );
+  });
+
+  it("creates a persisted session and returns one next question", async () => {
+    const registry = setup();
+    const { text } = await callTool(registry, "kotikit_brainstorm_start", {
+      idea: "a members admin page",
+    });
+
+    const detail = parseDetail(text) as {
+      sessionId: string;
+      nextQuestion: { dimension: string; text: string };
+      openDimensions: string[];
+      status: string;
+    };
+
+    expect(detail.status).toBe("inProgress");
+    expect(detail.sessionId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(detail.nextQuestion.dimension).toBe("states");
+    expect(detail.nextQuestion.text).toContain("loading");
+    expect(detail.openDimensions).toContain("states");
   });
 });
 
@@ -287,6 +321,95 @@ describe("kotikit_brainstorm_assess", () => {
     expect(detail.status).toBe("keepGoing");
     expect(detail.openDimensions).toContain("accessibility");
     expect(detail.openDimensions).toContain("responsive");
+  });
+
+  it("records actual answer evidence before declaring a session ready to confirm", async () => {
+    const registry = setup();
+    const start = await callTool(registry, "kotikit_brainstorm_start", {
+      idea: "a members admin page",
+    });
+    const { sessionId } = parseDetail(start.text) as { sessionId: string };
+
+    const dimensions = [
+      "states",
+      "visualEdgeCases",
+      "accessibility",
+      "interactions",
+      "dataContracts",
+      "responsive",
+    ];
+
+    const results: { text: string; isError?: boolean }[] = [];
+    for (const dimension of dimensions) {
+      results.push(
+        await callTool(registry, "kotikit_brainstorm_answer", {
+          sessionId,
+          dimension,
+          answer: `Answer for ${dimension}.`,
+        })
+      );
+    }
+
+    const finalDetail = parseDetail(results.at(-1)?.text ?? "") as {
+      status: string;
+      openDimensions: string[];
+      answeredDimensions: string[];
+    };
+
+    expect(finalDetail.status).toBe("readyForConfirmation");
+    expect(finalDetail.openDimensions).toEqual([]);
+    expect(finalDetail.answeredDimensions).toEqual(dimensions);
+  });
+
+  it("refuses to confirm a brainstorm session until all required answers exist", async () => {
+    const registry = setup();
+    const start = await callTool(registry, "kotikit_brainstorm_start", {
+      idea: "a members admin page",
+    });
+    const { sessionId } = parseDetail(start.text) as { sessionId: string };
+
+    const result = await callTool(registry, "kotikit_brainstorm_confirm", {
+      sessionId,
+      summary: "Looks good.",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.text).toContain("still need");
+  });
+
+  it("marks a fully answered brainstorm session as completed after designer confirmation", async () => {
+    const registry = setup();
+    const start = await callTool(registry, "kotikit_brainstorm_start", {
+      idea: "a members admin page",
+    });
+    const { sessionId } = parseDetail(start.text) as { sessionId: string };
+
+    const dimensions = [
+      "states",
+      "visualEdgeCases",
+      "accessibility",
+      "interactions",
+      "dataContracts",
+      "responsive",
+    ];
+
+    for (const dimension of dimensions) {
+      await callTool(registry, "kotikit_brainstorm_answer", {
+        sessionId,
+        dimension,
+        answer: `Answer for ${dimension}.`,
+      });
+    }
+
+    const result = await callTool(registry, "kotikit_brainstorm_confirm", {
+      sessionId,
+      summary: "The designer confirmed the summary.",
+    });
+    const detail = parseDetail(result.text) as { status: string; sessionId: string };
+
+    expect(result.isError).toBeUndefined();
+    expect(detail.status).toBe("completed");
+    expect(detail.sessionId).toBe(sessionId);
   });
 });
 

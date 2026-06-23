@@ -1,6 +1,7 @@
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { defaultConfig } from "../../config/schema.js";
 import { autoCommitSpec } from "../../git/auto-commit.js";
+import { assertCompletedBrainstormForSave } from "../../spec/brainstorm-session.js";
 import {
   type FlowDraft,
   isMultiScreen,
@@ -60,6 +61,15 @@ function registerSpecCreate(registry: ToolRegistry, ctx: ToolContext): void {
           type: "object",
           description: "FlowDraft or SingleDraft shape.",
         },
+        brainstormSessionId: {
+          type: "string",
+          description: "Completed brainstorm session id returned by kotikit_brainstorm_confirm.",
+        },
+        allowUnguided: {
+          type: "boolean",
+          description:
+            "Advanced override for imports/tests only. Guided designer workflows must use a completed brainstorm session.",
+        },
       },
       required: ["draft"],
     },
@@ -68,9 +78,16 @@ function registerSpecCreate(registry: ToolRegistry, ctx: ToolContext): void {
   registry.handlers.set("kotikit_spec_create", async (args) => {
     try {
       const { root } = ctx;
-      const { scope: scopeOverride, draft } = args as {
+      const {
+        scope: scopeOverride,
+        draft,
+        brainstormSessionId,
+        allowUnguided,
+      } = args as {
         scope?: string;
         draft: FlowDraft | SingleDraft;
+        brainstormSessionId?: string;
+        allowUnguided?: boolean;
       };
 
       const config = (await ctx.loadConfig()) ?? defaultConfig();
@@ -79,6 +96,12 @@ function registerSpecCreate(registry: ToolRegistry, ctx: ToolContext): void {
       if (isMultiScreen(draft)) {
         // Multi-screen flow
         const scope = scopeOverride ?? draft.scope;
+        await assertCompletedBrainstormForSave(root, {
+          brainstormSessionId,
+          allowUnguided,
+          scope,
+          classification: "multiScreen",
+        });
         const { manifest, specs } = materializeFlow(draft);
 
         // Write screen specs first, then manifest last so the index
@@ -109,6 +132,12 @@ function registerSpecCreate(registry: ToolRegistry, ctx: ToolContext): void {
       if (isSingleScreen(draft)) {
         // Single screen
         const scope = scopeOverride ?? draft.scope;
+        await assertCompletedBrainstormForSave(root, {
+          brainstormSessionId,
+          allowUnguided,
+          scope,
+          classification: "singleScreen",
+        });
         const { spec } = materializeSingle(draft);
 
         const writtenPath = await writeScreenSpec(root, scope, null, spec);

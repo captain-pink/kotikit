@@ -7,6 +7,7 @@ import type { FlowDraft, SingleDraft } from "../../../spec/decompose";
 import { readScreenSpec } from "../../../spec/engine";
 import { readIndex } from "../../../spec/index-store";
 import type { ToolContext } from "../../context";
+import { registerBrainstormTools } from "../brainstorm";
 import { registerSpecTools, type ToolRegistry } from "../spec";
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
@@ -37,6 +38,43 @@ async function call(
 
 function getText(result: { content: { type: string; text: string }[] }): string {
   return result.content.map((c) => c.text).join("\n");
+}
+
+function parseDetail(text: string): unknown {
+  const jsonStart = text.indexOf("\n\n");
+  if (jsonStart === -1) return {};
+  return JSON.parse(text.slice(jsonStart + 2));
+}
+
+async function completeSingleScreenBrainstorm(): Promise<string> {
+  const start = await call("kotikit_brainstorm_start", {
+    idea: "a profile page",
+    scope: singleDraft.scope,
+  });
+  const { sessionId } = parseDetail(getText(start)) as { sessionId: string };
+  const dimensions = [
+    "states",
+    "visualEdgeCases",
+    "accessibility",
+    "interactions",
+    "dataContracts",
+    "responsive",
+  ];
+
+  for (const dimension of dimensions) {
+    await call("kotikit_brainstorm_answer", {
+      sessionId,
+      dimension,
+      answer: `Answer for ${dimension}.`,
+    });
+  }
+
+  await call("kotikit_brainstorm_confirm", {
+    sessionId,
+    summary: "The designer confirmed the profile page spec.",
+  });
+
+  return sessionId;
 }
 
 // ─── Sample drafts ─────────────────────────────────────────────────────────────
@@ -104,6 +142,7 @@ beforeEach(() => {
 
   registry = makeRegistry();
   ctx = makeCtx(tmp);
+  registerBrainstormTools(registry, ctx);
   registerSpecTools(registry, ctx);
 });
 
@@ -120,7 +159,10 @@ describe("kotikit_spec_create — multi-screen flow", () => {
   });
 
   it("writes manifest + 3 screen specs", async () => {
-    const result = await call("kotikit_spec_create", { draft: flowDraft });
+    const result = await call("kotikit_spec_create", {
+      draft: flowDraft,
+      allowUnguided: true,
+    });
     expect(result.isError).toBeUndefined();
 
     // All 3 specs should be readable
@@ -134,14 +176,14 @@ describe("kotikit_spec_create — multi-screen flow", () => {
   });
 
   it("each spec has flowRef set", async () => {
-    await call("kotikit_spec_create", { draft: flowDraft });
+    await call("kotikit_spec_create", { draft: flowDraft, allowUnguided: true });
 
     const cart = await readScreenSpec(tmp, "checkout-flow", "cart");
     expect(cart.flowRef).toBe("checkout-flow/flow.json");
   });
 
   it("updates index with flow entry", async () => {
-    await call("kotikit_spec_create", { draft: flowDraft });
+    await call("kotikit_spec_create", { draft: flowDraft, allowUnguided: true });
 
     const index = await readIndex(tmp);
     expect(index.length).toBeGreaterThan(0);
@@ -156,7 +198,10 @@ describe("kotikit_spec_create — multi-screen flow", () => {
   });
 
   it("response text mentions scope and screen count", async () => {
-    const result = await call("kotikit_spec_create", { draft: flowDraft });
+    const result = await call("kotikit_spec_create", {
+      draft: flowDraft,
+      allowUnguided: true,
+    });
     const text = getText(result);
     expect(text).toContain("checkout-flow");
     expect(text).toContain("3");
@@ -167,7 +212,10 @@ describe("kotikit_spec_create — multi-screen flow", () => {
 
 describe("kotikit_spec_create — single screen", () => {
   it("writes a single spec.json", async () => {
-    const result = await call("kotikit_spec_create", { draft: singleDraft });
+    const result = await call("kotikit_spec_create", {
+      draft: singleDraft,
+      allowUnguided: true,
+    });
     expect(result.isError).toBeUndefined();
 
     const spec = await readScreenSpec(tmp, "profile-page", null);
@@ -176,13 +224,37 @@ describe("kotikit_spec_create — single screen", () => {
   });
 
   it("response text mentions scope name", async () => {
-    const result = await call("kotikit_spec_create", { draft: singleDraft });
+    const result = await call("kotikit_spec_create", {
+      draft: singleDraft,
+      allowUnguided: true,
+    });
     const text = getText(result);
     expect(text).toContain("profile-page");
   });
 
+  it("requires a completed brainstorm session unless explicitly saving unguided", async () => {
+    const result = await call("kotikit_spec_create", { draft: singleDraft });
+
+    expect(result.isError).toBe(true);
+    expect(getText(result)).toContain("Finish the brainstorm");
+  });
+
+  it("accepts a completed brainstorm session id", async () => {
+    const brainstormSessionId = await completeSingleScreenBrainstorm();
+
+    const result = await call("kotikit_spec_create", {
+      draft: singleDraft,
+      brainstormSessionId,
+    });
+
+    expect(result.isError).toBeUndefined();
+    const spec = await readScreenSpec(tmp, "profile-page", null);
+    expect(spec.title).toBe("Profile Page");
+  });
+
   it("rejects malformed drafts instead of writing undefined/flow.json", async () => {
     const result = await call("kotikit_spec_create", {
+      allowUnguided: true,
       draft: {
         type: "screen",
         title: "Members",
@@ -207,7 +279,7 @@ describe("kotikit_spec_create — single screen", () => {
 
 describe("kotikit_spec_update", () => {
   beforeEach(async () => {
-    await call("kotikit_spec_create", { draft: singleDraft });
+    await call("kotikit_spec_create", { draft: singleDraft, allowUnguided: true });
   });
 
   it("updates a field and re-read reflects it", async () => {
@@ -269,7 +341,7 @@ describe("kotikit_spec_update", () => {
 
 describe("kotikit_spec_get", () => {
   beforeEach(async () => {
-    await call("kotikit_spec_create", { draft: flowDraft });
+    await call("kotikit_spec_create", { draft: flowDraft, allowUnguided: true });
   });
 
   it("reads a specific screen from a flow", async () => {
@@ -312,8 +384,8 @@ describe("kotikit_spec_list", () => {
   });
 
   it("lists all scopes after creating specs", async () => {
-    await call("kotikit_spec_create", { draft: flowDraft });
-    await call("kotikit_spec_create", { draft: singleDraft });
+    await call("kotikit_spec_create", { draft: flowDraft, allowUnguided: true });
+    await call("kotikit_spec_create", { draft: singleDraft, allowUnguided: true });
 
     const result = await call("kotikit_spec_list", {});
     const text = getText(result);
@@ -322,7 +394,7 @@ describe("kotikit_spec_list", () => {
   });
 
   it("mentions each scope's kind", async () => {
-    await call("kotikit_spec_create", { draft: flowDraft });
+    await call("kotikit_spec_create", { draft: flowDraft, allowUnguided: true });
 
     const result = await call("kotikit_spec_list", {});
     const text = getText(result);

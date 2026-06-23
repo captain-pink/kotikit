@@ -113,7 +113,7 @@ describe("kotikit_flow_create", () => {
     registerFlowTools(registry, makeCtx(tmpDir));
 
     const draft = make5ScreenDraft();
-    const result = await call(registry, "kotikit_flow_create", { draft });
+    const result = await call(registry, "kotikit_flow_create", { draft, allowUnguided: true });
 
     expect(result.isError).toBeUndefined();
 
@@ -132,7 +132,10 @@ describe("kotikit_flow_create", () => {
     const registry = makeRegistry();
     registerFlowTools(registry, makeCtx(tmpDir));
 
-    await call(registry, "kotikit_flow_create", { draft: make5ScreenDraft() });
+    await call(registry, "kotikit_flow_create", {
+      draft: make5ScreenDraft(),
+      allowUnguided: true,
+    });
 
     const git = simpleGit(tmpDir);
     const log = await git.log();
@@ -144,7 +147,7 @@ describe("kotikit_flow_create", () => {
     registerFlowTools(registry, makeCtx(tmpDir));
 
     const draft = make5ScreenDraft();
-    await call(registry, "kotikit_flow_create", { draft });
+    await call(registry, "kotikit_flow_create", { draft, allowUnguided: true });
 
     const specsDir = join(tmpDir, ".kotikit", "specs", "checkout-flow");
     const raw = await readFile(join(specsDir, "flow.json"), "utf-8");
@@ -161,7 +164,7 @@ describe("kotikit_flow_create", () => {
     registerFlowTools(registry, makeCtx(tmpDir));
 
     const draft = make5ScreenDraft();
-    const result = await call(registry, "kotikit_flow_create", { draft });
+    const result = await call(registry, "kotikit_flow_create", { draft, allowUnguided: true });
 
     const text = result.content[0].text;
     expect(text).toContain("Checkout Flow");
@@ -182,12 +185,12 @@ describe("kotikit_flow_create", () => {
       // Run flow_create in tmpDir
       const flowRegistry = makeRegistry();
       registerFlowTools(flowRegistry, makeCtx(tmpDir));
-      await call(flowRegistry, "kotikit_flow_create", { draft });
+      await call(flowRegistry, "kotikit_flow_create", { draft, allowUnguided: true });
 
       // Run spec_create in tmpDir2
       const specRegistry = makeRegistry();
       registerSpecTools(specRegistry, makeCtx(tmpDir2));
-      await call(specRegistry, "kotikit_spec_create", { draft });
+      await call(specRegistry, "kotikit_spec_create", { draft, allowUnguided: true });
 
       const specsDir1 = join(tmpDir, ".kotikit", "specs", "checkout-flow");
       const specsDir2 = join(tmpDir2, ".kotikit", "specs", "checkout-flow");
@@ -248,7 +251,10 @@ describe("kotikit_flow_create", () => {
     };
     registerFlowTools(registry, ctx);
 
-    await call(registry, "kotikit_flow_create", { draft: make5ScreenDraft() });
+    await call(registry, "kotikit_flow_create", {
+      draft: make5ScreenDraft(),
+      allowUnguided: true,
+    });
 
     // Files must still be written
     const specsDir = join(tmpDir, ".kotikit", "specs", "checkout-flow");
@@ -262,5 +268,15 @@ describe("kotikit_flow_create", () => {
     } catch {
       // Empty repo with no commits also satisfies this requirement
     }
+  });
+
+  it("requires a completed brainstorm session unless explicitly saving unguided", async () => {
+    const registry = makeRegistry();
+    registerFlowTools(registry, makeCtx(tmpDir));
+
+    const result = await call(registry, "kotikit_flow_create", { draft: make5ScreenDraft() });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("Finish the brainstorm");
   });
 });

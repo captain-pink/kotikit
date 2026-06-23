@@ -31,6 +31,8 @@ describe("MCP server", () => {
       "kotikit_flow_create",
       "kotikit_brainstorm_start",
       "kotikit_brainstorm_assess",
+      "kotikit_brainstorm_answer",
+      "kotikit_brainstorm_confirm",
       // Phase 2
       "kotikit_ds_search",
       "kotikit_ds_get_component",
