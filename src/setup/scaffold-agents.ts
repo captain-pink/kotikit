@@ -242,6 +242,23 @@ function kotikitSkillTargetPath(
   return join(targetRoot, ".agents", "skills", name, "SKILL.md");
 }
 
+function claudeCommandTargetPath(targetRoot: string, name: KotikitSkillName): string {
+  return join(targetRoot, ".claude", "commands", `${name}.md`);
+}
+
+function claudeCommandContent(name: KotikitSkillName): string {
+  const skillPath = `.claude/skills/${name}/SKILL.md`;
+  return [
+    `# ${name}`,
+    "",
+    `Read \`${skillPath}\` completely, then run that workflow now.`,
+    "",
+    "Keep the conversation plain-language and product-focused. Do not expose",
+    "tool names, schemas, internal paths, or JSON unless the user explicitly asks.",
+    "",
+  ].join("\n");
+}
+
 function agentLabel(agent: AgentKind): string {
   return agent === "claude" ? "Claude Code" : "Codex";
 }
@@ -286,6 +303,30 @@ async function installKotikitSkill(
   }
 
   await writeTextAtomic(targetPath, source);
+  result.written.push(targetPath);
+}
+
+async function installClaudeCommand(
+  result: ScaffoldAgentsResult,
+  targetRoot: string,
+  name: KotikitSkillName
+): Promise<void> {
+  const targetPath = claudeCommandTargetPath(targetRoot, name);
+  const content = claudeCommandContent(name);
+  const existing = await readTextIfExists(targetPath);
+
+  if (existing !== null && existing !== content) {
+    result.skipped.push(targetPath);
+    result.notes.push(`Skipped existing Claude Code command with local changes: ${targetPath}`);
+    return;
+  }
+
+  if (existing === content) {
+    result.skipped.push(targetPath);
+    return;
+  }
+
+  await writeTextAtomic(targetPath, content);
   result.written.push(targetPath);
 }
 
@@ -347,6 +388,11 @@ export async function scaffoldAgents(
         )
       )
     );
+    if (agents.includes("claude")) {
+      await Promise.all(
+        KOTIKIT_SKILL_NAMES.map((name) => installClaudeCommand(result, targetRoot, name))
+      );
+    }
   }
 
   if (options.ensureEnv ?? true) {

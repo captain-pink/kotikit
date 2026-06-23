@@ -60,33 +60,56 @@ See also: `kotikit_config_status`, `kotikit_sync_ds`.
 ### kotikit_brainstorm_start
 
 Purpose: Start a brainstorm session for a screen or flow, returning a coverage checklist and opening questions tailored to the idea.
-Input: `{ idea: string }`
-Output: `{ classification: "singleScreen" | "multiScreen"; coverageChecklist: DimensionKey[]; systemPromptRef: "brainstorm"; systemPrompt: string; firstQuestions: string[]; qualityBar: string }`
+Input: `{ idea: string; scope?: string }`
+Output: `{ sessionId: string; scope: string; status: "inProgress"; classification: "singleScreen" | "multiScreen"; coverageChecklist: DimensionKey[]; openDimensions: DimensionKey[]; nextQuestion: { dimension, text }; systemPromptRef: "brainstorm"; systemPrompt: string; firstQuestions: string[]; qualityBar: string }`
 Token cost: ~261.
 Example: "I want to build a checkout flow — help me think through it."
-See also: `kotikit_brainstorm_assess`, `kotikit_get_system_prompt`.
+See also: `kotikit_brainstorm_answer`, `kotikit_brainstorm_confirm`, `kotikit_get_system_prompt`.
 
 ---
 
 ### kotikit_brainstorm_assess
 
-Purpose: Check whether all required design dimensions are covered and return open gaps or a ready-to-save draft when complete.
+Purpose: Legacy coverage helper. Prefer `kotikit_brainstorm_answer` for guided workflows because it records actual answer evidence.
 Input: `{ scope: string; coverage: Record<DimensionKey, "covered" | "open">; notes?: string }`
 Output: `{ status: "keepGoing"; openDimensions: DimensionKey[]; suggestedQuestions: string[] }` or `{ status: "readyToSave"; draftTemplate: SingleDraft | FlowDraft }`
 Token cost: ~300–400.
-Example: _(called internally during brainstorm to track coverage progress)_
-See also: `kotikit_brainstorm_start`, `kotikit_spec_create`, `kotikit_flow_create`.
+Example: _(legacy helper for older agent flows)_
+See also: `kotikit_brainstorm_start`, `kotikit_brainstorm_answer`, `kotikit_brainstorm_confirm`.
+
+---
+
+### kotikit_brainstorm_answer
+
+Purpose: Record the designer's actual answer for one brainstorm dimension and return the next open question.
+Input: `{ sessionId: string; dimension: DimensionKey; answer: string }`
+Output: `{ status: "inProgress" | "readyForConfirmation"; sessionId: string; answeredDimensions: DimensionKey[]; openDimensions: DimensionKey[]; nextQuestion?: { dimension, text } }`
+Token cost: ~180.
+Example: _(called after the designer answers each brainstorm question)_
+See also: `kotikit_brainstorm_start`, `kotikit_brainstorm_confirm`.
+
+---
+
+### kotikit_brainstorm_confirm
+
+Purpose: Mark a fully answered brainstorm as confirmed by the designer before saving a spec or flow.
+Input: `{ sessionId: string; summary: string }`
+Output: `{ status: "completed"; sessionId: string; scope: string; classification: "singleScreen" | "multiScreen" }`
+Token cost: ~100.
+Example: _(called after the designer confirms the plain-language summary)_
+See also: `kotikit_spec_create`, `kotikit_flow_create`.
 
 ---
 
 ### kotikit_spec_create
 
 Purpose: Create a new screen spec (single or multi-screen flow) from a brainstorm draft and optionally auto-commit it.
-Input: `{ draft: FlowDraft | SingleDraft; scope?: string }`
+Input: `{ draft: FlowDraft | SingleDraft; scope?: string; brainstormSessionId?: string; allowUnguided?: boolean }`
 Output: `{ paths: string[] }`
 Token cost: ~200.
 Example: "Save the spec we just discussed."
-See also: `kotikit_flow_create`, `kotikit_spec_get`, `kotikit_spec_list`.
+Notes: guided designer workflows must pass a completed `brainstormSessionId`. `allowUnguided` is only for explicit advanced imports, migrations, or tests.
+See also: `kotikit_brainstorm_confirm`, `kotikit_flow_create`, `kotikit_spec_get`, `kotikit_spec_list`.
 
 ---
 
@@ -126,11 +149,12 @@ See also: `kotikit_spec_get`, `kotikit_spec_list`.
 ### kotikit_flow_create
 
 Purpose: Create a complete multi-screen flow — writes the flow manifest and all screen specs in one atomic commit.
-Input: `{ draft: FlowDraft }`
+Input: `{ draft: FlowDraft; brainstormSessionId?: string; allowUnguided?: boolean }`
 Output: `{ manifestPath: string; screenCount: number }`
 Token cost: ~250.
 Example: "Save the onboarding flow with all three screens."
-See also: `kotikit_spec_create`, `kotikit_spec_get`, `kotikit_brainstorm_assess`.
+Notes: guided designer workflows must pass a completed `brainstormSessionId`. `allowUnguided` is only for explicit advanced imports, migrations, or tests.
+See also: `kotikit_brainstorm_confirm`, `kotikit_spec_create`, `kotikit_spec_get`.
 
 ---
 

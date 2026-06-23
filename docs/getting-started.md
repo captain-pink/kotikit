@@ -69,6 +69,8 @@ The scaffold writes:
 - `.mcp.json` for Claude Code.
 - `.codex/config.toml` for Codex.
 - Portable `kotikit-auto` and `kotikit-design-review` skills.
+- Claude Code slash command files for `/kotikit-auto` and
+  `/kotikit-design-review`.
 - `.env` with a `FIGMA_TOKEN=` placeholder if needed.
 
 It preserves unrelated assistant config and skips copied skills with local

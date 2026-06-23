@@ -38,6 +38,10 @@ root, then writes agent-specific setup:
   installer replaces the known outdated generated `kotikit-auto` skill that
   points at `docs/agent_workflow.md`, because that path does not exist inside
   target projects.
+- Claude Code commands: writes `.claude/commands/kotikit-auto.md` and
+  `.claude/commands/kotikit-design-review.md` so the slash commands reliably
+  load the copied skills. Existing command files with local changes are
+  preserved.
 - Figma token placeholder: creates `.env` with `FIGMA_TOKEN=` or appends that
   key when `.env` exists without it.
 - Co-author metadata: when requested, updates an existing

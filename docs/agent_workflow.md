@@ -86,15 +86,20 @@ Rules:
 
 - Ask questions one dimension at a time.
 - Never present more than two or three questions at once.
+- Prefer the returned `nextQuestion`. After the designer answers, call
+  `kotikit_brainstorm_answer` with the `sessionId`, question dimension, and
+  the actual answer.
+- Keep asking returned `nextQuestion` values until the brainstorm returns
+  `status: "readyForConfirmation"`.
 - Use plain, experience-focused language.
 - Ask "What happens when the list is empty?" not "What is the empty-state
   validation behavior?"
 - Do not ask about pixels, breakpoint numbers, or validation schemas.
-- Periodically call `kotikit_brainstorm_assess` with your honest coverage
-  assessment.
-- Do not move to Step 4 until `kotikit_brainstorm_assess` confirms all
-  required dimensions are covered and you can honestly say: "Any developer or
-  designer could build this screen identically from what I have."
+- Do not invent answers, and do not mark dimensions covered without real
+  designer input.
+- Do not move to Step 4 until every required dimension has recorded answer
+  evidence and you can honestly say: "Any developer or designer could build
+  this screen identically from what I have."
 
 ## Step 4: Confirm
 
@@ -110,14 +115,21 @@ Then ask: "Does this look right, or would you like to change anything before I
 save it?"
 
 Wait for confirmation. If the designer requests changes, loop back into the
-brainstorm conversation and return to Step 4 when they are satisfied.
+brainstorm conversation and return to Step 4 when they are satisfied. Once the
+designer confirms, call `kotikit_brainstorm_confirm` with the `sessionId` and
+confirmed summary.
 
 ## Step 5: Create And Save
 
 Once the designer confirms:
 
-- For a single screen, call `kotikit_spec_create({ draft: <full spec draft> })`.
-- For a multi-screen flow, call `kotikit_flow_create({ draft: <full flow draft> })`.
+- For a single screen, call
+  `kotikit_spec_create({ draft: <full spec draft>, brainstormSessionId })`.
+- For a multi-screen flow, call
+  `kotikit_flow_create({ draft: <full flow draft>, brainstormSessionId })`.
+
+Do not pass `allowUnguided` in the guided designer workflow. That override is
+only for explicit advanced imports, migrations, or tests.
 
 The tool writes the spec files and records the save-point automatically if that
 option is enabled.

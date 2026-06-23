@@ -65,13 +65,23 @@ kotikit, or asks to build/spec a screen or flow.
 
 1. Run the Init Workflow.
 2. Ask: "What do you want to build?" unless the user already said it.
-3. Call `kotikit_brainstorm_start({ idea })`.
+3. Call `kotikit_brainstorm_start({ idea })` and keep the returned
+   `sessionId`.
 4. Fetch `kotikit_get_system_prompt({ kind: "brainstorm" })` once per session
    if the brainstorm tool returns `systemPromptRef`.
-5. Ask focused product/design questions until coverage is complete.
-6. Call `kotikit_brainstorm_assess` periodically.
-7. Confirm the gathered screen or flow in plain English.
-8. Save with `kotikit_spec_create` or `kotikit_flow_create`.
+5. Ask the returned `nextQuestion`. After the designer answers, call
+   `kotikit_brainstorm_answer` with the `sessionId`, the question's
+   `dimension`, and the designer's answer. Repeat with each returned
+   `nextQuestion` until the tool returns `status: "readyForConfirmation"`.
+   Do not invent answers, and do not mark dimensions covered without real
+   designer input.
+6. Summarize the gathered screen or flow in plain English and ask whether it
+   looks right before saving.
+7. After the designer confirms, call `kotikit_brainstorm_confirm` with the
+   `sessionId` and confirmed summary.
+8. Save with `kotikit_spec_create` or `kotikit_flow_create`, passing the
+   confirmed `brainstormSessionId`. Do not pass `allowUnguided` in the guided
+   workflow.
 9. Present the "What next?" menu.
 
 ## Sync Workflow

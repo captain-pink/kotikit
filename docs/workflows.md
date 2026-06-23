@@ -27,10 +27,11 @@ status controls, and an invite flow.
 
 The assistant should:
 
-1. Ask product and design questions.
-2. Confirm the screen or flow back to you in plain language.
-3. Save a local spec under `.kotikit/specs`.
-4. Offer the "What next?" menu.
+1. Ask product and design questions one topic at a time.
+2. Record your answers before it can save the spec.
+3. Confirm the screen or flow back to you in plain language.
+4. Save a local spec under `.kotikit/specs`.
+5. Offer the "What next?" menu.
 
 ## Sync A Figma Design System
 
@@ -150,4 +151,3 @@ creating another draft.
 
 This is intentionally local. Preferences live in `.kotikit/design-review.db`,
 not in a hosted service.
-

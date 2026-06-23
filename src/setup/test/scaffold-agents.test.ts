@@ -66,6 +66,9 @@ describe("scaffoldAgents", () => {
     expect(skill).toContain("Do not generate React code");
     expect(skill).toContain("design-to-code is coming in a later version");
     expect(skill).toContain("Create or refine the Figma design");
+    expect(skill).toContain("kotikit_brainstorm_answer");
+    expect(skill).toContain("kotikit_brainstorm_confirm");
+    expect(skill).toContain("brainstormSessionId");
     expect(skill).not.toContain("Generate code");
     expect(skill).not.toContain("../../../docs");
     expect(skill).not.toContain("docs/agent_workflow");
@@ -110,6 +113,14 @@ describe("scaffoldAgents", () => {
       join(targetRoot, ".claude", "skills", "kotikit-design-review", "SKILL.md"),
       "utf8"
     );
+    const autoCommand = readFileSync(
+      join(targetRoot, ".claude", "commands", "kotikit-auto.md"),
+      "utf8"
+    );
+    const reviewCommand = readFileSync(
+      join(targetRoot, ".claude", "commands", "kotikit-design-review.md"),
+      "utf8"
+    );
     expect(config.mcpServers.browser.command).toBe("npx");
     expect(config.mcpServers.kotikit).toEqual({
       type: "stdio",
@@ -120,6 +131,10 @@ describe("scaffoldAgents", () => {
     expect(installedSkill).toBe(currentKotikitSkill());
     expect(installedReviewSkill).toBe(currentKotikitSkill("kotikit-design-review"));
     expect(installedSkill).toContain("Use this self-contained skill");
+    expect(autoCommand).toContain(".claude/skills/kotikit-auto/SKILL.md");
+    expect(autoCommand).toContain("kotikit-auto");
+    expect(reviewCommand).toContain(".claude/skills/kotikit-design-review/SKILL.md");
+    expect(reviewCommand).toContain("kotikit-design-review");
     expect(result.written).toContain(join(targetRoot, ".mcp.json"));
     expect(result.written).toContain(
       join(targetRoot, ".claude", "skills", "kotikit-auto", "SKILL.md")
@@ -127,7 +142,30 @@ describe("scaffoldAgents", () => {
     expect(result.written).toContain(
       join(targetRoot, ".claude", "skills", "kotikit-design-review", "SKILL.md")
     );
+    expect(result.written).toContain(join(targetRoot, ".claude", "commands", "kotikit-auto.md"));
+    expect(result.written).toContain(
+      join(targetRoot, ".claude", "commands", "kotikit-design-review.md")
+    );
     expect(result.notes.join("\n")).toContain("Claude Code project MCP config");
+  });
+
+  it("preserves existing Claude command files with local changes", async () => {
+    const commandPath = join(targetRoot, ".claude", "commands", "kotikit-auto.md");
+    const localCommand = "Local command instructions.\n";
+    mkdirSync(join(targetRoot, ".claude", "commands"), { recursive: true });
+    writeFileSync(commandPath, localCommand);
+
+    const result = await scaffoldAgents({
+      targetRoot,
+      kotikitRoot,
+      agents: ["claude"],
+    });
+
+    expect(readFileSync(commandPath, "utf8")).toBe(localCommand);
+    expect(result.skipped).toContain(commandPath);
+    expect(result.notes.join("\n")).toContain(
+      "Skipped existing Claude Code command with local changes"
+    );
   });
 
   it("leaves legacy .claude/mcp.json untouched and notes the current Claude path", async () => {

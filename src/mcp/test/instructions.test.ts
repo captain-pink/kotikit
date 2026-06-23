@@ -23,6 +23,13 @@ describe("KOTIKIT_MCP_INSTRUCTIONS", () => {
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("never load whole indexes");
   });
 
+  it("requires real brainstorm answers before saving guided specs", () => {
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit_brainstorm_answer");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit_brainstorm_confirm");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("brainstormSessionId");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("Do not pass allowUnguided");
+  });
+
   it("tells agents to ask before planning missing components", () => {
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit_component_plan_create");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("explicit designer approval");

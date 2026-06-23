@@ -30,7 +30,7 @@ The mcp module is the boundary between kotikit's engines and the AI model. It ow
 See [docs/tools.md](../tools.md) for the complete cheat-sheet. The tools are
 grouped here by product area:
 
-- Setup and specs: `kotikit_config_status`, `kotikit_config_init`, `kotikit_config_get`, `kotikit_spec_create`, `kotikit_spec_get`, `kotikit_spec_list`, `kotikit_spec_update`, `kotikit_flow_create`, `kotikit_brainstorm_start`, `kotikit_brainstorm_assess`
+- Setup and specs: `kotikit_config_status`, `kotikit_config_init`, `kotikit_config_get`, `kotikit_spec_create`, `kotikit_spec_get`, `kotikit_spec_list`, `kotikit_spec_update`, `kotikit_flow_create`, `kotikit_brainstorm_start`, `kotikit_brainstorm_answer`, `kotikit_brainstorm_confirm`, `kotikit_brainstorm_assess`
 - Design-system sync and search: `kotikit_sync_ds`, `kotikit_sync_plugin_variables`, `kotikit_ds_search`, `kotikit_ds_get_component`, `kotikit_icons_search`
 - Experimental implementation: `kotikit_plan_code`, `kotikit_implement_code_start`, `kotikit_implement_code_save`, `kotikit_implement_code_gate`, `kotikit_registry_search`, `kotikit_scaffold_start`, `kotikit_scaffold_save`
 - Figma bridge and design creation: `kotikit_bridge_start`, `kotikit_bridge_stop`, `kotikit_bridge_status`, `kotikit_figma_target_bind`, `kotikit_component_plan_create`, `kotikit_plan_design`, `kotikit_design_get_screen`, `kotikit_design_apply_step`
