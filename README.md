@@ -8,6 +8,8 @@ MCP-capable agents. It helps an assistant ask product questions, save structured
 screen specs, sync a Figma design system, compose safe Figma draft pages, review
 designs, and remember repeated feedback.
 
+![Kotikit workflow infographic](docs/assets/kotikit-workflow-infographic.webp)
+
 ```text
 Product idea
   -> guided questions
