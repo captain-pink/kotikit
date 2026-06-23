@@ -66,12 +66,15 @@ can inspect the workflow, try it locally, and see where the idea is going.
 
 It is not a mature open-source project yet:
 
+- Bugs and rough edges are expected.
 - Public PRs are not being accepted right now.
 - There is no support SLA.
 - APIs, local file formats, and workflows may change.
 - The project was built through AI-assisted/vibe-coded development and still
   needs deeper independent security, architecture, and production review.
-- Use it for experiments, drafts, and controlled Figma files first.
+- Treat generated Figma changes as drafts to inspect, not as production-ready
+  output.
+- Use it for experiments, copies, drafts, and controlled Figma files first.
 
 Design-to-code is intentionally not part of the guided workflow yet. kotikit is
 currently focused on stabilizing design creation, review, and design-system use.
@@ -224,7 +227,9 @@ kotikit avoids dumping whole design systems into the assistant context. The
 normal pattern is: search first, fetch exact component details second, and keep
 review/design sessions focused.
 
-See [docs/TOKENS.md](docs/TOKENS.md) for the detailed token-cost strategy.
+Most users do not need the detailed token table. It exists mainly for
+maintainers and agent-workflow builders who are checking MCP payload sizes. See
+[docs/TOKENS.md](docs/TOKENS.md) for that performance reference.
 
 ## Roadmap
 
@@ -286,4 +291,4 @@ license is chosen.
 - [docs/agent_workflow.md](docs/agent_workflow.md) - shared Claude/Codex
   workflow.
 - [docs/coding_guidelines.md](docs/coding_guidelines.md) - engineering style.
-- [docs/TOKENS.md](docs/TOKENS.md) - token-cost strategy.
+- [docs/TOKENS.md](docs/TOKENS.md) - maintainer token/context budget reference.
