@@ -8,6 +8,9 @@ Codex can call the `kotikit_*` MCP tools.
 - Bun installed locally.
 - A local clone of this repository.
 - Claude Code, Codex, or another MCP-capable assistant.
+- Figma's assistant plugin/integration for your assistant installed from inside
+  Figma, for example the Claude Code or Codex integration. This is separate
+  from kotikit's local Figma plugin.
 - A Figma personal access token with file read access.
 - A target project folder where kotikit can write `.kotikit/`,
   `design-system/`, and `.env`.
@@ -67,7 +70,21 @@ The scaffold writes:
 It preserves unrelated assistant config and skips copied skills with local
 changes.
 
-## 4. Add Your Figma Token
+## 4. Install The Figma Assistant Plugin
+
+Open Figma and install the assistant integration for the tool you use, such as
+Claude Code or Codex. Figma now exposes these integrations directly from the
+Figma app, so use Figma's in-app plugin/integration install flow rather than
+copying files manually.
+
+This assistant integration is not the same as the kotikit local Figma plugin:
+
+- Figma's assistant integration lets your assistant connect to Figma in the
+  normal Figma-supported way.
+- kotikit's local Figma plugin applies kotikit design plans and exports
+  variables through the local bridge.
+
+## 5. Add Your Figma Token
 
 Create a Figma personal access token in Figma account settings, then put it in
 the target project's `.env` file:
@@ -80,7 +97,7 @@ For design-system sync, file read access is required. For posting review
 comments, `file_comments:write` is required. Comment review needs
 `file_comments:read`.
 
-## 5. Restart The Assistant
+## 6. Restart The Assistant
 
 Restart Claude Code or start a fresh Codex session in the target project.
 
@@ -133,4 +150,3 @@ or in Claude Code:
 
 The assistant should check setup, ask what you want to build, and guide you
 through the first spec.
-
