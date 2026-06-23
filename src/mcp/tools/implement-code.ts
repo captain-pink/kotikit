@@ -1,8 +1,8 @@
 import { Database } from "bun:sqlite";
+import { existsSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, relative as relativePath, resolve as resolvePath } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { existsSync } from "fs";
-import { mkdir, readFile, writeFile } from "fs/promises";
-import { dirname, relative as relativePath, resolve as resolvePath } from "path";
 import type { AdapterContext, GateKind } from "../../codegen/adapter.js";
 import { autoCommitCode } from "../../codegen/code-commit.js";
 import { verifyGateEnvironment } from "../../codegen/environment.js";
@@ -153,8 +153,8 @@ function registerStart(registry: ToolRegistry, ctx: ToolContext): void {
               const db = new Database(dbPath, { readonly: true });
               try {
                 const hits = searchComponents(db, dsRef.name, 1);
-                if (hits.length > 0) {
-                  const hit = hits[0]!;
+                const hit = hits[0];
+                if (hit !== undefined) {
                   const jsonPath = `${dsDir}/${hit.path}`;
                   if (existsSync(jsonPath)) {
                     const raw = JSON.parse(await readFile(jsonPath, "utf-8"));
@@ -260,22 +260,22 @@ function registerStart(registry: ToolRegistry, ctx: ToolContext): void {
       screenContextLines.push(`**Description:** ${spec.context.description}`);
       if (spec.requirements.functional.length > 0) {
         screenContextLines.push(
-          "**Functional requirements:** " + spec.requirements.functional.join("; ")
+          `**Functional requirements:** ${spec.requirements.functional.join("; ")}`
         );
       }
       const stateEntries = Object.entries(spec.requirements.states);
       if (stateEntries.length > 0) {
         screenContextLines.push(
-          "**States:** " + stateEntries.map(([k, v]) => `${k}: ${v}`).join("; ")
+          `**States:** ${stateEntries.map(([k, v]) => `${k}: ${v}`).join("; ")}`
         );
       }
       if (spec.acceptanceCriteria.length > 0) {
-        screenContextLines.push("**Acceptance criteria:** " + spec.acceptanceCriteria.join("; "));
+        screenContextLines.push(`**Acceptance criteria:** ${spec.acceptanceCriteria.join("; ")}`);
       }
       screenContextLines.push(`**Breakpoints (px):** ${breakpoints.join(", ")}`);
       screenContextLines.push(`**Themes:** ${themes.join(", ")}`);
       if (allDsNames.length > 0) {
-        screenContextLines.push("**Available DS components:** " + allDsNames.join(", "));
+        screenContextLines.push(`**Available DS components:** ${allDsNames.join(", ")}`);
       }
       if (flowManifest) {
         screenContextLines.push(`**Part of flow:** ${flowManifest.title}`);
@@ -402,6 +402,15 @@ function registerSave(
         }
         resolvedPaths.push({ absolute, content: file.content });
       }
+      const primaryResolvedPath = resolvedPaths[0];
+      if (primaryResolvedPath === undefined) {
+        return toolError(
+          new KotikitError(
+            "No generated files were provided.",
+            "Call implement_code_start first, then pass at least one generated file to implement_code_save."
+          )
+        );
+      }
 
       // 2. Load spec + flow
       let spec: Awaited<ReturnType<typeof readScreenSpec>>;
@@ -454,8 +463,9 @@ function registerSave(
               const db = new Database(dbPath, { readonly: true });
               try {
                 const hits = searchComponents(db, dsRef.name, 1);
-                if (hits.length > 0) {
-                  const jsonPath = `${dsDir}/${hits[0]!.path}`;
+                const hit = hits[0];
+                if (hit !== undefined) {
+                  const jsonPath = `${dsDir}/${hit.path}`;
                   if (existsSync(jsonPath)) {
                     const raw = JSON.parse(await readFile(jsonPath, "utf-8"));
                     const parsed = ComponentJsonSchema.safeParse(raw);
@@ -507,7 +517,7 @@ function registerSave(
       // Gates passed:
       // 7a. Upsert registry
       const componentName = plan.componentName;
-      const relTargetPath = relativePath(root, resolvedPaths[0]!.absolute);
+      const relTargetPath = relativePath(root, primaryResolvedPath.absolute);
       const regDbPath = registryDbPath(root);
       const regDb = openDb(regDbPath);
       try {

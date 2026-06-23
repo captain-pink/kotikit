@@ -1,4 +1,4 @@
-import { basename } from "path";
+import { basename } from "node:path";
 import { nowIso } from "../../util/ids.js";
 import type { ToolRegistry } from "../server.js";
 import {

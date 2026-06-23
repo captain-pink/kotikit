@@ -1,9 +1,9 @@
 import { afterAll, describe, expect, it } from "bun:test";
+import { existsSync } from "node:fs";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { existsSync } from "fs";
-import { mkdtemp, readFile, rm } from "fs/promises";
-import { tmpdir } from "os";
-import { join } from "path";
 import { loadConfig, writeConfig } from "../../src/config/load.js";
 import type { ToolContext } from "../../src/mcp/context.js";
 import type { ToolRegistry } from "../../src/mcp/server.js";
@@ -62,6 +62,18 @@ async function callTool(registry: ToolRegistry, name: string, args: unknown): Pr
   const handler = registry.handlers.get(name);
   if (!handler) throw new Error(`Tool not found: ${name}`);
   return handler(args);
+}
+
+function parseToolDetail<T>(result: ToolResult): T {
+  const text = result.content[0]?.text;
+  if (text === undefined) {
+    throw new Error("Expected tool result text.");
+  }
+  const detail = text.split("\n\n")[1];
+  if (detail === undefined) {
+    throw new Error("Expected tool result detail JSON.");
+  }
+  return JSON.parse(detail) as T;
 }
 
 function jsonRes(body: unknown, status = 200): Response {
@@ -184,7 +196,7 @@ describe("Phase 2 E2E — sync + search", () => {
             ],
           },
         });
-      throw new Error("no fixture for " + u);
+      throw new Error(`no fixture for ${u}`);
     }) as unknown as typeof globalThis.fetch;
 
     const figmaClientFactory = (token: string) =>
@@ -211,7 +223,7 @@ describe("Phase 2 E2E — sync + search", () => {
     // Manually set the token to an env reference in the config
     const cfg = await loadConfig(tmpDir);
     if (!cfg) throw new Error("config missing");
-    cfg.figma.token = "${FIGMA_TOKEN_E2E}";
+    cfg.figma.token = "$" + "{FIGMA_TOKEN_E2E}";
     await writeConfig(tmpDir, cfg);
 
     // Step 2: sync
@@ -240,16 +252,18 @@ describe("Phase 2 E2E — sync + search", () => {
     expect(searchResult.content[0]?.text).toContain("Button");
 
     // Parse the JSON detail from toolText for typed assertions
-    const detail = JSON.parse(searchResult.content[0]!.text.split("\n\n")[1]!) as {
+    const detail = parseToolDetail<{
       results: { name: string; path: string; key: string; fileKey: string }[];
-    };
+    }>(searchResult);
     const buttonRow = detail.results.find((r) => r.name === "Button");
-    expect(buttonRow).toBeDefined();
-    expect(buttonRow!.fileKey).toBe("FB"); // later file wins
+    if (buttonRow === undefined) {
+      throw new Error("Expected Button row.");
+    }
+    expect(buttonRow.fileKey).toBe("FB"); // later file wins
 
     // Step 5: ds_get_component returns the JSON
     const getResult = await callTool(registry, "kotikit_ds_get_component", {
-      path: buttonRow!.path,
+      path: buttonRow.path,
     });
     expect(getResult.isError).toBeFalsy();
     expect(getResult.content[0]?.text).toContain("Button");
@@ -263,9 +277,9 @@ describe("Phase 2 E2E — sync + search", () => {
       query: "arrow*",
     });
     expect(iconsResult.isError).toBeFalsy();
-    const iconsDetail = JSON.parse(iconsResult.content[0]!.text.split("\n\n")[1]!) as {
+    const iconsDetail = parseToolDetail<{
       results: { name: string; key: string; svg?: string }[];
-    };
+    }>(iconsResult);
     expect(iconsDetail.results.some((r) => r.name === "arrow-right")).toBe(true);
     for (const r of iconsDetail.results) expect(r.svg).toBeUndefined();
   });
@@ -339,7 +353,7 @@ describe("Phase 2 E2E — checkpoint resume", () => {
             ],
           },
         });
-      throw new Error("no fixture for " + u);
+      throw new Error(`no fixture for ${u}`);
     }) as unknown as typeof globalThis.fetch;
 
     const figmaClientFactory = (token: string) =>

@@ -1,5 +1,5 @@
-import { existsSync } from "fs";
-import { dirname, resolve } from "path";
+import { existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 
 export const KOTIKIT_DIR = ".kotikit";
 

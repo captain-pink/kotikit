@@ -3,7 +3,7 @@ import type { Config } from "../config/schema.js";
 import { defaultConfig } from "../config/schema.js";
 import { loadDotEnv } from "../util/env.js";
 
-const DEFAULT_FIGMA_TOKEN_REF = "${FIGMA_TOKEN}";
+const DEFAULT_FIGMA_TOKEN_REF = "$" + "{FIGMA_TOKEN}";
 
 export const figmaTokenRef = (configToken: string | undefined): string => {
   const trimmed = configToken?.trim();

@@ -1,6 +1,6 @@
-import { existsSync } from "fs";
-import { mkdir, readFile, unlink, writeFile } from "fs/promises";
-import { dirname } from "path";
+import { existsSync } from "node:fs";
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { codePlanPath } from "../util/paths.js";
 import { KotikitError } from "../util/result.js";
 import { type CodePlan, parseCodePlan } from "./code-plan-schema.js";
@@ -17,7 +17,7 @@ export async function writeCodePlan(
 ): Promise<string> {
   const path = codePlanPath(root, scope, screen);
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, JSON.stringify(plan, null, 2) + "\n", "utf-8");
+  await writeFile(path, `${JSON.stringify(plan, null, 2)}\n`, "utf-8");
   return path;
 }
 

@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
-import { tmpdir } from "os";
-import { dirname, join } from "path";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { checkpointPath } from "../util/paths.js";
 import {
   type Checkpoint,
@@ -60,7 +60,7 @@ describe("checkpoint", () => {
     writeFileSync(path, "{}"); // garbage to be overwritten
     await writeCheckpoint(root, checkpoint);
     // No leftover .tmp
-    expect(existsSync(path + ".tmp")).toBe(false);
+    expect(existsSync(`${path}.tmp`)).toBe(false);
     // Real file has the new content
     const onDisk = JSON.parse(readFileSync(path, "utf-8"));
     expect(onDisk.startedAt).toBe(checkpoint.startedAt);

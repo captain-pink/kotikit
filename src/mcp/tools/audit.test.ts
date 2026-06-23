@@ -1,8 +1,8 @@
 import { afterAll, describe, expect, it } from "bun:test";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
 import { AuditReportSchema } from "../../audit/schema.js";
 import { initRegistryDb, upsertRegistry } from "../../db/registry-db.js";
 import { openDb } from "../../db/sqlite.js";
@@ -29,13 +29,21 @@ function makeCtx(root: string): ToolContext {
 }
 async function callTool(registry: ToolRegistry, name: string, args: unknown) {
   const handler = registry.handlers.get(name);
-  if (!handler) throw new Error("missing handler " + name);
+  if (!handler) throw new Error(`missing handler ${name}`);
   return handler(args);
 }
 function parseDetail(text: string): unknown {
   const i = text.indexOf("\n\n");
   if (i === -1) return {};
   return JSON.parse(text.slice(i + 2));
+}
+
+function parseToolDetail(result: { content: { text?: string }[] }): unknown {
+  const text = result.content[0]?.text;
+  if (text === undefined) {
+    throw new Error("Expected tool result text.");
+  }
+  return parseDetail(text);
 }
 
 describe("kotikit_audit", () => {
@@ -108,7 +116,7 @@ describe("kotikit_audit", () => {
     const registry = makeRegistry();
     registerAuditTools(registry, makeCtx(root));
     const result = await callTool(registry, "kotikit_audit", {});
-    const detail = parseDetail(result.content[0]!.text) as {
+    const detail = parseToolDetail(result) as {
       report: { entries: { name: string }[] };
     };
     expect(detail.report.entries[0]?.name).toBe("Button");

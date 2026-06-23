@@ -1,5 +1,5 @@
-import { existsSync } from "fs";
-import { join } from "path";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { pascalCase } from "../../util/ids.js";
 import type { Adapter, AdapterContext, GateCommand, GateKind } from "../adapter.js";
 import { buildReactSystemPrompt, REACT_SYSTEM_PROMPT } from "./system-prompt.js";
@@ -145,12 +145,21 @@ export const reactAdapter: Adapter = {
         // Failure line: "  10:5  error  Message  rule/name"
         const errMatch = ln.match(/^\s+(\d+):(\d+)\s+error\s+(.+?)\s+([\w-]+\/[\w/-]+)\s*$/);
         if (errMatch && currentFile) {
+          const [, line, column, message, rule] = errMatch;
+          if (
+            line === undefined ||
+            column === undefined ||
+            message === undefined ||
+            rule === undefined
+          ) {
+            continue;
+          }
           failures.push({
             file: currentFile,
-            line: Number(errMatch[1]),
-            column: Number(errMatch[2]),
-            message: errMatch[3]!,
-            rule: errMatch[4]!,
+            line: Number(line),
+            column: Number(column),
+            message,
+            rule,
           });
         }
       }

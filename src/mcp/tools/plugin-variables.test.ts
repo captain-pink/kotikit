@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "bun:test";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { mkdtempSync, readFileSync, rmSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
 import { writeConfig } from "../../config/load.js";
 import { defaultConfig } from "../../config/schema.js";
 import { variablesJsonPath } from "../../util/paths.js";

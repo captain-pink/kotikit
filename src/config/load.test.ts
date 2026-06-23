@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { buildConfig } from "./init";
 import { configExists, loadConfig, resolveSecret, resolveSecretImpl, writeConfig } from "./load";
 import { CONFIG_SCHEMA_VERSION, defaultConfig, parseConfig } from "./schema";
@@ -33,11 +33,13 @@ describe("writeConfig + loadConfig round-trip", () => {
     const cfg = defaultConfig();
     await writeConfig(tmp, cfg);
     const loaded = await loadConfig(tmp);
-    expect(loaded).not.toBeNull();
-    expect(loaded!.schemaVersion).toBe(CONFIG_SCHEMA_VERSION);
-    expect(loaded!.project.framework).toBe("react");
-    expect(loaded!.project.tests).toBe(true);
-    expect(loaded!.git.autoCommit).toBe(true);
+    if (loaded === null) {
+      throw new Error("Expected config to load.");
+    }
+    expect(loaded.schemaVersion).toBe(CONFIG_SCHEMA_VERSION);
+    expect(loaded.project.framework).toBe("react");
+    expect(loaded.project.tests).toBe(true);
+    expect(loaded.git.autoCommit).toBe(true);
   });
 
   it("loadConfig returns null for a missing config", async () => {
@@ -53,7 +55,7 @@ describe("writeConfig + loadConfig round-trip", () => {
 
   it("written file is pretty-printed and ends with newline", async () => {
     await writeConfig(tmp, defaultConfig());
-    const { readFileSync } = await import("fs");
+    const { readFileSync } = await import("node:fs");
     const content = readFileSync(join(tmp, ".kotikit", "config.json"), "utf-8");
     expect(content.endsWith("\n")).toBe(true);
     expect(content).toContain("  "); // pretty-printed (has indentation)
@@ -65,15 +67,17 @@ describe("resolveSecret", () => {
     expect(await resolveSecret(undefined)).toBeUndefined();
   });
 
-  it("resolves ${ENV_VAR} from environment", async () => {
-    process.env["TEST_SECRET_VAR"] = "mytoken";
-    expect(await resolveSecret("${TEST_SECRET_VAR}")).toBe("mytoken");
-    delete process.env["TEST_SECRET_VAR"];
+  it("resolves env placeholder from environment", async () => {
+    const secretRef = "$" + "{TEST_SECRET_VAR}";
+    process.env.TEST_SECRET_VAR = "mytoken";
+    expect(await resolveSecret(secretRef)).toBe("mytoken");
+    delete process.env.TEST_SECRET_VAR;
   });
 
   it("returns undefined for unset env var", async () => {
-    delete process.env["DEFINITELY_NOT_SET_12345"];
-    expect(await resolveSecret("${DEFINITELY_NOT_SET_12345}")).toBeUndefined();
+    const missingSecretRef = "$" + "{DEFINITELY_NOT_SET_12345}";
+    delete process.env.DEFINITELY_NOT_SET_12345;
+    expect(await resolveSecret(missingSecretRef)).toBeUndefined();
   });
 
   it("passes through plain strings unchanged", async () => {

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { KotikitError } from "../util/result";
 import {
   listScopes,
@@ -54,7 +54,7 @@ describe("single-screen spec (spec.json)", () => {
     mkdirSync(dir, { recursive: true });
     const path = join(dir, "spec.json");
     const { schemaVersion: _schemaVersion, ...legacyWithoutSchemaVersion } = legacy;
-    writeFileSync(path, JSON.stringify(legacyWithoutSchemaVersion, null, 2) + "\n", "utf-8");
+    writeFileSync(path, `${JSON.stringify(legacyWithoutSchemaVersion, null, 2)}\n`, "utf-8");
 
     expect(JSON.parse(readFileSync(path, "utf-8")).schemaVersion).toBeUndefined();
 

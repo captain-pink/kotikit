@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { variablesJsonPath } from "../util/paths.js";
 import { mergeVariables, VariablesJsonSchema, writeVariablesJson } from "./variables.js";
 

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { execSync } from "child_process";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
+import { execSync } from "node:child_process";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { GateRunReport } from "../../codegen/gate-output";
 import type { RunGatesOpts } from "../../codegen/gate-runner";
 import type { Config } from "../../config/schema";
@@ -24,6 +24,20 @@ let ctx: ToolContext;
 
 function makeRegistry(): ToolRegistry {
   return { tools: [], handlers: new Map() };
+}
+
+function getHandler(
+  registry: ToolRegistry,
+  name: string
+): (args: unknown) => Promise<{
+  content: { type: string; text: string }[];
+  isError?: boolean;
+}> {
+  const handler = registry.handlers.get(name);
+  if (handler === undefined) {
+    throw new Error(`Expected ${name} handler.`);
+  }
+  return handler;
 }
 
 function makeCtx(root: string, configOverride?: Partial<Config>): ToolContext {
@@ -607,7 +621,10 @@ describe("kotikit_implement_code_save", () => {
         gateRunner: makeGateRunner(makeFailReport("eslint")),
       });
 
-      const handler = reg.handlers.get("kotikit_implement_code_save")!;
+      const handler = reg.handlers.get("kotikit_implement_code_save");
+      if (handler === undefined) {
+        throw new Error("Expected kotikit_implement_code_save handler.");
+      }
       const result = await handler({
         scope: "profile-page",
         files: [
@@ -685,7 +702,10 @@ describe("kotikit_implement_code_save", () => {
         gateRunner: makeGateRunner(makePassReport()),
       });
 
-      const handler = reg.handlers.get("kotikit_implement_code_save")!;
+      const handler = reg.handlers.get("kotikit_implement_code_save");
+      if (handler === undefined) {
+        throw new Error("Expected kotikit_implement_code_save handler.");
+      }
       const result = await handler({
         scope: "profile-page",
         files: [
@@ -733,7 +753,7 @@ describe("kotikit_implement_code_save", () => {
         gateRunner: makeGateRunner(makePassReport()),
       });
 
-      const handler = reg.handlers.get("kotikit_implement_code_save")!;
+      const handler = getHandler(reg, "kotikit_implement_code_save");
       const result = await handler({
         scope: "profile-page",
         files: [
@@ -786,7 +806,7 @@ describe("kotikit_implement_code_gate", () => {
         gateRunner: makeGateRunner(makePassReport()),
       });
 
-      const handler = reg.handlers.get("kotikit_implement_code_gate")!;
+      const handler = getHandler(reg, "kotikit_implement_code_gate");
       const result = await handler({ scope: "profile-page" });
 
       expect(result.isError).toBeUndefined();
@@ -821,7 +841,7 @@ describe("kotikit_implement_code_gate", () => {
         gateRunner: makeGateRunner(makeFailReport("eslint")),
       });
 
-      const handler = reg.handlers.get("kotikit_implement_code_gate")!;
+      const handler = getHandler(reg, "kotikit_implement_code_gate");
       const result = await handler({ scope: "profile-page" });
 
       expect(result.isError).toBe(true);
@@ -892,11 +912,13 @@ describe("kotikit_implement_code_gate", () => {
         },
       });
 
-      const handler = reg.handlers.get("kotikit_implement_code_gate")!;
+      const handler = getHandler(reg, "kotikit_implement_code_gate");
       await handler({ scope: "profile-page", only: ["eslint"] });
 
-      expect(capturedOpts).toBeDefined();
-      expect(capturedOpts!.only).toEqual(["eslint"]);
+      if (capturedOpts === undefined) {
+        throw new Error("Expected gate runner options.");
+      }
+      expect(capturedOpts.only).toEqual(["eslint"]);
     } finally {
       cleanup();
     }

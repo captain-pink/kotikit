@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { mkdtempSync, rmSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
 import { writeConfig } from "../../config/load.js";
 import { defaultConfig } from "../../config/schema.js";
 import type { FigmaComment, FigmaNode } from "../../sync/figma-types.js";
@@ -176,8 +176,11 @@ describe("design review MCP tools", () => {
         },
       ],
     });
-    const findingId = (detailFrom(recorded) as { findings: { findingId: string }[] }).findings[0]!
-      .findingId;
+    const finding = (detailFrom(recorded) as { findings: { findingId: string }[] }).findings[0];
+    if (finding === undefined) {
+      throw new Error("Expected recorded design review finding.");
+    }
+    const findingId = finding.findingId;
     const prepared = await callTool(registry, "kotikit_design_review_comment_prepare", {
       sessionId,
       findingIds: [findingId],

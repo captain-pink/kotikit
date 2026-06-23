@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { variablesJsonPath } from "../util/paths.js";
 import { importPluginVariables, PluginVariablesPayloadSchema } from "./plugin-variables.js";
 
@@ -68,14 +68,14 @@ describe("plugin variable import", () => {
     mkdirSync(join(root, "design-system"), { recursive: true });
     writeFileSync(
       variablesJsonPath(root),
-      JSON.stringify({
+      `${JSON.stringify({
         version: 1,
         entries: [
           { name: "color/brand", kind: "color", source: "style", value: "#0055ff" },
           { name: "effect/focus", kind: "effect", source: "style", value: { type: "DROP_SHADOW" } },
         ],
         collisions: [],
-      }) + "\n"
+      })}\n`
     );
 
     const payload = PluginVariablesPayloadSchema.parse({

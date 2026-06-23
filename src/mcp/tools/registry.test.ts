@@ -1,8 +1,8 @@
 import { afterAll, describe, expect, it } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { mkdtempSync, rmSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
 import { initRegistryDb, upsertRegistry } from "../../db/registry-db.js";
 import { openDb } from "../../db/sqlite.js";
 import { registryDbPath } from "../../util/paths.js";
@@ -28,7 +28,7 @@ function makeCtx(root: string): ToolContext {
 }
 async function callTool(registry: ToolRegistry, name: string, args: unknown) {
   const handler = registry.handlers.get(name);
-  if (!handler) throw new Error("missing handler " + name);
+  if (!handler) throw new Error(`missing handler ${name}`);
   return handler(args);
 }
 
@@ -36,6 +36,14 @@ function parseDetail(text: string): unknown {
   const i = text.indexOf("\n\n");
   if (i === -1) return {};
   return JSON.parse(text.slice(i + 2));
+}
+
+function parseToolDetail(result: { content: { text?: string }[] }): unknown {
+  const text = result.content[0]?.text;
+  if (text === undefined) {
+    throw new Error("Expected tool result text.");
+  }
+  return parseDetail(text);
 }
 
 describe("kotikit_registry_search", () => {
@@ -47,7 +55,7 @@ describe("kotikit_registry_search", () => {
       query: "Button",
     });
     expect(result.isError).toBeFalsy();
-    const detail = parseDetail(result.content[0]!.text) as {
+    const detail = parseToolDetail(result) as {
       results: unknown[];
     };
     expect(detail.results).toEqual([]);
@@ -79,7 +87,7 @@ describe("kotikit_registry_search", () => {
       query: "Button",
     });
     expect(result.isError).toBeFalsy();
-    const detail = parseDetail(result.content[0]!.text) as {
+    const detail = parseToolDetail(result) as {
       results: { name: string }[];
     };
     expect(detail.results.map((r) => r.name)).toEqual(["Button"]);
@@ -105,7 +113,7 @@ describe("kotikit_registry_search", () => {
       query: "Comp",
       limit: 3,
     });
-    const detail = parseDetail(result.content[0]!.text) as {
+    const detail = parseToolDetail(result) as {
       results: unknown[];
     };
     expect(detail.results).toHaveLength(3);
@@ -142,7 +150,7 @@ describe("kotikit_registry_search", () => {
     registerRegistryTools(registry, makeCtx(root));
     const result = await callTool(registry, "kotikit_registry_search", { status: "design-only" });
     expect(result.isError).toBeFalsy();
-    const detail = parseDetail(result.content[0]!.text) as { results: { name: string }[] };
+    const detail = parseToolDetail(result) as { results: { name: string }[] };
     expect(detail.results.map((r) => r.name)).toEqual(["Button"]);
   });
 
@@ -169,7 +177,7 @@ describe("kotikit_registry_search", () => {
     const registry = makeRegistry();
     registerRegistryTools(registry, makeCtx(root));
     const result = await callTool(registry, "kotikit_registry_search", { kind: "component" });
-    const detail = parseDetail(result.content[0]!.text) as {
+    const detail = parseToolDetail(result) as {
       results: { name: string; kind: string }[];
     };
     expect(detail.results.every((r) => r.kind === "component")).toBe(true);
@@ -198,7 +206,7 @@ describe("kotikit_registry_search", () => {
     const registry = makeRegistry();
     registerRegistryTools(registry, makeCtx(root));
     const result = await callTool(registry, "kotikit_registry_search", {});
-    const detail = parseDetail(result.content[0]!.text) as { results: { name: string }[] };
+    const detail = parseToolDetail(result) as { results: { name: string }[] };
     expect(detail.results.map((r) => r.name).sort()).toEqual(["Button", "Cart"]);
   });
 
@@ -228,7 +236,7 @@ describe("kotikit_registry_search", () => {
       query: "Button",
       status: "synced",
     });
-    const detail = parseDetail(result.content[0]!.text) as { results: { name: string }[] };
+    const detail = parseToolDetail(result) as { results: { name: string }[] };
     expect(detail.results.map((r) => r.name)).toEqual(["ButtonGroup"]);
   });
 

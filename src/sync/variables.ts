@@ -1,5 +1,5 @@
-import { mkdir, writeFile } from "fs/promises";
-import { dirname } from "path";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { z } from "zod";
 import { variablesJsonPath } from "../util/paths.js";
 import type { FigmaLocalVariables, FigmaNode, FigmaStyle } from "./figma-types.js";
@@ -177,5 +177,5 @@ export async function writeVariablesJson(root: string, data: VariablesJson): Pro
   VariablesJsonSchema.parse(data);
   const path = variablesJsonPath(root);
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, JSON.stringify(data, null, 2) + "\n", "utf-8");
+  await writeFile(path, `${JSON.stringify(data, null, 2)}\n`, "utf-8");
 }

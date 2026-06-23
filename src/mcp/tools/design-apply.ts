@@ -1,5 +1,5 @@
-import { appendFile, mkdir } from "fs/promises";
-import { dirname } from "path";
+import { appendFile, mkdir } from "node:fs/promises";
+import { dirname } from "node:path";
 import { isDraftPageName } from "../../figma/draft-target.js";
 import { readFigmaDraftTarget } from "../../figma/draft-target-store.js";
 import type { DesignNodeKind } from "../../planning/design-node-map.js";
@@ -194,7 +194,7 @@ export function registerDesignApplyTools(registry: ToolRegistry, ctx: ToolContex
         ...(figmaNodeKind !== undefined ? { figmaNodeKind } : {}),
         ...(figmaNodeName !== undefined ? { figmaNodeName } : {}),
       });
-      await appendFile(path, line + "\n", "utf-8");
+      await appendFile(path, `${line}\n`, "utf-8");
 
       if (shouldUpdateNodeMap && target !== null) {
         await upsertDesignNodeMapEntry(root, scope, screen ?? null, {

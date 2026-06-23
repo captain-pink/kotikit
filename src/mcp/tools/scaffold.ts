@@ -1,7 +1,7 @@
+import { existsSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, relative as relativePath, resolve as resolvePath } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { existsSync } from "fs";
-import { mkdir, readFile, writeFile } from "fs/promises";
-import { dirname, relative as relativePath, resolve as resolvePath } from "path";
 import type { AdapterContext } from "../../codegen/adapter.js";
 import { verifyGateEnvironment } from "../../codegen/environment.js";
 import type { GateRunReport } from "../../codegen/gate-output.js";
@@ -173,7 +173,8 @@ function registerScaffoldStart(registry: ToolRegistry, ctx: ToolContext): void {
       const rows = afterCursor.slice(0, pageSize);
       const totalRemaining = Math.max(0, afterCursor.length - rows.length);
       const hasMore = afterCursor.length > rows.length;
-      const nextCursor = hasMore ? rows[rows.length - 1]!.name : undefined;
+      const lastRow = rows.at(-1);
+      const nextCursor = hasMore && lastRow !== undefined ? lastRow.name : undefined;
 
       // 5. Read DS JSON for each row; track skipped
       const dsDir = designSystemDir(root);
@@ -219,8 +220,9 @@ function registerScaffoldStart(registry: ToolRegistry, ctx: ToolContext): void {
         testFramework: config.project.testFramework,
       });
       if (!envReport.ok) {
-        const hint =
-          "Install the missing tools:" + envReport.missing.map((m) => `\n  • ${m.hint}`).join("");
+        const hint = `Install the missing tools:${envReport.missing
+          .map((m) => `\n  • ${m.hint}`)
+          .join("")}`;
         return toolError(
           new KotikitError("Some required gate tools aren't installed in your project.", hint)
         );

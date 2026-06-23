@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Adapter } from "./adapter.js";
 import { verifyGateEnvironment } from "./environment.js";
 import { reactAdapter } from "./react/adapter.js";

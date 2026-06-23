@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   type BridgeConfig,
   BridgeConfigSchema,
@@ -86,7 +86,7 @@ describe("writeBridgeConfig + readBridgeConfig", () => {
   it("write is atomic (.tmp does not linger)", async () => {
     const root = mkTmp();
     await writeBridgeConfig(root, sampleConfig());
-    const { existsSync } = await import("fs");
+    const { existsSync } = await import("node:fs");
     expect(existsSync(`${root}/.kotikit/bridge.json.tmp`)).toBe(false);
   });
 });

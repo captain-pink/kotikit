@@ -1,6 +1,6 @@
-import { existsSync } from "fs";
-import { mkdir, readFile, writeFile } from "fs/promises";
-import { dirname } from "path";
+import { existsSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { indexPath } from "../util/paths";
 
 export interface IndexEntry {
@@ -37,7 +37,7 @@ export async function upsertIndexEntry(root: string, entry: IndexEntry): Promise
   }
   const path = indexPath(root);
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, JSON.stringify(existing, null, 2) + "\n", "utf-8");
+  await writeFile(path, `${JSON.stringify(existing, null, 2)}\n`, "utf-8");
 }
 
 /** Remove the entry for a scope from the index (no-op if not present). */
@@ -46,5 +46,5 @@ export async function removeIndexEntry(root: string, scope: string): Promise<voi
   const filtered = existing.filter((e) => e.scope !== scope);
   const path = indexPath(root);
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, JSON.stringify(filtered, null, 2) + "\n", "utf-8");
+  await writeFile(path, `${JSON.stringify(filtered, null, 2)}\n`, "utf-8");
 }

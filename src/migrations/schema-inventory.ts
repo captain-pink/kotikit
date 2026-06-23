@@ -1,6 +1,6 @@
-import { existsSync } from "fs";
-import { readdir, readFile } from "fs/promises";
-import { basename, join } from "path";
+import { existsSync } from "node:fs";
+import { readdir, readFile } from "node:fs/promises";
+import { basename, join } from "node:path";
 import { CONFIG_SCHEMA_VERSION } from "../config/schema.js";
 import { FLOW_MANIFEST_SCHEMA_VERSION, SCREEN_SPEC_SCHEMA_VERSION } from "../spec/schema.js";
 import { configPath, scopeDir } from "../util/paths.js";

@@ -1,8 +1,8 @@
 import { Database } from "bun:sqlite";
 import { afterAll, beforeEach, describe, expect, it } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { initRegistryDb, upsertRegistry } from "../db/registry-db.js";
 import { runAudit } from "./engine.js";
 import { AuditReportSchema } from "./schema.js";
@@ -79,7 +79,8 @@ describe("runAudit", () => {
 
     const report = await runAudit({ root, registryDb: db });
     expect(report.summary.syncedMismatched).toBe(1);
-    const entry = report.entries[0]!;
+    const entry = report.entries[0];
+    if (entry === undefined) throw new Error("Expected one audit entry.");
     expect(entry.outcome).toBe("synced-mismatched");
     expect(entry.variantDelta?.dsOnly).toEqual(["size"]);
     expect(entry.variantDelta?.codeOnly).toEqual([]);

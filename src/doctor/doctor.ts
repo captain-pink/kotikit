@@ -1,4 +1,4 @@
-import { existsSync } from "fs";
+import { existsSync } from "node:fs";
 import type { EnvironmentReport } from "../codegen/environment.js";
 import { verifyGateEnvironment } from "../codegen/environment.js";
 import { reactAdapter } from "../codegen/react/adapter.js";

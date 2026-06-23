@@ -80,7 +80,7 @@ describe("syncOneFile", () => {
           },
         });
       }
-      throw new Error("no match: " + u);
+      throw new Error(`no match: `);
     }) as unknown as typeof globalThis.fetch;
 
     const client = new FigmaClient({
@@ -128,7 +128,7 @@ describe("syncOneFile", () => {
         return jsonRes({ meta: { variables: {}, variableCollections: {} } });
       if (u.includes("/v1/files/F1/nodes")) return jsonRes({ nodes: {} });
       if (u.includes("/v1/files/F1")) return errorRes(500);
-      throw new Error("no match: " + u);
+      throw new Error(`no match: `);
     }) as unknown as typeof globalThis.fetch;
 
     const client = new FigmaClient({
@@ -161,7 +161,7 @@ describe("syncOneFile", () => {
       if (u.includes("/v1/files/F1")) {
         return jsonRes({ name: "F1", document: { children: [] } });
       }
-      throw new Error("no match: " + u);
+      throw new Error(`no match: `);
     }) as unknown as typeof globalThis.fetch;
 
     const client = new FigmaClient({
@@ -276,7 +276,7 @@ describe("syncOneFile", () => {
           },
         });
       }
-      throw new Error("no match: " + u);
+      throw new Error(`no match: `);
     }) as unknown as typeof globalThis.fetch;
 
     const client = new FigmaClient({
@@ -343,7 +343,7 @@ describe("syncOneFile", () => {
       if (u.includes("/v1/files/F1")) {
         return jsonRes({ name: "TestFile", document: { children: [] } });
       }
-      throw new Error("Unexpected call: " + u);
+      throw new Error(`Unexpected call: `);
     }) as unknown as typeof globalThis.fetch;
 
     const client = new FigmaClient({
@@ -449,7 +449,7 @@ describe("syncOneFile", () => {
       if (u.includes("/v1/files/F1")) {
         return jsonRes({ name: "x", document: { children: [] } });
       }
-      throw new Error("no match: " + u);
+      throw new Error(`no match: `);
     }) as unknown as typeof globalThis.fetch;
 
     const client = new FigmaClient({
@@ -521,7 +521,7 @@ describe("syncOneFile", () => {
           },
         });
       }
-      throw new Error("no match: " + u);
+      throw new Error(`no match: `);
     }) as unknown as typeof globalThis.fetch;
 
     const client = new FigmaClient({
@@ -608,7 +608,7 @@ describe("syncOneFile", () => {
           },
         });
       }
-      throw new Error("no match: " + u);
+      throw new Error(`no match: `);
     }) as unknown as typeof globalThis.fetch;
 
     const client = new FigmaClient({
@@ -706,7 +706,7 @@ describe("syncOneFile", () => {
           document: { children: [{ id: "page1", name: "Buttons", type: "CANVAS", children: [] }] },
         });
       }
-      throw new Error("no match: " + u);
+      throw new Error(`no match: `);
     }) as unknown as typeof globalThis.fetch;
 
     const client = new FigmaClient({
@@ -750,7 +750,7 @@ describe("syncOneFile", () => {
           document: { children: [{ id: "page1", name: "Buttons", type: "CANVAS", children: [] }] },
         });
       }
-      throw new Error("no match: " + u);
+      throw new Error(`no match: `);
     }) as unknown as typeof globalThis.fetch;
 
     const client = new FigmaClient({
@@ -825,7 +825,7 @@ describe("syncOneFile", () => {
           },
         });
       }
-      throw new Error("no match: " + u);
+      throw new Error(`no match: `);
     }) as unknown as typeof globalThis.fetch;
 
     const client = new FigmaClient({
@@ -877,7 +877,7 @@ describe("syncOneFile", () => {
       if (u.includes("/v1/files/F1")) {
         return jsonRes({ name: "F1", document: { children: [] } });
       }
-      throw new Error("no match: " + u);
+      throw new Error(`no match: `);
     }) as unknown as typeof globalThis.fetch;
 
     const client = new FigmaClient({
@@ -1008,7 +1008,7 @@ describe("syncOneFile", () => {
       if (u.includes("/v1/files/F1")) {
         return jsonRes({ name: "Kotiko", document: { children: [] } });
       }
-      throw new Error("no match: " + u);
+      throw new Error(`no match: `);
     }) as unknown as typeof globalThis.fetch;
 
     const client = new FigmaClient({
@@ -1065,7 +1065,7 @@ describe("syncOneFile", () => {
           },
         });
       }
-      throw new Error("no match: " + u);
+      throw new Error(`no match: `);
     }) as unknown as typeof globalThis.fetch;
 
     const client = new FigmaClient({
@@ -1121,7 +1121,7 @@ describe("syncOneFile", () => {
         return jsonRes({ nodes: {} });
       }
       if (u.includes("/v1/files/F1")) return jsonRes({ name: "F1", document: { children: [] } });
-      throw new Error("no match: " + u);
+      throw new Error(`no match: `);
     }) as unknown as typeof globalThis.fetch;
 
     const client = new FigmaClient({
@@ -1177,7 +1177,7 @@ describe("syncOneFile", () => {
         return jsonRes({ nodes: {} });
       }
       if (u.includes("/v1/files/F1")) return jsonRes({ name: "F1", document: { children: [] } });
-      throw new Error("no match: " + u);
+      throw new Error(`no match: `);
     }) as unknown as typeof globalThis.fetch;
 
     const client = new FigmaClient({
@@ -1231,7 +1231,7 @@ describe("syncOneFile", () => {
         return jsonRes({ meta: { variables: {}, variableCollections: {} } });
       if (u.includes("/v1/files/F1/nodes")) return jsonRes({ nodes: {} });
       if (u.includes("/v1/files/F1")) return jsonRes({ name: "F1", document: { children: [] } });
-      throw new Error("no match: " + u);
+      throw new Error(`no match: `);
     }) as unknown as typeof globalThis.fetch;
 
     const client = new FigmaClient({
@@ -1264,7 +1264,12 @@ describe("syncOneFile", () => {
       (e) => (e.payload as { p: { processed: number } }).p.processed
     );
     for (let i = 1; i < processedValues.length; i++) {
-      expect(processedValues[i]).toBeGreaterThan(processedValues[i - 1]!);
+      const previous = processedValues[i - 1];
+      const current = processedValues[i];
+      if (previous === undefined || current === undefined) {
+        throw new Error("Expected adjacent progress values.");
+      }
+      expect(current).toBeGreaterThan(previous);
     }
   });
 });

@@ -1,5 +1,5 @@
-import { existsSync } from "fs";
-import { mkdir, readFile, writeFile } from "fs/promises";
+import { existsSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { flowManifestPath, scopeDir, screenSpecPath, singleSpecPath } from "../util/paths";
 import { KotikitError } from "../util/result";
 import type { IndexEntry } from "./index-store";
@@ -21,7 +21,7 @@ export async function writeScreenSpec(
   const dir = scopeDir(root, scope);
   await mkdir(dir, { recursive: true });
   const path = screenSlug ? screenSpecPath(root, scope, screenSlug) : singleSpecPath(root, scope);
-  await writeFile(path, JSON.stringify(spec, null, 2) + "\n", "utf-8");
+  await writeFile(path, `${JSON.stringify(spec, null, 2)}\n`, "utf-8");
 
   // For flow screens (screenSlug != null), preserve the flow-level index entry.
   // writeFlowManifest owns the scope's index record for flows.
@@ -78,7 +78,7 @@ export async function writeFlowManifest(
   const dir = scopeDir(root, scope);
   await mkdir(dir, { recursive: true });
   const path = flowManifestPath(root, scope);
-  await writeFile(path, JSON.stringify(manifest, null, 2) + "\n", "utf-8");
+  await writeFile(path, `${JSON.stringify(manifest, null, 2)}\n`, "utf-8");
 
   // Update index for the flow entry (screens list is the screen IDs)
   await upsertIndexEntry(root, {

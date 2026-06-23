@@ -147,7 +147,7 @@ function registerConfigInit(registry: ToolRegistry, ctx: ToolContext): void {
       }
 
       return toolText("You're all set! What do you want to build?", {
-        configPath: ctx.root + "/.kotikit/config.json",
+        configPath: `${ctx.root}/.kotikit/config.json`,
         notes,
       });
     } catch (err) {

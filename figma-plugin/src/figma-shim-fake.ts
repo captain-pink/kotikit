@@ -87,7 +87,7 @@ export class FakeFigmaShim implements FigmaShim {
   }): Promise<{ id: string; name: string }> {
     this.check("findOrCreateSection");
     const page = this.nodes.get(input.pageId);
-    if (!page || page.type !== "PAGE") throw new Error(`Page not found: ${input.pageId}`);
+    if (page?.type !== "PAGE") throw new Error(`Page not found: ${input.pageId}`);
     const existing = page.children
       .map((childId) => this.nodes.get(childId))
       .find((node) => node?.type === "SECTION" && node.name === input.name);
@@ -141,7 +141,7 @@ export class FakeFigmaShim implements FigmaShim {
   ): Promise<void> {
     this.check("setAutoLayout");
     const frame = this.nodes.get(frameId);
-    if (!frame || frame.type !== "FRAME") throw new Error(`Frame not found: ${frameId}`);
+    if (frame?.type !== "FRAME") throw new Error(`Frame not found: ${frameId}`);
     frame.layoutMode = opts.direction;
     frame.padding = opts.padding;
     frame.itemSpacing = opts.itemSpacing;

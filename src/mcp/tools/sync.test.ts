@@ -1,8 +1,8 @@
 import { afterAll, describe, expect, it } from "bun:test";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
 import { writeConfig } from "../../config/load.js";
 import { defaultConfig } from "../../config/schema.js";
 import { FigmaClient } from "../../sync/figma-client.js";
@@ -37,7 +37,8 @@ function makeFetch(handlers: Record<string, () => unknown>): typeof globalThis.f
     const u = url.toString();
     // Most-specific first
     for (const pattern of Object.keys(handlers)) {
-      if (u.includes(pattern)) return jsonRes(handlers[pattern]!());
+      const handler = handlers[pattern];
+      if (u.includes(pattern) && handler !== undefined) return jsonRes(handler());
     }
     return jsonRes({ name: "x", document: { children: [] } });
   }) as unknown as typeof globalThis.fetch;
@@ -75,7 +76,7 @@ function makeSingleFileFetch(fileKey: string): typeof globalThis.fetch {
 
 async function callTool(registry: ToolRegistry, name: string, args: unknown) {
   const handler = registry.handlers.get(name);
-  if (!handler) throw new Error("missing handler " + name);
+  if (!handler) throw new Error(`missing handler ${name}`);
   return handler(args);
 }
 

@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import { existsSync } from "fs";
+import { existsSync } from "node:fs";
 import { searchRegistry } from "../../db/registry-db.js";
 import { registryDbPath } from "../../util/paths.js";
 import { toolError, toolText } from "../../util/result.js";

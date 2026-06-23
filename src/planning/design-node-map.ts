@@ -1,6 +1,6 @@
-import { existsSync } from "fs";
-import { mkdir, readFile, writeFile } from "fs/promises";
-import { dirname } from "path";
+import { existsSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { z } from "zod";
 import type { FigmaDraftSection, FigmaDraftTarget } from "../figma/draft-target.js";
 import { FigmaDraftSectionSchema, FigmaDraftTargetSchema } from "../figma/draft-target.js";
@@ -134,7 +134,7 @@ export const writeDesignNodeMap = async (
 ): Promise<string> => {
   const path = designNodeMapPath(root, scope, screen);
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, JSON.stringify(map, null, 2) + "\n", "utf-8");
+  await writeFile(path, `${JSON.stringify(map, null, 2)}\n`, "utf-8");
   return path;
 };
 

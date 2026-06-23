@@ -1,4 +1,4 @@
-import { readFile } from "fs/promises";
+import { readFile } from "node:fs/promises";
 import { z } from "zod";
 import { variablesJsonPath } from "../util/paths.js";
 import type { FigmaLocalVariables } from "./figma-types.js";

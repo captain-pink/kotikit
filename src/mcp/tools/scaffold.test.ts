@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
-import { tmpdir } from "os";
-import { dirname, join } from "path";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import simpleGit from "simple-git";
 import type { GateRunReport } from "../../codegen/gate-output";
 import type { RunGatesOpts } from "../../codegen/gate-runner";
@@ -70,6 +70,30 @@ function getDetail(result: { content: { type: string; text: string }[] }): unkno
   } catch {
     return null;
   }
+}
+
+function parseToolDetail(result: { content: { type: string; text: string }[] }): unknown {
+  const text = result.content[0]?.text;
+  if (text === undefined) {
+    throw new Error("Expected tool result text.");
+  }
+  return parseDetail(text);
+}
+
+function firstItem<T>(items: T[], label: string): T {
+  const item = items[0];
+  if (item === undefined) {
+    throw new Error(`Expected ${label}.`);
+  }
+  return item;
+}
+
+function itemAt<T>(items: T[], index: number, label: string): T {
+  const item = items[index];
+  if (item === undefined) {
+    throw new Error(`Expected ${label} at index ${index}.`);
+  }
+  return item;
 }
 
 function seedBins(root: string): void {
@@ -305,7 +329,7 @@ describe("kotikit_scaffold_start", () => {
     };
     expect(detail).not.toBeNull();
     expect(detail.skipped).toHaveLength(1);
-    expect(detail.skipped[0]!.name).toBe("Ghost");
+    expect(firstItem(detail.skipped, "skipped component").name).toBe("Ghost");
     expect(detail.components).toHaveLength(0);
   });
 
@@ -343,8 +367,9 @@ describe("kotikit_scaffold_start", () => {
     };
     expect(detail.hasStorybook).toBe(false);
     expect(detail.components).toHaveLength(1);
-    expect(detail.components[0]!.storyPath).toBeUndefined();
-    expect(detail.components[0]!.scaffoldShape.stories).toBeUndefined();
+    const component = firstItem(detail.components, "scaffold component");
+    expect(component.storyPath).toBeUndefined();
+    expect(component.scaffoldShape.stories).toBeUndefined();
   });
 });
 
@@ -574,10 +599,12 @@ describe("kotikit_scaffold_save", () => {
     const row = getRegistry(db2, "component", "Button");
     db2.close();
 
-    expect(row).not.toBeNull();
-    expect(row!.status).toBe("synced");
-    expect(row!.dsPath).toBe("components/button.json");
-    expect(row!.codePath).toContain("button.tsx");
+    if (row === null) {
+      throw new Error("Expected Button registry row.");
+    }
+    expect(row.status).toBe("synced");
+    expect(row.dsPath).toBe("components/button.json");
+    expect(row.codePath).toContain("button.tsx");
   });
 });
 
@@ -597,7 +624,7 @@ describe("scaffold_start pagination (Phase 6)", () => {
     const registry = makeRegistry();
     registerScaffoldTools(registry, makeCtx(root));
     const result = await callTool(registry, "kotikit_scaffold_start", {});
-    const detail = parseDetail(result.content[0]!.text) as {
+    const detail = parseToolDetail(result) as {
       components: { name: string }[];
       nextCursor?: string;
       hasMore: boolean;
@@ -605,7 +632,7 @@ describe("scaffold_start pagination (Phase 6)", () => {
     };
     expect(detail.components).toHaveLength(3);
     expect(detail.hasMore).toBe(true);
-    expect(detail.nextCursor).toBe(detail.components[2]!.name);
+    expect(detail.nextCursor).toBe(itemAt(detail.components, 2, "scaffold component").name);
     expect(detail.totalRemaining).toBeGreaterThan(0);
   });
 
@@ -619,17 +646,22 @@ describe("scaffold_start pagination (Phase 6)", () => {
     const registry = makeRegistry();
     registerScaffoldTools(registry, makeCtx(root));
     const page1 = await callTool(registry, "kotikit_scaffold_start", {});
-    const d1 = parseDetail(page1.content[0]!.text) as {
+    const d1 = parseToolDetail(page1) as {
       components: { name: string }[];
       nextCursor?: string;
     };
     const page2 = await callTool(registry, "kotikit_scaffold_start", { cursor: d1.nextCursor });
-    const d2 = parseDetail(page2.content[0]!.text) as {
+    const d2 = parseToolDetail(page2) as {
       components: { name: string }[];
       hasMore: boolean;
     };
     // Page2 should start AFTER cursor
-    expect(d2.components[0]!.name.localeCompare(d1.nextCursor!)).toBeGreaterThan(0);
+    if (d1.nextCursor === undefined) {
+      throw new Error("Expected next cursor.");
+    }
+    expect(
+      firstItem(d2.components, "second page component").name.localeCompare(d1.nextCursor)
+    ).toBeGreaterThan(0);
   });
 
   it("2 components: pageSize default fits all → hasMore=false, no nextCursor", async () => {
@@ -640,7 +672,7 @@ describe("scaffold_start pagination (Phase 6)", () => {
     const registry = makeRegistry();
     registerScaffoldTools(registry, makeCtx(root));
     const result = await callTool(registry, "kotikit_scaffold_start", {});
-    const detail = parseDetail(result.content[0]!.text) as {
+    const detail = parseToolDetail(result) as {
       components: unknown[];
       nextCursor?: string;
       hasMore: boolean;
@@ -657,10 +689,10 @@ describe("scaffold_start pagination (Phase 6)", () => {
     const registry = makeRegistry();
     registerScaffoldTools(registry, makeCtx(root));
     const result = await callTool(registry, "kotikit_scaffold_start", {});
-    const detail = parseDetail(result.content[0]!.text) as {
+    const detail = parseToolDetail(result) as {
       components: { dsJson: Record<string, unknown> }[];
     };
-    const dsJson = detail.components[0]!.dsJson;
+    const dsJson = firstItem(detail.components, "scaffold component").dsJson;
     expect(dsJson.name).toBeDefined();
     expect(dsJson.key).toBeDefined();
     expect(dsJson.variants).toBeDefined();
@@ -677,10 +709,10 @@ describe("scaffold_start pagination (Phase 6)", () => {
     const registry = makeRegistry();
     registerScaffoldTools(registry, makeCtx(root));
     const result = await callTool(registry, "kotikit_scaffold_start", { compact: false });
-    const detail = parseDetail(result.content[0]!.text) as {
+    const detail = parseToolDetail(result) as {
       components: { dsJson: Record<string, unknown> }[];
     };
-    const dsJson = detail.components[0]!.dsJson;
+    const dsJson = firstItem(detail.components, "scaffold component").dsJson;
     // Full shape — path and updatedAt present
     expect(dsJson.path).toBeDefined();
     expect(dsJson.updatedAt).toBeDefined();
@@ -693,7 +725,7 @@ describe("scaffold_start pagination (Phase 6)", () => {
     const registry = makeRegistry();
     registerScaffoldTools(registry, makeCtx(root));
     const result = await callTool(registry, "kotikit_scaffold_start", {});
-    const detail = parseDetail(result.content[0]!.text) as {
+    const detail = parseToolDetail(result) as {
       systemPromptRef: string;
       systemPrompt: string;
     };

@@ -14,10 +14,10 @@
  * Re-run after changing tool payloads. Paste the output into docs/TOKENS.md.
  */
 
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
 import simpleGit from "simple-git";
 import { loadConfig, writeConfig } from "../src/config/load.js";
 import { defaultConfig } from "../src/config/schema.js";

@@ -1,9 +1,9 @@
 import { afterAll, describe, expect, it } from "bun:test";
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { existsSync, mkdirSync, writeFileSync } from "fs";
-import { readFile, rm } from "fs/promises";
-import { tmpdir } from "os";
-import { join } from "path";
 import simpleGit from "simple-git";
 import type { GateRunReport } from "../../src/codegen/gate-output.js";
 import type { runGates as defaultRunGates } from "../../src/codegen/gate-runner.js";
@@ -26,7 +26,7 @@ import { codePlanPath, registryDbPath } from "../../src/util/paths.js";
 const tmpDirs: string[] = [];
 
 function mkTmp(): string {
-  const d = require("fs").mkdtempSync(join(tmpdir(), "kotikit-phase3-"));
+  const d = mkdtempSync(join(tmpdir(), "kotikit-phase3-"));
   tmpDirs.push(d);
   return d;
 }
@@ -63,6 +63,14 @@ function parseDetail(text: string): unknown {
   const i = text.indexOf("\n\n");
   if (i === -1) return {};
   return JSON.parse(text.slice(i + 2));
+}
+
+function parseToolDetail(result: ToolResult): unknown {
+  const text = result.content[0]?.text;
+  if (text === undefined) {
+    throw new Error("Expected tool result text.");
+  }
+  return parseDetail(text);
 }
 
 function seedBins(root: string, tools: string[]): void {
@@ -159,7 +167,7 @@ describe("Phase 3 E2E — happy path", () => {
       scope: "profile-page",
     });
     expect(startResult.isError).toBeFalsy();
-    const startDetail = parseDetail(startResult.content[0]!.text) as {
+    const startDetail = parseToolDetail(startResult) as {
       componentName: string;
       targetPath: string;
       testPath?: string;
@@ -212,7 +220,7 @@ describe("Phase 3 E2E — happy path", () => {
 
     // 9) Registry has a ProfilePage row
     const reg = await callTool(registry, "kotikit_registry_search", { query: "Profile" });
-    const regDetail = parseDetail(reg.content[0]!.text) as {
+    const regDetail = parseToolDetail(reg) as {
       results: { name: string }[];
     };
     expect(regDetail.results.some((r) => r.name === "ProfilePage")).toBe(true);
@@ -248,7 +256,7 @@ describe("Phase 3 E2E — gate failure", () => {
       scope: "profile-page",
     });
     expect(startResult.isError).toBeFalsy();
-    const startDetail = parseDetail(startResult.content[0]!.text) as {
+    const startDetail = parseToolDetail(startResult) as {
       targetPath: string;
       testPath?: string;
       testScaffold: string;
@@ -359,7 +367,7 @@ describe("Phase 3 E2E — multi-screen", () => {
       screen: "cart",
     });
     expect(startResult.isError).toBeFalsy();
-    const startDetail = parseDetail(startResult.content[0]!.text) as {
+    const startDetail = parseToolDetail(startResult) as {
       targetPath: string;
       testPath?: string;
       testScaffold: string;

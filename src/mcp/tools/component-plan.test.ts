@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "bun:test";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { existsSync, mkdtempSync, rmSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
 import simpleGit from "simple-git";
 import { writeConfig } from "../../config/load.js";
 import { defaultConfig } from "../../config/schema.js";

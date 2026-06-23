@@ -84,8 +84,9 @@ export async function runGates(opts: RunGatesOpts): Promise<GateRunReport> {
   const spawn = opts.spawn ?? defaultSpawn;
   const timeout = opts.timeoutMs ?? 60_000;
   const allGates = opts.adapter.qualityGates(opts.ctx);
-  const filtered = opts.only
-    ? allGates.filter((g) => opts.only!.includes(g.gate))
+  const only = opts.only;
+  const filtered = only
+    ? allGates.filter((g) => only.includes(g.gate))
     : allGates.filter((g) => g.required);
 
   const ranAt = nowIso();

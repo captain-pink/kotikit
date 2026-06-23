@@ -118,7 +118,7 @@ describe("materializeFlow", () => {
 
   it("specs carry states from draft", () => {
     const { specs } = materializeFlow(flowDraft);
-    expect(specs[0].spec.requirements.states["loading"]).toBe("Loading data");
+    expect(specs[0].spec.requirements.states.loading).toBe("Loading data");
   });
 
   it("specs carry userTypes from draft", () => {

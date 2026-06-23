@@ -1,5 +1,5 @@
-import { mkdir, writeFile } from "fs/promises";
-import { dirname } from "path";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { z } from "zod";
 import { manifestPath } from "../util/paths.js";
 
@@ -35,5 +35,5 @@ export async function writeManifest(root: string, manifest: SyncManifest): Promi
   SyncManifestSchema.parse(manifest);
   const path = manifestPath(root);
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, JSON.stringify(manifest, null, 2) + "\n", "utf-8");
+  await writeFile(path, `${JSON.stringify(manifest, null, 2)}\n`, "utf-8");
 }

@@ -1,8 +1,8 @@
 import { afterAll, describe, expect, it } from "bun:test";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
 import type { FigmaDraftTarget } from "../../figma/draft-target.js";
 import { writeScreenSpec } from "../../spec/engine.js";
 import { newScreenSpec } from "../../spec/schema.js";
@@ -29,7 +29,7 @@ function makeCtx(root: string): ToolContext {
 }
 async function callTool(registry: ToolRegistry, name: string, args: unknown) {
   const handler = registry.handlers.get(name);
-  if (!handler) throw new Error("missing handler " + name);
+  if (!handler) throw new Error(`missing handler ${name}`);
   return handler(args);
 }
 

@@ -1,6 +1,6 @@
-import { existsSync } from "fs";
-import { mkdir, readFile, writeFile } from "fs/promises";
-import { dirname } from "path";
+import { existsSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { configPath } from "../util/paths";
 import { KotikitError } from "../util/result";
 import type { Config } from "./schema";
@@ -32,7 +32,7 @@ export async function configExists(root: string): Promise<boolean> {
 export async function writeConfig(root: string, config: Config): Promise<void> {
   const path = configPath(root);
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, JSON.stringify(config, null, 2) + "\n", "utf-8");
+  await writeFile(path, `${JSON.stringify(config, null, 2)}\n`, "utf-8");
 }
 
 type SpawnFn = (cmd: string[]) => Promise<{ stdout: string; exitCode: number }>;

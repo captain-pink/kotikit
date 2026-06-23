@@ -18,7 +18,8 @@ describe("FakeFigmaShim", () => {
       width: 1440,
       height: "auto",
     });
-    const pageNode = shim.nodes.get(page.id)!;
+    const pageNode = shim.nodes.get(page.id);
+    if (pageNode === undefined) throw new Error("Expected page node to exist.");
     expect(pageNode.children).toContain(frame.id);
   });
 
@@ -32,7 +33,8 @@ describe("FakeFigmaShim", () => {
       height: "auto",
     });
     await shim.setAutoLayout(frame.id, { direction: "VERTICAL", padding: 24, itemSpacing: 16 });
-    const node = shim.nodes.get(frame.id)!;
+    const node = shim.nodes.get(frame.id);
+    if (node === undefined) throw new Error("Expected frame node to exist.");
     expect(node.layoutMode).toBe("VERTICAL");
     expect(node.padding).toBe(24);
     expect(node.itemSpacing).toBe(16);

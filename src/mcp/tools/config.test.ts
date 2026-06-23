@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { ToolContext } from "../context";
 import { registerConfigTools, type ToolRegistry } from "./config";
 
@@ -33,6 +33,19 @@ async function call(
 
 function getText(result: { content: { type: string; text: string }[] }): string {
   return result.content.map((c) => c.text).join("\n");
+}
+
+function getTextPayload(result: { content: { type: string; text: string }[] }): string {
+  const text = result.content.find((c) => c.type === "text")?.text;
+  if (text === undefined) {
+    throw new Error("Expected text payload.");
+  }
+  return text;
+}
+
+function getDetailJson(result: { content: { type: string; text: string }[] }): unknown {
+  const text = getTextPayload(result);
+  return JSON.parse(text.slice(text.indexOf("\n\n") + 2));
 }
 
 // ─── Setup / teardown ─────────────────────────────────────────────────────────
@@ -112,10 +125,7 @@ describe("kotikit_config_status", () => {
   it("config_status before init: no gates field", async () => {
     const result = await call("kotikit_config_status", {});
     expect(result.isError).toBeUndefined();
-    const text = result.content.find((c) => c.type === "text")!.text;
-    // The text is "summary\n\nJSON" — extract the JSON part after the first blank line
-    const jsonPart = text.slice(text.indexOf("\n\n") + 2);
-    const detail = JSON.parse(jsonPart);
+    const detail = getDetailJson(result) as { gates?: unknown };
     // Before init the detail object should have no "gates" key
     expect(detail.gates).toBeUndefined();
   });
@@ -125,9 +135,7 @@ describe("kotikit_config_status", () => {
     await call("kotikit_config_init", {});
     const result = await call("kotikit_config_status", {});
     expect(result.isError).toBeUndefined();
-    const text = result.content.find((c) => c.type === "text")!.text;
-    const jsonPart = text.slice(text.indexOf("\n\n") + 2);
-    const detail = JSON.parse(jsonPart);
+    const detail = getDetailJson(result) as { gates: { ok: boolean; missing: { gate: string }[] } };
     expect(detail.gates).toBeDefined();
     expect(detail.gates.ok).toBe(false);
     const gateNames = (detail.gates.missing as { gate: string }[]).map((m) => m.gate);
@@ -141,9 +149,7 @@ describe("kotikit_config_status", () => {
     await call("kotikit_config_init", { testFramework: "none" });
     const result = await call("kotikit_config_status", {});
     expect(result.isError).toBeUndefined();
-    const text = result.content.find((c) => c.type === "text")!.text;
-    const jsonPart = text.slice(text.indexOf("\n\n") + 2);
-    const detail = JSON.parse(jsonPart);
+    const detail = getDetailJson(result) as { gates: { ok: boolean; missing: { gate: string }[] } };
     expect(detail.gates).toBeDefined();
     expect(detail.gates.ok).toBe(false);
     const gateNames = (detail.gates.missing as { gate: string }[]).map((m) => m.gate);
@@ -160,9 +166,7 @@ describe("kotikit_config_status", () => {
     }
     const result = await call("kotikit_config_status", {});
     expect(result.isError).toBeUndefined();
-    const text = result.content.find((c) => c.type === "text")!.text;
-    const jsonPart = text.slice(text.indexOf("\n\n") + 2);
-    const detail = JSON.parse(jsonPart);
+    const detail = getDetailJson(result) as { gates: { ok: boolean; missing: unknown[] } };
     expect(detail.gates).toBeDefined();
     expect(detail.gates.ok).toBe(true);
     expect(detail.gates.missing).toEqual([]);
@@ -259,14 +263,14 @@ describe("kotikit_config_get", () => {
 
   it("does not include literal FIGMA_TOKEN value when env var is set", async () => {
     const tokenValue = "secret-figma-token-abc";
-    process.env["FIGMA_TOKEN"] = tokenValue;
+    process.env.FIGMA_TOKEN = tokenValue;
 
     try {
       // Write config with token reference
       const { writeConfig } = await import("../../config/load");
       const { defaultConfig } = await import("../../config/schema");
       const cfg = defaultConfig();
-      cfg.figma.token = "${FIGMA_TOKEN}";
+      cfg.figma.token = "$" + "{FIGMA_TOKEN}";
       await writeConfig(tmp, cfg);
 
       const result = await call("kotikit_config_get", {});
@@ -278,7 +282,7 @@ describe("kotikit_config_get", () => {
       // Must show the placeholder instead
       expect(text).toContain("<resolved from env>");
     } finally {
-      delete process.env["FIGMA_TOKEN"];
+      delete process.env.FIGMA_TOKEN;
     }
   });
 

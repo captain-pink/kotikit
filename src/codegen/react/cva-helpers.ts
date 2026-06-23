@@ -81,9 +81,10 @@ export function variantPropKey(figmaPropertyName: string): string {
 export function deriveVariantDefaults(json: ComponentJson): Record<string, string> {
   const defaults: Record<string, string> = {};
   for (const axis of json.variants) {
-    if (axis.values.length === 0) continue;
+    const firstValue = axis.values[0];
+    if (firstValue === undefined) continue;
     const key = variantPropKey(axis.propertyName);
-    const value = slugifyVariantValue(axis.values[0]!);
+    const value = slugifyVariantValue(firstValue);
     defaults[key] = value;
   }
   return defaults;

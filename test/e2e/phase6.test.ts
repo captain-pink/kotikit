@@ -1,9 +1,9 @@
 import { afterAll, describe, expect, it } from "bun:test";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "fs";
-import { rm } from "fs/promises";
-import { tmpdir } from "os";
-import { join } from "path";
 import simpleGit from "simple-git";
 import { AuditReportSchema } from "../../src/audit/schema.js";
 import type { runGates as defaultRunGates } from "../../src/codegen/gate-runner.js";
@@ -70,6 +70,12 @@ function parseDetail(text: string): unknown {
   const i = text.indexOf("\n\n");
   if (i === -1) return {};
   return JSON.parse(text.slice(i + 2));
+}
+
+function parseToolDetail(result: ToolResult): unknown {
+  const text = result.content[0]?.text;
+  if (text === undefined) throw new Error("Expected tool result text.");
+  return parseDetail(text);
 }
 
 function seedBins(root: string): void {
@@ -188,7 +194,8 @@ describe("Phase 6 E2E — audit", () => {
     expect(report.entries.find((e) => e.name === "Button")?.outcome).toBe("synced-ok");
 
     // Card is synced-mismatched (DS has [Variant, Size], code has [variant])
-    const card = report.entries.find((e) => e.name === "Card")!;
+    const card = report.entries.find((e) => e.name === "Card");
+    if (card === undefined) throw new Error("Expected Card audit entry to exist.");
     expect(card.outcome).toBe("synced-mismatched");
     expect(card.variantDelta?.dsOnly).toEqual(["size"]);
   });
@@ -204,7 +211,7 @@ describe("Phase 6 E2E — get_system_prompt", () => {
       kind: "react",
     });
     expect(result.isError).toBeFalsy();
-    const detail = parseDetail(result.content[0]!.text) as {
+    const detail = parseToolDetail(result) as {
       prompt: string;
       kind: string;
     };
@@ -244,7 +251,7 @@ describe("Phase 6 E2E — token-shape changes", () => {
       scope: "profile-page",
     });
     expect(result.isError).toBeFalsy();
-    const detail = parseDetail(result.content[0]!.text) as {
+    const detail = parseToolDetail(result) as {
       componentRefs?: unknown[];
       dsComponents?: Record<string, unknown>;
       systemPromptRef?: string;
@@ -278,7 +285,7 @@ describe("Phase 6 E2E — token-shape changes", () => {
       scope: "profile-page",
       expand: true,
     });
-    const detail = parseDetail(result.content[0]!.text) as {
+    const detail = parseToolDetail(result) as {
       dsComponents?: Record<string, unknown>;
       componentRefs?: unknown;
     };
@@ -312,7 +319,7 @@ describe("Phase 6 E2E — scaffold pagination", () => {
     const registry = buildRegistry(root);
 
     const page1 = await callTool(registry, "kotikit_scaffold_start", {});
-    const d1 = parseDetail(page1.content[0]!.text) as {
+    const d1 = parseToolDetail(page1) as {
       components: { name: string }[];
       nextCursor?: string;
       hasMore: boolean;
@@ -323,7 +330,7 @@ describe("Phase 6 E2E — scaffold pagination", () => {
     const page2 = await callTool(registry, "kotikit_scaffold_start", {
       cursor: d1.nextCursor,
     });
-    const d2 = parseDetail(page2.content[0]!.text) as {
+    const d2 = parseToolDetail(page2) as {
       components: { name: string }[];
       hasMore: boolean;
     };

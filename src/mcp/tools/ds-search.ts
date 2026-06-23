@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { existsSync } from "fs";
-import { readFile } from "fs/promises";
 import { searchComponents } from "../../db/components-db.js";
 import { ComponentJsonSchema } from "../../sync/component-shape.js";
 import { componentsDbPath, designSystemDir } from "../../util/paths.js";

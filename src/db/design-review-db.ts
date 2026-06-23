@@ -867,13 +867,17 @@ class SqliteDesignReviewStore implements DesignReviewStore {
         input.expiresAt,
         ts
       );
-    return this.getReviewTargetCache({
+    const cache = this.getReviewTargetCache({
       fileKey: input.fileKey,
       nodeId: input.nodeId,
       depth: input.depth,
       sourceFingerprint: input.sourceFingerprint,
       now: ts,
-    })!;
+    });
+    if (cache === null) {
+      throw new Error("Expected review target cache after upsert.");
+    }
+    return cache;
   }
 
   getReviewTargetCache(input: {

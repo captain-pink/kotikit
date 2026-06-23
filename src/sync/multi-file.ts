@@ -1,6 +1,6 @@
 import type { Database } from "bun:sqlite";
-import { mkdir, writeFile } from "fs/promises";
-import { dirname } from "path";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { initComponentsDb, upsertComponent } from "../db/components-db.js";
 import { initIconsDb } from "../db/icons-db.js";
 import { getRegistry, initRegistryDb, upsertRegistryDsRow } from "../db/registry-db.js";
@@ -70,13 +70,13 @@ async function writeComponentJson(root: string, json: ComponentJson): Promise<vo
   const slug = slugifyComponentName(json.name);
   const path = componentJsonPath(root, slug);
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, JSON.stringify(json, null, 2) + "\n", "utf-8");
+  await writeFile(path, `${JSON.stringify(json, null, 2)}\n`, "utf-8");
 }
 
 async function writeReport(root: string, report: SyncReport): Promise<void> {
   const path = syncReportPath(root);
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, JSON.stringify(report, null, 2) + "\n", "utf-8");
+  await writeFile(path, `${JSON.stringify(report, null, 2)}\n`, "utf-8");
 }
 
 /**
@@ -175,8 +175,7 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
   };
 
   // Drive sync per file in declared order.
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i]!;
+  for (const [i, file] of files.entries()) {
     const resumeFrom = fileEntryByKey.get(file.key);
 
     // Skip files already completed in a prior run.

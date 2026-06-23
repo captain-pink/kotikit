@@ -20,7 +20,8 @@ function makeStub(
 ): SpawnFn {
   return async (cmd) => {
     // Match by the tool name ("tsc", "eslint", "prettier", "vitest") — bunx --no-install <tool> ...
-    const tool = cmd.find((c) => ["tsc", "eslint", "prettier", "vitest"].includes(c)) ?? cmd[0]!;
+    const tool = cmd.find((c) => ["tsc", "eslint", "prettier", "vitest"].includes(c)) ?? cmd[0];
+    if (tool === undefined) throw new Error("Expected a command name.");
     const r = responses[tool] ?? { exitCode: 1, stderr: "no fixture" };
     return {
       stdout: r.stdout ?? "",

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { resolve } from "path";
+import { resolve } from "node:path";
 import {
   type CoAuthorMode,
   parseAgentSelection,
@@ -32,7 +32,7 @@ function parseCoAuthorMode(value: string | undefined): CoAuthorMode {
 }
 
 function parseArgs(argv: string[], defaults: { cwd: string; kotikitRoot: string }): CliOptions {
-  const seed: CliOptions = {
+  const opts: CliOptions = {
     targetRoot: defaults.cwd,
     kotikitRoot: defaults.kotikitRoot,
     agents: ["claude", "codex"],
@@ -42,37 +42,62 @@ function parseArgs(argv: string[], defaults: { cwd: string; kotikitRoot: string 
     help: false,
   };
 
-  return argv.reduce<CliOptions>((opts, arg, index) => {
+  argv.forEach((arg, index) => {
     if (
       argv[index - 1] === "--target" ||
       argv[index - 1] === "--kotikit-root" ||
       argv[index - 1] === "--agents" ||
       argv[index - 1] === "--co-author"
     ) {
-      return opts;
+      return;
     }
-    if (arg === "--help" || arg === "-h") return { ...opts, help: true };
-    if (arg === "--no-env") return { ...opts, ensureEnv: false };
-    if (arg === "--no-skill") return { ...opts, installSkills: false };
-    if (arg === "--target") return { ...opts, targetRoot: readFlagValue(argv, index, "--target") };
-    if (arg.startsWith("--target=")) return { ...opts, targetRoot: arg.slice("--target=".length) };
-    if (arg === "--kotikit-root")
-      return { ...opts, kotikitRoot: readFlagValue(argv, index, "--kotikit-root") };
-    if (arg.startsWith("--kotikit-root="))
-      return { ...opts, kotikitRoot: arg.slice("--kotikit-root=".length) };
-    if (arg === "--agents")
-      return { ...opts, agents: parseAgentSelection(readFlagValue(argv, index, "--agents")) };
-    if (arg.startsWith("--agents="))
-      return { ...opts, agents: parseAgentSelection(arg.slice("--agents=".length)) };
-    if (arg === "--co-author")
-      return {
-        ...opts,
-        coAuthorMode: parseCoAuthorMode(readFlagValue(argv, index, "--co-author")),
-      };
-    if (arg.startsWith("--co-author="))
-      return { ...opts, coAuthorMode: parseCoAuthorMode(arg.slice("--co-author=".length)) };
+    if (arg === "--help" || arg === "-h") {
+      opts.help = true;
+      return;
+    }
+    if (arg === "--no-env") {
+      opts.ensureEnv = false;
+      return;
+    }
+    if (arg === "--no-skill") {
+      opts.installSkills = false;
+      return;
+    }
+    if (arg === "--target") {
+      opts.targetRoot = readFlagValue(argv, index, "--target");
+      return;
+    }
+    if (arg.startsWith("--target=")) {
+      opts.targetRoot = arg.slice("--target=".length);
+      return;
+    }
+    if (arg === "--kotikit-root") {
+      opts.kotikitRoot = readFlagValue(argv, index, "--kotikit-root");
+      return;
+    }
+    if (arg.startsWith("--kotikit-root=")) {
+      opts.kotikitRoot = arg.slice("--kotikit-root=".length);
+      return;
+    }
+    if (arg === "--agents") {
+      opts.agents = parseAgentSelection(readFlagValue(argv, index, "--agents"));
+      return;
+    }
+    if (arg.startsWith("--agents=")) {
+      opts.agents = parseAgentSelection(arg.slice("--agents=".length));
+      return;
+    }
+    if (arg === "--co-author") {
+      opts.coAuthorMode = parseCoAuthorMode(readFlagValue(argv, index, "--co-author"));
+      return;
+    }
+    if (arg.startsWith("--co-author=")) {
+      opts.coAuthorMode = parseCoAuthorMode(arg.slice("--co-author=".length));
+      return;
+    }
     throw new Error(`Unknown option: ${arg}`);
-  }, seed);
+  });
+  return opts;
 }
 
 function helpText(): string {

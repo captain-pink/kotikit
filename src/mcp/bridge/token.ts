@@ -1,6 +1,6 @@
-import { existsSync } from "fs";
-import { mkdir, readFile, rename, unlink, writeFile } from "fs/promises";
-import { dirname } from "path";
+import { existsSync } from "node:fs";
+import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { z } from "zod";
 
 export const BridgeConfigSchema = z.object({
@@ -32,7 +32,7 @@ export async function writeBridgeConfig(root: string, cfg: BridgeConfig): Promis
   const path = bridgePath(root);
   await mkdir(dirname(path), { recursive: true });
   const tmp = `${path}.tmp`;
-  await writeFile(tmp, JSON.stringify(cfg, null, 2) + "\n", "utf-8");
+  await writeFile(tmp, `${JSON.stringify(cfg, null, 2)}\n`, "utf-8");
   await rename(tmp, path);
 }
 

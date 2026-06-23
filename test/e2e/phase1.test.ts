@@ -1,9 +1,9 @@
 import { afterAll, describe, expect, it } from "bun:test";
+import { existsSync } from "node:fs";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { existsSync } from "fs";
-import { mkdtemp, readFile, rm } from "fs/promises";
-import { tmpdir } from "os";
-import { join } from "path";
 import simpleGit from "simple-git";
 import { loadConfig } from "../../src/config/load.js";
 import { ConfigSchema } from "../../src/config/schema.js";
@@ -205,17 +205,21 @@ describe("Phase 1 E2E — happy path", () => {
       kind: string;
     }[];
     const flowEntry = indexJson.find((e) => e.scope === "checkout-flow");
-    expect(flowEntry).toBeDefined();
-    expect(flowEntry!.kind).toBe("flow");
+    if (flowEntry === undefined) {
+      throw new Error("Expected checkout flow index entry.");
+    }
+    expect(flowEntry.kind).toBe("flow");
 
     // ── Step 7: Assert git ─────────────────────────────────────────────────
     const log = await git.log();
     const specCommit = log.all.find((c) => c.message.includes("feat(spec): create checkout-flow"));
-    expect(specCommit).toBeDefined();
+    if (specCommit === undefined) {
+      throw new Error("Expected checkout flow spec commit.");
+    }
 
     // Check Co-authored-by in commit body
     const { $ } = await import("bun");
-    const body = await $`git -C ${tmpDir} show -s --format=%B ${specCommit!.hash}`.text();
+    const body = await $`git -C ${tmpDir} show -s --format=%B ${specCommit.hash}`.text();
     expect(body).toContain("Co-authored-by: Claude Code");
 
     // No extra branches

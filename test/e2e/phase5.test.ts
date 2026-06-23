@@ -1,9 +1,9 @@
 import { afterAll, afterEach, describe, expect, it } from "bun:test";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "fs";
-import { rm } from "fs/promises";
-import { tmpdir } from "os";
-import { join } from "path";
 import simpleGit from "simple-git";
 import { loadConfig, writeConfig } from "../../src/config/load.js";
 import { defaultConfig } from "../../src/config/schema.js";
@@ -72,6 +72,14 @@ function parseDetail(text: string): unknown {
   const i = text.indexOf("\n\n");
   if (i === -1) return {};
   return JSON.parse(text.slice(i + 2));
+}
+
+function parseToolDetail(result: ToolResult): unknown {
+  const text = result.content[0]?.text;
+  if (text === undefined) {
+    throw new Error("Expected tool result text.");
+  }
+  return parseDetail(text);
 }
 
 function seedDsComponentJson(root: string, name: string): void {
@@ -210,7 +218,7 @@ describe("Phase 5 E2E — design plan happy path", () => {
       scope: "profile-page",
     });
     expect(getResult.isError).toBeFalsy();
-    const getDetail = parseDetail(getResult.content[0]!.text) as {
+    const getDetail = parseToolDetail(getResult) as {
       plan: { pageName: string };
       spec: { title: string };
       dsComponents: Record<string, unknown>;
@@ -243,7 +251,11 @@ describe("Phase 5 E2E — design plan happy path", () => {
     const logText = readFileSync(designApplyLogPath(root, "profile-page", null), "utf-8");
     const lines = logText.trim().split("\n");
     expect(lines).toHaveLength(3);
-    const last = JSON.parse(lines[2]!);
+    const lastLine = lines[2];
+    if (lastLine === undefined) {
+      throw new Error("Expected third design apply log line.");
+    }
+    const last = JSON.parse(lastLine);
     expect(last.outcome).toBe("warned");
     expect(last.note).toBe("dsKey missing");
 

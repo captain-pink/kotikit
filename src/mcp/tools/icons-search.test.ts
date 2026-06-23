@@ -1,8 +1,8 @@
 import { afterAll, describe, expect, it } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { mkdtempSync, rmSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
 import { initIconsDb, upsertIcon } from "../../db/icons-db.js";
 import { openDb } from "../../db/sqlite.js";
 import { iconsDbPath } from "../../util/paths.js";
@@ -38,7 +38,7 @@ function seedIcons(root: string, icons: { name: string; key: string; svg?: strin
 
 async function callTool(registry: ToolRegistry, name: string, args: unknown) {
   const handler = registry.handlers.get(name);
-  if (!handler) throw new Error("missing handler " + name);
+  if (!handler) throw new Error(`missing handler ${name}`);
   return handler(args);
 }
 
@@ -46,6 +46,14 @@ function parseDetail(text: string): unknown {
   const i = text.indexOf("\n\n");
   if (i === -1) return {};
   return JSON.parse(text.slice(i + 2));
+}
+
+function parseToolDetail(result: { content: { text?: string }[] }): unknown {
+  const text = result.content[0]?.text;
+  if (text === undefined) {
+    throw new Error("Expected tool result text.");
+  }
+  return parseDetail(text);
 }
 
 describe("kotikit_icons_search", () => {
@@ -60,7 +68,7 @@ describe("kotikit_icons_search", () => {
     registerIconsSearchTools(registry, makeCtx(root));
     const result = await callTool(registry, "kotikit_icons_search", { query: "arrow*" });
     expect(result.isError).toBeFalsy();
-    const detail = parseDetail(result.content[0]!.text) as {
+    const detail = parseToolDetail(result) as {
       results: { name: string; svg?: string }[];
     };
     expect(detail.results.map((r) => r.name).sort()).toEqual(["arrow-left", "arrow-right"]);
@@ -79,7 +87,7 @@ describe("kotikit_icons_search", () => {
       includeSvg: true,
     });
     expect(result.isError).toBeFalsy();
-    const detail = parseDetail(result.content[0]!.text) as {
+    const detail = parseToolDetail(result) as {
       results: { name: string; svg?: string }[];
     };
     expect(detail.results[0]?.svg).toBe("<svg>R</svg>");
@@ -95,7 +103,7 @@ describe("kotikit_icons_search", () => {
     const registry = makeRegistry();
     registerIconsSearchTools(registry, makeCtx(root));
     const result = await callTool(registry, "kotikit_icons_search", { query: "arrow*", limit: 2 });
-    const detail = parseDetail(result.content[0]!.text) as { results: unknown[] };
+    const detail = parseToolDetail(result) as { results: unknown[] };
     expect(detail.results).toHaveLength(2);
   });
 

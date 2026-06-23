@@ -1,6 +1,6 @@
+import { existsSync, renameSync, rmSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
-import { existsSync, renameSync, rmSync } from "fs";
-import { fileURLToPath } from "url";
 import { defineConfig, type Plugin } from "vite";
 import { viteSingleFile } from "vite-plugin-singlefile";
 

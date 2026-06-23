@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
+import { existsSync } from "node:fs";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { existsSync } from "fs";
 import { getIconSvg, searchIcons } from "../../db/icons-db.js";
 import { designSystemDir, iconsDbPath } from "../../util/paths.js";
 import { KotikitError, toolError, toolText } from "../../util/result.js";

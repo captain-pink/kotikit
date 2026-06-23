@@ -1,10 +1,10 @@
 import { Database } from "bun:sqlite";
 import { afterAll, describe, expect, it } from "bun:test";
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "fs";
-import { rm } from "fs/promises";
-import { tmpdir } from "os";
-import { join } from "path";
 import simpleGit from "simple-git";
 import type { GateRunReport } from "../../src/codegen/gate-output.js";
 import type { runGates as defaultRunGates } from "../../src/codegen/gate-runner.js";
@@ -84,6 +84,22 @@ function parseDetail(text: string): unknown {
   const i = text.indexOf("\n\n");
   if (i === -1) return {};
   return JSON.parse(text.slice(i + 2));
+}
+
+function parseToolDetail(result: ToolResult): unknown {
+  const text = result.content[0]?.text;
+  if (text === undefined) {
+    throw new Error("Expected tool result text.");
+  }
+  return parseDetail(text);
+}
+
+function firstComponent<T>(components: T[]): T {
+  const component = components[0];
+  if (component === undefined) {
+    throw new Error("Expected scaffold component.");
+  }
+  return component;
 }
 
 function seedBins(root: string): void {
@@ -194,7 +210,7 @@ function makeDsFetch(): typeof globalThis.fetch {
     if (u.includes("/v1/files/FA/variables/local")) return jsonRes(FA.variables);
     if (u.includes("/v1/files/FA/nodes")) return jsonRes(FA.nodes);
     if (u.endsWith("/v1/files/FA")) return jsonRes(FA.file);
-    throw new Error("no fixture for " + u);
+    throw new Error(`no fixture for ${u}`);
   }) as unknown as typeof globalThis.fetch;
 }
 
@@ -238,7 +254,7 @@ describe("Phase 4 E2E — sync + scaffold happy path", () => {
       status: "design-only",
       kind: "component",
     });
-    const listDetail = parseDetail(listResult.content[0]!.text) as {
+    const listDetail = parseToolDetail(listResult) as {
       results: { name: string }[];
     };
     expect(listDetail.results.map((r) => r.name).sort()).toEqual(["Button", "Card", "Input"]);
@@ -248,7 +264,7 @@ describe("Phase 4 E2E — sync + scaffold happy path", () => {
       names: ["Button", "Card"],
     });
     expect(startResult.isError).toBeFalsy();
-    const startDetail = parseDetail(startResult.content[0]!.text) as {
+    const startDetail = parseToolDetail(startResult) as {
       components: {
         name: string;
         targetPath: string;
@@ -324,7 +340,7 @@ describe("Phase 4 E2E — no Storybook", () => {
     const startResult = await callTool(registry, "kotikit_scaffold_start", {
       names: ["Button"],
     });
-    const startDetail = parseDetail(startResult.content[0]!.text) as {
+    const startDetail = parseToolDetail(startResult) as {
       components: {
         name: string;
         targetPath: string;
@@ -337,7 +353,7 @@ describe("Phase 4 E2E — no Storybook", () => {
     expect(startDetail.components[0]?.storyPath).toBeUndefined();
     expect(startDetail.components[0]?.scaffoldShape.stories).toBeUndefined();
 
-    const c = startDetail.components[0]!;
+    const c = firstComponent(startDetail.components);
     const saveResult = await callTool(registry, "kotikit_scaffold_save", {
       files: [{ path: join(root, c.targetPath), content: c.scaffoldShape.tsx }],
     });
@@ -368,10 +384,10 @@ describe("Phase 4 E2E — gate failure", () => {
     const startResult = await callTool(registry, "kotikit_scaffold_start", {
       names: ["Button"],
     });
-    const startDetail = parseDetail(startResult.content[0]!.text) as {
+    const startDetail = parseToolDetail(startResult) as {
       components: { targetPath: string; scaffoldShape: { tsx: string } }[];
     };
-    const c = startDetail.components[0]!;
+    const c = firstComponent(startDetail.components);
 
     const saveResult = await callTool(registry, "kotikit_scaffold_save", {
       files: [{ path: join(root, c.targetPath), content: c.scaffoldShape.tsx }],
@@ -410,10 +426,10 @@ describe("Phase 4 E2E — sync preserves synced rows", () => {
     const startResult = await callTool(registry, "kotikit_scaffold_start", {
       names: ["Button"],
     });
-    const startDetail = parseDetail(startResult.content[0]!.text) as {
+    const startDetail = parseToolDetail(startResult) as {
       components: { targetPath: string; scaffoldShape: { tsx: string } }[];
     };
-    const c = startDetail.components[0]!;
+    const c = firstComponent(startDetail.components);
     await callTool(registry, "kotikit_scaffold_save", {
       files: [{ path: join(root, c.targetPath), content: c.scaffoldShape.tsx }],
     });
@@ -463,7 +479,7 @@ describe("Phase 4 E2E — Phase 3 + Phase 4 coexistence", () => {
     const sr = await callTool(registry, "kotikit_implement_code_start", {
       scope: "profile-page",
     });
-    const sd = parseDetail(sr.content[0]!.text) as {
+    const sd = parseToolDetail(sr) as {
       targetPath: string;
       testPath?: string;
       testScaffold: string;
@@ -493,7 +509,7 @@ describe("Phase 4 E2E — Phase 3 + Phase 4 coexistence", () => {
 
     // registry_search with no filters returns both
     const search = await callTool(registry, "kotikit_registry_search", {});
-    const detail = parseDetail(search.content[0]!.text) as {
+    const detail = parseToolDetail(search) as {
       results: { kind: string }[];
     };
     const kinds = new Set(detail.results.map((r) => r.kind));

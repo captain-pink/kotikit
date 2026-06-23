@@ -1,8 +1,8 @@
 import { afterAll, describe, expect, it } from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
 import { defaultConfig } from "../../config/schema.js";
 import { openDesignReviewDb } from "../../db/design-review-db.js";
 import type { FigmaDraftTarget } from "../../figma/draft-target.js";
@@ -32,13 +32,21 @@ function makeCtx(root: string): ToolContext {
 }
 async function callTool(registry: ToolRegistry, name: string, args: unknown) {
   const handler = registry.handlers.get(name);
-  if (!handler) throw new Error("missing handler " + name);
+  if (!handler) throw new Error(`missing handler ${name}`);
   return handler(args);
 }
 function parseDetail(text: string): unknown {
   const i = text.indexOf("\n\n");
   if (i === -1) return {};
   return JSON.parse(text.slice(i + 2));
+}
+
+function parseToolDetail(result: { content: { text?: string }[] }): unknown {
+  const text = result.content[0]?.text;
+  if (text === undefined) {
+    throw new Error("Expected tool result text.");
+  }
+  return parseDetail(text);
 }
 
 function seedDsComponentJson(root: string, name: string): void {
@@ -96,7 +104,7 @@ describe("kotikit_design_get_screen", () => {
     registerDesignScreenTools(registry, makeCtx(root));
     const result = await callTool(registry, "kotikit_design_get_screen", { scope: "cart" });
     expect(result.isError).toBeFalsy();
-    const detail = parseDetail(result.content[0]!.text) as {
+    const detail = parseToolDetail(result) as {
       plan: { pageName: string; target?: { pageName?: string } };
       spec: { title: string };
       dsComponents: Record<string, unknown>;
@@ -210,7 +218,7 @@ describe("kotikit_design_get_screen", () => {
     registerDesignScreenTools(registry, makeCtx(root));
     const result = await callTool(registry, "kotikit_design_get_screen", { scope: "cart" });
     expect(result.isError).toBeFalsy();
-    const detail = parseDetail(result.content[0]!.text) as {
+    const detail = parseToolDetail(result) as {
       dsComponents: Record<string, unknown>;
       componentCreationRequired: { name: string; componentSpecRef?: string }[];
     };
@@ -255,7 +263,7 @@ describe("kotikit_design_get_screen", () => {
       screen: "cart",
     });
     expect(result.isError).toBeFalsy();
-    const detail = parseDetail(result.content[0]!.text) as { flow?: { title: string } };
+    const detail = parseToolDetail(result) as { flow?: { title: string } };
     expect(detail.flow?.title).toBe("Checkout");
   });
 
@@ -302,7 +310,7 @@ describe("kotikit_design_get_screen", () => {
     const registry = makeRegistry();
     registerDesignScreenTools(registry, makeCtx(root));
     const result = await callTool(registry, "kotikit_design_get_screen", { scope: "members" });
-    const detail = parseDetail(result.content[0]!.text) as {
+    const detail = parseToolDetail(result) as {
       designPreferences: { key: string; rule: string }[];
     };
 

@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { loadDotEnv, parseDotEnv } from "./env.js";
 
 const tmpDirs: string[] = [];
@@ -127,7 +127,7 @@ describe("loadDotEnv", () => {
     delete process.env.FIGMA_TOKEN; // ensure clean
     const injected = await loadDotEnv(root);
     expect(injected.sort()).toEqual(["FIGMA_TOKEN", "OTHER"]);
-    expect(process.env["FIGMA_TOKEN"] as string | undefined).toBe("figd_test_token");
+    expect(process.env.FIGMA_TOKEN as string | undefined).toBe("figd_test_token");
     delete process.env.FIGMA_TOKEN; // cleanup
     delete process.env.OTHER;
   });

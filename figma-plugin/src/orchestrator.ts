@@ -157,7 +157,7 @@ const resultWithContext = (
   result: ApplyStepResult,
   shim: FigmaShim,
   state: OrchestratorState,
-  plan: DesignPlan
+  _plan: DesignPlan
 ): ApplyStepResult => ({
   ...result,
   ...(shim.getFileKey() !== undefined ? { fileKey: shim.getFileKey() } : {}),
@@ -220,12 +220,16 @@ async function applyStepInner(
   plan: DesignPlan
 ): Promise<ApplyStepResult> {
   await ensureState(state, shim, plan);
+  const sectionId = state.sectionId;
+  if (sectionId === null) {
+    throw new Error("Design plan section was not initialized.");
+  }
 
   try {
     if (step.kind === "define-state-frame") {
       const frame = await shim.createFrame({
         name: step.state,
-        parentId: state.sectionId!,
+        parentId: sectionId,
         width: step.width,
         height: step.height,
       });
@@ -442,8 +446,7 @@ export async function applyAll(opts: OrchestratorOpts): Promise<ApplyStepResult[
     frameByZone: new Map(),
   };
   const results: ApplyStepResult[] = [];
-  for (let i = 0; i < opts.plan.steps.length; i++) {
-    const step = opts.plan.steps[i]!;
+  for (const [i, step] of opts.plan.steps.entries()) {
     const result = await applyStepInner(step, i, opts.shim, state, opts.plan);
     results.push(result);
     opts.onStep?.(result);
@@ -473,8 +476,8 @@ export async function applyStep(
     outcome: "failed",
     note: "step index out of range",
   };
-  for (let i = 0; i <= opts.stepIndex && i < opts.plan.steps.length; i++) {
-    const step = opts.plan.steps[i]!;
+  for (const [i, step] of opts.plan.steps.entries()) {
+    if (i > opts.stepIndex) break;
     final = await applyStepInner(step, i, opts.shim, state, opts.plan);
     opts.onStep?.(final);
   }

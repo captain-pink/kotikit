@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { mkdtempSync, rmSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { openDesignReviewDb } from "./design-review-db.js";
 
 const tmpDirs: string[] = [];
@@ -146,13 +146,19 @@ describe("design review db", () => {
       ],
     });
 
+    if (finding === undefined) {
+      throw new Error("Expected design audit finding.");
+    }
     const [comment] = db.prepareDesignAuditComments({
       sessionId: session.sessionId,
-      findingIds: [finding!.findingId],
+      findingIds: [finding.findingId],
       limit: 10,
     });
+    if (comment === undefined) {
+      throw new Error("Expected prepared design audit comment.");
+    }
     db.markDesignAuditCommentPosted({
-      outboxId: comment!.outboxId,
+      outboxId: comment.outboxId,
       postedCommentId: "figma-comment-1",
     });
     const report = db.getDesignAuditReport({ sessionId: session.sessionId });
@@ -289,9 +295,12 @@ describe("design review db", () => {
       commentIds: ["c1"],
       message: "Fixed.",
     });
+    if (reply === undefined) {
+      throw new Error("Expected prepared comment reply.");
+    }
 
     db.markReplyPosted({
-      outboxId: reply!.outboxId,
+      outboxId: reply.outboxId,
       postedCommentId: "reply-1",
     });
     const report = db.getReviewReport({ sessionId: session.sessionId });

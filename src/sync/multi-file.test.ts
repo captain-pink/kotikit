@@ -1,8 +1,8 @@
 import { Database } from "bun:sqlite";
 import { afterAll, describe, expect, it } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { getRegistry, initRegistryDb, upsertRegistry } from "../db/registry-db.js";
 import { openDb } from "../db/sqlite.js";
 import {
@@ -61,7 +61,7 @@ function makeFetch(
       if (u.includes(`/v1/files/${fileKey}`) && !u.includes(`/v1/files/${fileKey}/`))
         return jsonRes(handlers.file?.() ?? { name: fileKey, document: { children: [] } });
     }
-    throw new Error("no fixture for " + u);
+    throw new Error(`no fixture for ${u}`);
   }) as unknown as typeof globalThis.fetch;
 }
 

@@ -53,6 +53,14 @@ function validPlan() {
   };
 }
 
+function stepAt(steps: unknown[], index: number): unknown {
+  const step = steps[index];
+  if (step === undefined) {
+    throw new Error(`Expected design plan step at index ${index}.`);
+  }
+  return step;
+}
+
 describe("DesignPlanSchema", () => {
   it("parses a valid plan with all step kinds and a semantic layout contract", () => {
     expect(() => DesignPlanSchema.parse(validPlan())).not.toThrow();
@@ -61,14 +69,14 @@ describe("DesignPlanSchema", () => {
   it("fills defaults: width=1440, height='auto'", () => {
     const plan = validPlan();
     const parsed = DesignPlanSchema.parse(plan);
-    const frame = parsed.steps[0]!;
+    const frame = stepAt(parsed.steps, 0);
     expect(frame).toMatchObject({ kind: "define-state-frame", width: 1440, height: "auto" });
   });
 
   it("fills auto-layout defaults: direction=VERTICAL, padding=24, itemSpacing=16", () => {
     const plan = validPlan();
     const parsed = DesignPlanSchema.parse(plan);
-    const al = parsed.steps[1]!;
+    const al = stepAt(parsed.steps, 1);
     expect(al).toMatchObject({
       kind: "apply-auto-layout",
       direction: "VERTICAL",
@@ -79,7 +87,7 @@ describe("DesignPlanSchema", () => {
 
   it("fills layout-zone defaults for stable target regions", () => {
     const parsed = DesignPlanSchema.parse(validPlan());
-    const zone = parsed.steps[2]!;
+    const zone = stepAt(parsed.steps, 2);
     expect(zone).toMatchObject({
       kind: "define-layout-zone",
       parentZone: "root",
@@ -93,7 +101,7 @@ describe("DesignPlanSchema", () => {
   it("fills bind-variable defaults: property=fill", () => {
     const plan = validPlan();
     const parsed = DesignPlanSchema.parse(plan);
-    const bind = parsed.steps[4]!;
+    const bind = stepAt(parsed.steps, 4);
     expect(bind).toMatchObject({ kind: "bind-variable", property: "fill" });
   });
 

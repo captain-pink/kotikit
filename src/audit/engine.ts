@@ -1,7 +1,7 @@
 import type { Database } from "bun:sqlite";
-import { existsSync } from "fs";
-import { readFile } from "fs/promises";
-import { join } from "path";
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { type RegistryRow, searchRegistry } from "../db/registry-db.js";
 import { ComponentJsonSchema } from "../sync/component-shape.js";
 import { nowIso } from "../util/ids.js";

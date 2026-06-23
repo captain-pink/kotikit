@@ -1,5 +1,5 @@
-import { mkdir, readFile, rename, stat, writeFile } from "fs/promises";
-import { dirname, join, resolve } from "path";
+import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 
 export type AgentKind = "claude" | "codex";
 export type CoAuthorMode = "auto" | "none" | "claude" | "codex";

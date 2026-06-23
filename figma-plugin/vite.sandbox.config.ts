@@ -1,5 +1,5 @@
+import { fileURLToPath } from "node:url";
 import type { OutputAsset, OutputBundle, OutputChunk } from "rollup";
-import { fileURLToPath } from "url";
 import { defineConfig } from "vite";
 
 const FORBIDDEN_SANDBOX_SYNTAX = [

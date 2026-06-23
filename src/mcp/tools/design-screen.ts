@@ -1,6 +1,6 @@
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { existsSync } from "fs";
-import { readFile } from "fs/promises";
 import { defaultConfig } from "../../config/schema.js";
 import { openDesignReviewDb } from "../../db/design-review-db.js";
 import { readDesignPlan } from "../../planning/design-plan-store.js";
@@ -59,7 +59,7 @@ function registerDesignGetScreen(registry: ToolRegistry, ctx: ToolContext): void
       const plan = await readDesignPlan(root, scope, screenSlug);
       if (!plan) {
         throw new KotikitError(
-          `No design plan yet for ${scope}${screenSlug ? "/" + screenSlug : ""}.`,
+          `No design plan yet for ${scope}${screenSlug ? `/${screenSlug}` : ""}.`,
           `Call plan_design first to generate the plan.`
         );
       }

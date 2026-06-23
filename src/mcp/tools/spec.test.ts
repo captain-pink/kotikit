@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { execSync } from "child_process";
-import { mkdirSync, rmSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
+import { execSync } from "node:child_process";
+import { mkdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { FlowDraft, SingleDraft } from "../../spec/decompose";
 import { readScreenSpec } from "../../spec/engine";
 import { readIndex } from "../../spec/index-store";
@@ -147,10 +147,12 @@ describe("kotikit_spec_create — multi-screen flow", () => {
     expect(index.length).toBeGreaterThan(0);
     // The flow entry should list all screen ids
     const flowEntry = index.find((e) => e.scope === "checkout-flow");
-    expect(flowEntry).toBeDefined();
-    expect(flowEntry!.screens).toContain("cart");
-    expect(flowEntry!.screens).toContain("shipping");
-    expect(flowEntry!.screens).toContain("payment");
+    if (flowEntry === undefined) {
+      throw new Error("Expected checkout flow index entry.");
+    }
+    expect(flowEntry.screens).toContain("cart");
+    expect(flowEntry.screens).toContain("shipping");
+    expect(flowEntry.screens).toContain("payment");
   });
 
   it("response text mentions scope and screen count", async () => {

@@ -1,6 +1,6 @@
-import { existsSync } from "fs";
-import { mkdir, readFile, rename, unlink, writeFile } from "fs/promises";
-import { dirname } from "path";
+import { existsSync } from "node:fs";
+import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { z } from "zod";
 import { checkpointPath } from "../util/paths.js";
 
@@ -98,7 +98,7 @@ export async function writeCheckpoint(root: string, cp: Checkpoint): Promise<voi
   CheckpointSchema.parse(cp);
   await mkdir(dirname(path), { recursive: true });
   const tmpPath = `${path}.tmp`;
-  await writeFile(tmpPath, JSON.stringify(cp, null, 2) + "\n", "utf-8");
+  await writeFile(tmpPath, `${JSON.stringify(cp, null, 2)}\n`, "utf-8");
   await rename(tmpPath, path);
 }
 

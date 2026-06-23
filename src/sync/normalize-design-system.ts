@@ -120,11 +120,11 @@ function parseVariantParts(name: string): Array<{ propertyName: string; value: s
     .map((part) => part.trim())
     .map((part) => /^([^=]+?)\s*=\s*(.+)$/.exec(part))
     .filter((match): match is RegExpExecArray => match !== null)
-    .map((match) => ({
-      propertyName: match[1]!.trim(),
-      value: match[2]!.trim(),
-    }))
-    .filter((part) => part.propertyName.length > 0 && part.value.length > 0);
+    .flatMap((match) => {
+      const propertyName = match[1]?.trim();
+      const value = match[2]?.trim();
+      return propertyName && value ? [{ propertyName, value }] : [];
+    });
 }
 
 function inferPropertyDefinitions(

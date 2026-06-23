@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
-import { existsSync } from "fs";
-import { mkdir, writeFile } from "fs/promises";
-import { dirname } from "path";
+import { existsSync } from "node:fs";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { runAudit } from "../../audit/engine.js";
 import { registryDbPath } from "../../util/paths.js";
 import { KotikitError, toolError, toolText } from "../../util/result.js";
@@ -40,7 +40,7 @@ export function registerAuditTools(registry: ToolRegistry, ctx: ToolContext): vo
       // Write audit-report.json
       const reportPath = `${root}/.kotikit/audit-report.json`;
       await mkdir(dirname(reportPath), { recursive: true });
-      await writeFile(reportPath, JSON.stringify(report, null, 2) + "\n", "utf-8");
+      await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf-8");
 
       const s = report.summary;
       const total = s.syncedOk + s.syncedMismatched + s.designOnly + s.codeOnly;
