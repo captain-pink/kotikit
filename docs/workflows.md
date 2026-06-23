@@ -70,10 +70,11 @@ The assistant should:
 3. Ask for an exact Figma draft page link.
 4. Bind that page as the safe target.
 5. Generate a design plan.
-6. Start the Figma plugin bridge if needed.
-7. Ask you to open the draft page, run the kotikit plugin, and connect with the
-   bridge URL.
-8. Let the plugin apply the design inside a kotikit-owned Section.
+6. Fetch the kotikit apply packet.
+7. Use the official Figma assistant integration to create or refine the design
+   inside a kotikit-owned Section.
+8. Record applied node metadata back into kotikit so comment review can map
+   feedback to the right design parts.
 
 Draft page rules:
 

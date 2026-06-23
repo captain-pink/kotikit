@@ -353,11 +353,11 @@ See also: `kotikit_scaffold_start`, `kotikit_audit`.
 
 ---
 
-## Design track (Figma plugin)
+## Design track (official Figma MCP + kotikit audit)
 
 ### kotikit_bridge_start
 
-Purpose: Prepare the Figma plugin if needed, patch its manifest for the selected localhost port, start the local bridge from the running kotikit MCP process, and return the pasteable plugin URL.
+Purpose: Prepare the local kotikit plugin if needed, patch its manifest for the selected localhost port, start the local bridge from the running kotikit MCP process, and return the pasteable plugin URL. Use this for variable fallback, not normal design application.
 Input: `{ preferredPort?: number }`
 Output: `{ running, staleConfig, projectRoot, projectName, port, url, startedAt }` plus a designer-facing summary.
 Token cost: ~90.
@@ -390,7 +390,7 @@ See also: `kotikit_bridge_start`, `kotikit_doctor`.
 
 ### kotikit_plan_design
 
-Purpose: Generate and save the per-screen design plan (ordered step list for the Figma plugin) from a spec and its bound Figma draft target.
+Purpose: Generate and save the per-screen design plan from a spec and its bound Figma draft target. The assistant applies this plan through the official Figma MCP integration.
 Input: `{ scope: string; screen?: string }`
 Output: `{ planPath: string; plan: { target, pageName, steps: DesignStep[] }; commit: CommitResult }`
 Token cost: ~981.
@@ -426,9 +426,9 @@ See also: `kotikit_design_get_screen`, `kotikit_sync_plugin_variables`.
 
 ### kotikit_design_get_screen ⚠
 
-Purpose: Fetch the design plan, spec, optional flow manifest, and DS component bundle for one screen — the full context the Figma plugin needs.
+Purpose: Fetch the official Figma MCP apply packet for one screen: design plan, spec, optional flow manifest, bound target, DS component bundle, design preferences, and audit instructions.
 Input: `{ scope: string; screen?: string }`
-Output: `{ plan: DesignPlan; spec: ScreenSpec; flow?: FlowManifest; target: FigmaDraftTarget; dsComponents: Record<string, ComponentJson>; skipped: { name, reason }[] }`
+Output: `{ applyMode: "official-figma-mcp"; applyInstructions: string[]; plan: DesignPlan; spec: ScreenSpec; flow?: FlowManifest; target: FigmaDraftTarget; dsComponents: Record<string, ComponentJson>; skipped: { name, reason }[] }`
 Token cost: ~1513 ⚠.
 Example: "Get the design context for the profile screen."
 Notes: Legacy design plans without a bound target are blocked. Bind the draft page and regenerate the design plan before applying it in Figma.
@@ -438,11 +438,11 @@ See also: `kotikit_figma_target_bind`, `kotikit_plan_design`, `kotikit_design_ap
 
 ### kotikit_design_apply_step
 
-Purpose: Record that the Figma plugin applied a design plan step. Appends to an audit log and, when Figma node metadata is provided, updates the screen's `design.node-map.json` for later comment mapping.
+Purpose: Record that the official Figma MCP apply path created or updated a design plan step. Appends to an audit log and, when Figma node metadata is provided, updates the screen's `design.node-map.json` for later comment mapping.
 Input: `{ scope: string; screen?: string; stepIndex: number; outcome: "ok" | "warned" | "failed"; note?: string; stepKind?: DesignStepKind; state?: string; componentName?: string; dsKey?: string; figmaFileKey?: string; figmaPageId?: string; figmaPageName?: string; figmaPageUrl?: string; figmaSectionId?: string; figmaSectionName?: string; figmaNodeId?: string; figmaNodeKind?: "page" | "frame" | "instance" | "node"; figmaNodeName?: string }`
 Output: `{ line: string }` — the raw JSON line written to the log.
 Token cost: ~60.
-Example: _(called by the Figma plugin, not directly by the designer)_
+Example: _(called by the assistant after official Figma writes, not directly by the designer)_
 Notes: `DesignStepKind` includes `define-state-frame`, `apply-auto-layout`, `define-layout-zone`, `place-component`, and `bind-variable`. When node metadata is provided, the tool validates the reported file, page, and kotikit Section against the bound draft target before updating the node map.
 See also: `kotikit_design_get_screen`, `kotikit_plan_design`.
 

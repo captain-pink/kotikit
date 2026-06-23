@@ -89,8 +89,8 @@ currently focused on stabilizing design creation, review, and design-system use.
 - **Engineers** who want design work to become structured before implementation
   starts.
 - **Agent workflow builders** who want to study a local-first MCP and Figma
-  workflow built from specs, SQLite indexes, assistant skills, and a Figma
-  plugin bridge.
+  workflow built from specs, SQLite indexes, assistant skills, official Figma
+  MCP writes, and a small local variable plugin.
 
 ## What Works Today
 
@@ -100,7 +100,7 @@ currently focused on stabilizing design creation, review, and design-system use.
 - Adaptive Figma API pacing and resumable sync for larger libraries.
 - Component and icon search over the synced design system.
 - Safe Figma draft page binding.
-- Figma plugin bridge for applying generated design plans.
+- Official Figma MCP apply packets for creating draft designs in Figma.
 - Variable import fallback through the plugin for non-Enterprise Figma plans.
 - Browserless Figma comment review.
 - Standalone design-quality review for exact Figma targets.
@@ -135,10 +135,11 @@ kotikit has four main pieces:
    `design-system/` so agents can search instead of loading huge files into
    context.
 
-4. **Figma plugin bridge**  
-   The optional plugin connects the open Figma file to the local MCP server so
-   kotikit can apply draft designs and import variables through Figma's Plugin
-   API.
+4. **Figma apply path**  
+   The official Figma assistant integration writes draft designs in Figma using
+   kotikit's saved plan, target, design-system matches, and safety rules. The
+   local kotikit plugin is reserved for variable import on Figma plans where the
+   REST Variables API is unavailable.
 
 See [docs/architecture.md](docs/architecture.md) for the detailed system map.
 
@@ -226,8 +227,8 @@ Variables through Figma's REST API are Enterprise-gated. On Professional or
 Organization plans, kotikit guides you through the local Figma plugin flow when
 variables or tokens are needed.
 
-See [docs/figma.md](docs/figma.md) for token scopes, draft page rules, plugin
-setup, and variable fallback details.
+See [docs/figma.md](docs/figma.md) for token scopes, official Figma
+integration setup, draft page rules, and variable fallback details.
 
 ## Keeping Sessions Cheap
 
@@ -249,7 +250,7 @@ Near term:
 
 - More reliable Figma draft creation across different design systems.
 - Better design-review drilldown without large context payloads.
-- Improved Figma plugin UX.
+- Better official Figma apply guidance.
 - Stronger component creation workflow for missing design-system pieces.
 - Better variable and library import flows.
 

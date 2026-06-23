@@ -101,9 +101,10 @@ copying files manually.
 This assistant integration is not the same as the kotikit local Figma plugin:
 
 - Figma's assistant integration lets your assistant connect to Figma in the
-  normal Figma-supported way.
-- kotikit's local Figma plugin applies kotikit design plans and exports
-  variables through the local bridge.
+  normal Figma-supported way. This is the path kotikit agents use to create or
+  refine Figma drafts.
+- kotikit's local Figma plugin only exports variables through the local bridge
+  when Figma's REST Variables API is unavailable.
 
 ## 5. Add Your Figma Token
 

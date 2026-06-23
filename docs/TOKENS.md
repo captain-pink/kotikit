@@ -4,10 +4,11 @@ This is a maintainer and agent-workflow reference. Normal kotikit users should
 not need to read it to create Figma drafts.
 
 kotikit is designed for Claude Code, Codex, and other MCP-capable agents. Every
-tool response enters the active conversation unless the caller is the Figma
-plugin bridge. Large responses can make the assistant slower, more expensive,
-and less reliable because they consume the same context the agent needs for
-product decisions.
+stdio tool response enters the active conversation. Large responses can make
+the assistant slower, more expensive, and less reliable because they consume
+the same context the agent needs for product decisions. The local Figma plugin
+bridge is reserved for variable export fallback and should return compact
+machine payloads instead of design instructions.
 
 The user-facing rule is simple: keep sessions focused, search before fetching
 details, and let kotikit use its defaults.
@@ -95,7 +96,7 @@ path design payload.
   tools, not the full history of the task.
 - Code and scaffold tools are intentionally measured for engineering
   visibility, but they are not part of the current guided designer workflow.
-- Figma plugin bridge responses do not normally enter the assistant context.
+- Local variable bridge responses do not normally enter the assistant context.
   Optimize bridge payloads for latency and plugin reliability first, then
   context size.
 

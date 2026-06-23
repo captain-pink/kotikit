@@ -9,6 +9,7 @@ Workflow:
 - Search first for design-system data, then fetch one exact component by path; never load whole indexes, manifests, icon lists, databases, or design-system directories into context.
 - If a screen needs components missing from the synced design system, ask the designer whether to create reusable draft components or build page-only inline pieces. Use kotikit_component_plan_create for that decision, require synced variables when available, and only allow literal fallback after explicit designer approval.
 - Before creating or refining a Figma design, ask for the exact target draft page URL and call kotikit_figma_target_bind. The page name must contain Draft or Drafts, and generated nodes stay inside the kotikit-owned Section for that screen.
-- When the user needs the Figma plugin, call kotikit_bridge_start and give them the returned URL instead of asking them to run terminal bridge commands.
+- Use official Figma MCP for design application. Fetch the kotikit apply packet with kotikit_design_get_screen, write to Figma with use_figma, use generate_figma_design only when capturing a web page or HTML reference is useful, then call kotikit_design_apply_step with node metadata for audit and comment mapping.
+- Use the local kotikit plugin only for variable export when Figma REST variables are unavailable. In that case, call kotikit_bridge_start and give the returned URL instead of asking the user to run terminal bridge commands.
 - User-facing errors should be the tool's friendly text, without stack traces or extra technical detail.
 `;

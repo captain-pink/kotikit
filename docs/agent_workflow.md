@@ -236,13 +236,14 @@ For creating or refining a Figma design from a saved spec:
     resolved.
 13. If the response includes `componentCreationRequired`, do not apply the main
    screen yet. Tell the designer which components still need creation or review.
-14. If the Figma plugin bridge is not running, call `kotikit_bridge_start` and
-   give the designer the returned bridge URL.
-15. Ask the designer to open the bound Figma draft file and page, run the
-   kotikit plugin, and connect to the bridge URL. The plugin will create or
-   reuse a kotikit-owned Section and apply all generated frames inside it.
-16. Apply the design plan step by step through the plugin, recording each result
-   with `kotikit_design_apply_step`.
+14. Use the official Figma assistant integration to create or refine the
+   design. Use `use_figma` for normal writes; use `generate_figma_design` only
+   when a web page or HTML reference should be captured into Figma.
+15. Keep all generated nodes inside the bound kotikit-owned Section. Do not use
+   the local kotikit plugin to apply the design; that plugin is only for
+   variable export when REST variables are unavailable.
+16. After each applied step or logical node group, record the result and Figma
+   node metadata with `kotikit_design_apply_step`.
 17. Record major decisions and tool completions with `kotikit_workflow_event`.
 18. Summarize what was created or refined in plain language.
 

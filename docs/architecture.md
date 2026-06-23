@@ -11,7 +11,8 @@ Assistant
   -> kotikit MCP server
   -> target project .kotikit state
   -> local design-system indexes
-  -> optional Figma plugin bridge
+  -> official Figma MCP integration
+  -> optional kotikit variable bridge
   -> Figma draft page
 ```
 
@@ -22,9 +23,9 @@ Assistant
 The MCP server exposes `kotikit_*` tools over stdio. Claude Code, Codex, and
 future MCP clients share the same tool set and engines.
 
-The Figma plugin bridge uses the same handler map over a localhost WebSocket,
-so plugin calls and assistant calls go through the same validation and business
-logic.
+The local kotikit plugin bridge uses the same handler map over a localhost
+WebSocket for the narrow variable-export fallback. Design creation uses the
+official Figma MCP integration instead of kotikit's local plugin.
 
 ### Local Project State
 
@@ -56,10 +57,17 @@ the latest decision summary so agents can resume without loading old history.
 Agents search the indexes first, then fetch exact component JSON files only
 when needed.
 
-### Figma Plugin Bridge
+### Figma Integrations
 
-The plugin bridge is optional for search and comment review, but required for
-applying generated design plans and exporting variables through the plugin API.
+Figma design creation uses the official Figma assistant integration. Kotikit
+generates a bounded apply packet, the assistant writes through official Figma
+tools, then reports applied node metadata back to kotikit with
+`kotikit_design_apply_step`.
+
+The local plugin bridge is used only for exporting variables through the Plugin
+API when REST variables are unavailable. Search, comments, design review, and
+design creation stay on the normal MCP plus Figma REST or official Figma
+assistant paths.
 
 The bridge:
 
@@ -77,7 +85,7 @@ Figma design creation is fail-closed:
 2. kotikit verifies that it points to a page node.
 3. The page name must contain `Draft` or `Drafts`.
 4. Design plans copy that target.
-5. The plugin creates or reuses a kotikit-owned Section.
+5. The official Figma integration creates or reuses a kotikit-owned Section.
 6. Apply-step reporting validates file, page, and Section metadata.
 
 This gives teams without Figma branches a practical safety boundary.
@@ -101,8 +109,9 @@ This gives teams without Figma branches a practical safety boundary.
    The planner turns a saved spec plus design-system references into semantic
    Figma plan steps.
 
-5. **Plugin apply**  
-   The plugin applies each step in Figma and reports results back to kotikit.
+5. **Official Figma apply**  
+   The assistant uses the official Figma integration to apply the plan and
+   reports results back to kotikit.
 
 6. **Review**  
    Comments and design-quality findings are stored in `design-review.db`.

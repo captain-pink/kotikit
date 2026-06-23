@@ -4,8 +4,10 @@ kotikit uses two Figma integration paths:
 
 1. The Figma REST API for syncing published libraries, reading comments, and
    posting approved comments.
-2. The local Figma plugin for applying draft designs and exporting variables
-   when REST variables are unavailable.
+2. The official Figma assistant integration for creating and refining draft
+   designs in Figma.
+3. The local kotikit Figma plugin only for exporting variables when REST
+   variables are unavailable.
 
 ## Personal Access Token
 
@@ -69,13 +71,22 @@ Generated frames are placed inside a kotikit-owned Section on that page. Later
 apply logs validate the Figma file, page, and Section metadata before updating
 node maps used for comment review.
 
-## Figma Plugin
+## Official Figma Assistant Integration
+
+Install the Figma assistant integration for the assistant you use, such as
+Claude Code or Codex, from inside Figma. Kotikit agents use that official
+integration to write draft designs with Figma's supported tools.
+
+In Codex-style environments, the relevant official Figma tools are
+`use_figma` for normal Figma writes and `generate_figma_design` only when a
+web page or HTML reference should be captured into Figma. Kotikit still owns
+the spec, design-system search, draft target, apply packet, and audit logging.
+
+## Local Kotikit Plugin
 
 The plugin is optional for design-system search and comment reading. It is
-needed for:
-
-- applying generated Figma design plans
-- exporting variables on Figma plans where REST variables are unavailable
+needed only for exporting variables on Figma plans where REST variables are
+unavailable.
 
 Build the plugin:
 
@@ -90,7 +101,8 @@ Import it in Figma:
 Plugins -> Development -> Import plugin from manifest -> ~/kotikit/figma-plugin/manifest.json
 ```
 
-Normally you do not start the bridge manually. Ask the assistant:
+Normally you do not start the bridge manually. Use it only when kotikit tells
+you variables could not be synced through the REST API. Ask the assistant:
 
 ```text
 Start the kotikit Figma plugin bridge.
@@ -98,7 +110,7 @@ Start the kotikit Figma plugin bridge.
 
 The assistant calls `kotikit_bridge_start`, prepares the plugin build if
 needed, patches the manifest for the selected localhost port, and gives you a
-one-time `ws://localhost:...?...` URL to paste into the plugin.
+one-time `ws://localhost:...?...` URL to paste into the local plugin.
 
 ## Variable Fallback
 
