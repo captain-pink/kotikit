@@ -71,9 +71,7 @@ export async function autoCommit(opts: AutoCommitOpts): Promise<CommitResult> {
   // Stage only the specified files
   for (const file of opts.files) {
     // Use relative path if absolute, otherwise use as-is
-    const rel = file.startsWith(opts.root)
-      ? file.slice(opts.root.length).replace(/^\//, "")
-      : file;
+    const rel = file.startsWith(opts.root) ? file.slice(opts.root.length).replace(/^\//, "") : file;
     await git.add(rel);
   }
 

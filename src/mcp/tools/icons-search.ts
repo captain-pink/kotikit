@@ -1,18 +1,15 @@
+import { Database } from "bun:sqlite";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { existsSync } from "fs";
+import { getIconSvg, searchIcons } from "../../db/icons-db.js";
+import { designSystemDir, iconsDbPath } from "../../util/paths.js";
+import { KotikitError, toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
-import { Database } from "bun:sqlite";
-import { existsSync } from "fs";
-import { searchIcons, getIconSvg } from "../../db/icons-db.js";
-import { iconsDbPath, designSystemDir } from "../../util/paths.js";
-import { toolText, toolError, KotikitError } from "../../util/result.js";
 
 // ─── Register icons search tools ──────────────────────────────────────────────
 
-export function registerIconsSearchTools(
-  registry: ToolRegistry,
-  ctx: ToolContext
-): void {
+export function registerIconsSearchTools(registry: ToolRegistry, ctx: ToolContext): void {
   registerIconsSearch(registry, ctx);
 }
 
@@ -28,8 +25,7 @@ function registerIconsSearch(registry: ToolRegistry, ctx: ToolContext): void {
       properties: {
         query: {
           type: "string",
-          description:
-            'FTS5 query string, e.g. "arrow*", "arrow right", "icon/arrow".',
+          description: 'FTS5 query string, e.g. "arrow*", "arrow right", "icon/arrow".',
         },
         limit: {
           type: "number",
@@ -37,8 +33,7 @@ function registerIconsSearch(registry: ToolRegistry, ctx: ToolContext): void {
         },
         includeSvg: {
           type: "boolean",
-          description:
-            "When true, each result includes the raw SVG string. Default: false.",
+          description: "When true, each result includes the raw SVG string. Default: false.",
         },
       },
       required: ["query"],
@@ -56,10 +51,7 @@ function registerIconsSearch(registry: ToolRegistry, ctx: ToolContext): void {
       };
 
       // Guard: design-system directory or icons.db must exist
-      if (
-        !existsSync(designSystemDir(ctx.root)) ||
-        !existsSync(iconsDbPath(ctx.root))
-      ) {
+      if (!existsSync(designSystemDir(ctx.root)) || !existsSync(iconsDbPath(ctx.root))) {
         return toolError(
           new KotikitError(
             "Your design system hasn't been synced yet.",

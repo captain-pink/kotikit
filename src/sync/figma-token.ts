@@ -1,6 +1,6 @@
+import { resolveSecret } from "../config/load.js";
 import type { Config } from "../config/schema.js";
 import { defaultConfig } from "../config/schema.js";
-import { resolveSecret } from "../config/load.js";
 import { loadDotEnv } from "../util/env.js";
 
 const DEFAULT_FIGMA_TOKEN_REF = "${FIGMA_TOKEN}";

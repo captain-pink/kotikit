@@ -4,10 +4,10 @@ import { buildNameTokens } from "./camel-tokens.js";
 export type IconSignal = "page" | "prefix" | "slash";
 
 export interface IconRow {
-  name: string;        // "arrow-right"
-  key: string;         // Figma node/component key
-  svg?: string;        // optional inline svg or url; UNINDEXED, lazy-read
-  signal: IconSignal;  // which detector matched
+  name: string; // "arrow-right"
+  key: string; // Figma node/component key
+  svg?: string; // optional inline svg or url; UNINDEXED, lazy-read
+  signal: IconSignal; // which detector matched
   fileKey: string;
 }
 
@@ -53,14 +53,7 @@ export function upsertIcon(db: Database, row: IconRow): void {
   db.prepare(`
     INSERT INTO icons (name, name_tokens, key, svg, signal, file_key)
     VALUES (?, ?, ?, ?, ?, ?)
-  `).run(
-    row.name,
-    buildNameTokens(row.name),
-    row.key,
-    row.svg ?? null,
-    row.signal,
-    row.fileKey
-  );
+  `).run(row.name, buildNameTokens(row.name), row.key, row.svg ?? null, row.signal, row.fileKey);
 }
 
 /**
@@ -72,19 +65,23 @@ export function searchIcons(
   queryTerm: string,
   limit: number = 50
 ): IconSearchResult[] {
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(`
     SELECT name, key, signal, file_key as fileKey
     FROM icons
     WHERE icons MATCH ?
     ORDER BY rank
     LIMIT ?
-  `).all(queryTerm, limit) as IconSearchResult[];
+  `)
+    .all(queryTerm, limit) as IconSearchResult[];
   return rows;
 }
 
 /** Read the svg payload for one icon by name. Returns null if missing or no svg stored. */
 export function getIconSvg(db: Database, name: string): string | null {
-  const row = db.prepare("SELECT svg FROM icons WHERE name = ?").get(name) as { svg: string | null } | null;
+  const row = db.prepare("SELECT svg FROM icons WHERE name = ?").get(name) as {
+    svg: string | null;
+  } | null;
   if (!row) return null;
   return row.svg;
 }

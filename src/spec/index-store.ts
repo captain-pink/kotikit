@@ -1,15 +1,15 @@
-import { readFile, writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
+import { mkdir, readFile, writeFile } from "fs/promises";
 import { dirname } from "path";
 import { indexPath } from "../util/paths";
 
 export interface IndexEntry {
-  scope: string;       // folder name, e.g. "checkout-flow"
+  scope: string; // folder name, e.g. "checkout-flow"
   title: string;
   kind: "screen" | "flow";
   status: "draft" | "active";
-  screens: string[];   // screen slugs; for single-screen: [scope-slug]; for flow: ["cart","shipping",…]
-  updatedAt: string;   // ISO-8601
+  screens: string[]; // screen slugs; for single-screen: [scope-slug]; for flow: ["cart","shipping",…]
+  updatedAt: string; // ISO-8601
 }
 
 /** Read the index, returning an empty array if the file does not exist. */

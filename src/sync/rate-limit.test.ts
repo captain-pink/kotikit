@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import { createAdaptiveLimiter, createLimiter } from "./rate-limit.js";
 
 describe("createLimiter", () => {
@@ -7,16 +7,22 @@ describe("createLimiter", () => {
     const starts: number[] = [];
     const start = Date.now();
     await Promise.all([
-      limiter.schedule(async () => { starts.push(Date.now() - start); }),
-      limiter.schedule(async () => { starts.push(Date.now() - start); }),
-      limiter.schedule(async () => { starts.push(Date.now() - start); }),
+      limiter.schedule(async () => {
+        starts.push(Date.now() - start);
+      }),
+      limiter.schedule(async () => {
+        starts.push(Date.now() - start);
+      }),
+      limiter.schedule(async () => {
+        starts.push(Date.now() - start);
+      }),
     ]);
     expect(starts).toHaveLength(3);
     // Each subsequent start at least ~50ms after the previous
     for (let i = 1; i < starts.length; i++) {
       const a = starts[i - 1] ?? 0;
       const b = starts[i] ?? 0;
-      expect(b - a).toBeGreaterThanOrEqual(40);  // allow 10ms slack
+      expect(b - a).toBeGreaterThanOrEqual(40); // allow 10ms slack
     }
   });
 
@@ -28,7 +34,7 @@ describe("createLimiter", () => {
       limiter.schedule(async () => {
         inFlight++;
         peak = Math.max(peak, inFlight);
-        await new Promise(r => setTimeout(r, 20));
+        await new Promise((r) => setTimeout(r, 20));
         inFlight--;
       })
     );
@@ -39,7 +45,9 @@ describe("createLimiter", () => {
   it("propagates errors", async () => {
     const limiter = createLimiter({ minTime: 0, maxConcurrent: 1 });
     await expect(
-      limiter.schedule(async () => { throw new Error("boom"); })
+      limiter.schedule(async () => {
+        throw new Error("boom");
+      })
     ).rejects.toThrow("boom");
   });
 
@@ -51,7 +59,11 @@ describe("createLimiter", () => {
 
   it("recovers concurrency after an error", async () => {
     const limiter = createLimiter({ minTime: 0, maxConcurrent: 1 });
-    await limiter.schedule(async () => { throw new Error("first"); }).catch(() => {});
+    await limiter
+      .schedule(async () => {
+        throw new Error("first");
+      })
+      .catch(() => {});
     const ok = await limiter.schedule(async () => "ok");
     expect(ok).toBe("ok");
   });

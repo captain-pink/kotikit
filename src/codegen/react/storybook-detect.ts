@@ -23,7 +23,10 @@ export async function hasStorybook(root: string): Promise<boolean> {
 
   try {
     const text = await readFile(pkgPath, "utf-8");
-    const pkg = JSON.parse(text) as { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
+    const pkg = JSON.parse(text) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
     const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
     for (const key of Object.keys(deps)) {
       if (key === "storybook") return true;

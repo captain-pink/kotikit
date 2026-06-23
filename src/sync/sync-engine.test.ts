@@ -1,12 +1,12 @@
-import { describe, it, expect } from "bun:test";
 import { Database } from "bun:sqlite";
-import { syncOneFile } from "./sync-engine.js";
+import { describe, expect, it } from "bun:test";
 import { initComponentsDb } from "../db/components-db.js";
 import { initIconsDb } from "../db/icons-db.js";
+import type { SyncPausedError } from "./errors.js";
 import { FigmaClient } from "./figma-client.js";
-import { createLimiter } from "./rate-limit.js";
 import { recordingProgressEmitter } from "./progress.js";
-import { SyncPausedError } from "./errors.js";
+import { createLimiter } from "./rate-limit.js";
+import { syncOneFile } from "./sync-engine.js";
 
 const FAST = { initialMs: 1, maxMs: 5, jitterMs: 0, maxAttempts: 3 };
 
@@ -58,9 +58,11 @@ describe("syncOneFile", () => {
     const fetch = (async (url: string | URL) => {
       const u = url.toString();
       if (u.includes("/v1/files/F1/components")) return jsonRes({ meta: { components: [] } });
-      if (u.includes("/v1/files/F1/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/F1/component_sets"))
+        return jsonRes({ meta: { component_sets: [] } });
       if (u.includes("/v1/files/F1/styles")) return jsonRes({ meta: { styles: [] } });
-      if (u.includes("/v1/files/F1/variables/local")) return jsonRes({ meta: { variables: {}, variableCollections: {} } });
+      if (u.includes("/v1/files/F1/variables/local"))
+        return jsonRes({ meta: { variables: {}, variableCollections: {} } });
       if (u.includes("/v1/files/F1/nodes")) return jsonRes({ nodes: {} });
       if (u.includes("/v1/files/F1")) {
         metadataUrl = u;
@@ -119,9 +121,11 @@ describe("syncOneFile", () => {
           },
         });
       }
-      if (u.includes("/v1/files/F1/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/F1/component_sets"))
+        return jsonRes({ meta: { component_sets: [] } });
       if (u.includes("/v1/files/F1/styles")) return jsonRes({ meta: { styles: [] } });
-      if (u.includes("/v1/files/F1/variables/local")) return jsonRes({ meta: { variables: {}, variableCollections: {} } });
+      if (u.includes("/v1/files/F1/variables/local"))
+        return jsonRes({ meta: { variables: {}, variableCollections: {} } });
       if (u.includes("/v1/files/F1/nodes")) return jsonRes({ nodes: {} });
       if (u.includes("/v1/files/F1")) return errorRes(500);
       throw new Error("no match: " + u);
@@ -152,7 +156,8 @@ describe("syncOneFile", () => {
     const fetch = (async (url: string | URL) => {
       const u = url.toString();
       calledUrls.push(u);
-      if (u.includes("/v1/files/F1/components")) throw new Error("components should not run after pause");
+      if (u.includes("/v1/files/F1/components"))
+        throw new Error("components should not run after pause");
       if (u.includes("/v1/files/F1")) {
         return jsonRes({ name: "F1", document: { children: [] } });
       }
@@ -324,10 +329,10 @@ describe("syncOneFile", () => {
         });
       }
       if (u.includes("/variables/local")) {
-        return new Response(
-          JSON.stringify({ meta: { variables: {}, variableCollections: {} } }),
-          { headers: { "Content-Type": "application/json" }, status: 200 }
-        );
+        return new Response(JSON.stringify({ meta: { variables: {}, variableCollections: {} } }), {
+          headers: { "Content-Type": "application/json" },
+          status: 200,
+        });
       }
       if (u.includes("/nodes")) {
         return new Response(JSON.stringify({ nodes: {} }), {
@@ -398,10 +403,10 @@ describe("syncOneFile", () => {
         });
       }
       // root file
-      return new Response(
-        JSON.stringify({ name: "x", document: { children: [] } }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ name: "x", document: { children: [] } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }) as unknown as typeof globalThis.fetch;
 
     const client = new FigmaClient({
@@ -481,15 +486,17 @@ describe("syncOneFile", () => {
       calledUrls.push(u);
 
       if (u.includes("/v1/files/F1/components")) return jsonRes({ meta: { components: [] } });
-      if (u.includes("/v1/files/F1/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/F1/component_sets"))
+        return jsonRes({ meta: { component_sets: [] } });
       if (u.includes("/v1/files/F1/styles")) return jsonRes({ meta: { styles: [] } });
-      if (u.includes("/v1/files/F1/variables/local")) return jsonRes({ meta: { variables: {}, variableCollections: {} } });
+      if (u.includes("/v1/files/F1/variables/local"))
+        return jsonRes({ meta: { variables: {}, variableCollections: {} } });
 
       // Fallback page-tree fetch: /nodes?ids=page1&depth=4
       if (u.includes("/v1/files/F1/nodes") && u.includes("depth=4")) {
         return jsonRes({
           nodes: {
-            "page1": {
+            page1: {
               document: {
                 id: "page1",
                 name: "Components",
@@ -510,9 +517,7 @@ describe("syncOneFile", () => {
         return jsonRes({
           name: "Mat3",
           document: {
-            children: [
-              { id: "page1", name: "Components", type: "CANVAS", children: [] },
-            ],
+            children: [{ id: "page1", name: "Components", type: "CANVAS", children: [] }],
           },
         });
       }
@@ -551,18 +556,22 @@ describe("syncOneFile", () => {
       calledUrls.push(u);
 
       if (u.includes("/v1/files/F1/components")) return jsonRes({ meta: { components: [] } });
-      if (u.includes("/v1/files/F1/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/F1/component_sets"))
+        return jsonRes({ meta: { component_sets: [] } });
       if (u.includes("/v1/files/F1/styles")) return jsonRes({ meta: { styles: [] } });
-      if (u.includes("/v1/files/F1/variables/local")) return jsonRes({ meta: { variables: {}, variableCollections: {} } });
+      if (u.includes("/v1/files/F1/variables/local"))
+        return jsonRes({ meta: { variables: {}, variableCollections: {} } });
 
       if (u.includes("/v1/files/F1/nodes") && u.includes("depth=4")) {
         const ids = new URL(u, "http://x").searchParams.get("ids") ?? "";
         if (ids.includes("p1")) {
           return jsonRes({
             nodes: {
-              "p1": {
+              p1: {
                 document: {
-                  id: "p1", name: "Components", type: "CANVAS",
+                  id: "p1",
+                  name: "Components",
+                  type: "CANVAS",
                   children: [{ id: "cBtn", name: "Button", type: "COMPONENT" }],
                 },
               },
@@ -572,9 +581,11 @@ describe("syncOneFile", () => {
         if (ids.includes("p2")) {
           return jsonRes({
             nodes: {
-              "p2": {
+              p2: {
                 document: {
-                  id: "p2", name: "Icons", type: "CANVAS",
+                  id: "p2",
+                  name: "Icons",
+                  type: "CANVAS",
                   children: [
                     { id: "ic1", name: "ic/arrow-right", type: "COMPONENT" },
                     { id: "ic2", name: "ic/arrow-left", type: "COMPONENT" },
@@ -629,14 +640,16 @@ describe("syncOneFile", () => {
       calledUrls.push(u);
 
       if (u.includes("/v1/files/F1/components")) return jsonRes({ meta: { components: [] } });
-      if (u.includes("/v1/files/F1/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/F1/component_sets"))
+        return jsonRes({ meta: { component_sets: [] } });
       if (u.includes("/v1/files/F1/styles")) return jsonRes({ meta: { styles: [] } });
-      if (u.includes("/v1/files/F1/variables/local")) return jsonRes({ meta: { variables: {}, variableCollections: {} } });
+      if (u.includes("/v1/files/F1/variables/local"))
+        return jsonRes({ meta: { variables: {}, variableCollections: {} } });
 
       if (u.includes("/v1/files/F1/nodes") && u.includes("depth=4")) {
         return jsonRes({
           nodes: {
-            "page1": {
+            page1: {
               document: {
                 id: "page1",
                 name: "Buttons",
@@ -651,7 +664,7 @@ describe("syncOneFile", () => {
       if (u.includes("/v1/files/F1/nodes") && u.includes("depth=8")) {
         return jsonRes({
           nodes: {
-            "page1": {
+            page1: {
               document: {
                 id: "page1",
                 name: "Buttons",
@@ -725,9 +738,11 @@ describe("syncOneFile", () => {
       const u = url.toString();
       calledUrls.push(u);
       if (u.includes("/v1/files/F1/components")) return jsonRes({ meta: { components: [] } });
-      if (u.includes("/v1/files/F1/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/F1/component_sets"))
+        return jsonRes({ meta: { component_sets: [] } });
       if (u.includes("/v1/files/F1/styles")) return jsonRes({ meta: { styles: [] } });
-      if (u.includes("/v1/files/F1/variables/local")) return jsonRes({ meta: { variables: {}, variableCollections: {} } });
+      if (u.includes("/v1/files/F1/variables/local"))
+        return jsonRes({ meta: { variables: {}, variableCollections: {} } });
       if (u.includes("/v1/files/F1/nodes")) return errorRes(429);
       if (u.includes("/v1/files/F1")) {
         return jsonRes({
@@ -766,28 +781,34 @@ describe("syncOneFile", () => {
     const fetch = (async (url: string | URL) => {
       const u = url.toString();
       if (u.includes("/v1/files/F1/components")) return jsonRes({ meta: { components: [] } });
-      if (u.includes("/v1/files/F1/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/F1/component_sets"))
+        return jsonRes({ meta: { component_sets: [] } });
       if (u.includes("/v1/files/F1/styles")) return jsonRes({ meta: { styles: [] } });
-      if (u.includes("/v1/files/F1/variables/local")) return jsonRes({ meta: { variables: {}, variableCollections: {} } });
+      if (u.includes("/v1/files/F1/variables/local"))
+        return jsonRes({ meta: { variables: {}, variableCollections: {} } });
       if (u.includes("/v1/files/F1/nodes") && u.includes("depth=4")) {
         return jsonRes({
           nodes: {
-            "page1": {
+            page1: {
               document: {
-                id: "page1", name: "Components", type: "CANVAS",
+                id: "page1",
+                name: "Components",
+                type: "CANVAS",
                 children: [
                   {
-                    id: "cs1", name: "Button", type: "COMPONENT_SET",
+                    id: "cs1",
+                    name: "Button",
+                    type: "COMPONENT_SET",
                     children: [
                       { id: "v1", name: "Button/Size=Small/Variant=Filled", type: "COMPONENT" },
                       { id: "v2", name: "Button/Size=Large/Variant=Filled", type: "COMPONENT" },
                     ],
                   },
                   {
-                    id: "cs2", name: "TextField", type: "COMPONENT_SET",
-                    children: [
-                      { id: "v3", name: "TextField/State=Default", type: "COMPONENT" },
-                    ],
+                    id: "cs2",
+                    name: "TextField",
+                    type: "COMPONENT_SET",
+                    children: [{ id: "v3", name: "TextField/State=Default", type: "COMPONENT" }],
                   },
                 ],
               },
@@ -799,7 +820,9 @@ describe("syncOneFile", () => {
       if (u.includes("/v1/files/F1")) {
         return jsonRes({
           name: "MUI3",
-          document: { children: [{ id: "page1", name: "Components", type: "CANVAS", children: [] }] },
+          document: {
+            children: [{ id: "page1", name: "Components", type: "CANVAS", children: [] }],
+          },
         });
       }
       throw new Error("no match: " + u);
@@ -835,9 +858,7 @@ describe("syncOneFile", () => {
       if (u.includes("/v1/files/F1/components")) {
         return jsonRes({
           meta: {
-            components: [
-              { key: "ckBtn", node_id: "nBtn", name: "Button" },
-            ],
+            components: [{ key: "ckBtn", node_id: "nBtn", name: "Button" }],
           },
         });
       }
@@ -1012,11 +1033,9 @@ describe("syncOneFile", () => {
     expect(result.componentJsons[0]?.name).toBe("MDS-Public-TW-Button");
     expect(result.componentJsons[0]?.key).toBe("button-md-fill");
     expect(result.componentJsons[0]?.componentSetKey).toBe("buttonSetKey");
-    expect(result.componentJsons[0]?.variants.map((variant) => variant.propertyName).sort()).toEqual([
-      "Size",
-      "State",
-      "Type",
-    ]);
+    expect(
+      result.componentJsons[0]?.variants.map((variant) => variant.propertyName).sort()
+    ).toEqual(["Size", "State", "Type"]);
     expect(calledUrls.some((url) => url.includes("buttonSetNode"))).toBe(true);
     expect(calledUrls.some((url) => url.includes("buttonVariant1"))).toBe(false);
   });
@@ -1025,9 +1044,11 @@ describe("syncOneFile", () => {
     const fetch = (async (url: string | URL) => {
       const u = url.toString();
       if (u.includes("/v1/files/F1/components")) return jsonRes({ meta: { components: [] } });
-      if (u.includes("/v1/files/F1/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/F1/component_sets"))
+        return jsonRes({ meta: { component_sets: [] } });
       if (u.includes("/v1/files/F1/styles")) return jsonRes({ meta: { styles: [] } });
-      if (u.includes("/v1/files/F1/variables/local")) return jsonRes({ meta: { variables: {}, variableCollections: {} } });
+      if (u.includes("/v1/files/F1/variables/local"))
+        return jsonRes({ meta: { variables: {}, variableCollections: {} } });
       if (u.includes("/v1/files/F1/nodes")) return jsonRes({ nodes: {} });
       if (u.includes("/v1/files/F1")) {
         return jsonRes({
@@ -1088,9 +1109,11 @@ describe("syncOneFile", () => {
       if (u.includes("/v1/files/F1/components")) {
         return jsonRes({ meta: { components: componentList } });
       }
-      if (u.includes("/v1/files/F1/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/F1/component_sets"))
+        return jsonRes({ meta: { component_sets: [] } });
       if (u.includes("/v1/files/F1/styles")) return jsonRes({ meta: { styles: [] } });
-      if (u.includes("/v1/files/F1/variables/local")) return jsonRes({ meta: { variables: {}, variableCollections: {} } });
+      if (u.includes("/v1/files/F1/variables/local"))
+        return jsonRes({ meta: { variables: {}, variableCollections: {} } });
       if (u.includes("/v1/files/F1/nodes")) {
         nodeRequestCount++;
         if (nodeRequestCount === 3) allNodeRequestsStarted.resolve();
@@ -1117,7 +1140,9 @@ describe("syncOneFile", () => {
       iconsDb,
     });
 
-    await expect(Promise.race([allNodeRequestsStarted.promise, timeout(50)])).resolves.toBeUndefined();
+    await expect(
+      Promise.race([allNodeRequestsStarted.promise, timeout(50)])
+    ).resolves.toBeUndefined();
     expect(nodeRequestCount).toBe(3);
 
     releaseNodeRequests.resolve();
@@ -1140,9 +1165,11 @@ describe("syncOneFile", () => {
       if (u.includes("/v1/files/F1/components")) {
         return jsonRes({ meta: { components: componentList } });
       }
-      if (u.includes("/v1/files/F1/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/F1/component_sets"))
+        return jsonRes({ meta: { component_sets: [] } });
       if (u.includes("/v1/files/F1/styles")) return jsonRes({ meta: { styles: [] } });
-      if (u.includes("/v1/files/F1/variables/local")) return jsonRes({ meta: { variables: {}, variableCollections: {} } });
+      if (u.includes("/v1/files/F1/variables/local"))
+        return jsonRes({ meta: { variables: {}, variableCollections: {} } });
       if (u.includes("/v1/files/F1/nodes")) {
         nodeRequestCount++;
         if (nodeRequestCount === 3) firstWaveStarted.resolve();
@@ -1197,9 +1224,11 @@ describe("syncOneFile", () => {
       if (u.includes("/v1/files/F1/components")) {
         return jsonRes({ meta: { components: componentList } });
       }
-      if (u.includes("/v1/files/F1/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/F1/component_sets"))
+        return jsonRes({ meta: { component_sets: [] } });
       if (u.includes("/v1/files/F1/styles")) return jsonRes({ meta: { styles: [] } });
-      if (u.includes("/v1/files/F1/variables/local")) return jsonRes({ meta: { variables: {}, variableCollections: {} } });
+      if (u.includes("/v1/files/F1/variables/local"))
+        return jsonRes({ meta: { variables: {}, variableCollections: {} } });
       if (u.includes("/v1/files/F1/nodes")) return jsonRes({ nodes: {} });
       if (u.includes("/v1/files/F1")) return jsonRes({ name: "F1", document: { children: [] } });
       throw new Error("no match: " + u);
@@ -1224,11 +1253,16 @@ describe("syncOneFile", () => {
       fileCtx: { index: 1, total: 1, name: "F1" },
     });
 
-    const progressEvents = events.filter((e) => e.kind === "stageProgress" && (e.payload as { stage?: string })?.stage === "node_details");
+    const progressEvents = events.filter(
+      (e) =>
+        e.kind === "stageProgress" && (e.payload as { stage?: string })?.stage === "node_details"
+    );
     // With 150 ids and BATCH=100, expect 2 progress events
     expect(progressEvents.length).toBeGreaterThanOrEqual(2);
     // processed values should be monotonically increasing
-    const processedValues = progressEvents.map((e) => (e.payload as { p: { processed: number } }).p.processed);
+    const processedValues = progressEvents.map(
+      (e) => (e.payload as { p: { processed: number } }).p.processed
+    );
     for (let i = 1; i < processedValues.length; i++) {
       expect(processedValues[i]).toBeGreaterThan(processedValues[i - 1]!);
     }

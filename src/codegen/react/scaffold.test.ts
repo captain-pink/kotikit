@@ -1,6 +1,6 @@
-import { describe, it, expect } from "bun:test";
-import { scaffoldComponent, buildComponentTsx, buildStoryTsx } from "./scaffold.js";
+import { describe, expect, it } from "bun:test";
 import type { ComponentJson } from "../../sync/component-shape.js";
+import { buildComponentTsx, buildStoryTsx, scaffoldComponent } from "./scaffold.js";
 
 function buttonJson(): ComponentJson {
   return {

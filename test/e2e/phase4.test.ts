@@ -1,33 +1,30 @@
-import { describe, it, expect, afterAll } from "bun:test";
+import { Database } from "bun:sqlite";
+import { afterAll, describe, expect, it } from "bun:test";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "fs";
 import { rm } from "fs/promises";
-import { existsSync, mkdirSync, writeFileSync, mkdtempSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import simpleGit from "simple-git";
-import { Database } from "bun:sqlite";
-
-import { registerSpecTools } from "../../src/mcp/tools/spec.js";
-import { registerConfigTools } from "../../src/mcp/tools/config.js";
-import { registerFlowTools } from "../../src/mcp/tools/flow.js";
-import { registerBrainstormTools } from "../../src/mcp/tools/brainstorm.js";
-import { registerPlanCodeTools } from "../../src/mcp/tools/plan-code.js";
-import { registerImplementCodeTools } from "../../src/mcp/tools/implement-code.js";
-import { registerRegistryTools } from "../../src/mcp/tools/registry.js";
-import { registerScaffoldTools } from "../../src/mcp/tools/scaffold.js";
-import { registerSyncTools } from "../../src/mcp/tools/sync.js";
-
-import { loadConfig, writeConfig } from "../../src/config/load.js";
-import { defaultConfig } from "../../src/config/schema.js";
-import type { ToolContext } from "../../src/mcp/context.js";
-import type { ToolRegistry } from "../../src/mcp/server.js";
-import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { GateRunReport } from "../../src/codegen/gate-output.js";
 import type { runGates as defaultRunGates } from "../../src/codegen/gate-runner.js";
-
+import { loadConfig, writeConfig } from "../../src/config/load.js";
+import { defaultConfig } from "../../src/config/schema.js";
+import { getRegistry } from "../../src/db/registry-db.js";
+import type { ToolContext } from "../../src/mcp/context.js";
+import type { ToolRegistry } from "../../src/mcp/server.js";
+import { registerBrainstormTools } from "../../src/mcp/tools/brainstorm.js";
+import { registerConfigTools } from "../../src/mcp/tools/config.js";
+import { registerFlowTools } from "../../src/mcp/tools/flow.js";
+import { registerImplementCodeTools } from "../../src/mcp/tools/implement-code.js";
+import { registerPlanCodeTools } from "../../src/mcp/tools/plan-code.js";
+import { registerRegistryTools } from "../../src/mcp/tools/registry.js";
+import { registerScaffoldTools } from "../../src/mcp/tools/scaffold.js";
+import { registerSpecTools } from "../../src/mcp/tools/spec.js";
+import { registerSyncTools } from "../../src/mcp/tools/sync.js";
 import { FigmaClient } from "../../src/sync/figma-client.js";
 import { createLimiter } from "../../src/sync/rate-limit.js";
 import { registryDbPath } from "../../src/util/paths.js";
-import { getRegistry } from "../../src/db/registry-db.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -40,8 +37,7 @@ function mkTmp(): string {
 }
 
 afterAll(async () => {
-  for (const d of tmpDirs)
-    await rm(d, { recursive: true, force: true }).catch(() => {});
+  for (const d of tmpDirs) await rm(d, { recursive: true, force: true }).catch(() => {});
 });
 
 type McpContent = { type: "text"; text: string };
@@ -69,26 +65,16 @@ function buildPhase4Registry(
     opts?.gateRunner ? { gateRunner: opts.gateRunner } : {}
   );
   registerRegistryTools(registry, ctx);
-  registerScaffoldTools(
-    registry,
-    ctx,
-    opts?.gateRunner ? { gateRunner: opts.gateRunner } : {}
-  );
+  registerScaffoldTools(registry, ctx, opts?.gateRunner ? { gateRunner: opts.gateRunner } : {});
   registerSyncTools(
     registry,
     ctx,
-    opts?.figmaClientFactory
-      ? { figmaClientFactory: opts.figmaClientFactory }
-      : {}
+    opts?.figmaClientFactory ? { figmaClientFactory: opts.figmaClientFactory } : {}
   );
   return registry;
 }
 
-async function callTool(
-  registry: ToolRegistry,
-  name: string,
-  args: unknown
-): Promise<ToolResult> {
+async function callTool(registry: ToolRegistry, name: string, args: unknown): Promise<ToolResult> {
   const handler = registry.handlers.get(name);
   if (!handler) throw new Error(`Tool not found: ${name}`);
   return handler(args);
@@ -161,9 +147,7 @@ function makeFailReport(
       exitCode: g === failingGate ? 1 : 0,
       durationMs: 25,
       failures:
-        g === failingGate
-          ? [{ file: "x.tsx", line: 1, column: 1, message: "stub fail" }]
-          : [],
+        g === failingGate ? [{ file: "x.tsx", line: 1, column: 1, message: "stub fail" }] : [],
       raw: "",
     })),
   };
@@ -205,11 +189,9 @@ function makeDsFetch(): typeof globalThis.fetch {
   return (async (url: string | URL) => {
     const u = url.toString();
     if (u.includes("/v1/files/FA/components")) return jsonRes(FA.components);
-    if (u.includes("/v1/files/FA/component_sets"))
-      return jsonRes(FA.component_sets);
+    if (u.includes("/v1/files/FA/component_sets")) return jsonRes(FA.component_sets);
     if (u.includes("/v1/files/FA/styles")) return jsonRes(FA.styles);
-    if (u.includes("/v1/files/FA/variables/local"))
-      return jsonRes(FA.variables);
+    if (u.includes("/v1/files/FA/variables/local")) return jsonRes(FA.variables);
     if (u.includes("/v1/files/FA/nodes")) return jsonRes(FA.nodes);
     if (u.endsWith("/v1/files/FA")) return jsonRes(FA.file);
     throw new Error("no fixture for " + u);
@@ -226,10 +208,7 @@ function makeFigmaClientFactory(fetchFn: typeof globalThis.fetch) {
     });
 }
 
-async function initConfigForSync(
-  root: string,
-  opts?: { autoCommit?: boolean }
-): Promise<void> {
+async function initConfigForSync(root: string, opts?: { autoCommit?: boolean }): Promise<void> {
   const cfg = defaultConfig();
   cfg.figma.token = "test-token";
   cfg.figma.designSystemFiles = [{ key: "FA", name: "DS" }];
@@ -262,11 +241,7 @@ describe("Phase 4 E2E — sync + scaffold happy path", () => {
     const listDetail = parseDetail(listResult.content[0]!.text) as {
       results: { name: string }[];
     };
-    expect(listDetail.results.map((r) => r.name).sort()).toEqual([
-      "Button",
-      "Card",
-      "Input",
-    ]);
+    expect(listDetail.results.map((r) => r.name).sort()).toEqual(["Button", "Card", "Input"]);
 
     // scaffold_start for two specific names
     const startResult = await callTool(registry, "kotikit_scaffold_start", {
@@ -305,18 +280,10 @@ describe("Phase 4 E2E — sync + scaffold happy path", () => {
     expect(saveResult.isError).toBeFalsy();
 
     // 4 files on disk
-    expect(
-      existsSync(join(root, "src/components/ui/button.tsx"))
-    ).toBe(true);
-    expect(
-      existsSync(join(root, "src/components/ui/button.stories.tsx"))
-    ).toBe(true);
-    expect(
-      existsSync(join(root, "src/components/ui/card.tsx"))
-    ).toBe(true);
-    expect(
-      existsSync(join(root, "src/components/ui/card.stories.tsx"))
-    ).toBe(true);
+    expect(existsSync(join(root, "src/components/ui/button.tsx"))).toBe(true);
+    expect(existsSync(join(root, "src/components/ui/button.stories.tsx"))).toBe(true);
+    expect(existsSync(join(root, "src/components/ui/card.tsx"))).toBe(true);
+    expect(existsSync(join(root, "src/components/ui/card.stories.tsx"))).toBe(true);
 
     // Registry: Button and Card synced; Input stays design-only
     const regDb = new Database(registryDbPath(root), { readonly: true });
@@ -333,9 +300,7 @@ describe("Phase 4 E2E — sync + scaffold happy path", () => {
     // One commit with both component names in the subject
     const git = simpleGit(root);
     const log = await git.log();
-    const commit = log.all.find((c) =>
-      c.message.includes("feat(code): create scaffold")
-    );
+    const commit = log.all.find((c) => c.message.includes("feat(code): create scaffold"));
     expect(commit).toBeDefined();
     expect(commit?.message).toContain("Button");
     expect(commit?.message).toContain("Card");
@@ -379,9 +344,7 @@ describe("Phase 4 E2E — no Storybook", () => {
     expect(saveResult.isError).toBeFalsy();
 
     expect(existsSync(join(root, "src/components/ui/button.tsx"))).toBe(true);
-    expect(
-      existsSync(join(root, "src/components/ui/button.stories.tsx"))
-    ).toBe(false);
+    expect(existsSync(join(root, "src/components/ui/button.stories.tsx"))).toBe(false);
 
     const regDb = new Database(registryDbPath(root), { readonly: true });
     expect(getRegistry(regDb, "component", "Button")?.status).toBe("synced");
@@ -420,17 +383,13 @@ describe("Phase 4 E2E — gate failure", () => {
 
     // Registry row still design-only
     const regDb = new Database(registryDbPath(root), { readonly: true });
-    expect(getRegistry(regDb, "component", "Button")?.status).toBe(
-      "design-only"
-    );
+    expect(getRegistry(regDb, "component", "Button")?.status).toBe("design-only");
     regDb.close();
 
     // No scaffold commit
     const git = simpleGit(root);
     const log = await git.log().catch(() => null);
-    expect(
-      (log?.all ?? []).find((c) => c.message.includes("scaffold"))
-    ).toBeUndefined();
+    expect((log?.all ?? []).find((c) => c.message.includes("scaffold"))).toBeUndefined();
   });
 });
 
@@ -512,8 +471,7 @@ describe("Phase 4 E2E — Phase 3 + Phase 4 coexistence", () => {
     const files: { path: string; content: string }[] = [
       {
         path: sd.targetPath,
-        content:
-          "export default function ProfilePage() { return null; }\n",
+        content: "export default function ProfilePage() { return null; }\n",
       },
     ];
     if (sd.testPath) {

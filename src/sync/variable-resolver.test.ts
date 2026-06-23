@@ -59,7 +59,12 @@ describe("variable resolver", () => {
 
   it("reports usable variables only when at least one variable source entry exists", () => {
     expect(hasUsableVariables(variables)).toBe(true);
-    expect(hasUsableVariables({ ...variables, entries: variables.entries.filter((entry) => entry.source === "style") })).toBe(false);
+    expect(
+      hasUsableVariables({
+        ...variables,
+        entries: variables.entries.filter((entry) => entry.source === "style"),
+      })
+    ).toBe(false);
   });
 
   it("summarizes whether plugin sync should be suggested before literals are allowed", () => {

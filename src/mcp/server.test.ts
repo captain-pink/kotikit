@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import { buildServer } from "./server.js";
 
 describe("MCP server", () => {
@@ -21,21 +21,31 @@ describe("MCP server", () => {
     const { registry } = buildServer();
     const expectedTools = [
       // Phase 1
-      "kotikit_spec_create", "kotikit_spec_get", "kotikit_spec_list", "kotikit_spec_update",
-      "kotikit_config_status", "kotikit_config_init", "kotikit_config_get",
+      "kotikit_spec_create",
+      "kotikit_spec_get",
+      "kotikit_spec_list",
+      "kotikit_spec_update",
+      "kotikit_config_status",
+      "kotikit_config_init",
+      "kotikit_config_get",
       "kotikit_flow_create",
-      "kotikit_brainstorm_start", "kotikit_brainstorm_assess",
+      "kotikit_brainstorm_start",
+      "kotikit_brainstorm_assess",
       // Phase 2
-      "kotikit_ds_search", "kotikit_ds_get_component",
+      "kotikit_ds_search",
+      "kotikit_ds_get_component",
       "kotikit_icons_search",
       "kotikit_sync_ds",
       "kotikit_sync_plugin_variables",
       // Phase 3
       "kotikit_plan_code",
-      "kotikit_implement_code_start", "kotikit_implement_code_save", "kotikit_implement_code_gate",
+      "kotikit_implement_code_start",
+      "kotikit_implement_code_save",
+      "kotikit_implement_code_gate",
       "kotikit_registry_search",
       // Phase 4
-      "kotikit_scaffold_start", "kotikit_scaffold_save",
+      "kotikit_scaffold_start",
+      "kotikit_scaffold_save",
       // Phase 5
       "kotikit_component_plan_create",
       "kotikit_figma_target_bind",

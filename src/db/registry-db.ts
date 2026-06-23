@@ -6,8 +6,8 @@ export type RegistryStatus = "code-only" | "design-only" | "synced";
 export interface RegistryRow {
   kind: RegistryKind;
   name: string;
-  dsPath: string | null;    // component-side path: "components/button.json", null for screens
-  codePath: string | null;  // code-side path, null when nothing is generated yet
+  dsPath: string | null; // component-side path: "components/button.json", null for screens
+  codePath: string | null; // code-side path, null when nothing is generated yet
   status: RegistryStatus;
 }
 
@@ -84,11 +84,7 @@ export function upsertRegistry(db: Database, row: RegistryRow): void {
 }
 
 /** Get a row by (kind, name), or null. */
-export function getRegistry(
-  db: Database,
-  kind: RegistryKind,
-  name: string
-): RegistryRow | null {
+export function getRegistry(db: Database, kind: RegistryKind, name: string): RegistryRow | null {
   const r = db
     .prepare(
       `SELECT kind, name, ds_path as dsPath, code_path as codePath, status
@@ -160,10 +156,7 @@ export function clearRegistry(db: Database): void {
  *   - Existing code-only   → update ds_path; if code_path is non-null, promote to "synced".
  *   - Existing kind!='component' → no-op (defensive: never collide with a screen-kind row).
  */
-export function upsertRegistryDsRow(
-  db: Database,
-  input: { name: string; dsPath: string }
-): void {
+export function upsertRegistryDsRow(db: Database, input: { name: string; dsPath: string }): void {
   const existing = getRegistry(db, "component", input.name);
   if (!existing) {
     upsertRegistry(db, {

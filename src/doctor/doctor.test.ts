@@ -1,12 +1,12 @@
-import { describe, it, expect, afterEach } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync, closeSync, openSync } from "fs";
+import { afterEach, describe, expect, it } from "bun:test";
+import { closeSync, mkdirSync, mkdtempSync, openSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { defaultConfig } from "../config/schema.js";
 import { writeConfig } from "../config/load.js";
+import { defaultConfig } from "../config/schema.js";
 import { newScreenSpec } from "../spec/schema.js";
 import { checkpointPath, componentsDbPath, iconsDbPath, manifestPath } from "../util/paths.js";
-import { runKotikitDoctor, formatDoctorReport } from "./doctor.js";
+import { formatDoctorReport, runKotikitDoctor } from "./doctor.js";
 
 const tmpDirs: string[] = [];
 const originalFigmaToken = process.env.FIGMA_TOKEN;
@@ -42,7 +42,9 @@ describe("runKotikitDoctor", () => {
 
     expect(report.ok).toBe(false);
     expect(report.checks.find((check) => check.id === "config")?.status).toBe("error");
-    expect(report.nextSteps).toContain("Run kotikit_config_init before syncing or generating designs.");
+    expect(report.nextSteps).toContain(
+      "Run kotikit_config_init before syncing or generating designs."
+    );
   });
 
   it("passes with config, token, design-system artifacts, gates, and bridge config", async () => {
@@ -83,7 +85,10 @@ describe("runKotikitDoctor", () => {
     const config = defaultConfig();
     await writeConfig(root, config);
     mkdirSync(join(root, "design-system"), { recursive: true });
-    writeFileSync(checkpointPath(root), JSON.stringify({ version: 1, startedAt: "now", files: [] }));
+    writeFileSync(
+      checkpointPath(root),
+      JSON.stringify({ version: 1, startedAt: "now", files: [] })
+    );
 
     const report = await runKotikitDoctor(root, {
       isGitRepo: async () => true,
@@ -95,7 +100,9 @@ describe("runKotikitDoctor", () => {
 
     expect(report.ok).toBe(true);
     expect(report.checks.find((check) => check.id === "sync-checkpoint")?.status).toBe("warn");
-    expect(report.checks.find((check) => check.id === "gates")?.hint).toContain("Install TypeScript");
+    expect(report.checks.find((check) => check.id === "gates")?.hint).toContain(
+      "Install TypeScript"
+    );
   });
 
   it("warns about legacy readable artifacts without failing doctor", async () => {
@@ -119,7 +126,9 @@ describe("runKotikitDoctor", () => {
     expect(check?.status).toBe("warn");
     expect(check?.message).toContain("1 older kotikit file");
     expect(check?.hint).toContain("updated automatically when edited");
-    expect(check?.details).toContainEqual(expect.stringContaining(".kotikit/specs/legacy/spec.json"));
+    expect(check?.details).toContainEqual(
+      expect.stringContaining(".kotikit/specs/legacy/spec.json")
+    );
   });
 });
 

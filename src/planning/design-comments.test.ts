@@ -1,7 +1,7 @@
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
+import type { FigmaComment } from "../sync/figma-types.js";
 import { mapCommentsToDesignNodes } from "./design-comments.js";
 import type { DesignNodeMap } from "./design-node-map.js";
-import type { FigmaComment } from "../sync/figma-types.js";
 
 const nodeMap: DesignNodeMap = {
   version: 1,

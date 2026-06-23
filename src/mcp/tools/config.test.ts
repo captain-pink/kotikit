@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { registerConfigTools, type ToolRegistry } from "./config";
 import type { ToolContext } from "../context";
+import { registerConfigTools, type ToolRegistry } from "./config";
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 

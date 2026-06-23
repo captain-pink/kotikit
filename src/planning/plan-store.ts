@@ -1,9 +1,9 @@
-import { readFile, writeFile, mkdir, unlink } from "fs/promises";
 import { existsSync } from "fs";
+import { mkdir, readFile, unlink, writeFile } from "fs/promises";
 import { dirname } from "path";
 import { codePlanPath } from "../util/paths.js";
-import { parseCodePlan, type CodePlan } from "./code-plan-schema.js";
 import { KotikitError } from "../util/result.js";
+import { type CodePlan, parseCodePlan } from "./code-plan-schema.js";
 
 /**
  * Write a code plan to disk.
@@ -45,10 +45,7 @@ export async function readCodePlan(
   try {
     return parseCodePlan(raw);
   } catch (err) {
-    throw new KotikitError(
-      "The code plan file has an invalid format.",
-      (err as Error).message
-    );
+    throw new KotikitError("The code plan file has an invalid format.", (err as Error).message);
   }
 }
 

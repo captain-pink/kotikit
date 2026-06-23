@@ -1,13 +1,13 @@
 import { readFile } from "fs/promises";
 import { z } from "zod";
+import { variablesJsonPath } from "../util/paths.js";
 import type { FigmaLocalVariables } from "./figma-types.js";
 import {
   mergeVariables,
+  type VariablesJson,
   VariablesJsonSchema,
   writeVariablesJson,
-  type VariablesJson,
 } from "./variables.js";
-import { variablesJsonPath } from "../util/paths.js";
 
 const PluginVariableModeSchema = z.object({
   modeId: z.string(),
@@ -35,10 +35,12 @@ const PluginVariableSchema = z.object({
 
 export const PluginVariablesPayloadSchema = z.object({
   version: z.literal(1),
-  source: z.object({
-    fileKey: z.string().optional(),
-    fileName: z.string().optional(),
-  }).optional(),
+  source: z
+    .object({
+      fileKey: z.string().optional(),
+      fileName: z.string().optional(),
+    })
+    .optional(),
   collections: z.array(PluginVariableCollectionSchema).default([]),
   variables: z.array(PluginVariableSchema).default([]),
 });
@@ -60,7 +62,9 @@ const toFigmaLocalVariables = (payload: PluginVariablesPayload): FigmaLocalVaria
         id: collection.id,
         name: collection.name,
         modes: collection.modes,
-        ...(collection.defaultModeId !== undefined ? { defaultModeId: collection.defaultModeId } : {}),
+        ...(collection.defaultModeId !== undefined
+          ? { defaultModeId: collection.defaultModeId }
+          : {}),
         ...(collection.key !== undefined ? { key: collection.key } : {}),
       },
     ])
@@ -92,17 +96,24 @@ const readExistingVariablesJson = async (root: string): Promise<VariablesJson | 
   }
 };
 
-const mergeVariableFiles = (existing: VariablesJson | null, incoming: VariablesJson): VariablesJson => {
+const mergeVariableFiles = (
+  existing: VariablesJson | null,
+  incoming: VariablesJson
+): VariablesJson => {
   if (existing === null) return incoming;
 
   const incomingNames = new Set(incoming.entries.map((entry) => entry.name));
-  const preservedExistingEntries = existing.entries.filter((entry) => !incomingNames.has(entry.name));
+  const preservedExistingEntries = existing.entries.filter(
+    (entry) => !incomingNames.has(entry.name)
+  );
   const newCollisions = existing.entries
     .filter((entry) => incomingNames.has(entry.name) && entry.source === "style")
     .map((entry) => ({ name: entry.name, keptSource: "variable" as const }));
   const collisionByName = new Map(
-    [...existing.collisions, ...incoming.collisions, ...newCollisions]
-      .map((collision) => [collision.name, collision])
+    [...existing.collisions, ...incoming.collisions, ...newCollisions].map((collision) => [
+      collision.name,
+      collision,
+    ])
   );
 
   return VariablesJsonSchema.parse({

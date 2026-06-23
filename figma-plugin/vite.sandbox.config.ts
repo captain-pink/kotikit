@@ -1,6 +1,6 @@
-import { defineConfig } from "vite";
 import type { OutputAsset, OutputBundle, OutputChunk } from "rollup";
 import { fileURLToPath } from "url";
+import { defineConfig } from "vite";
 
 const FORBIDDEN_SANDBOX_SYNTAX = [
   { label: "Object or array spread", pattern: /\.{3}/ },
@@ -18,9 +18,7 @@ const codeFromOutput = (output: OutputAsset | OutputChunk): string =>
 const sandboxSyntaxGuard = () => ({
   name: "kotikit-sandbox-syntax-guard",
   generateBundle(_options: unknown, bundle: OutputBundle): void {
-    const code = Object.values(bundle)
-      .map(codeFromOutput)
-      .join("\n");
+    const code = Object.values(bundle).map(codeFromOutput).join("\n");
     const violation = FORBIDDEN_SANDBOX_SYNTAX.find((entry) => entry.pattern.test(code));
     if (violation === undefined) return;
     throw new Error(`Figma sandbox bundle contains unsupported syntax: ${violation.label}.`);

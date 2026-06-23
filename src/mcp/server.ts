@@ -1,42 +1,38 @@
 #!/usr/bin/env bun
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  ListToolsRequestSchema,
-  CallToolRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-
-import { findProjectRoot } from "../util/paths.js";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { loadConfig } from "../config/load.js";
 import { loadDotEnv } from "../util/env.js";
+import { findProjectRoot } from "../util/paths.js";
 import { KotikitError, toolError } from "../util/result.js";
+import { type BridgeManager, createBridgeManager } from "./bridge/manager.js";
 import type { ToolContext } from "./context.js";
-import { registerSpecTools } from "./tools/spec.js";
-import { registerConfigTools } from "./tools/config.js";
-import { registerFlowTools } from "./tools/flow.js";
+import { KOTIKIT_MCP_INSTRUCTIONS } from "./instructions.js";
+import { registerAuditTools } from "./tools/audit.js";
 import { registerBrainstormTools } from "./tools/brainstorm.js";
-import { registerDsSearchTools } from "./tools/ds-search.js";
-import { registerIconsSearchTools } from "./tools/icons-search.js";
-import { registerSyncTools } from "./tools/sync.js";
-import { registerPlanCodeTools } from "./tools/plan-code.js";
-import { registerImplementCodeTools } from "./tools/implement-code.js";
-import { registerRegistryTools } from "./tools/registry.js";
-import { registerScaffoldTools } from "./tools/scaffold.js";
+import { registerBridgeTools } from "./tools/bridge.js";
 import { registerComponentPlanTools } from "./tools/component-plan.js";
-import { registerFigmaTargetTools } from "./tools/figma-target.js";
-import { registerPlanDesignTools } from "./tools/plan-design.js";
-import { registerDesignScreenTools } from "./tools/design-screen.js";
+import { registerConfigTools } from "./tools/config.js";
 import { registerDesignApplyTools } from "./tools/design-apply.js";
 import { registerDesignCommentTools } from "./tools/design-comments.js";
 import { registerDesignReviewTools } from "./tools/design-review.js";
-import { registerAuditTools } from "./tools/audit.js";
-import { registerSystemPromptTools } from "./tools/system-prompt.js";
+import { registerDesignScreenTools } from "./tools/design-screen.js";
 import { registerDoctorTools } from "./tools/doctor.js";
+import { registerDsSearchTools } from "./tools/ds-search.js";
+import { registerFigmaTargetTools } from "./tools/figma-target.js";
+import { registerFlowTools } from "./tools/flow.js";
+import { registerIconsSearchTools } from "./tools/icons-search.js";
+import { registerImplementCodeTools } from "./tools/implement-code.js";
+import { registerPlanCodeTools } from "./tools/plan-code.js";
+import { registerPlanDesignTools } from "./tools/plan-design.js";
 import { registerPluginVariableTools } from "./tools/plugin-variables.js";
-import { registerBridgeTools } from "./tools/bridge.js";
-import { KOTIKIT_MCP_INSTRUCTIONS } from "./instructions.js";
-import { createBridgeManager, type BridgeManager } from "./bridge/manager.js";
+import { registerRegistryTools } from "./tools/registry.js";
+import { registerScaffoldTools } from "./tools/scaffold.js";
+import { registerSpecTools } from "./tools/spec.js";
+import { registerSyncTools } from "./tools/sync.js";
+import { registerSystemPromptTools } from "./tools/system-prompt.js";
 
 /** The return type every tool handler must produce. */
 type ToolResult = {
@@ -124,9 +120,7 @@ export async function startServer(): Promise<void> {
   const root = findProjectRoot();
   const injected = await loadDotEnv(root);
   if (injected.length > 0) {
-    process.stderr.write(
-      `[kotikit] Loaded ${injected.length} env var(s) from ${root}/.env\n`
-    );
+    process.stderr.write(`[kotikit] Loaded ${injected.length} env var(s) from ${root}/.env\n`);
   }
   const { server, bridge } = buildServer();
   const transport = new StdioServerTransport();
@@ -134,15 +128,14 @@ export async function startServer(): Promise<void> {
   process.stderr.write(`[kotikit] MCP server started. Root: ${root}\n`);
 
   // Opt-in bridge: KOTIKIT_BRIDGE=1 OR --bridge flag
-  const bridgeEnabled =
-    process.env.KOTIKIT_BRIDGE === "1" || process.argv.includes("--bridge");
+  const bridgeEnabled = process.env.KOTIKIT_BRIDGE === "1" || process.argv.includes("--bridge");
 
   if (bridgeEnabled) {
     const preferredPort = Number(process.env.KOTIKIT_BRIDGE_PORT ?? "53124");
     const status = await bridge.start({ preferredPort });
     process.stderr.write(
       `[kotikit] Bridge running at ${status.url}\n` +
-      `[kotikit] Copy that URL into the kotikit Figma plugin's Connect dialog.\n`
+        `[kotikit] Copy that URL into the kotikit Figma plugin's Connect dialog.\n`
     );
 
     const cleanup = async (): Promise<void> => {

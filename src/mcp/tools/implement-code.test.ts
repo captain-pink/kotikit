@@ -1,23 +1,20 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { execSync } from "child_process";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { execSync } from "child_process";
-
-import { registerImplementCodeTools } from "./implement-code";
-import type { ToolRegistry } from "../server";
-import type { ToolContext } from "../context";
-import { writeScreenSpec } from "../../spec/engine";
-import { newScreenSpec } from "../../spec/schema";
-import { defaultConfig } from "../../config/schema";
-import { existsSync } from "fs";
 import type { GateRunReport } from "../../codegen/gate-output";
 import type { RunGatesOpts } from "../../codegen/gate-runner";
-import { registryDbPath, codeComponentFile } from "../../util/paths";
-import { openDb } from "../../db/sqlite";
-import { initRegistryDb, getRegistry } from "../../db/registry-db";
-import { readScreenSpec } from "../../spec/engine";
 import type { Config } from "../../config/schema";
+import { defaultConfig } from "../../config/schema";
+import { getRegistry, initRegistryDb } from "../../db/registry-db";
+import { openDb } from "../../db/sqlite";
+import { readScreenSpec, writeScreenSpec } from "../../spec/engine";
+import { newScreenSpec } from "../../spec/schema";
+import { codeComponentFile, registryDbPath } from "../../util/paths";
+import type { ToolContext } from "../context";
+import type { ToolRegistry } from "../server";
+import { registerImplementCodeTools } from "./implement-code";
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 
@@ -71,10 +68,55 @@ function makePassReport(): GateRunReport {
 
 function makeFailReport(failGate: "tsc" | "eslint" | "prettier" | "vitest"): GateRunReport {
   const results = [
-    { gate: "tsc" as const, passed: failGate !== "tsc", exitCode: failGate === "tsc" ? 1 : 0, durationMs: 30, failures: failGate === "tsc" ? [{ file: "src/Foo.tsx", line: 10, column: 5, message: "Cannot find name 'Foo'" }] : [], raw: "" },
-    { gate: "eslint" as const, passed: failGate !== "eslint", exitCode: failGate === "eslint" ? 1 : 0, durationMs: 25, failures: failGate === "eslint" ? [{ file: "src/Foo.tsx", line: 14, column: 3, message: "Missing label", rule: "jsx-a11y/label-has-associated-control" }] : [], raw: "" },
-    { gate: "prettier" as const, passed: failGate !== "prettier", exitCode: failGate === "prettier" ? 1 : 0, durationMs: 20, failures: failGate === "prettier" ? [{ file: "src/Foo.tsx", message: "Code style issues found by prettier" }] : [], raw: "" },
-    { gate: "vitest" as const, passed: failGate !== "vitest", exitCode: failGate === "vitest" ? 1 : 0, durationMs: 25, failures: failGate === "vitest" ? [{ file: "src/Foo.test.tsx", message: "Test failed" }] : [], raw: "" },
+    {
+      gate: "tsc" as const,
+      passed: failGate !== "tsc",
+      exitCode: failGate === "tsc" ? 1 : 0,
+      durationMs: 30,
+      failures:
+        failGate === "tsc"
+          ? [{ file: "src/Foo.tsx", line: 10, column: 5, message: "Cannot find name 'Foo'" }]
+          : [],
+      raw: "",
+    },
+    {
+      gate: "eslint" as const,
+      passed: failGate !== "eslint",
+      exitCode: failGate === "eslint" ? 1 : 0,
+      durationMs: 25,
+      failures:
+        failGate === "eslint"
+          ? [
+              {
+                file: "src/Foo.tsx",
+                line: 14,
+                column: 3,
+                message: "Missing label",
+                rule: "jsx-a11y/label-has-associated-control",
+              },
+            ]
+          : [],
+      raw: "",
+    },
+    {
+      gate: "prettier" as const,
+      passed: failGate !== "prettier",
+      exitCode: failGate === "prettier" ? 1 : 0,
+      durationMs: 20,
+      failures:
+        failGate === "prettier"
+          ? [{ file: "src/Foo.tsx", message: "Code style issues found by prettier" }]
+          : [],
+      raw: "",
+    },
+    {
+      gate: "vitest" as const,
+      passed: failGate !== "vitest",
+      exitCode: failGate === "vitest" ? 1 : 0,
+      durationMs: 25,
+      failures: failGate === "vitest" ? [{ file: "src/Foo.test.tsx", message: "Test failed" }] : [],
+      raw: "",
+    },
   ];
   return {
     ranAt: new Date().toISOString(),
@@ -84,7 +126,9 @@ function makeFailReport(failGate: "tsc" | "eslint" | "prettier" | "vitest"): Gat
   };
 }
 
-function makeGateRunner(report: GateRunReport): typeof import("../../codegen/gate-runner").runGates {
+function makeGateRunner(
+  report: GateRunReport
+): typeof import("../../codegen/gate-runner").runGates {
   return async (_opts: RunGatesOpts) => report;
 }
 
@@ -114,15 +158,18 @@ async function seedSpec(
 }
 
 async function setupTestEnv(): Promise<{ root: string; cleanup: () => void }> {
-  const root = join(tmpdir(), `kotikit-impl-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const root = join(
+    tmpdir(),
+    `kotikit-impl-test-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
   mkdirSync(root, { recursive: true });
 
   // git init
   try {
-    execSync(
-      "git init && git config user.email test@test.com && git config user.name Test",
-      { cwd: root, stdio: "pipe" }
-    );
+    execSync("git init && git config user.email test@test.com && git config user.name Test", {
+      cwd: root,
+      stdio: "pipe",
+    });
   } catch {
     // If git fails, autoCommit will be skipped — tests still proceed
   }
@@ -143,10 +190,10 @@ beforeEach(async () => {
   mkdirSync(tmp, { recursive: true });
 
   try {
-    execSync(
-      "git init && git config user.email test@test.com && git config user.name Test",
-      { cwd: tmp, stdio: "pipe" }
-    );
+    execSync("git init && git config user.email test@test.com && git config user.name Test", {
+      cwd: tmp,
+      stdio: "pipe",
+    });
   } catch {
     // ignore
   }
@@ -268,7 +315,10 @@ describe("kotikit_implement_code_start", () => {
     });
 
     // Use expand:true to get the full dsComponents dict (legacy behavior)
-    const result = await call("kotikit_implement_code_start", { scope: "profile-page", expand: true });
+    const result = await call("kotikit_implement_code_start", {
+      scope: "profile-page",
+      expand: true,
+    });
     expect(result.isError).toBeUndefined();
 
     const text = getText(result);
@@ -303,7 +353,10 @@ describe("implement_code_start lazy expansion (Phase 6)", () => {
     // Seed two DS components on disk
     const dsDir = join(tmp, "design-system", "components");
     mkdirSync(dsDir, { recursive: true });
-    for (const [name, slug] of [["Button", "button"], ["Input", "input"]] as [string, string][]) {
+    for (const [name, slug] of [
+      ["Button", "button"],
+      ["Input", "input"],
+    ] as [string, string][]) {
       const json = ComponentJsonSchema.parse({
         name,
         key: `${slug}-key`,
@@ -354,7 +407,10 @@ describe("implement_code_start lazy expansion (Phase 6)", () => {
       components: [{ name: "Button", dsKey: "btn-key" }],
     });
 
-    const result = await call("kotikit_implement_code_start", { scope: "profile-page", expand: true });
+    const result = await call("kotikit_implement_code_start", {
+      scope: "profile-page",
+      expand: true,
+    });
     expect(result.isError).toBeUndefined();
 
     const text = getText(result);
@@ -376,7 +432,7 @@ describe("implement_code_start lazy expansion (Phase 6)", () => {
 
     expect(detail.systemPromptRef).toBe("react");
     expect(typeof detail.systemPrompt).toBe("string");
-    expect((detail.systemPrompt as string)).toContain("kotikit_get_system_prompt");
+    expect(detail.systemPrompt as string).toContain("kotikit_get_system_prompt");
     expect((detail.systemPrompt as string).length).toBeLessThan(300);
   });
 
@@ -398,7 +454,7 @@ describe("implement_code_start lazy expansion (Phase 6)", () => {
 
     expect(typeof detail.screenContext).toBe("string");
     // screenContext must contain the spec title
-    expect((detail.screenContext as string)).toContain("Profile Page");
+    expect(detail.screenContext as string).toContain("Profile Page");
   });
 
   it("componentRefs carry name + path + key for each spec component", async () => {
@@ -430,10 +486,7 @@ describe("implement_code_start lazy expansion (Phase 6)", () => {
     writeFileSync(join(dsDir, "input.json"), JSON.stringify(inputJson, null, 2));
 
     await seedSpec(tmp, "profile-page", null, {
-      components: [
-        { name: "Button" },
-        { name: "Input", dsKey: "k1" },
-      ],
+      components: [{ name: "Button" }, { name: "Input", dsKey: "k1" }],
     });
 
     const result = await call("kotikit_implement_code_start", { scope: "profile-page" });
@@ -473,8 +526,18 @@ describe("kotikit_implement_code_save", () => {
       await seedSpec(root, "profile-page", null);
 
       const config = defaultConfig();
-      const componentPath = codeComponentFile(root, config.project.codeComponentsDir, "profile-page", "ProfilePage.tsx");
-      const testPath = codeComponentFile(root, config.project.codeComponentsDir, "profile-page", "ProfilePage.test.tsx");
+      const componentPath = codeComponentFile(
+        root,
+        config.project.codeComponentsDir,
+        "profile-page",
+        "ProfilePage.tsx"
+      );
+      const testPath = codeComponentFile(
+        root,
+        config.project.codeComponentsDir,
+        "profile-page",
+        "ProfilePage.test.tsx"
+      );
 
       const reg = makeRegistry();
       const c = makeCtx(root);
@@ -489,7 +552,11 @@ describe("kotikit_implement_code_save", () => {
         scope: "profile-page",
         files: [
           { path: componentPath, content: "export function ProfilePage() { return <div />; }" },
-          { path: testPath, content: "import { describe, it } from 'vitest'; describe('p', () => { it('works', () => {}); });" },
+          {
+            path: testPath,
+            content:
+              "import { describe, it } from 'vitest'; describe('p', () => { it('works', () => {}); });",
+          },
         ],
       });
 
@@ -527,7 +594,12 @@ describe("kotikit_implement_code_save", () => {
       await seedSpec(root, "profile-page", null);
 
       const config = defaultConfig();
-      const componentPath = codeComponentFile(root, config.project.codeComponentsDir, "profile-page", "ProfilePage.tsx");
+      const componentPath = codeComponentFile(
+        root,
+        config.project.codeComponentsDir,
+        "profile-page",
+        "ProfilePage.tsx"
+      );
 
       const reg = makeRegistry();
       const c = makeCtx(root);
@@ -596,7 +668,12 @@ describe("kotikit_implement_code_save", () => {
       await writeScreenSpec(root, "profile-page", null, activeSpec);
 
       const config = defaultConfig();
-      const componentPath = codeComponentFile(root, config.project.codeComponentsDir, "profile-page", "ProfilePage.tsx");
+      const componentPath = codeComponentFile(
+        root,
+        config.project.codeComponentsDir,
+        "profile-page",
+        "ProfilePage.tsx"
+      );
 
       // Pre-create the file so it "exists" before save
       mkdirSync(join(root, config.project.codeComponentsDir, "profile-page"), { recursive: true });
@@ -637,7 +714,12 @@ describe("kotikit_implement_code_save", () => {
       await seedSpec(root, "profile-page", null);
 
       const config = defaultConfig();
-      const componentPath = codeComponentFile(root, config.project.codeComponentsDir, "profile-page", "ProfilePage.tsx");
+      const componentPath = codeComponentFile(
+        root,
+        config.project.codeComponentsDir,
+        "profile-page",
+        "ProfilePage.tsx"
+      );
 
       const reg = makeRegistry();
       const c: ToolContext = {
@@ -684,7 +766,12 @@ describe("kotikit_implement_code_gate", () => {
       await seedSpec(root, "profile-page", null);
 
       const config = defaultConfig();
-      const componentPath = codeComponentFile(root, config.project.codeComponentsDir, "profile-page", "ProfilePage.tsx");
+      const componentPath = codeComponentFile(
+        root,
+        config.project.codeComponentsDir,
+        "profile-page",
+        "ProfilePage.tsx"
+      );
 
       // Write the file to disk
       mkdirSync(join(root, config.project.codeComponentsDir, "profile-page"), { recursive: true });
@@ -715,7 +802,12 @@ describe("kotikit_implement_code_gate", () => {
       await seedSpec(root, "profile-page", null);
 
       const config = defaultConfig();
-      const componentPath = codeComponentFile(root, config.project.codeComponentsDir, "profile-page", "ProfilePage.tsx");
+      const componentPath = codeComponentFile(
+        root,
+        config.project.codeComponentsDir,
+        "profile-page",
+        "ProfilePage.tsx"
+      );
 
       mkdirSync(join(root, config.project.codeComponentsDir, "profile-page"), { recursive: true });
       writeFileSync(componentPath, "export function ProfilePage() { return <div />; }");
@@ -766,7 +858,12 @@ describe("kotikit_implement_code_gate", () => {
       await seedSpec(root, "profile-page", null);
 
       const config = defaultConfig();
-      const componentPath = codeComponentFile(root, config.project.codeComponentsDir, "profile-page", "ProfilePage.tsx");
+      const componentPath = codeComponentFile(
+        root,
+        config.project.codeComponentsDir,
+        "profile-page",
+        "ProfilePage.tsx"
+      );
 
       mkdirSync(join(root, config.project.codeComponentsDir, "profile-page"), { recursive: true });
       writeFileSync(componentPath, "export function ProfilePage() { return <div />; }");

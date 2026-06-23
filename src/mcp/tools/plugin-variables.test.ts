@@ -1,13 +1,13 @@
-import { describe, expect, it, afterEach } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { mkdtempSync, readFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import type { ToolContext } from "../context.js";
-import type { ToolRegistry } from "../server.js";
 import { writeConfig } from "../../config/load.js";
 import { defaultConfig } from "../../config/schema.js";
 import { variablesJsonPath } from "../../util/paths.js";
+import type { ToolContext } from "../context.js";
+import type { ToolRegistry } from "../server.js";
 import { registerPluginVariableTools } from "./plugin-variables.js";
 
 const roots: string[] = [];
@@ -66,7 +66,9 @@ describe("kotikit_sync_plugin_variables", () => {
     const saved = JSON.parse(readFileSync(variablesJsonPath(root), "utf-8")) as {
       entries: Array<{ name: string; source: string }>;
     };
-    expect(saved.entries).toContainEqual(expect.objectContaining({ name: "color/brand", source: "variable" }));
+    expect(saved.entries).toContainEqual(
+      expect.objectContaining({ name: "color/brand", source: "variable" })
+    );
   });
 
   it("asks users to initialize kotikit before importing plugin variables", async () => {

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import { detectIconSignal } from "./icon-detect.js";
 
 describe("detectIconSignal", () => {
@@ -33,7 +33,9 @@ describe("detectIconSignal", () => {
   });
 
   it("detects '.icon' suffix", () => {
-    expect(detectIconSignal({ pageName: "Components", componentName: "arrow.icon" })).toBe("prefix");
+    expect(detectIconSignal({ pageName: "Components", componentName: "arrow.icon" })).toBe(
+      "prefix"
+    );
   });
 
   it("does NOT misdetect 'icebox' as prefix", () => {
@@ -50,7 +52,9 @@ describe("detectIconSignal", () => {
   });
 
   it("detects 'Icons/Arrow/Left' slash", () => {
-    expect(detectIconSignal({ pageName: "Foundation", componentName: "Icons/Arrow/Left" })).toBe("slash");
+    expect(detectIconSignal({ pageName: "Foundation", componentName: "Icons/Arrow/Left" })).toBe(
+      "slash"
+    );
   });
 
   // ── precedence: page > prefix > slash

@@ -1,13 +1,13 @@
-import { describe, expect, it, afterEach } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import type { ToolContext } from "../context.js";
-import type { ToolRegistry } from "../server.js";
 import { writeConfig } from "../../config/load.js";
 import { defaultConfig } from "../../config/schema.js";
 import type { FigmaComment, FigmaNode } from "../../sync/figma-types.js";
+import type { ToolContext } from "../context.js";
+import type { ToolRegistry } from "../server.js";
 import { registerDesignReviewTools } from "./design-review.js";
 
 const tmpDirs: string[] = [];
@@ -174,7 +174,8 @@ describe("design review MCP tools", () => {
         },
       ],
     });
-    const findingId = (detailFrom(recorded) as { findings: { findingId: string }[] }).findings[0]!.findingId;
+    const findingId = (detailFrom(recorded) as { findings: { findingId: string }[] }).findings[0]!
+      .findingId;
     const prepared = await callTool(registry, "kotikit_design_review_comment_prepare", {
       sessionId,
       findingIds: [findingId],

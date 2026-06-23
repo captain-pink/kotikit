@@ -1,9 +1,15 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import simpleGit from "simple-git";
-import { autoCommit, autoCommitSpec, formatCoAuthorFooter, isGitRepo, gitInit } from "./auto-commit";
+import {
+  autoCommit,
+  autoCommitSpec,
+  formatCoAuthorFooter,
+  gitInit,
+  isGitRepo,
+} from "./auto-commit";
 
 let tmp: string;
 
@@ -92,11 +98,23 @@ describe("autoCommitSpec", () => {
   it("creates a feat(spec): update commit for kind=update", async () => {
     // First create
     const relPath = writeSpecFile(tmp, "spec.json", '{"v":1}');
-    await autoCommitSpec({ root: tmp, scope: "test-scope", kind: "create", files: [relPath], enabled: true });
+    await autoCommitSpec({
+      root: tmp,
+      scope: "test-scope",
+      kind: "create",
+      files: [relPath],
+      enabled: true,
+    });
 
     // Then update
     writeFileSync(join(tmp, relPath), '{"v":2}');
-    const result = await autoCommitSpec({ root: tmp, scope: "test-scope", kind: "update", files: [relPath], enabled: true });
+    const result = await autoCommitSpec({
+      root: tmp,
+      scope: "test-scope",
+      kind: "update",
+      files: [relPath],
+      enabled: true,
+    });
     expect(result.committed).toBe(true);
     expect(result.message).toBe("feat(spec): update test-scope");
 
@@ -108,7 +126,11 @@ describe("autoCommitSpec", () => {
   it("returns committed:false with reason='autoCommit is off' when disabled", async () => {
     const relPath = writeSpecFile(tmp, "spec.json");
     const result = await autoCommitSpec({
-      root: tmp, scope: "profile-page", kind: "create", files: [relPath], enabled: false,
+      root: tmp,
+      scope: "profile-page",
+      kind: "create",
+      files: [relPath],
+      enabled: false,
     });
     expect(result.committed).toBe(false);
     expect(result.reason).toBe("autoCommit is off");
@@ -129,7 +151,11 @@ describe("autoCommitSpec", () => {
     try {
       writeFileSync(join(notRepo, "spec.json"), "{}");
       const result = await autoCommitSpec({
-        root: notRepo, scope: "test", kind: "create", files: ["spec.json"], enabled: true,
+        root: notRepo,
+        scope: "test",
+        kind: "create",
+        files: ["spec.json"],
+        enabled: true,
       });
       expect(result.committed).toBe(false);
       expect(result.reason).toBe("not a git repo");
@@ -140,7 +166,13 @@ describe("autoCommitSpec", () => {
 
   it("does not create any additional branches", async () => {
     const relPath = writeSpecFile(tmp, "spec.json");
-    await autoCommitSpec({ root: tmp, scope: "profile-page", kind: "create", files: [relPath], enabled: true });
+    await autoCommitSpec({
+      root: tmp,
+      scope: "profile-page",
+      kind: "create",
+      files: [relPath],
+      enabled: true,
+    });
     const git = simpleGit({ baseDir: tmp });
     const branches = await git.branchLocal();
     // Should have at most 1 branch (default branch after first commit)
@@ -150,7 +182,11 @@ describe("autoCommitSpec", () => {
   it("returns committed:false when there are no staged changes", async () => {
     // Don't write any new file — nothing to stage
     const result = await autoCommitSpec({
-      root: tmp, scope: "profile-page", kind: "create", files: [], enabled: true,
+      root: tmp,
+      scope: "profile-page",
+      kind: "create",
+      files: [],
+      enabled: true,
     });
     expect(result.committed).toBe(false);
     expect(result.reason).toBe("no changes");

@@ -1,4 +1,4 @@
-import type { ScreenSpec, FlowManifest } from "../../spec/schema.js";
+import type { FlowManifest, ScreenSpec } from "../../spec/schema.js";
 
 /**
  * The §7 quality baseline carried into every React code-generation pass.
@@ -113,7 +113,9 @@ export function buildReactSystemPrompt(input: {
   }
 
   if (testFramework === "vitest") {
-    lines.push("**Tests:** Generate a colocated `.test.tsx` file using Vitest + React Testing Library.");
+    lines.push(
+      "**Tests:** Generate a colocated `.test.tsx` file using Vitest + React Testing Library."
+    );
     lines.push("Each acceptance criterion above becomes one `it(...)` test case.");
     lines.push("");
   }

@@ -1,18 +1,18 @@
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import {
+  importPluginVariables,
+  PluginVariablesPayloadSchema,
+} from "../../sync/plugin-variables.js";
+import { KotikitError, toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
-import { importPluginVariables, PluginVariablesPayloadSchema } from "../../sync/plugin-variables.js";
-import { KotikitError, toolError, toolText } from "../../util/result.js";
 
 const PluginVariablesToolArgsSchema = z.object({
   payload: PluginVariablesPayloadSchema,
 });
 
-export function registerPluginVariableTools(
-  registry: ToolRegistry,
-  ctx: ToolContext
-): void {
+export function registerPluginVariableTools(registry: ToolRegistry, ctx: ToolContext): void {
   const tool: Tool = {
     name: "kotikit_sync_plugin_variables",
     description:
@@ -22,7 +22,8 @@ export function registerPluginVariableTools(
       properties: {
         payload: {
           type: "object",
-          description: "Compact variable payload exported from the open Figma file by the kotikit plugin.",
+          description:
+            "Compact variable payload exported from the open Figma file by the kotikit plugin.",
         },
       },
       required: ["payload"],

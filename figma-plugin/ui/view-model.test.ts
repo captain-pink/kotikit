@@ -1,9 +1,5 @@
-import { describe, it, expect } from "bun:test";
-import {
-  buildDashboardModel,
-  detailFromToolResult,
-  type ToolResult,
-} from "./view-model.js";
+import { describe, expect, it } from "bun:test";
+import { buildDashboardModel, detailFromToolResult, type ToolResult } from "./view-model.js";
 
 const result = (detail: unknown, isError = false): ToolResult => ({
   ...(isError ? { isError: true } : {}),
@@ -33,7 +29,12 @@ describe("plugin dashboard view model", () => {
     });
 
     expect(model.statusText).toBe("Connected");
-    expect(model.checklist.map((item) => item.status)).toEqual(["done", "done", "ready", "attention"]);
+    expect(model.checklist.map((item) => item.status)).toEqual([
+      "done",
+      "done",
+      "ready",
+      "attention",
+    ]);
     expect(model.reviewSummary).toEqual({
       open: 2,
       fixed: 1,
@@ -52,6 +53,11 @@ describe("plugin dashboard view model", () => {
     });
 
     expect(model.statusText).toBe("Disconnected");
-    expect(model.checklist.map((item) => item.status)).toEqual(["pending", "pending", "pending", "pending"]);
+    expect(model.checklist.map((item) => item.status)).toEqual([
+      "pending",
+      "pending",
+      "pending",
+      "pending",
+    ]);
   });
 });

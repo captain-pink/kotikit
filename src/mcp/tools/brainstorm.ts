@@ -1,7 +1,7 @@
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
-import { toolText, toolError } from "../../util/result.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -54,7 +54,21 @@ When done, summarize the screen(s) back to the designer in plain English and ask
 // ---------------------------------------------------------------------------
 
 const MULTI_SCREEN_KEYWORDS = ["flow", "steps", "checkout", "wizard", "onboarding", " then "];
-const MULTI_SCREEN_SCREEN_NOUNS = ["cart", "shipping", "payment", "login", "signup", "dashboard", "profile", "settings", "confirmation", "summary", "review", "address", "billing"];
+const MULTI_SCREEN_SCREEN_NOUNS = [
+  "cart",
+  "shipping",
+  "payment",
+  "login",
+  "signup",
+  "dashboard",
+  "profile",
+  "settings",
+  "confirmation",
+  "summary",
+  "review",
+  "address",
+  "billing",
+];
 
 function classify(idea: string): Classification {
   const lower = idea.toLowerCase();

@@ -1,16 +1,13 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { execSync } from "child_process";
 import { mkdirSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { execSync } from "child_process";
-import {
-  registerSpecTools,
-  type ToolRegistry,
-} from "./spec";
-import type { ToolContext } from "../context";
 import type { FlowDraft, SingleDraft } from "../../spec/decompose";
 import { readScreenSpec } from "../../spec/engine";
 import { readIndex } from "../../spec/index-store";
+import type { ToolContext } from "../context";
+import { registerSpecTools, type ToolRegistry } from "./spec";
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 

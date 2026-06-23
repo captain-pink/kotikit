@@ -61,7 +61,7 @@ export function buildComponentTsx(json: ComponentJson, _codeComponentsDir: strin
   // Normalise by replacing whatever typeof <x>Variants it emits with the correct variantsConstName.
   const propsBlock = emitPropsInterface(json, intrinsic).replace(
     /\btypeof \w+Variants\b/,
-    `typeof ${variantsConstName}`,
+    `typeof ${variantsConstName}`
   );
 
   // Collect variant prop names for destructuring (e.g. "variant", "size")
@@ -141,7 +141,10 @@ export function buildStoryTsx(json: ComponentJson): string {
     const firstValue = v.values[0];
     if (firstValue !== undefined) {
       // Slugify the value to match what CVA expects at runtime
-      const slugified = firstValue.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      const slugified = firstValue
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
       defaultArgs.push(`    ${propKey}: ${JSON.stringify(slugified)}`);
     }
   }
@@ -153,14 +156,13 @@ export function buildStoryTsx(json: ComponentJson): string {
       defaultArgs.push(`    ${lowerName}: ${def.defaultValue === true ? "true" : "false"}`);
     } else if (def.type === "TEXT") {
       defaultArgs.push(
-        `    ${lowerName}: ${JSON.stringify(typeof def.defaultValue === "string" ? def.defaultValue : "Label")}`,
+        `    ${lowerName}: ${JSON.stringify(typeof def.defaultValue === "string" ? def.defaultValue : "Label")}`
       );
     }
     // INSTANCE_SWAP: skip in args (requires JSX, not expressible in plain args)
   }
 
-  const defaultArgsBlock =
-    defaultArgs.length > 0 ? `{\n${defaultArgs.join(",\n")},\n  }` : `{}`;
+  const defaultArgsBlock = defaultArgs.length > 0 ? `{\n${defaultArgs.join(",\n")},\n  }` : `{}`;
 
   // One story per variant axis
   const axisStories: string[] = [];
@@ -169,7 +171,10 @@ export function buildStoryTsx(json: ComponentJson): string {
     const axisStoryName = `${pascalCase(v.propertyName)}s`;
     const propKey = variantPropKey(v.propertyName);
     const slugifiedValues = v.values.map((val) =>
-      val.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""),
+      val
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
     );
     const rowContent = slugifiedValues
       .map((val) => `      <${name} ${propKey}="${val}">${val}</${name}>`)
@@ -185,7 +190,7 @@ ${rowContent}
 
   // States story for BOOLEAN properties
   const booleanProps = Object.entries(json.properties ?? {}).filter(
-    ([, d]) => d.type === "BOOLEAN",
+    ([, d]) => d.type === "BOOLEAN"
   );
   let statesStory = "";
   if (booleanProps.length > 0) {
@@ -228,7 +233,7 @@ ${axisStories.join("\n\n")}${statesStory}
  */
 export function scaffoldComponent(
   args: ScaffoldComponentArgs,
-  codeComponentsDir: string,
+  codeComponentsDir: string
 ): ScaffoldResult {
   const name = pascalCase(args.json.name);
   const kebab = kebabCase(name);

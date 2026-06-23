@@ -1,5 +1,5 @@
-import { describe, it, expect } from "bun:test";
-import { mkdtempSync, rmSync, existsSync } from "fs";
+import { describe, expect, it } from "bun:test";
+import { existsSync, mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { openDb, withTransaction } from "./sqlite.js";

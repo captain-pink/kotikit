@@ -1,19 +1,17 @@
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import type { ToolContext } from "../context.js";
-import { configExists, loadConfig, writeConfig, resolveSecret } from "../../config/load.js";
-import { buildConfig } from "../../config/init.js";
-import type { InitAnswers } from "../../config/init.js";
-import { isGitRepo } from "../../git/auto-commit.js";
-import { toolText, toolError, KotikitError } from "../../util/result.js";
 import { verifyGateEnvironment } from "../../codegen/environment.js";
 import { reactAdapter } from "../../codegen/react/adapter.js";
+import type { InitAnswers } from "../../config/init.js";
+import { buildConfig } from "../../config/init.js";
+import { configExists, loadConfig, resolveSecret, writeConfig } from "../../config/load.js";
+import { isGitRepo } from "../../git/auto-commit.js";
+import { KotikitError, toolError, toolText } from "../../util/result.js";
+import type { ToolContext } from "../context.js";
 
 // ─── Registry shape ───────────────────────────────────────────────────────────
 
 type McpContent = { type: "text"; text: string };
-type Handler = (
-  args: unknown
-) => Promise<{ content: McpContent[]; isError?: boolean }>;
+type Handler = (args: unknown) => Promise<{ content: McpContent[]; isError?: boolean }>;
 
 export interface ToolRegistry {
   tools: Tool[];
@@ -22,10 +20,7 @@ export interface ToolRegistry {
 
 // ─── Register all config tools ────────────────────────────────────────────────
 
-export function registerConfigTools(
-  registry: ToolRegistry,
-  ctx: ToolContext
-): void {
+export function registerConfigTools(registry: ToolRegistry, ctx: ToolContext): void {
   registerConfigStatus(registry, ctx);
   registerConfigInit(registry, ctx);
   registerConfigGet(registry, ctx);
@@ -192,10 +187,7 @@ function registerConfigGet(registry: ToolRegistry, ctx: ToolContext): void {
         ...config,
         figma: {
           ...config.figma,
-          token:
-            resolvedToken !== undefined
-              ? "<resolved from env>"
-              : config.figma.token,
+          token: resolvedToken !== undefined ? "<resolved from env>" : config.figma.token,
         },
       };
 

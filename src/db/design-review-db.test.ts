@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -249,9 +249,7 @@ describe("design review db", () => {
       mappedCount: 1,
       unmappedCount: 0,
       skippedResolved: 0,
-      comments: [
-        { commentId: "c1", fileKey: "fig-file", message: "Fix", status: "open" },
-      ],
+      comments: [{ commentId: "c1", fileKey: "fig-file", message: "Fix", status: "open" }],
     });
     db.recordDesignAdjustment({
       sessionId: session.sessionId,
@@ -282,9 +280,7 @@ describe("design review db", () => {
       mappedCount: 1,
       unmappedCount: 0,
       skippedResolved: 0,
-      comments: [
-        { commentId: "c1", fileKey: "fig-file", message: "Fix", status: "fixed" },
-      ],
+      comments: [{ commentId: "c1", fileKey: "fig-file", message: "Fix", status: "fixed" }],
     });
     const [reply] = db.prepareCommentReplies({
       sessionId: session.sessionId,

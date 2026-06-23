@@ -40,22 +40,26 @@ describe("resolveFigmaDraftTargetFromUrl", () => {
   });
 
   it("rejects non-draft pages", async () => {
-    await expect(resolveFigmaDraftTargetFromUrl({
-      client: pageClient({ name: "Production - Members" }),
-      pageUrl: "https://www.figma.com/design/FILE123/App?node-id=0-1",
-      scope: "members",
-      screen: null,
-      now: () => "2026-06-22T10:00:00.000Z",
-    })).rejects.toThrow(/Draft/);
+    await expect(
+      resolveFigmaDraftTargetFromUrl({
+        client: pageClient({ name: "Production - Members" }),
+        pageUrl: "https://www.figma.com/design/FILE123/App?node-id=0-1",
+        scope: "members",
+        screen: null,
+        now: () => "2026-06-22T10:00:00.000Z",
+      })
+    ).rejects.toThrow(/Draft/);
   });
 
   it("rejects child node URLs instead of guessing the containing page", async () => {
-    await expect(resolveFigmaDraftTargetFromUrl({
-      client: pageClient({ id: "1:2", name: "Members frame", type: "FRAME" }),
-      pageUrl: "https://www.figma.com/design/FILE123/App?node-id=1-2",
-      scope: "members",
-      screen: null,
-      now: () => "2026-06-22T10:00:00.000Z",
-    })).rejects.toThrow(/page itself/);
+    await expect(
+      resolveFigmaDraftTargetFromUrl({
+        client: pageClient({ id: "1:2", name: "Members frame", type: "FRAME" }),
+        pageUrl: "https://www.figma.com/design/FILE123/App?node-id=1-2",
+        scope: "members",
+        screen: null,
+        now: () => "2026-06-22T10:00:00.000Z",
+      })
+    ).rejects.toThrow(/page itself/);
   });
 });

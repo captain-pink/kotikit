@@ -1,10 +1,10 @@
-import { KotikitError } from "../util/result.js";
-import type { FigmaNode } from "../sync/figma-types.js";
 import type {
   DesignAuditTargetInput,
   DesignAuditTargetKind,
   ReviewTargetCacheInput,
 } from "../db/design-review-db.js";
+import type { FigmaNode } from "../sync/figma-types.js";
+import { KotikitError } from "../util/result.js";
 
 export interface ReviewGeometry {
   x: number;
@@ -90,11 +90,9 @@ const DEFAULT_MAX_REGIONS = 8;
 const DEFAULT_CACHE_TTL_MS = 10 * 60 * 1000;
 const REVIEW_CACHE_SCHEMA_VERSION = 1;
 
-const normalizeNodeId = (nodeId: string): string =>
-  decodeURIComponent(nodeId).replace("-", ":");
+const normalizeNodeId = (nodeId: string): string => decodeURIComponent(nodeId).replace("-", ":");
 
-const urlNodeId = (nodeId: string): string =>
-  nodeId.replace(":", "-");
+const urlNodeId = (nodeId: string): string => nodeId.replace(":", "-");
 
 const fileKeyFromPath = (segments: string[]): string | null => {
   const designIndex = segments.indexOf("design");
@@ -154,7 +152,8 @@ const geometryFrom = (value: unknown): ReviewGeometry | undefined => {
   const y = numberProp(value, "y");
   const width = numberProp(value, "width");
   const height = numberProp(value, "height");
-  if (x === undefined || y === undefined || width === undefined || height === undefined) return undefined;
+  if (x === undefined || y === undefined || width === undefined || height === undefined)
+    return undefined;
   return { x, y, width, height };
 };
 
@@ -184,11 +183,7 @@ const targetKindFor = (type: string): DesignAuditTargetKind => {
   return "unknown";
 };
 
-const summarizeNode = (
-  nodeId: string,
-  node: FigmaNode,
-  maxRegions: number
-): ReviewNodeSummary => {
+const summarizeNode = (nodeId: string, node: FigmaNode, maxRegions: number): ReviewNodeSummary => {
   const document = node.document;
   if (document === undefined) {
     throw new KotikitError(

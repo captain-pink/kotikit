@@ -1,22 +1,20 @@
-import { describe, it, expect, afterAll } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
-import { existsSync } from "fs";
+import { afterAll, describe, expect, it } from "bun:test";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
-import { join, dirname } from "path";
+import { dirname, join } from "path";
 import simpleGit from "simple-git";
-import { writeConfig } from "../../config/load";
-
-import { registerScaffoldTools } from "./scaffold";
-import type { ToolRegistry } from "../server";
-import type { ToolContext } from "../context";
-import { defaultConfig } from "../../config/schema";
 import type { GateRunReport } from "../../codegen/gate-output";
 import type { RunGatesOpts } from "../../codegen/gate-runner";
-import { openDb } from "../../db/sqlite";
-import { initRegistryDb, upsertRegistry, getRegistry } from "../../db/registry-db";
-import { registryDbPath, uiComponentFile, uiStoryFile } from "../../util/paths";
-import type { ComponentJson } from "../../sync/component-shape";
+import { writeConfig } from "../../config/load";
 import type { Config } from "../../config/schema";
+import { defaultConfig } from "../../config/schema";
+import { getRegistry, initRegistryDb, upsertRegistry } from "../../db/registry-db";
+import { openDb } from "../../db/sqlite";
+import type { ComponentJson } from "../../sync/component-shape";
+import { registryDbPath, uiComponentFile, uiStoryFile } from "../../util/paths";
+import type { ToolContext } from "../context";
+import type { ToolRegistry } from "../server";
+import { registerScaffoldTools } from "./scaffold";
 
 // ─── Test-lifecycle dir cleanup ───────────────────────────────────────────────
 
@@ -162,9 +160,7 @@ function makeFailReport(): GateRunReport {
   };
 }
 
-function makeGateRunner(
-  report: GateRunReport
-): (_opts: RunGatesOpts) => Promise<GateRunReport> {
+function makeGateRunner(report: GateRunReport): (_opts: RunGatesOpts) => Promise<GateRunReport> {
   return async (_opts: RunGatesOpts) => report;
 }
 
@@ -215,7 +211,13 @@ describe("kotikit_scaffold_start", () => {
     expect(text).toContain("Ready to scaffold 2 component");
 
     const detail = getDetail(result) as {
-      components: { name: string; kebabName: string; targetPath: string; storyPath?: string; scaffoldShape: { tsx: string; stories?: string } }[];
+      components: {
+        name: string;
+        kebabName: string;
+        targetPath: string;
+        storyPath?: string;
+        scaffoldShape: { tsx: string; stories?: string };
+      }[];
       hasStorybook: boolean;
       skipped: { name: string; reason: string }[];
       systemPrompt: string;
@@ -297,7 +299,10 @@ describe("kotikit_scaffold_start", () => {
 
     const result = await call(reg, "kotikit_scaffold_start", {});
     // Even with all skipped, the tool should still succeed (just with empty components + skipped info)
-    const detail = getDetail(result) as { skipped: { name: string; reason: string }[]; components: unknown[] };
+    const detail = getDetail(result) as {
+      skipped: { name: string; reason: string }[];
+      components: unknown[];
+    };
     expect(detail).not.toBeNull();
     expect(detail.skipped).toHaveLength(1);
     expect(detail.skipped[0]!.name).toBe("Ghost");
@@ -478,7 +483,14 @@ describe("kotikit_scaffold_save", () => {
 
     const config = defaultConfig();
     // Attempt path outside ui dir
-    const traversalPath = join(root, config.project.codeComponentsDir, "ui", "..", "..", "evil.txt");
+    const traversalPath = join(
+      root,
+      config.project.codeComponentsDir,
+      "ui",
+      "..",
+      "..",
+      "evil.txt"
+    );
 
     const reg = makeRegistry();
     const ctx = makeCtx(root);
@@ -604,9 +616,15 @@ describe("scaffold_start pagination (Phase 6)", () => {
     const registry = makeRegistry();
     registerScaffoldTools(registry, makeCtx(root));
     const page1 = await callTool(registry, "kotikit_scaffold_start", {});
-    const d1 = parseDetail(page1.content[0]!.text) as { components: { name: string }[]; nextCursor?: string };
+    const d1 = parseDetail(page1.content[0]!.text) as {
+      components: { name: string }[];
+      nextCursor?: string;
+    };
     const page2 = await callTool(registry, "kotikit_scaffold_start", { cursor: d1.nextCursor });
-    const d2 = parseDetail(page2.content[0]!.text) as { components: { name: string }[]; hasMore: boolean };
+    const d2 = parseDetail(page2.content[0]!.text) as {
+      components: { name: string }[];
+      hasMore: boolean;
+    };
     // Page2 should start AFTER cursor
     expect(d2.components[0]!.name.localeCompare(d1.nextCursor!)).toBeGreaterThan(0);
   });
@@ -619,7 +637,11 @@ describe("scaffold_start pagination (Phase 6)", () => {
     const registry = makeRegistry();
     registerScaffoldTools(registry, makeCtx(root));
     const result = await callTool(registry, "kotikit_scaffold_start", {});
-    const detail = parseDetail(result.content[0]!.text) as { components: unknown[]; nextCursor?: string; hasMore: boolean };
+    const detail = parseDetail(result.content[0]!.text) as {
+      components: unknown[];
+      nextCursor?: string;
+      hasMore: boolean;
+    };
     expect(detail.components).toHaveLength(2);
     expect(detail.hasMore).toBe(false);
     expect(detail.nextCursor).toBeUndefined();
@@ -632,7 +654,9 @@ describe("scaffold_start pagination (Phase 6)", () => {
     const registry = makeRegistry();
     registerScaffoldTools(registry, makeCtx(root));
     const result = await callTool(registry, "kotikit_scaffold_start", {});
-    const detail = parseDetail(result.content[0]!.text) as { components: { dsJson: Record<string, unknown> }[] };
+    const detail = parseDetail(result.content[0]!.text) as {
+      components: { dsJson: Record<string, unknown> }[];
+    };
     const dsJson = detail.components[0]!.dsJson;
     expect(dsJson.name).toBeDefined();
     expect(dsJson.key).toBeDefined();
@@ -650,7 +674,9 @@ describe("scaffold_start pagination (Phase 6)", () => {
     const registry = makeRegistry();
     registerScaffoldTools(registry, makeCtx(root));
     const result = await callTool(registry, "kotikit_scaffold_start", { compact: false });
-    const detail = parseDetail(result.content[0]!.text) as { components: { dsJson: Record<string, unknown> }[] };
+    const detail = parseDetail(result.content[0]!.text) as {
+      components: { dsJson: Record<string, unknown> }[];
+    };
     const dsJson = detail.components[0]!.dsJson;
     // Full shape — path and updatedAt present
     expect(dsJson.path).toBeDefined();
@@ -664,9 +690,12 @@ describe("scaffold_start pagination (Phase 6)", () => {
     const registry = makeRegistry();
     registerScaffoldTools(registry, makeCtx(root));
     const result = await callTool(registry, "kotikit_scaffold_start", {});
-    const detail = parseDetail(result.content[0]!.text) as { systemPromptRef: string; systemPrompt: string };
+    const detail = parseDetail(result.content[0]!.text) as {
+      systemPromptRef: string;
+      systemPrompt: string;
+    };
     expect(detail.systemPromptRef).toBe("react");
     expect(detail.systemPrompt).toContain("kotikit_get_system_prompt");
-    expect(detail.systemPrompt.length).toBeLessThan(300);  // STUB, not the 1.5KB doctrine
+    expect(detail.systemPrompt.length).toBeLessThan(300); // STUB, not the 1.5KB doctrine
   });
 });

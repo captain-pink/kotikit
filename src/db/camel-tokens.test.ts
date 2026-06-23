@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import { buildNameTokens } from "./camel-tokens.js";
 
 describe("buildNameTokens", () => {
@@ -41,7 +41,7 @@ describe("buildNameTokens", () => {
 
   it("does not produce empty tokens", () => {
     const result = buildNameTokens("__leading--trailing__");
-    expect(result.split(/\s+/).every(t => t.length > 0)).toBe(true);
+    expect(result.split(/\s+/).every((t) => t.length > 0)).toBe(true);
   });
 
   it("deduplicates: Button Button", () => {

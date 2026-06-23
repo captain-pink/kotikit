@@ -74,12 +74,30 @@ interface RolePattern {
 const TOKEN_SPLIT_PATTERN = /[^a-z0-9]+/g;
 
 const rolePatterns: RolePattern[] = [
-  { role: "destructive-action", terms: ["delete", "remove", "discard", "archive", "danger", "destructive"] },
-  { role: "binary-control", terms: ["switch", "toggle", "activate", "deactivate", "enable", "disable", "active", "inactive"] },
+  {
+    role: "destructive-action",
+    terms: ["delete", "remove", "discard", "archive", "danger", "destructive"],
+  },
+  {
+    role: "binary-control",
+    terms: [
+      "switch",
+      "toggle",
+      "activate",
+      "deactivate",
+      "enable",
+      "disable",
+      "active",
+      "inactive",
+    ],
+  },
   { role: "search-input", terms: ["search", "find", "query"] },
   { role: "filter-control", terms: ["filter", "tab", "tabs", "segment", "segmented"] },
   { role: "navigation", terms: ["navigation", "nav", "sidebar", "menu"] },
-  { role: "primary-action", terms: ["primary", "invite", "create", "add", "submit", "save", "continue"] },
+  {
+    role: "primary-action",
+    terms: ["primary", "invite", "create", "add", "submit", "save", "continue"],
+  },
   { role: "secondary-action", terms: ["secondary", "cancel", "back", "close"] },
   { role: "status-indicator", terms: ["status", "badge", "chip", "pill"] },
   { role: "feedback", terms: ["empty", "error", "loading", "alert", "toast", "message"] },
@@ -210,9 +228,7 @@ const hasTerm = (tokens: string[], term: string): boolean =>
 
 export function resolveComponentRole(input: { name: string; usage?: string }): ComponentRole {
   const tokens = tokensFor(searchableText(input));
-  const match = rolePatterns.find((pattern) =>
-    pattern.terms.some((term) => hasTerm(tokens, term))
-  );
+  const match = rolePatterns.find((pattern) => pattern.terms.some((term) => hasTerm(tokens, term)));
   return match?.role ?? "content";
 }
 
@@ -220,10 +236,7 @@ export function layoutZoneForRole(role: ComponentRole): LayoutZoneId {
   return zoneByRole[role];
 }
 
-const addZoneAndParents = (
-  zone: LayoutZoneId,
-  acc: Set<LayoutZoneId>
-): Set<LayoutZoneId> => {
+const addZoneAndParents = (zone: LayoutZoneId, acc: Set<LayoutZoneId>): Set<LayoutZoneId> => {
   if (zone === "root" || acc.has(zone)) return acc;
   const contract = zoneContracts[zone];
   return addZoneAndParents(contract.parent, new Set([...acc, zone]));
@@ -247,9 +260,7 @@ export function buildLayoutContract(input: BuildLayoutContractInput): LayoutCont
   return {
     version: 1,
     strategy: "semantic-zones",
-    zones: zoneOrder
-      .filter((zone) => neededZones.has(zone))
-      .map((zone) => zoneContracts[zone]),
+    zones: zoneOrder.filter((zone) => neededZones.has(zone)).map((zone) => zoneContracts[zone]),
     placements,
   };
 }

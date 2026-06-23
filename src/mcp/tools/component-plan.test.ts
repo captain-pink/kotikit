@@ -1,18 +1,18 @@
-import { describe, expect, it, afterEach } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { existsSync, mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import simpleGit from "simple-git";
-import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { writeConfig } from "../../config/load.js";
+import { defaultConfig } from "../../config/schema.js";
+import { readComponentPlan } from "../../planning/component-plan-store.js";
+import { readScreenSpec, writeScreenSpec } from "../../spec/engine.js";
+import { newScreenSpec } from "../../spec/schema.js";
+import { writeVariablesJson } from "../../sync/variables.js";
+import { componentPlanPath } from "../../util/paths.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
-import { defaultConfig } from "../../config/schema.js";
-import { writeConfig } from "../../config/load.js";
-import { newScreenSpec } from "../../spec/schema.js";
-import { readScreenSpec, writeScreenSpec } from "../../spec/engine.js";
-import { componentPlanPath } from "../../util/paths.js";
-import { writeVariablesJson } from "../../sync/variables.js";
-import { readComponentPlan } from "../../planning/component-plan-store.js";
 import { registerComponentPlanTools } from "./component-plan.js";
 
 const roots: string[] = [];

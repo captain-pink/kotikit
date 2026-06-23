@@ -1,13 +1,13 @@
-import { describe, it, expect, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
+import { beforeEach, describe, expect, it } from "bun:test";
 import {
-  initRegistryDb,
-  upsertRegistry,
-  getRegistry,
-  searchRegistry,
   clearRegistry,
-  upsertRegistryDsRow,
+  getRegistry,
+  initRegistryDb,
   listDesignOnlyComponents,
+  searchRegistry,
+  upsertRegistry,
+  upsertRegistryDsRow,
 } from "./registry-db.js";
 
 describe("registry-db", () => {
@@ -23,12 +23,20 @@ describe("registry-db", () => {
   // ---------------------------------------------------------------------------
 
   it("init creates the registry table", () => {
-    const rows = db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='registry'").all();
+    const rows = db
+      .query("SELECT name FROM sqlite_master WHERE type='table' AND name='registry'")
+      .all();
     expect(rows.length).toBe(1);
   });
 
   it("upsert + get round-trips", () => {
-    upsertRegistry(db, { kind: "screen", name: "Button", dsPath: null, codePath: "src/components/ui/button.tsx", status: "code-only" });
+    upsertRegistry(db, {
+      kind: "screen",
+      name: "Button",
+      dsPath: null,
+      codePath: "src/components/ui/button.tsx",
+      status: "code-only",
+    });
     expect(getRegistry(db, "screen", "Button")).toEqual({
       kind: "screen",
       name: "Button",
@@ -43,8 +51,20 @@ describe("registry-db", () => {
   });
 
   it("upsert by (kind, name) overwrites prior row (status updates)", () => {
-    upsertRegistry(db, { kind: "screen", name: "Button", dsPath: null, codePath: "p1", status: "code-only" });
-    upsertRegistry(db, { kind: "screen", name: "Button", dsPath: null, codePath: "p2", status: "synced" });
+    upsertRegistry(db, {
+      kind: "screen",
+      name: "Button",
+      dsPath: null,
+      codePath: "p1",
+      status: "code-only",
+    });
+    upsertRegistry(db, {
+      kind: "screen",
+      name: "Button",
+      dsPath: null,
+      codePath: "p2",
+      status: "synced",
+    });
     const got = getRegistry(db, "screen", "Button");
     expect(got?.codePath).toBe("p2");
     expect(got?.status).toBe("synced");
@@ -54,36 +74,82 @@ describe("registry-db", () => {
   });
 
   it("searchRegistry matches by exact name", () => {
-    upsertRegistry(db, { kind: "screen", name: "Button", dsPath: null, codePath: "p", status: "code-only" });
-    upsertRegistry(db, { kind: "screen", name: "Card", dsPath: null, codePath: "p", status: "code-only" });
+    upsertRegistry(db, {
+      kind: "screen",
+      name: "Button",
+      dsPath: null,
+      codePath: "p",
+      status: "code-only",
+    });
+    upsertRegistry(db, {
+      kind: "screen",
+      name: "Card",
+      dsPath: null,
+      codePath: "p",
+      status: "code-only",
+    });
     const results = searchRegistry(db, { query: "Button" });
-    expect(results.map(r => r.name)).toEqual(["Button"]);
+    expect(results.map((r) => r.name)).toEqual(["Button"]);
   });
 
   it("searchRegistry matches by prefix (LIKE 'But%')", () => {
-    upsertRegistry(db, { kind: "screen", name: "Button", dsPath: null, codePath: "p", status: "code-only" });
-    upsertRegistry(db, { kind: "screen", name: "Buttonish", dsPath: null, codePath: "p", status: "code-only" });
-    upsertRegistry(db, { kind: "screen", name: "Card", dsPath: null, codePath: "p", status: "code-only" });
+    upsertRegistry(db, {
+      kind: "screen",
+      name: "Button",
+      dsPath: null,
+      codePath: "p",
+      status: "code-only",
+    });
+    upsertRegistry(db, {
+      kind: "screen",
+      name: "Buttonish",
+      dsPath: null,
+      codePath: "p",
+      status: "code-only",
+    });
+    upsertRegistry(db, {
+      kind: "screen",
+      name: "Card",
+      dsPath: null,
+      codePath: "p",
+      status: "code-only",
+    });
     const results = searchRegistry(db, { query: "But" });
-    expect(results.map(r => r.name).sort()).toEqual(["Button", "Buttonish"]);
+    expect(results.map((r) => r.name).sort()).toEqual(["Button", "Buttonish"]);
   });
 
   it("searchRegistry respects the limit", () => {
     for (let i = 0; i < 10; i++) {
-      upsertRegistry(db, { kind: "screen", name: `Component${i}`, dsPath: null, codePath: "p", status: "code-only" });
+      upsertRegistry(db, {
+        kind: "screen",
+        name: `Component${i}`,
+        dsPath: null,
+        codePath: "p",
+        status: "code-only",
+      });
     }
     expect(searchRegistry(db, { query: "Component", limit: 3 })).toHaveLength(3);
   });
 
   it("rejects invalid status via CHECK constraint", () => {
     expect(() => {
-      db.prepare(`INSERT INTO registry (kind, name, code_path, status) VALUES (?, ?, ?, ?)`)
-        .run("screen", "Bad", "p", "invalid-status");
+      db.prepare(`INSERT INTO registry (kind, name, code_path, status) VALUES (?, ?, ?, ?)`).run(
+        "screen",
+        "Bad",
+        "p",
+        "invalid-status"
+      );
     }).toThrow();
   });
 
   it("clearRegistry removes all rows", () => {
-    upsertRegistry(db, { kind: "screen", name: "Button", dsPath: null, codePath: "p", status: "code-only" });
+    upsertRegistry(db, {
+      kind: "screen",
+      name: "Button",
+      dsPath: null,
+      codePath: "p",
+      status: "code-only",
+    });
     clearRegistry(db);
     expect(searchRegistry(db, { query: "B" })).toEqual([]);
   });
@@ -108,7 +174,9 @@ describe("registry-db", () => {
       code_path TEXT,
       status TEXT NOT NULL CHECK (status IN ('code-only', 'design-only', 'synced'))
     )`);
-    freshDb.exec(`INSERT INTO registry (name, code_path, status) VALUES ('Cart', 'src/x/Cart.tsx', 'code-only')`);
+    freshDb.exec(
+      `INSERT INTO registry (name, code_path, status) VALUES ('Cart', 'src/x/Cart.tsx', 'code-only')`
+    );
 
     initRegistryDb(freshDb);
 
@@ -128,7 +196,13 @@ describe("registry-db", () => {
 
   it("migration: idempotency — calling initRegistryDb three times on a v1 DB is a no-op", () => {
     // Insert a row so we can verify row counts don't change.
-    upsertRegistry(db, { kind: "screen", name: "Cart", dsPath: null, codePath: "p", status: "code-only" });
+    upsertRegistry(db, {
+      kind: "screen",
+      name: "Cart",
+      dsPath: null,
+      codePath: "p",
+      status: "code-only",
+    });
 
     initRegistryDb(db);
     initRegistryDb(db);
@@ -145,8 +219,20 @@ describe("registry-db", () => {
   // ---------------------------------------------------------------------------
 
   it("(kind, name) PK — screen and component with same name coexist", () => {
-    upsertRegistry(db, { kind: "screen", name: "Cart", dsPath: null, codePath: "src/screens/Cart.tsx", status: "code-only" });
-    upsertRegistry(db, { kind: "component", name: "Cart", dsPath: "components/cart.json", codePath: null, status: "design-only" });
+    upsertRegistry(db, {
+      kind: "screen",
+      name: "Cart",
+      dsPath: null,
+      codePath: "src/screens/Cart.tsx",
+      status: "code-only",
+    });
+    upsertRegistry(db, {
+      kind: "component",
+      name: "Cart",
+      dsPath: "components/cart.json",
+      codePath: null,
+      status: "design-only",
+    });
 
     const screenRow = getRegistry(db, "screen", "Cart");
     expect(screenRow?.kind).toBe("screen");
@@ -162,8 +248,12 @@ describe("registry-db", () => {
 
   it("CHECK constraint on kind — inserting an unknown kind throws", () => {
     expect(() => {
-      db.prepare(`INSERT INTO registry (kind, name, code_path, status) VALUES (?, ?, ?, ?)`)
-        .run("invalid-kind", "Foo", "p", "code-only");
+      db.prepare(`INSERT INTO registry (kind, name, code_path, status) VALUES (?, ?, ?, ?)`).run(
+        "invalid-kind",
+        "Foo",
+        "p",
+        "code-only"
+      );
     }).toThrow();
   });
 
@@ -172,30 +262,90 @@ describe("registry-db", () => {
   // ---------------------------------------------------------------------------
 
   it("searchRegistry: { status: 'design-only' } returns only design-only rows", () => {
-    upsertRegistry(db, { kind: "screen", name: "Alpha", dsPath: null, codePath: "p", status: "code-only" });
-    upsertRegistry(db, { kind: "component", name: "Beta", dsPath: "b.json", codePath: null, status: "design-only" });
-    upsertRegistry(db, { kind: "component", name: "Gamma", dsPath: "g.json", codePath: null, status: "design-only" });
-    upsertRegistry(db, { kind: "component", name: "Delta", dsPath: "d.json", codePath: "p", status: "synced" });
+    upsertRegistry(db, {
+      kind: "screen",
+      name: "Alpha",
+      dsPath: null,
+      codePath: "p",
+      status: "code-only",
+    });
+    upsertRegistry(db, {
+      kind: "component",
+      name: "Beta",
+      dsPath: "b.json",
+      codePath: null,
+      status: "design-only",
+    });
+    upsertRegistry(db, {
+      kind: "component",
+      name: "Gamma",
+      dsPath: "g.json",
+      codePath: null,
+      status: "design-only",
+    });
+    upsertRegistry(db, {
+      kind: "component",
+      name: "Delta",
+      dsPath: "d.json",
+      codePath: "p",
+      status: "synced",
+    });
 
     const results = searchRegistry(db, { status: "design-only" });
-    expect(results.map(r => r.name).sort()).toEqual(["Beta", "Gamma"]);
-    expect(results.every(r => r.status === "design-only")).toBe(true);
+    expect(results.map((r) => r.name).sort()).toEqual(["Beta", "Gamma"]);
+    expect(results.every((r) => r.status === "design-only")).toBe(true);
   });
 
   it("searchRegistry: { kind: 'component' } returns only components", () => {
-    upsertRegistry(db, { kind: "screen", name: "CheckoutFlow", dsPath: null, codePath: "p", status: "code-only" });
-    upsertRegistry(db, { kind: "component", name: "Button", dsPath: "b.json", codePath: null, status: "design-only" });
-    upsertRegistry(db, { kind: "component", name: "Card", dsPath: "c.json", codePath: null, status: "design-only" });
+    upsertRegistry(db, {
+      kind: "screen",
+      name: "CheckoutFlow",
+      dsPath: null,
+      codePath: "p",
+      status: "code-only",
+    });
+    upsertRegistry(db, {
+      kind: "component",
+      name: "Button",
+      dsPath: "b.json",
+      codePath: null,
+      status: "design-only",
+    });
+    upsertRegistry(db, {
+      kind: "component",
+      name: "Card",
+      dsPath: "c.json",
+      codePath: null,
+      status: "design-only",
+    });
 
     const results = searchRegistry(db, { kind: "component" });
-    expect(results.map(r => r.name).sort()).toEqual(["Button", "Card"]);
-    expect(results.every(r => r.kind === "component")).toBe(true);
+    expect(results.map((r) => r.name).sort()).toEqual(["Button", "Card"]);
+    expect(results.every((r) => r.kind === "component")).toBe(true);
   });
 
   it("searchRegistry: combined kind + status uses AND logic", () => {
-    upsertRegistry(db, { kind: "component", name: "Button", dsPath: "b.json", codePath: null, status: "design-only" });
-    upsertRegistry(db, { kind: "component", name: "Card", dsPath: "c.json", codePath: "p", status: "synced" });
-    upsertRegistry(db, { kind: "screen", name: "Cart", dsPath: null, codePath: "p", status: "design-only" });
+    upsertRegistry(db, {
+      kind: "component",
+      name: "Button",
+      dsPath: "b.json",
+      codePath: null,
+      status: "design-only",
+    });
+    upsertRegistry(db, {
+      kind: "component",
+      name: "Card",
+      dsPath: "c.json",
+      codePath: "p",
+      status: "synced",
+    });
+    upsertRegistry(db, {
+      kind: "screen",
+      name: "Cart",
+      dsPath: null,
+      codePath: "p",
+      status: "design-only",
+    });
 
     const results = searchRegistry(db, { kind: "component", status: "design-only" });
     expect(results).toHaveLength(1);
@@ -203,21 +353,57 @@ describe("registry-db", () => {
   });
 
   it("searchRegistry: no query — returns all rows (subject to other filters)", () => {
-    upsertRegistry(db, { kind: "screen", name: "Cart", dsPath: null, codePath: "p", status: "code-only" });
-    upsertRegistry(db, { kind: "component", name: "Button", dsPath: "b.json", codePath: null, status: "design-only" });
-    upsertRegistry(db, { kind: "component", name: "Card", dsPath: "c.json", codePath: "p", status: "synced" });
+    upsertRegistry(db, {
+      kind: "screen",
+      name: "Cart",
+      dsPath: null,
+      codePath: "p",
+      status: "code-only",
+    });
+    upsertRegistry(db, {
+      kind: "component",
+      name: "Button",
+      dsPath: "b.json",
+      codePath: null,
+      status: "design-only",
+    });
+    upsertRegistry(db, {
+      kind: "component",
+      name: "Card",
+      dsPath: "c.json",
+      codePath: "p",
+      status: "synced",
+    });
 
     const results = searchRegistry(db, {});
     expect(results).toHaveLength(3);
   });
 
   it("searchRegistry: with query — prefix match still works", () => {
-    upsertRegistry(db, { kind: "screen", name: "Cart", dsPath: null, codePath: "p", status: "code-only" });
-    upsertRegistry(db, { kind: "component", name: "Button", dsPath: "b.json", codePath: null, status: "design-only" });
-    upsertRegistry(db, { kind: "component", name: "ButtonIcon", dsPath: "bi.json", codePath: null, status: "design-only" });
+    upsertRegistry(db, {
+      kind: "screen",
+      name: "Cart",
+      dsPath: null,
+      codePath: "p",
+      status: "code-only",
+    });
+    upsertRegistry(db, {
+      kind: "component",
+      name: "Button",
+      dsPath: "b.json",
+      codePath: null,
+      status: "design-only",
+    });
+    upsertRegistry(db, {
+      kind: "component",
+      name: "ButtonIcon",
+      dsPath: "bi.json",
+      codePath: null,
+      status: "design-only",
+    });
 
     const results = searchRegistry(db, { query: "But" });
-    expect(results.map(r => r.name).sort()).toEqual(["Button", "ButtonIcon"]);
+    expect(results.map((r) => r.name).sort()).toEqual(["Button", "ButtonIcon"]);
   });
 });
 
@@ -243,7 +429,13 @@ describe("upsertRegistryDsRow", () => {
   it("updates ds_path on existing design-only row, status unchanged", () => {
     const db = new Database(":memory:");
     initRegistryDb(db);
-    upsertRegistry(db, { kind: "component", name: "Button", dsPath: "old", codePath: null, status: "design-only" });
+    upsertRegistry(db, {
+      kind: "component",
+      name: "Button",
+      dsPath: "old",
+      codePath: null,
+      status: "design-only",
+    });
     upsertRegistryDsRow(db, { name: "Button", dsPath: "components/button.json" });
     const row = getRegistry(db, "component", "Button");
     expect(row?.dsPath).toBe("components/button.json");
@@ -308,10 +500,34 @@ describe("upsertRegistryDsRow", () => {
 
 describe("listDesignOnlyComponents", () => {
   function seed(db: Database) {
-    upsertRegistry(db, { kind: "component", name: "Button", dsPath: "p1", codePath: null, status: "design-only" });
-    upsertRegistry(db, { kind: "component", name: "Card",   dsPath: "p2", codePath: null, status: "design-only" });
-    upsertRegistry(db, { kind: "component", name: "Input",  dsPath: "p3", codePath: "x", status: "synced" });
-    upsertRegistry(db, { kind: "screen",    name: "Cart",   dsPath: null, codePath: "x", status: "code-only" });
+    upsertRegistry(db, {
+      kind: "component",
+      name: "Button",
+      dsPath: "p1",
+      codePath: null,
+      status: "design-only",
+    });
+    upsertRegistry(db, {
+      kind: "component",
+      name: "Card",
+      dsPath: "p2",
+      codePath: null,
+      status: "design-only",
+    });
+    upsertRegistry(db, {
+      kind: "component",
+      name: "Input",
+      dsPath: "p3",
+      codePath: "x",
+      status: "synced",
+    });
+    upsertRegistry(db, {
+      kind: "screen",
+      name: "Cart",
+      dsPath: null,
+      codePath: "x",
+      status: "code-only",
+    });
   }
 
   it("no filter returns all design-only components, excluding screens and synced", () => {
@@ -319,7 +535,7 @@ describe("listDesignOnlyComponents", () => {
     initRegistryDb(db);
     seed(db);
     const rows = listDesignOnlyComponents(db);
-    expect(rows.map(r => r.name).sort()).toEqual(["Button", "Card"]);
+    expect(rows.map((r) => r.name).sort()).toEqual(["Button", "Card"]);
   });
 
   it("names filter returns the intersection", () => {
@@ -327,7 +543,7 @@ describe("listDesignOnlyComponents", () => {
     initRegistryDb(db);
     seed(db);
     const rows = listDesignOnlyComponents(db, ["Button", "DoesNotExist", "Card"]);
-    expect(rows.map(r => r.name).sort()).toEqual(["Button", "Card"]);
+    expect(rows.map((r) => r.name).sort()).toEqual(["Button", "Card"]);
   });
 
   it("empty names array returns all design-only (treats empty as 'no filter')", () => {
@@ -343,7 +559,13 @@ describe("listDesignOnlyComponents", () => {
     const db = new Database(":memory:");
     initRegistryDb(db);
     for (let i = 0; i < 5; i++) {
-      upsertRegistry(db, { kind: "component", name: `C${i}`, dsPath: "p", codePath: null, status: "design-only" });
+      upsertRegistry(db, {
+        kind: "component",
+        name: `C${i}`,
+        dsPath: "p",
+        codePath: null,
+        status: "design-only",
+      });
     }
     const rows = listDesignOnlyComponents(db, undefined, 2);
     expect(rows).toHaveLength(2);

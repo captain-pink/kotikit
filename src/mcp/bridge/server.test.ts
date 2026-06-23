@@ -1,7 +1,7 @@
-import { describe, it, expect, afterEach } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { startBridgeServer, type BridgeServer } from "./server.js";
 import type { ToolRegistry } from "../server.js";
+import { type BridgeServer, startBridgeServer } from "./server.js";
 
 let activeBridge: BridgeServer | null = null;
 
@@ -31,7 +31,10 @@ function makeRegistry(): ToolRegistry {
       inputSchema: { type: "object", properties: {} },
     },
   ];
-  const handlers = new Map<string, (args: unknown) => Promise<{ content: { type: "text"; text: string }[] }>>();
+  const handlers = new Map<
+    string,
+    (args: unknown) => Promise<{ content: { type: "text"; text: string }[] }>
+  >();
   handlers.set("test_echo", async (args: unknown) => ({
     content: [
       {
@@ -48,8 +51,7 @@ function makeRegistry(): ToolRegistry {
 
 let nextPort = 54000 + Math.floor(Math.random() * 4000);
 
-const isPortInUse = (err: unknown): boolean =>
-  (err as { code?: string }).code === "EADDRINUSE";
+const isPortInUse = (err: unknown): boolean => (err as { code?: string }).code === "EADDRINUSE";
 
 function startTestBridge(input: {
   registry: ToolRegistry;
@@ -91,7 +93,7 @@ async function callRpc(
   url: string,
   method: string,
   params?: unknown,
-  id: number = 1,
+  id: number = 1
 ): Promise<unknown> {
   return new Promise<unknown>((resolve, reject) => {
     const ws = new WebSocket(url);
@@ -118,28 +120,19 @@ describe("startBridgeServer", () => {
   it("tools/list returns registered tool names", async () => {
     const { bridge, port, token } = startTestBridge({ registry: makeRegistry() });
     activeBridge = bridge;
-    const reply = await callRpc(
-      `ws://127.0.0.1:${port}?token=${token}`,
-      "tools/list",
-    );
+    const reply = await callRpc(`ws://127.0.0.1:${port}?token=${token}`, "tools/list");
     const result = (reply as { result: { tools: Tool[] } }).result;
-    expect(result.tools.map((t) => t.name).sort()).toEqual([
-      "test_echo",
-      "test_fail",
-    ]);
+    expect(result.tools.map((t) => t.name).sort()).toEqual(["test_echo", "test_fail"]);
   });
 
   it("tools/call returns the handler result", async () => {
     const { bridge, port, token } = startTestBridge({ registry: makeRegistry() });
     activeBridge = bridge;
-    const reply = await callRpc(
-      `ws://127.0.0.1:${port}?token=${token}`,
-      "tools/call",
-      { name: "test_echo", arguments: { msg: "hi" } },
-    );
-    const result = (
-      reply as { result: { content: { type: string; text: string }[] } }
-    ).result;
+    const reply = await callRpc(`ws://127.0.0.1:${port}?token=${token}`, "tools/call", {
+      name: "test_echo",
+      arguments: { msg: "hi" },
+    });
+    const result = (reply as { result: { content: { type: string; text: string }[] } }).result;
     expect(result.content[0]?.text).toBe("echo: hi");
   });
 
@@ -165,33 +158,23 @@ describe("startBridgeServer", () => {
   it("calling an unknown tool returns a JSON-RPC error response", async () => {
     const { bridge, port, token } = startTestBridge({ registry: makeRegistry() });
     activeBridge = bridge;
-    const reply = await callRpc(
-      `ws://127.0.0.1:${port}?token=${token}`,
-      "tools/call",
-      { name: "does_not_exist", arguments: {} },
-    );
-    expect(
-      (reply as { error?: { message: string } }).error,
-    ).toBeDefined();
-    expect(
-      (reply as { error: { message: string } }).error.message,
-    ).toContain("Unknown tool");
+    const reply = await callRpc(`ws://127.0.0.1:${port}?token=${token}`, "tools/call", {
+      name: "does_not_exist",
+      arguments: {},
+    });
+    expect((reply as { error?: { message: string } }).error).toBeDefined();
+    expect((reply as { error: { message: string } }).error.message).toContain("Unknown tool");
   });
 
   it("calling a tool that throws returns a JSON-RPC error response (no crash)", async () => {
     const { bridge, port, token } = startTestBridge({ registry: makeRegistry() });
     activeBridge = bridge;
-    const reply = await callRpc(
-      `ws://127.0.0.1:${port}?token=${token}`,
-      "tools/call",
-      { name: "test_fail", arguments: {} },
-    );
-    expect(
-      (reply as { error?: { message: string } }).error,
-    ).toBeDefined();
-    expect(
-      (reply as { error: { message: string } }).error.message,
-    ).toContain("boom");
+    const reply = await callRpc(`ws://127.0.0.1:${port}?token=${token}`, "tools/call", {
+      name: "test_fail",
+      arguments: {},
+    });
+    expect((reply as { error?: { message: string } }).error).toBeDefined();
+    expect((reply as { error: { message: string } }).error.message).toContain("boom");
   });
 
   it("close() releases the port", async () => {
@@ -214,7 +197,9 @@ describe("startBridgeServer", () => {
     const { bridge, port } = startTestBridge({
       registry: makeRegistry(),
       token,
-      onReady: (info) => { captured = info.url; },
+      onReady: (info) => {
+        captured = info.url;
+      },
     });
     activeBridge = bridge;
     expect(captured).toBe(`ws://localhost:${port}?token=${token}`);
@@ -233,8 +218,6 @@ describe("startBridgeServer", () => {
       ws.onerror = () => reject(new Error("ws err"));
       setTimeout(() => reject(new Error("timeout")), 3000);
     });
-    expect(
-      (reply as { error?: { code: number } }).error?.code,
-    ).toBe(-32700);
+    expect((reply as { error?: { code: number } }).error?.code).toBe(-32700);
   });
 });

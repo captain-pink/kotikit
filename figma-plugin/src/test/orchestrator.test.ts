@@ -1,6 +1,6 @@
-import { describe, it, expect } from "bun:test";
-import { applyAll, type DesignPlan } from "../orchestrator.js";
+import { describe, expect, it } from "bun:test";
 import { FakeFigmaShim } from "../figma-shim-fake.js";
+import { applyAll, type DesignPlan } from "../orchestrator.js";
 
 function basicPlan(): DesignPlan {
   return {
@@ -24,7 +24,13 @@ function basicPlan(): DesignPlan {
     states: ["default"],
     steps: [
       { kind: "define-state-frame", state: "default", width: 1440, height: "auto" },
-      { kind: "apply-auto-layout", state: "default", direction: "VERTICAL", padding: 24, itemSpacing: 16 },
+      {
+        kind: "apply-auto-layout",
+        state: "default",
+        direction: "VERTICAL",
+        padding: 24,
+        itemSpacing: 16,
+      },
       { kind: "place-component", state: "default", componentName: "Button", dsKey: "k-button" },
       { kind: "place-component", state: "default", componentName: "Input", dsKey: "k-input" },
     ],
@@ -44,7 +50,7 @@ describe("orchestrator.applyAll", () => {
     const shim = makeShim();
     const results = await applyAll({ shim, plan: basicPlan() });
     expect(results).toHaveLength(4);
-    expect(results.every(r => r.outcome === "ok")).toBe(true);
+    expect(results.every((r) => r.outcome === "ok")).toBe(true);
     expect(results[0]?.fileKey).toBe("fig-file");
     expect(results[0]?.page?.name).toBe("Draft - Cart");
     expect(results[0]?.section?.name).toBe("kotikit / cart / 2026-06-22");
@@ -52,8 +58,8 @@ describe("orchestrator.applyAll", () => {
     expect(results[2]?.node?.kind).toBe("instance");
     expect(results[2]?.componentName).toBe("Button");
     expect(results[2]?.dsKey).toBe("k-button");
-    const sections = Array.from(shim.nodes.values()).filter(n => n.type === "SECTION");
-    const frames = Array.from(shim.nodes.values()).filter(n => n.type === "FRAME");
+    const sections = Array.from(shim.nodes.values()).filter((n) => n.type === "SECTION");
+    const frames = Array.from(shim.nodes.values()).filter((n) => n.type === "FRAME");
     expect(sections).toHaveLength(1);
     expect(sections[0]?.name).toBe("kotikit / cart / 2026-06-22");
     expect(frames[0]?.parentId).toBe(sections[0]?.id);
@@ -85,13 +91,18 @@ describe("orchestrator.applyAll", () => {
     (plan.steps[2] as { dsKey?: string }).dsKey = undefined;
     const results = await applyAll({ shim, plan });
     expect(results[2]?.outcome).toBe("warned");
-    expect(results[3]?.outcome).toBe("ok");  // next step still runs
+    expect(results[3]?.outcome).toBe("ok"); // next step still runs
   });
 
   it("bind-variable with unknown name is warned", async () => {
     const shim = makeShim();
     const plan = basicPlan();
-    plan.steps.push({ kind: "bind-variable", state: "default", variableName: "brand/missing", property: "fill" });
+    plan.steps.push({
+      kind: "bind-variable",
+      state: "default",
+      variableName: "brand/missing",
+      property: "fill",
+    });
     const results = await applyAll({ shim, plan });
     const bindResult = results[results.length - 1];
     expect(bindResult?.outcome).toBe("warned");
@@ -102,7 +113,12 @@ describe("orchestrator.applyAll", () => {
     const shim = makeShim();
     shim.seedVariable("brand/primary", "var-1");
     const plan = basicPlan();
-    plan.steps.push({ kind: "bind-variable", state: "default", variableName: "brand/primary", property: "fill" });
+    plan.steps.push({
+      kind: "bind-variable",
+      state: "default",
+      variableName: "brand/primary",
+      property: "fill",
+    });
     const results = await applyAll({ shim, plan });
     expect(results[results.length - 1]?.outcome).toBe("ok");
     expect(shim.bindings).toHaveLength(1);
@@ -120,9 +136,9 @@ describe("orchestrator.applyAll", () => {
   it("state-frame map: a second place-component step targets the SAME frame", async () => {
     const shim = makeShim();
     const results = await applyAll({ shim, plan: basicPlan() });
-    expect(results.every(r => r.outcome === "ok")).toBe(true);
+    expect(results.every((r) => r.outcome === "ok")).toBe(true);
     // Verify exactly one frame was created
-    const frames = Array.from(shim.nodes.values()).filter(n => n.type === "FRAME");
+    const frames = Array.from(shim.nodes.values()).filter((n) => n.type === "FRAME");
     expect(frames).toHaveLength(1);
     // Both instances appended to the same frame
     expect(frames[0]?.children.length).toBe(2);
@@ -134,7 +150,13 @@ describe("orchestrator.applyAll", () => {
       ...basicPlan(),
       steps: [
         { kind: "define-state-frame", state: "default", width: 1440, height: "auto" },
-        { kind: "apply-auto-layout", state: "default", direction: "VERTICAL", padding: 24, itemSpacing: 16 },
+        {
+          kind: "apply-auto-layout",
+          state: "default",
+          direction: "VERTICAL",
+          padding: 24,
+          itemSpacing: 16,
+        },
         {
           kind: "define-layout-zone",
           state: "default",
@@ -173,7 +195,7 @@ describe("orchestrator.applyAll", () => {
   it("onStep callback fires for each step", async () => {
     const shim = makeShim();
     const calls: number[] = [];
-    await applyAll({ shim, plan: basicPlan(), onStep: r => calls.push(r.stepIndex) });
+    await applyAll({ shim, plan: basicPlan(), onStep: (r) => calls.push(r.stepIndex) });
     expect(calls).toEqual([0, 1, 2, 3]);
   });
 
@@ -184,16 +206,28 @@ describe("orchestrator.applyAll", () => {
       states: ["default", "loading"],
       steps: [
         { kind: "define-state-frame", state: "default", width: 1440, height: "auto" },
-        { kind: "apply-auto-layout", state: "default", direction: "VERTICAL", padding: 24, itemSpacing: 16 },
+        {
+          kind: "apply-auto-layout",
+          state: "default",
+          direction: "VERTICAL",
+          padding: 24,
+          itemSpacing: 16,
+        },
         { kind: "place-component", state: "default", componentName: "Header", dsKey: "k-header" },
         { kind: "define-state-frame", state: "loading", width: 1440, height: "auto" },
-        { kind: "apply-auto-layout", state: "loading", direction: "VERTICAL", padding: 24, itemSpacing: 16 },
+        {
+          kind: "apply-auto-layout",
+          state: "loading",
+          direction: "VERTICAL",
+          padding: 24,
+          itemSpacing: 16,
+        },
         { kind: "place-component", state: "loading", componentName: "Spinner", dsKey: "k-spinner" },
       ],
     };
     const results = await applyAll({ shim, plan });
-    expect(results.every(r => r.outcome === "ok")).toBe(true);
-    const frames = Array.from(shim.nodes.values()).filter(n => n.type === "FRAME");
+    expect(results.every((r) => r.outcome === "ok")).toBe(true);
+    const frames = Array.from(shim.nodes.values()).filter((n) => n.type === "FRAME");
     expect(frames).toHaveLength(2);
   });
 });

@@ -1,12 +1,12 @@
-import type { ToolContext } from "../context.js";
-import type { ToolRegistry } from "../server.js";
+import { Database } from "bun:sqlite";
 import { existsSync } from "fs";
 import { mkdir, writeFile } from "fs/promises";
 import { dirname } from "path";
-import { Database } from "bun:sqlite";
 import { runAudit } from "../../audit/engine.js";
 import { registryDbPath } from "../../util/paths.js";
-import { toolText, toolError, KotikitError } from "../../util/result.js";
+import { KotikitError, toolError, toolText } from "../../util/result.js";
+import type { ToolContext } from "../context.js";
+import type { ToolRegistry } from "../server.js";
 
 export function registerAuditTools(registry: ToolRegistry, ctx: ToolContext): void {
   registry.tools.push({

@@ -1,14 +1,19 @@
-import { describe, expect, it, afterEach } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { loadConfig, writeConfig } from "../../config/load.js";
+import { defaultConfig } from "../../config/schema.js";
+import {
+  readFlowManifest,
+  readScreenSpec,
+  writeFlowManifest,
+  writeScreenSpec,
+} from "../../spec/engine.js";
+import { newFlowManifest, newScreenSpec } from "../../spec/schema.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
-import { defaultConfig } from "../../config/schema.js";
-import { writeConfig, loadConfig } from "../../config/load.js";
-import { newFlowManifest, newScreenSpec } from "../../spec/schema.js";
-import { readFlowManifest, readScreenSpec, writeFlowManifest, writeScreenSpec } from "../../spec/engine.js";
 import { registerFigmaTargetTools } from "./figma-target.js";
 
 const tmpDirs: string[] = [];
@@ -54,10 +59,15 @@ describe("kotikit_figma_target_bind", () => {
     config.git.autoCommit = false;
     await writeConfig(root, config);
     writeFileSync(join(root, ".env"), "FIGMA_TOKEN=figd_test\n");
-    await writeScreenSpec(root, "members", null, newScreenSpec({
-      title: "Members",
-      description: "Manage members",
-    }));
+    await writeScreenSpec(
+      root,
+      "members",
+      null,
+      newScreenSpec({
+        title: "Members",
+        description: "Manage members",
+      })
+    );
 
     const registry = makeRegistry();
     registerFigmaTargetTools(registry, makeCtx(root), {
@@ -82,15 +92,24 @@ describe("kotikit_figma_target_bind", () => {
     config.git.autoCommit = false;
     await writeConfig(root, config);
     writeFileSync(join(root, ".env"), "FIGMA_TOKEN=figd_test\n");
-    await writeFlowManifest(root, "checkout", newFlowManifest({
-      title: "Checkout",
-      description: "Checkout flow",
-      screens: [{ id: "cart", title: "Cart", path: "cart.spec.json" }],
-    }));
-    await writeScreenSpec(root, "checkout", "cart", newScreenSpec({
-      title: "Cart",
-      description: "Cart screen",
-    }));
+    await writeFlowManifest(
+      root,
+      "checkout",
+      newFlowManifest({
+        title: "Checkout",
+        description: "Checkout flow",
+        screens: [{ id: "cart", title: "Cart", path: "cart.spec.json" }],
+      })
+    );
+    await writeScreenSpec(
+      root,
+      "checkout",
+      "cart",
+      newScreenSpec({
+        title: "Cart",
+        description: "Cart screen",
+      })
+    );
 
     const registry = makeRegistry();
     registerFigmaTargetTools(registry, makeCtx(root), {
@@ -113,10 +132,15 @@ describe("kotikit_figma_target_bind", () => {
     config.git.autoCommit = false;
     await writeConfig(root, config);
     writeFileSync(join(root, ".env"), "FIGMA_TOKEN=figd_test\n");
-    await writeScreenSpec(root, "members", null, newScreenSpec({
-      title: "Members",
-      description: "Manage members",
-    }));
+    await writeScreenSpec(
+      root,
+      "members",
+      null,
+      newScreenSpec({
+        title: "Members",
+        description: "Manage members",
+      })
+    );
 
     const registry = makeRegistry();
     registerFigmaTargetTools(registry, makeCtx(root), {

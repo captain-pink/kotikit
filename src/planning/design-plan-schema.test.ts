@@ -1,10 +1,6 @@
-import { describe, it, expect } from "bun:test";
-import {
-  DesignPlanSchema,
-  DesignPlanStepSchema,
-  parseDesignPlan,
-} from "./design-plan-schema.js";
+import { describe, expect, it } from "bun:test";
 import { KotikitError } from "../util/result.js";
+import { DesignPlanSchema, DesignPlanStepSchema, parseDesignPlan } from "./design-plan-schema.js";
 
 function validPlan() {
   return {
@@ -36,8 +32,21 @@ function validPlan() {
     steps: [
       { kind: "define-state-frame", state: "default" },
       { kind: "apply-auto-layout", state: "default" },
-      { kind: "define-layout-zone", state: "default", zone: "content", parentZone: "root", direction: "VERTICAL" },
-      { kind: "place-component", state: "default", componentName: "Button", dsKey: "abc", role: "primary-action", zone: "content" },
+      {
+        kind: "define-layout-zone",
+        state: "default",
+        zone: "content",
+        parentZone: "root",
+        direction: "VERTICAL",
+      },
+      {
+        kind: "place-component",
+        state: "default",
+        componentName: "Button",
+        dsKey: "abc",
+        role: "primary-action",
+        zone: "content",
+      },
       { kind: "bind-variable", state: "default", variableName: "brand/primary" },
     ],
     createdAt: "2026-05-29T10:00:00.000Z",
@@ -60,7 +69,12 @@ describe("DesignPlanSchema", () => {
     const plan = validPlan();
     const parsed = DesignPlanSchema.parse(plan);
     const al = parsed.steps[1]!;
-    expect(al).toMatchObject({ kind: "apply-auto-layout", direction: "VERTICAL", padding: 24, itemSpacing: 16 });
+    expect(al).toMatchObject({
+      kind: "apply-auto-layout",
+      direction: "VERTICAL",
+      padding: 24,
+      itemSpacing: 16,
+    });
   });
 
   it("fills layout-zone defaults for stable target regions", () => {
@@ -119,7 +133,10 @@ describe("DesignPlanSchema", () => {
 
   it("place-component variant is optional Record<string, string>", () => {
     const plan = validPlan();
-    (plan.steps[3] as { variant?: Record<string, string> }).variant = { Variant: "Primary", Size: "md" };
+    (plan.steps[3] as { variant?: Record<string, string> }).variant = {
+      Variant: "Primary",
+      Size: "md",
+    };
     expect(() => DesignPlanSchema.parse(plan)).not.toThrow();
   });
 
@@ -186,10 +203,20 @@ describe("parseDesignPlan", () => {
 
 describe("DesignPlanStepSchema (direct)", () => {
   it("validates each step kind in isolation", () => {
-    expect(() => DesignPlanStepSchema.parse({ kind: "define-state-frame", state: "x" })).not.toThrow();
-    expect(() => DesignPlanStepSchema.parse({ kind: "apply-auto-layout", state: "x" })).not.toThrow();
-    expect(() => DesignPlanStepSchema.parse({ kind: "define-layout-zone", state: "x", zone: "content" })).not.toThrow();
-    expect(() => DesignPlanStepSchema.parse({ kind: "place-component", state: "x", componentName: "Button" })).not.toThrow();
-    expect(() => DesignPlanStepSchema.parse({ kind: "bind-variable", state: "x", variableName: "brand" })).not.toThrow();
+    expect(() =>
+      DesignPlanStepSchema.parse({ kind: "define-state-frame", state: "x" })
+    ).not.toThrow();
+    expect(() =>
+      DesignPlanStepSchema.parse({ kind: "apply-auto-layout", state: "x" })
+    ).not.toThrow();
+    expect(() =>
+      DesignPlanStepSchema.parse({ kind: "define-layout-zone", state: "x", zone: "content" })
+    ).not.toThrow();
+    expect(() =>
+      DesignPlanStepSchema.parse({ kind: "place-component", state: "x", componentName: "Button" })
+    ).not.toThrow();
+    expect(() =>
+      DesignPlanStepSchema.parse({ kind: "bind-variable", state: "x", variableName: "brand" })
+    ).not.toThrow();
   });
 });

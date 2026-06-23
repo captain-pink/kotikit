@@ -1,9 +1,9 @@
 import { existsSync } from "fs";
 import { join } from "path";
-import type { Adapter, AdapterContext, GateCommand, GateKind } from "../adapter.js";
-import { REACT_SYSTEM_PROMPT, buildReactSystemPrompt } from "./system-prompt.js";
-import { vitestScaffold } from "./test-scaffold.js";
 import { pascalCase } from "../../util/ids.js";
+import type { Adapter, AdapterContext, GateCommand, GateKind } from "../adapter.js";
+import { buildReactSystemPrompt, REACT_SYSTEM_PROMPT } from "./system-prompt.js";
+import { vitestScaffold } from "./test-scaffold.js";
 
 /** Helper: lowercase-kebab of a component name for shadcn import paths. */
 function kebab(name: string): string {
@@ -66,12 +66,20 @@ export const reactAdapter: Adapter = {
 
   qualityGates(ctx) {
     const gates: GateCommand[] = [
-      { gate: "tsc",      cmd: ["bunx", "--no-install", "tsc", "--noEmit"],               required: true },
-      { gate: "eslint",   cmd: ["bunx", "--no-install", "eslint", "--max-warnings", "0"], required: true },
-      { gate: "prettier", cmd: ["bunx", "--no-install", "prettier", "--check"],           required: true },
+      { gate: "tsc", cmd: ["bunx", "--no-install", "tsc", "--noEmit"], required: true },
+      {
+        gate: "eslint",
+        cmd: ["bunx", "--no-install", "eslint", "--max-warnings", "0"],
+        required: true,
+      },
+      { gate: "prettier", cmd: ["bunx", "--no-install", "prettier", "--check"], required: true },
     ];
     if (ctx.config.project.testFramework === "vitest" && ctx.config.project.tests) {
-      gates.push({ gate: "vitest", cmd: ["bunx", "--no-install", "vitest", "run"], required: true });
+      gates.push({
+        gate: "vitest",
+        cmd: ["bunx", "--no-install", "vitest", "run"],
+        required: true,
+      });
     }
     return gates;
   },
@@ -91,7 +99,13 @@ export const reactAdapter: Adapter = {
   transformGateOutput(gate, raw) {
     // tsc: "src/Foo.tsx(10,5): error TS2304: Cannot find name 'Bar'."
     if (gate === "tsc") {
-      const failures: { file: string; line?: number; column?: number; rule?: string; message: string }[] = [];
+      const failures: {
+        file: string;
+        line?: number;
+        column?: number;
+        rule?: string;
+        message: string;
+      }[] = [];
       const re = /^(.+\.tsx?)\((\d+),(\d+)\): error TS\d+: (.+)$/gm;
       let m: RegExpExecArray | null;
       while ((m = re.exec(raw)) !== null) {
@@ -104,7 +118,13 @@ export const reactAdapter: Adapter = {
     //   /path/to/file.tsx
     //     10:5  error  Some message  rule/name
     if (gate === "eslint") {
-      const failures: { file: string; line?: number; column?: number; rule?: string; message: string }[] = [];
+      const failures: {
+        file: string;
+        line?: number;
+        column?: number;
+        rule?: string;
+        message: string;
+      }[] = [];
       const lines = raw.split("\n");
       let currentFile = "";
       for (const ln of lines) {
@@ -130,7 +150,13 @@ export const reactAdapter: Adapter = {
 
     // prettier: "[warn] path/to/file.tsx"
     if (gate === "prettier") {
-      const failures: { file: string; line?: number; column?: number; rule?: string; message: string }[] = [];
+      const failures: {
+        file: string;
+        line?: number;
+        column?: number;
+        rule?: string;
+        message: string;
+      }[] = [];
       const re = /^\[warn\] (.+)$/gm;
       let m: RegExpExecArray | null;
       while ((m = re.exec(raw)) !== null) {
@@ -141,7 +167,13 @@ export const reactAdapter: Adapter = {
 
     // vitest: look for "FAIL " lines (default reporter)
     if (gate === "vitest") {
-      const failures: { file: string; line?: number; column?: number; rule?: string; message: string }[] = [];
+      const failures: {
+        file: string;
+        line?: number;
+        column?: number;
+        rule?: string;
+        message: string;
+      }[] = [];
       const re = /^\s*(?:FAIL|×)\s+(.+\.test\.tsx?)\s*>?\s*(.+)?$/gm;
       let m: RegExpExecArray | null;
       while ((m = re.exec(raw)) !== null) {

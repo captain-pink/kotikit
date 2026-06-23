@@ -1,9 +1,9 @@
-import { readFile, writeFile, mkdir, unlink } from "fs/promises";
 import { existsSync } from "fs";
+import { mkdir, readFile, unlink, writeFile } from "fs/promises";
 import { dirname } from "path";
 import { designPlanPath } from "../util/paths.js";
-import { parseDesignPlan, type DesignPlan } from "./design-plan-schema.js";
 import { KotikitError } from "../util/result.js";
+import { type DesignPlan, parseDesignPlan } from "./design-plan-schema.js";
 
 /** Write the plan as pretty JSON with a trailing newline. Returns absolute path. */
 export async function writeDesignPlan(
@@ -42,10 +42,7 @@ export async function readDesignPlan(
   try {
     return parseDesignPlan(raw);
   } catch (err) {
-    throw new KotikitError(
-      "The design plan file has an invalid format.",
-      (err as Error).message
-    );
+    throw new KotikitError("The design plan file has an invalid format.", (err as Error).message);
   }
 }
 

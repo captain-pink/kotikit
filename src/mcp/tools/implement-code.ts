@@ -1,36 +1,35 @@
-import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import type { ToolContext } from "../context.js";
-import type { ToolRegistry } from "../server.js";
-import { existsSync } from "fs";
-import { readFile, writeFile, mkdir } from "fs/promises";
-import { dirname, resolve as resolvePath, relative as relativePath } from "path";
-
-import { defaultConfig } from "../../config/schema.js";
-import { readScreenSpec, writeScreenSpec, readFlowManifest } from "../../spec/engine.js";
-import { generateCodePlan } from "../../planning/code-planner.js";
-import { writeCodePlan, readCodePlan } from "../../planning/plan-store.js";
-import { reactAdapter } from "../../codegen/react/adapter.js";
-import { runGates as defaultRunGates } from "../../codegen/gate-runner.js";
-import { verifyGateEnvironment } from "../../codegen/environment.js";
-import { autoCommitCode } from "../../codegen/code-commit.js";
-import { formatGateReport } from "../../codegen/gate-report.js";
-import { openDb } from "../../db/sqlite.js";
-import { initRegistryDb, upsertRegistry, searchRegistry } from "../../db/registry-db.js";
-import { ComponentJsonSchema, type ComponentJson } from "../../sync/component-shape.js";
-import { searchComponents } from "../../db/components-db.js";
 import { Database } from "bun:sqlite";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { existsSync } from "fs";
+import { mkdir, readFile, writeFile } from "fs/promises";
+import { dirname, relative as relativePath, resolve as resolvePath } from "path";
+import type { AdapterContext, GateKind } from "../../codegen/adapter.js";
+import { autoCommitCode } from "../../codegen/code-commit.js";
+import { verifyGateEnvironment } from "../../codegen/environment.js";
+import { formatGateReport } from "../../codegen/gate-report.js";
+import { runGates as defaultRunGates } from "../../codegen/gate-runner.js";
+import { reactAdapter } from "../../codegen/react/adapter.js";
+import { defaultConfig } from "../../config/schema.js";
+import { searchComponents } from "../../db/components-db.js";
+import { initRegistryDb, searchRegistry, upsertRegistry } from "../../db/registry-db.js";
+import { openDb } from "../../db/sqlite.js";
+import { generateCodePlan } from "../../planning/code-planner.js";
+import { readCodePlan, writeCodePlan } from "../../planning/plan-store.js";
+import { readFlowManifest, readScreenSpec, writeScreenSpec } from "../../spec/engine.js";
+import { type ComponentJson, ComponentJsonSchema } from "../../sync/component-shape.js";
+import { nowIso } from "../../util/ids.js";
 
 import {
-  componentsDbPath,
-  componentJsonPath,
-  designSystemDir,
-  registryDbPath,
   codeComponentDir,
   codeComponentFile,
+  componentJsonPath,
+  componentsDbPath,
+  designSystemDir,
+  registryDbPath,
 } from "../../util/paths.js";
-import { nowIso } from "../../util/ids.js";
-import { toolText, toolError, KotikitError } from "../../util/result.js";
-import type { AdapterContext, GateKind } from "../../codegen/adapter.js";
+import { KotikitError, toolError, toolText } from "../../util/result.js";
+import type { ToolContext } from "../context.js";
+import type { ToolRegistry } from "../server.js";
 
 // ─── Stub system prompt text ──────────────────────────────────────────────────
 
@@ -81,7 +80,11 @@ function registerStart(registry: ToolRegistry, ctx: ToolContext): void {
   registry.tools.push(tool);
 
   registry.handlers.set("kotikit_implement_code_start", async (args) => {
-    const { scope, screen: screenArg, expand = false } = args as { scope: string; screen?: string; expand?: boolean };
+    const {
+      scope,
+      screen: screenArg,
+      expand = false,
+    } = args as { scope: string; screen?: string; expand?: boolean };
     const screen = screenArg ?? null;
     const root = ctx.root;
 
@@ -118,9 +121,7 @@ function registerStart(registry: ToolRegistry, ctx: ToolContext): void {
         testFramework: config.project.testFramework,
       });
       if (!envReport.ok) {
-        const hintList = envReport.missing
-          .map((m) => `- ${m.hint}`)
-          .join("\n");
+        const hintList = envReport.missing.map((m) => `- ${m.hint}`).join("\n");
         return toolError(
           new KotikitError(
             "Some required gate tools aren't installed in your project.",
@@ -173,7 +174,10 @@ function registerStart(registry: ToolRegistry, ctx: ToolContext): void {
               }
             }
             // Fallback: try componentJsonPath
-            const slug = dsRef.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+            const slug = dsRef.name
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "-")
+              .replace(/^-+|-+$/g, "");
             const fallbackPath = componentJsonPath(root, slug);
             if (existsSync(fallbackPath)) {
               const raw = JSON.parse(await readFile(fallbackPath, "utf-8"));
@@ -255,11 +259,15 @@ function registerStart(registry: ToolRegistry, ctx: ToolContext): void {
       screenContextLines.push(`## Screen: ${spec.title}`);
       screenContextLines.push(`**Description:** ${spec.context.description}`);
       if (spec.requirements.functional.length > 0) {
-        screenContextLines.push("**Functional requirements:** " + spec.requirements.functional.join("; "));
+        screenContextLines.push(
+          "**Functional requirements:** " + spec.requirements.functional.join("; ")
+        );
       }
       const stateEntries = Object.entries(spec.requirements.states);
       if (stateEntries.length > 0) {
-        screenContextLines.push("**States:** " + stateEntries.map(([k, v]) => `${k}: ${v}`).join("; "));
+        screenContextLines.push(
+          "**States:** " + stateEntries.map(([k, v]) => `${k}: ${v}`).join("; ")
+        );
       }
       if (spec.acceptanceCriteria.length > 0) {
         screenContextLines.push("**Acceptance criteria:** " + spec.acceptanceCriteria.join("; "));
@@ -280,8 +288,9 @@ function registerStart(registry: ToolRegistry, ctx: ToolContext): void {
         const meta = dsComponentMeta[dsRef.name];
         return {
           name: dsRef.name,
-          path: meta?.path ?? `components/${dsRef.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.json`,
-          key: meta?.key ?? (dsRef.dsKey ?? ""),
+          path:
+            meta?.path ?? `components/${dsRef.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.json`,
+          key: meta?.key ?? dsRef.dsKey ?? "",
         };
       });
 
@@ -333,8 +342,7 @@ function registerSave(
 ): void {
   const tool: Tool = {
     name: "kotikit_implement_code_save",
-    description:
-      "Write generated files, run quality gates, and commit on success.",
+    description: "Write generated files, run quality gates, and commit on success.",
     inputSchema: {
       type: "object",
       properties: {
@@ -359,7 +367,11 @@ function registerSave(
   registry.tools.push(tool);
 
   registry.handlers.set("kotikit_implement_code_save", async (args) => {
-    const { scope, screen: screenArg, files } = args as {
+    const {
+      scope,
+      screen: screenArg,
+      files,
+    } = args as {
       scope: string;
       screen?: string;
       files: { path: string; content: string }[];
@@ -485,8 +497,7 @@ function registerSave(
           content: [
             {
               type: "text",
-              text:
-                `${gateMsg}\n\nFix the failures and call implement_code_gate to re-validate.\n\n${JSON.stringify({ report, files: filePaths }, null, 2)}`,
+              text: `${gateMsg}\n\nFix the failures and call implement_code_gate to re-validate.\n\n${JSON.stringify({ report, files: filePaths }, null, 2)}`,
             },
           ],
           isError: true,
@@ -557,8 +568,7 @@ function registerGate(
 ): void {
   const tool: Tool = {
     name: "kotikit_implement_code_gate",
-    description:
-      "Re-run quality gates on already-written generated files.",
+    description: "Re-run quality gates on already-written generated files.",
     inputSchema: {
       type: "object",
       properties: {
@@ -576,7 +586,11 @@ function registerGate(
   registry.tools.push(tool);
 
   registry.handlers.set("kotikit_implement_code_gate", async (args) => {
-    const { scope, screen: screenArg, only } = args as {
+    const {
+      scope,
+      screen: screenArg,
+      only,
+    } = args as {
       scope: string;
       screen?: string;
       only?: ("tsc" | "eslint" | "prettier" | "vitest")[];

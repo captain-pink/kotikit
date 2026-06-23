@@ -1,12 +1,10 @@
-import { describe, it, expect } from "bun:test";
-import { uuid, nowIso, slugify, slugifyComponentName, pascalCase, componentNameFor } from "./ids";
+import { describe, expect, it } from "bun:test";
+import { componentNameFor, nowIso, pascalCase, slugify, slugifyComponentName, uuid } from "./ids";
 
 describe("ids", () => {
   it("uuid returns a valid v4 UUID", () => {
     const id = uuid();
-    expect(id).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-    );
+    expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
   });
 
   it("uuid is unique on each call", () => {

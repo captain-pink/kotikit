@@ -28,8 +28,17 @@ export interface ProgressEmitter {
   stageProgress(ctx: FileContext, stage: Stage, progress: StageProgress): void;
   /** Stage end with optional duration label. */
   stageDone(ctx: FileContext, stage: Stage | "writes", label?: string): void;
-  fileDone(ctx: FileContext, summary: { componentCount: number; iconCount: number; elapsedMs: number }): void;
-  syncDone(summary: { fileCount: number; componentTotal: number; iconTotal: number; conflictCount: number; elapsedMs: number }): void;
+  fileDone(
+    ctx: FileContext,
+    summary: { componentCount: number; iconCount: number; elapsedMs: number }
+  ): void;
+  syncDone(summary: {
+    fileCount: number;
+    componentTotal: number;
+    iconTotal: number;
+    conflictCount: number;
+    elapsedMs: number;
+  }): void;
 }
 
 /** Default stderr emitter — one line per event, prefixed with [kotikit]. */
@@ -47,17 +56,25 @@ export const stderrProgressEmitter: ProgressEmitter = {
   stageProgress(ctx, stage, p) {
     const pct = p.total > 0 ? Math.round((p.processed / p.total) * 100) : 0;
     const labelSuffix = p.label ? `, ${p.label}` : "";
-    process.stderr.write(`[kotikit] [${ctx.index}/${ctx.total} ${ctx.name}] ${stage}: ${p.processed}/${p.total} (${pct}%${labelSuffix})\n`);
+    process.stderr.write(
+      `[kotikit] [${ctx.index}/${ctx.total} ${ctx.name}] ${stage}: ${p.processed}/${p.total} (${pct}%${labelSuffix})\n`
+    );
   },
   stageDone(ctx, stage, label) {
     const suffix = label ? ` (${label})` : "";
-    process.stderr.write(`[kotikit] [${ctx.index}/${ctx.total} ${ctx.name}] ${stage} done${suffix}\n`);
+    process.stderr.write(
+      `[kotikit] [${ctx.index}/${ctx.total} ${ctx.name}] ${stage} done${suffix}\n`
+    );
   },
   fileDone(ctx, summary) {
-    process.stderr.write(`[kotikit] [${ctx.index}/${ctx.total} ${ctx.name}] done (${formatMs(summary.elapsedMs)}): ${summary.componentCount} components, ${summary.iconCount} icons\n`);
+    process.stderr.write(
+      `[kotikit] [${ctx.index}/${ctx.total} ${ctx.name}] done (${formatMs(summary.elapsedMs)}): ${summary.componentCount} components, ${summary.iconCount} icons\n`
+    );
   },
   syncDone(summary) {
-    process.stderr.write(`[kotikit] sync complete (${formatMs(summary.elapsedMs)}): ${summary.fileCount} file(s), ${summary.componentTotal} components, ${summary.iconTotal} icons, ${summary.conflictCount} conflict(s)\n`);
+    process.stderr.write(
+      `[kotikit] sync complete (${formatMs(summary.elapsedMs)}): ${summary.fileCount} file(s), ${summary.componentTotal} components, ${summary.iconTotal} icons, ${summary.conflictCount} conflict(s)\n`
+    );
   },
 };
 
@@ -75,7 +92,10 @@ export function nullProgressEmitter(): ProgressEmitter {
 }
 
 /** Capturing emitter for unit tests — records every call into a flat array. */
-export function recordingProgressEmitter(): { emitter: ProgressEmitter; events: { kind: string; payload?: unknown }[] } {
+export function recordingProgressEmitter(): {
+  emitter: ProgressEmitter;
+  events: { kind: string; payload?: unknown }[];
+} {
   const events: { kind: string; payload?: unknown }[] = [];
   return {
     events,
@@ -83,8 +103,10 @@ export function recordingProgressEmitter(): { emitter: ProgressEmitter; events: 
       syncStart: (fileCount) => events.push({ kind: "syncStart", payload: { fileCount } }),
       fileStart: (ctx) => events.push({ kind: "fileStart", payload: ctx }),
       stage: (ctx, stage, label) => events.push({ kind: "stage", payload: { ctx, stage, label } }),
-      stageProgress: (ctx, stage, p) => events.push({ kind: "stageProgress", payload: { ctx, stage, p } }),
-      stageDone: (ctx, stage, label) => events.push({ kind: "stageDone", payload: { ctx, stage, label } }),
+      stageProgress: (ctx, stage, p) =>
+        events.push({ kind: "stageProgress", payload: { ctx, stage, p } }),
+      stageDone: (ctx, stage, label) =>
+        events.push({ kind: "stageDone", payload: { ctx, stage, label } }),
       fileDone: (ctx, summary) => events.push({ kind: "fileDone", payload: { ctx, summary } }),
       syncDone: (summary) => events.push({ kind: "syncDone", payload: summary }),
     },

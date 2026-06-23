@@ -1,5 +1,5 @@
 import type { Config } from "../config/schema.js";
-import type { ScreenSpec, FlowManifest } from "../spec/schema.js";
+import type { FlowManifest, ScreenSpec } from "../spec/schema.js";
 import type { ComponentJson } from "../sync/component-shape.js";
 
 export type GateKind = "tsc" | "eslint" | "prettier" | "vitest";
@@ -61,7 +61,9 @@ export interface Adapter {
   transformGateOutput(
     gate: GateKind,
     raw: string
-  ): { failures: { file: string; line?: number; column?: number; rule?: string; message: string }[] };
+  ): {
+    failures: { file: string; line?: number; column?: number; rule?: string; message: string }[];
+  };
 }
 
 export type { GateResult, GateRunReport } from "./gate-output.js";

@@ -1,34 +1,32 @@
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import type { ToolContext } from "../context.js";
 import { defaultConfig } from "../../config/schema.js";
+import { autoCommitSpec } from "../../git/auto-commit.js";
 import {
-  writeScreenSpec,
-  readScreenSpec,
-  writeFlowManifest,
-  readFlowManifest,
-  listScopes,
-} from "../../spec/engine.js";
-import {
-  materializeFlow,
-  materializeSingle,
+  type FlowDraft,
   isMultiScreen,
   isSingleScreen,
-  type FlowDraft,
+  materializeFlow,
+  materializeSingle,
   type SingleDraft,
 } from "../../spec/decompose.js";
-import { autoCommitSpec } from "../../git/auto-commit.js";
-import { toolText, toolError, KotikitError } from "../../util/result.js";
-import { indexPath, flowManifestPath } from "../../util/paths.js";
-import { nowIso } from "../../util/ids.js";
-import { parseScreenSpec } from "../../spec/schema.js";
+import {
+  listScopes,
+  readFlowManifest,
+  readScreenSpec,
+  writeFlowManifest,
+  writeScreenSpec,
+} from "../../spec/engine.js";
 import type { ScreenSpec } from "../../spec/schema.js";
+import { parseScreenSpec } from "../../spec/schema.js";
+import { nowIso } from "../../util/ids.js";
+import { flowManifestPath, indexPath } from "../../util/paths.js";
+import { KotikitError, toolError, toolText } from "../../util/result.js";
+import type { ToolContext } from "../context.js";
 
 // ─── Registry shape ───────────────────────────────────────────────────────────
 
 type McpContent = { type: "text"; text: string };
-type Handler = (
-  args: unknown
-) => Promise<{ content: McpContent[]; isError?: boolean }>;
+type Handler = (args: unknown) => Promise<{ content: McpContent[]; isError?: boolean }>;
 
 export interface ToolRegistry {
   tools: Tool[];
@@ -37,10 +35,7 @@ export interface ToolRegistry {
 
 // ─── Register all spec tools ──────────────────────────────────────────────────
 
-export function registerSpecTools(
-  registry: ToolRegistry,
-  ctx: ToolContext
-): void {
+export function registerSpecTools(registry: ToolRegistry, ctx: ToolContext): void {
   registerSpecCreate(registry, ctx);
   registerSpecGet(registry, ctx);
   registerSpecList(registry, ctx);
@@ -127,10 +122,9 @@ function registerSpecCreate(registry: ToolRegistry, ctx: ToolContext): void {
           coAuthor: config.git.coAuthor,
         });
 
-        return toolText(
-          `Created the ${scope} screen and committed it (${commitResult.message}).`,
-          { paths: [writtenPath] }
-        );
+        return toolText(`Created the ${scope} screen and committed it (${commitResult.message}).`, {
+          paths: [writtenPath],
+        });
       }
 
       throw new KotikitError(
@@ -299,9 +293,7 @@ function registerSpecUpdate(registry: ToolRegistry, ctx: ToolContext): void {
         type: existing.type,
         // Merge nested objects if patch includes them
         context:
-          patch.context != null
-            ? { ...existing.context, ...patch.context }
-            : existing.context,
+          patch.context != null ? { ...existing.context, ...patch.context } : existing.context,
         requirements:
           patch.requirements != null
             ? { ...existing.requirements, ...patch.requirements }
@@ -328,9 +320,7 @@ function registerSpecUpdate(registry: ToolRegistry, ctx: ToolContext): void {
         coAuthor: config.git.coAuthor,
       });
 
-      return toolText(
-        `Updated ${validated.title}. ${commitResult.message}`
-      );
+      return toolText(`Updated ${validated.title}. ${commitResult.message}`);
     } catch (err) {
       return toolError(err);
     }

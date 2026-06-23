@@ -1,8 +1,8 @@
-import { describe, it, expect } from "bun:test";
-import { generateCodePlan } from "./code-planner.js";
-import { CodePlanSchema } from "./code-plan-schema.js";
+import { describe, expect, it } from "bun:test";
 import { defaultConfig } from "../config/schema.js";
 import { newScreenSpec } from "../spec/schema.js";
+import { CodePlanSchema } from "./code-plan-schema.js";
+import { generateCodePlan } from "./code-planner.js";
 
 describe("generateCodePlan", () => {
   it("single-screen plan: correct componentName, targetPath, testPath", () => {
@@ -22,7 +22,11 @@ describe("generateCodePlan", () => {
   });
 
   it("multi-screen plan: componentName from screen slug", () => {
-    const spec = newScreenSpec({ title: "Cart", description: "x", flowRef: "checkout-flow/flow.json" });
+    const spec = newScreenSpec({
+      title: "Cart",
+      description: "x",
+      flowRef: "checkout-flow/flow.json",
+    });
     spec.requirements.states = { loading: "x" };
     const plan = generateCodePlan({
       root: "/proj",
@@ -59,7 +63,13 @@ describe("generateCodePlan", () => {
   it("4 state keys → compose-states has 4 notes", () => {
     const spec = newScreenSpec({ title: "Cart", description: "x" });
     spec.requirements.states = { loading: "a", empty: "b", error: "c", filled: "d" };
-    const plan = generateCodePlan({ root: "/proj", scope: "cart", screen: null, spec, config: defaultConfig() });
+    const plan = generateCodePlan({
+      root: "/proj",
+      scope: "cart",
+      screen: null,
+      spec,
+      config: defaultConfig(),
+    });
     const stateStep = plan.steps.find((s) => s.kind === "compose-states");
     expect(stateStep?.notes.length).toBe(4);
   });
@@ -67,18 +77,27 @@ describe("generateCodePlan", () => {
   it("plan validates through CodePlanSchema", () => {
     const spec = newScreenSpec({ title: "X", description: "x" });
     spec.requirements.states = {};
-    const plan = generateCodePlan({ root: "/proj", scope: "x", screen: null, spec, config: defaultConfig() });
+    const plan = generateCodePlan({
+      root: "/proj",
+      scope: "x",
+      screen: null,
+      spec,
+      config: defaultConfig(),
+    });
     expect(() => CodePlanSchema.parse(plan)).not.toThrow();
   });
 
   it("dsComponentRefs copied from spec.components", () => {
     const spec = newScreenSpec({ title: "X", description: "x" });
     spec.requirements.states = {};
-    spec.components = [
-      { name: "Button", dsKey: "k1" },
-      { name: "Input" },
-    ];
-    const plan = generateCodePlan({ root: "/proj", scope: "x", screen: null, spec, config: defaultConfig() });
+    spec.components = [{ name: "Button", dsKey: "k1" }, { name: "Input" }];
+    const plan = generateCodePlan({
+      root: "/proj",
+      scope: "x",
+      screen: null,
+      spec,
+      config: defaultConfig(),
+    });
     expect(plan.dsComponentRefs).toHaveLength(2);
     expect(plan.dsComponentRefs[0]).toEqual({ name: "Button", dsKey: "k1" });
     expect(plan.dsComponentRefs[1]).toEqual({ name: "Input" });
@@ -87,7 +106,13 @@ describe("generateCodePlan", () => {
   it("steps are in canonical order", () => {
     const spec = newScreenSpec({ title: "X", description: "x" });
     spec.requirements.states = { loading: "a" };
-    const plan = generateCodePlan({ root: "/proj", scope: "x", screen: null, spec, config: defaultConfig() });
+    const plan = generateCodePlan({
+      root: "/proj",
+      scope: "x",
+      screen: null,
+      spec,
+      config: defaultConfig(),
+    });
     const kinds = plan.steps.map((s) => s.kind);
     expect(kinds).toEqual([
       "scaffold-component",

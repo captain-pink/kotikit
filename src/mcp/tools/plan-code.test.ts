@@ -1,16 +1,16 @@
-import { describe, it, expect, afterAll } from "bun:test";
-import { mkdtempSync, rmSync, existsSync, readFileSync } from "fs";
+import { afterAll, describe, expect, it } from "bun:test";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { writeConfig } from "../../config/load.js";
+import { defaultConfig } from "../../config/schema.js";
+import { CodePlanSchema } from "../../planning/code-plan-schema.js";
+import { writeFlowManifest, writeScreenSpec } from "../../spec/engine.js";
+import { newFlowManifest, newScreenSpec } from "../../spec/schema.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
 import { registerPlanCodeTools } from "./plan-code.js";
-import { newScreenSpec, newFlowManifest } from "../../spec/schema.js";
-import { writeScreenSpec, writeFlowManifest } from "../../spec/engine.js";
-import { defaultConfig } from "../../config/schema.js";
-import { writeConfig } from "../../config/load.js";
-import { CodePlanSchema } from "../../planning/code-plan-schema.js";
 
 const tmpDirs: string[] = [];
 function mkTmp(): string {
@@ -26,18 +26,11 @@ function makeRegistry(): ToolRegistry {
   return { tools: [] as Tool[], handlers: new Map() };
 }
 
-function makeCtx(
-  root: string,
-  configOverride?: ReturnType<typeof defaultConfig>
-): ToolContext {
+function makeCtx(root: string, configOverride?: ReturnType<typeof defaultConfig>): ToolContext {
   return { root, loadConfig: async () => configOverride ?? null };
 }
 
-async function callTool(
-  registry: ToolRegistry,
-  name: string,
-  args: unknown
-) {
+async function callTool(registry: ToolRegistry, name: string, args: unknown) {
   const handler = registry.handlers.get(name);
   if (!handler) throw new Error("missing handler " + name);
   return handler(args);
@@ -84,9 +77,7 @@ describe("kotikit_plan_code", () => {
       screen: "cart",
     });
     expect(result.isError).toBeFalsy();
-    expect(
-      existsSync(`${root}/.kotikit/specs/checkout-flow/cart.code.plan.json`)
-    ).toBe(true);
+    expect(existsSync(`${root}/.kotikit/specs/checkout-flow/cart.code.plan.json`)).toBe(true);
   });
 
   it("missing spec: friendly error", async () => {

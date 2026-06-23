@@ -1,23 +1,17 @@
+import { Database } from "bun:sqlite";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import type { ToolContext } from "../context.js";
-import type { ToolRegistry } from "../server.js";
 import { existsSync } from "fs";
 import { readFile } from "fs/promises";
-import { Database } from "bun:sqlite";
 import { searchComponents } from "../../db/components-db.js";
 import { ComponentJsonSchema } from "../../sync/component-shape.js";
-import {
-  componentsDbPath,
-  designSystemDir,
-} from "../../util/paths.js";
-import { toolText, toolError, KotikitError } from "../../util/result.js";
+import { componentsDbPath, designSystemDir } from "../../util/paths.js";
+import { KotikitError, toolError, toolText } from "../../util/result.js";
+import type { ToolContext } from "../context.js";
+import type { ToolRegistry } from "../server.js";
 
 // ─── Register all ds-search tools ────────────────────────────────────────────
 
-export function registerDsSearchTools(
-  registry: ToolRegistry,
-  ctx: ToolContext
-): void {
+export function registerDsSearchTools(registry: ToolRegistry, ctx: ToolContext): void {
   registerDsSearch(registry, ctx);
   registerDsGetComponent(registry, ctx);
 }
@@ -29,7 +23,7 @@ function registerDsSearch(registry: ToolRegistry, ctx: ToolContext): void {
     name: "kotikit_ds_search",
     description:
       "Search the local design-system mirror for components by name. " +
-      "Supports FTS5 match expressions (e.g. \"but*\", \"button OR card\").",
+      'Supports FTS5 match expressions (e.g. "but*", "button OR card").',
     inputSchema: {
       type: "object",
       properties: {
@@ -91,15 +85,12 @@ function registerDsSearch(registry: ToolRegistry, ctx: ToolContext): void {
 
 // ─── kotikit_ds_get_component ─────────────────────────────────────────────────
 
-function registerDsGetComponent(
-  registry: ToolRegistry,
-  ctx: ToolContext
-): void {
+function registerDsGetComponent(registry: ToolRegistry, ctx: ToolContext): void {
   const tool: Tool = {
     name: "kotikit_ds_get_component",
     description:
       "Read a single component JSON file from the local design-system mirror. " +
-      "Pass the `path` returned by ds_search (e.g. \"components/button.json\").",
+      'Pass the `path` returned by ds_search (e.g. "components/button.json").',
     inputSchema: {
       type: "object",
       properties: {
@@ -107,7 +98,7 @@ function registerDsGetComponent(
           type: "string",
           description:
             "Relative path to the component file within design-system/ " +
-            "(e.g. \"components/button.json\").",
+            '(e.g. "components/button.json").',
         },
       },
       required: ["path"],
@@ -125,7 +116,7 @@ function registerDsGetComponent(
         return toolError(
           new KotikitError(
             "That path looks unsafe.",
-            "Use a relative path returned by ds_search, e.g. \"components/button.json\"."
+            'Use a relative path returned by ds_search, e.g. "components/button.json".'
           )
         );
       }

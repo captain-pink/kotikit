@@ -1,17 +1,14 @@
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import type { ToolContext } from "../context.js";
-import type { ToolRegistry } from "../server.js";
 import { z } from "zod";
 import { defaultConfig } from "../../config/schema.js";
-import { readScreenSpec, writeScreenSpec } from "../../spec/engine.js";
-import { generateComponentPlan } from "../../planning/component-planner.js";
-import {
-  readComponentPlan,
-  writeComponentPlan,
-} from "../../planning/component-plan-store.js";
-import { readVariablesJson } from "../../sync/variable-resolver.js";
 import { autoCommit } from "../../git/auto-commit.js";
-import { toolText, toolError, KotikitError } from "../../util/result.js";
+import { readComponentPlan, writeComponentPlan } from "../../planning/component-plan-store.js";
+import { generateComponentPlan } from "../../planning/component-planner.js";
+import { readScreenSpec, writeScreenSpec } from "../../spec/engine.js";
+import { readVariablesJson } from "../../sync/variable-resolver.js";
+import { KotikitError, toolError, toolText } from "../../util/result.js";
+import type { ToolContext } from "../context.js";
+import type { ToolRegistry } from "../server.js";
 
 const ComponentPlanCreateArgsSchema = z.object({
   scope: z.string().min(1),
@@ -31,10 +28,7 @@ const parseComponentPlanArgs = (args: unknown): z.infer<typeof ComponentPlanCrea
   );
 };
 
-export function registerComponentPlanTools(
-  registry: ToolRegistry,
-  ctx: ToolContext
-): void {
+export function registerComponentPlanTools(registry: ToolRegistry, ctx: ToolContext): void {
   registry.tools.push({
     name: "kotikit_component_plan_create",
     description:

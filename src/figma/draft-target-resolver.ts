@@ -3,9 +3,9 @@ import { KotikitError } from "../util/result.js";
 import {
   assertDraftPageName,
   buildKotikitSectionName,
+  type FigmaDraftTarget,
   FigmaDraftTargetSchema,
   parseFigmaDesignUrl,
-  type FigmaDraftTarget,
 } from "./draft-target.js";
 
 export interface FigmaDraftTargetClient {

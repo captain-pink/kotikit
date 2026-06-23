@@ -1,5 +1,5 @@
-import { defaultConfig, parseConfig } from "./schema";
 import type { Config } from "./schema";
+import { defaultConfig, parseConfig } from "./schema";
 
 export interface InitAnswers {
   framework?: "react";

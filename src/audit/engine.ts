@@ -1,12 +1,12 @@
 import type { Database } from "bun:sqlite";
-import { readFile } from "fs/promises";
 import { existsSync } from "fs";
+import { readFile } from "fs/promises";
 import { join } from "path";
-import { searchRegistry, type RegistryRow } from "../db/registry-db.js";
+import { type RegistryRow, searchRegistry } from "../db/registry-db.js";
 import { ComponentJsonSchema } from "../sync/component-shape.js";
-import { designSystemDir } from "../util/paths.js";
 import { nowIso } from "../util/ids.js";
-import { AuditReportSchema, type AuditReport, type AuditEntry } from "./schema.js";
+import { designSystemDir } from "../util/paths.js";
+import { type AuditEntry, type AuditReport, AuditReportSchema } from "./schema.js";
 
 export interface RunAuditOpts {
   root: string;
@@ -33,10 +33,18 @@ export async function runAudit(opts: RunAuditOpts): Promise<AuditReport> {
     const entry = await classifyRow(opts.root, row);
     entries.push(entry);
     switch (entry.outcome) {
-      case "synced-ok": syncedOk++; break;
-      case "synced-mismatched": syncedMismatched++; break;
-      case "design-only": designOnly++; break;
-      case "code-only": codeOnly++; break;
+      case "synced-ok":
+        syncedOk++;
+        break;
+      case "synced-mismatched":
+        syncedMismatched++;
+        break;
+      case "design-only":
+        designOnly++;
+        break;
+      case "code-only":
+        codeOnly++;
+        break;
     }
   }
 
@@ -84,7 +92,7 @@ async function classifyRow(root: string, row: RegistryRow): Promise<AuditEntry> 
   try {
     const text = await readFile(dsAbs, "utf-8");
     const parsed = ComponentJsonSchema.parse(JSON.parse(text));
-    dsVariantAxes = parsed.variants.map(v => v.propertyName.toLowerCase()).sort();
+    dsVariantAxes = parsed.variants.map((v) => v.propertyName.toLowerCase()).sort();
   } catch {
     // Treat unparseable DS JSON as missing — code-only.
     return { name: row.name, outcome: "code-only", dsPath: null, codePath };
@@ -102,8 +110,8 @@ async function classifyRow(root: string, row: RegistryRow): Promise<AuditEntry> 
   // Compare sets
   const dsSet = new Set(dsVariantAxes);
   const codeSet = new Set(codeVariantAxes);
-  const dsOnly = dsVariantAxes.filter(v => !codeSet.has(v));
-  const codeOnly = codeVariantAxes.filter(v => !dsSet.has(v));
+  const dsOnly = dsVariantAxes.filter((v) => !codeSet.has(v));
+  const codeOnly = codeVariantAxes.filter((v) => !dsSet.has(v));
 
   if (dsOnly.length === 0 && codeOnly.length === 0) {
     return { name: row.name, outcome: "synced-ok", dsPath, codePath };

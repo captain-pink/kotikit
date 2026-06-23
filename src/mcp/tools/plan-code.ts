@@ -1,19 +1,16 @@
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import type { ToolContext } from "../context.js";
-import type { ToolRegistry } from "../server.js";
 import { defaultConfig } from "../../config/schema.js";
-import { readScreenSpec, readFlowManifest } from "../../spec/engine.js";
 import { generateCodePlan } from "../../planning/code-planner.js";
 import { writeCodePlan } from "../../planning/plan-store.js";
-import { toolText, toolError, KotikitError } from "../../util/result.js";
+import { readFlowManifest, readScreenSpec } from "../../spec/engine.js";
 import type { FlowManifest } from "../../spec/schema.js";
+import { KotikitError, toolError, toolText } from "../../util/result.js";
+import type { ToolContext } from "../context.js";
+import type { ToolRegistry } from "../server.js";
 
 // ─── Register all plan-code tools ─────────────────────────────────────────────
 
-export function registerPlanCodeTools(
-  registry: ToolRegistry,
-  ctx: ToolContext
-): void {
+export function registerPlanCodeTools(registry: ToolRegistry, ctx: ToolContext): void {
   registerPlanCode(registry, ctx);
 }
 
@@ -32,8 +29,7 @@ function registerPlanCode(registry: ToolRegistry, ctx: ToolContext): void {
         },
         screen: {
           type: "string",
-          description:
-            "Screen slug within a flow. Omit for single-screen specs.",
+          description: "Screen slug within a flow. Omit for single-screen specs.",
         },
       },
       required: ["scope"],
@@ -86,10 +82,10 @@ function registerPlanCode(registry: ToolRegistry, ctx: ToolContext): void {
       const planPath = await writeCodePlan(root, scope, screenSlug, plan);
 
       // 6. Return a friendly summary
-      return toolText(
-        `Code plan written. ${plan.steps.length} steps for ${plan.componentName}.`,
-        { planPath, plan }
-      );
+      return toolText(`Code plan written. ${plan.steps.length} steps for ${plan.componentName}.`, {
+        planPath,
+        plan,
+      });
     } catch (err) {
       return toolError(err);
     }

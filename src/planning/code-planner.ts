@@ -1,16 +1,12 @@
-import { nowIso, componentNameFor } from "../util/ids.js";
 import type { Config } from "../config/schema.js";
-import type { ScreenSpec, FlowManifest } from "../spec/schema.js";
-import {
-  CodePlanSchema,
-  type CodePlan,
-  type CodePlanStep,
-} from "./code-plan-schema.js";
+import type { FlowManifest, ScreenSpec } from "../spec/schema.js";
+import { componentNameFor, nowIso } from "../util/ids.js";
+import { type CodePlan, CodePlanSchema, type CodePlanStep } from "./code-plan-schema.js";
 
 export interface GenerateCodePlanInput {
-  root: string;             // user's project root (used only to construct targetPath if needed)
-  scope: string;            // e.g. "checkout-flow"
-  screen: string | null;   // e.g. "cart" or null for single-screen
+  root: string; // user's project root (used only to construct targetPath if needed)
+  scope: string; // e.g. "checkout-flow"
+  screen: string | null; // e.g. "cart" or null for single-screen
   spec: ScreenSpec;
   flowManifest?: FlowManifest;
   config: Config;
@@ -28,8 +24,7 @@ export function generateCodePlan(input: GenerateCodePlanInput): CodePlan {
   const targetPath = `${config.project.codeComponentsDir}/${scope}/${componentName}.tsx`;
 
   // tests on?
-  const testsOn =
-    config.project.tests && config.project.testFramework === "vitest";
+  const testsOn = config.project.tests && config.project.testFramework === "vitest";
   const testPath = testsOn
     ? `${config.project.codeComponentsDir}/${scope}/${componentName}.test.tsx`
     : undefined;

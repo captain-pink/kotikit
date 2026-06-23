@@ -1,10 +1,10 @@
-import { mkdir, readFile, writeFile } from "fs/promises";
 import { existsSync } from "fs";
+import { mkdir, readFile, writeFile } from "fs/promises";
 import { dirname } from "path";
-import { parseConfig } from "./schema";
-import type { Config } from "./schema";
 import { configPath } from "../util/paths";
 import { KotikitError } from "../util/result";
+import type { Config } from "./schema";
+import { parseConfig } from "./schema";
 
 /** Returns the resolved Config, or null if .kotikit/config.json does not exist. */
 export async function loadConfig(root: string): Promise<Config | null> {
@@ -68,9 +68,7 @@ export async function resolveSecretImpl(
 }
 
 /** Default spawn implementation using Bun.spawn. */
-async function bunSpawn(
-  cmd: string[]
-): Promise<{ stdout: string; exitCode: number }> {
+async function bunSpawn(cmd: string[]): Promise<{ stdout: string; exitCode: number }> {
   const proc = Bun.spawn({ cmd, stdout: "pipe", stderr: "pipe" });
   const exitCode = await proc.exited;
   const stdout = await new Response(proc.stdout).text();
@@ -84,8 +82,6 @@ async function bunSpawn(
  * - Plain string → returned unchanged
  * - undefined   → undefined
  */
-export async function resolveSecret(
-  value: string | undefined
-): Promise<string | undefined> {
+export async function resolveSecret(value: string | undefined): Promise<string | undefined> {
   return resolveSecretImpl(value, bunSpawn);
 }

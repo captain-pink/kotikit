@@ -1,11 +1,8 @@
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import {
-  BRAINSTORM_SYSTEM_PROMPT,
-  registerBrainstormTools,
-} from "./brainstorm.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
+import { BRAINSTORM_SYSTEM_PROMPT, registerBrainstormTools } from "./brainstorm.js";
 
 // ---------------------------------------------------------------------------
 // Test harness helpers
@@ -127,8 +124,7 @@ describe("kotikit_brainstorm_start", () => {
     expect(detail.firstQuestions.length).toBeGreaterThanOrEqual(2);
     // At least one question should mention the specific idea
     const mentionsIdea = detail.firstQuestions.some(
-      (q: string) =>
-        q.toLowerCase().includes("notification") || q.toLowerCase().includes("inbox")
+      (q: string) => q.toLowerCase().includes("notification") || q.toLowerCase().includes("inbox")
     );
     expect(mentionsIdea).toBe(true);
   });
@@ -196,9 +192,7 @@ describe("kotikit_brainstorm_assess", () => {
     expect(detail.draftTemplate).toBeDefined();
     expect(detail.draftTemplate.scope).toBe("profile-page");
     expect(detail.draftTemplate.screen).toBeDefined();
-    expect(detail.draftTemplate.screen.description).toBe(
-      "Shows user profile info and avatar."
-    );
+    expect(detail.draftTemplate.screen.description).toBe("Shows user profile info and avatar.");
   });
 
   it("returns readyToSave with a flow draftTemplate when all 7 multi-screen dimensions are covered", async () => {

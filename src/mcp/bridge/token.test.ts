@@ -1,14 +1,14 @@
-import { describe, it, expect, afterAll } from "bun:test";
+import { afterAll, describe, expect, it } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import {
-  generateBridgeToken,
-  writeBridgeConfig,
-  readBridgeConfig,
-  clearBridgeConfig,
-  BridgeConfigSchema,
   type BridgeConfig,
+  BridgeConfigSchema,
+  clearBridgeConfig,
+  generateBridgeToken,
+  readBridgeConfig,
+  writeBridgeConfig,
 } from "./token.js";
 
 const tmpDirs: string[] = [];
@@ -112,14 +112,10 @@ describe("BridgeConfigSchema", () => {
   });
 
   it("rejects port > 65535", () => {
-    expect(() =>
-      BridgeConfigSchema.parse({ ...sampleConfig(), port: 99999 })
-    ).toThrow();
+    expect(() => BridgeConfigSchema.parse({ ...sampleConfig(), port: 99999 })).toThrow();
   });
 
   it("rejects token < 12 chars", () => {
-    expect(() =>
-      BridgeConfigSchema.parse({ ...sampleConfig(), token: "short" })
-    ).toThrow();
+    expect(() => BridgeConfigSchema.parse({ ...sampleConfig(), token: "short" })).toThrow();
   });
 });

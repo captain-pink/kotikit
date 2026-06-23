@@ -38,11 +38,9 @@ export interface ParsedFigmaDesignUrl {
   pageUrl: string;
 }
 
-const normalizeNodeId = (nodeId: string): string =>
-  decodeURIComponent(nodeId).replace("-", ":");
+const normalizeNodeId = (nodeId: string): string => decodeURIComponent(nodeId).replace("-", ":");
 
-const urlNodeId = (nodeId: string): string =>
-  nodeId.replace(":", "-");
+const urlNodeId = (nodeId: string): string => nodeId.replace(":", "-");
 
 const fileKeyFromPath = (segments: string[]): string | null => {
   const designIndex = segments.indexOf("design");
@@ -88,8 +86,7 @@ export const parseFigmaDesignUrl = (value: string): ParsedFigmaDesignUrl => {
   return { fileKey, nodeId, pageUrl };
 };
 
-export const isDraftPageName = (name: string): boolean =>
-  /\bdrafts?\b/i.test(name);
+export const isDraftPageName = (name: string): boolean => /\bdrafts?\b/i.test(name);
 
 export const assertDraftPageName = (name: string): void => {
   if (isDraftPageName(name)) return;
@@ -104,9 +101,6 @@ export const buildKotikitSectionName = (input: {
   screen: string | null;
   date: string;
 }): string =>
-  [
-    "kotikit",
-    input.scope,
-    ...(input.screen !== null ? [input.screen] : []),
-    input.date,
-  ].join(" / ");
+  ["kotikit", input.scope, ...(input.screen !== null ? [input.screen] : []), input.date].join(
+    " / "
+  );

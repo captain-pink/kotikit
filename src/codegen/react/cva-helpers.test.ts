@@ -1,23 +1,25 @@
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
+import type { ComponentJson } from "../../sync/component-shape.js";
 import {
-  slugifyVariantValue,
-  kebabCase,
-  variantPropKey,
   deriveVariantDefaults,
   emitCvaVariantsBlock,
   emitPropsInterface,
   intrinsicElementFor,
+  kebabCase,
+  slugifyVariantValue,
+  variantPropKey,
 } from "./cva-helpers.js";
-import type { ComponentJson } from "../../sync/component-shape.js";
 
 // ─── slugifyVariantValue ──────────────────────────────────────────────────────
 
 describe("slugifyVariantValue", () => {
   it("Primary → primary", () => expect(slugifyVariantValue("Primary")).toBe("primary"));
   it("'On Hover' → on-hover", () => expect(slugifyVariantValue("On Hover")).toBe("on-hover"));
-  it("'PieChart 3D' → pie-chart-3d", () => expect(slugifyVariantValue("PieChart 3D")).toBe("pie-chart-3d"));
+  it("'PieChart 3D' → pie-chart-3d", () =>
+    expect(slugifyVariantValue("PieChart 3D")).toBe("pie-chart-3d"));
   it("'Pri/Sec' → pri-sec", () => expect(slugifyVariantValue("Pri/Sec")).toBe("pri-sec"));
-  it("dedup-dashes", () => expect(slugifyVariantValue("__leading--trailing__")).toBe("leading-trailing"));
+  it("dedup-dashes", () =>
+    expect(slugifyVariantValue("__leading--trailing__")).toBe("leading-trailing"));
   it("preserves single lowercase", () => expect(slugifyVariantValue("sm")).toBe("sm"));
   it("handles CamelCase without spaces: PieChart → pie-chart", () =>
     expect(slugifyVariantValue("PieChart")).toBe("pie-chart"));
@@ -48,8 +50,8 @@ function buttonJson(): ComponentJson {
     ],
     properties: {
       Disabled: { type: "BOOLEAN", defaultValue: false },
-      Label:    { type: "TEXT" },
-      Icon:     { type: "INSTANCE_SWAP" },
+      Label: { type: "TEXT" },
+      Icon: { type: "INSTANCE_SWAP" },
     },
     updatedAt: "x",
   };
@@ -99,7 +101,7 @@ describe("emitCvaVariantsBlock", () => {
     expect(out).toContain("defaultVariants");
   });
 
-  it("emits cva(\"\") for no-variant components", () => {
+  it('emits cva("") for no-variant components', () => {
     const json: ComponentJson = { ...buttonJson(), variants: [], properties: {} };
     const out = emitCvaVariantsBlock(json);
     expect(out.trim()).toBe('cva("")');
@@ -143,8 +145,10 @@ describe("intrinsicElementFor", () => {
   it("Link → a", () => expect(intrinsicElementFor("Link")).toBe("a"));
   it("Anchor → a", () => expect(intrinsicElementFor("Anchor")).toBe("a"));
   it("Label → label", () => expect(intrinsicElementFor("Label")).toBe("label"));
-  it("case-insensitive match: BUTTON → button", () => expect(intrinsicElementFor("BUTTON")).toBe("button"));
-  it("substring match: IconButton → button", () => expect(intrinsicElementFor("IconButton")).toBe("button"));
+  it("case-insensitive match: BUTTON → button", () =>
+    expect(intrinsicElementFor("BUTTON")).toBe("button"));
+  it("substring match: IconButton → button", () =>
+    expect(intrinsicElementFor("IconButton")).toBe("button"));
   it("unknown → div", () => expect(intrinsicElementFor("Avatar")).toBe("div"));
 });
 

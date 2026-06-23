@@ -1,17 +1,16 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, rm, readFile } from "fs/promises";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { existsSync } from "fs";
+import { mkdtemp, readFile, rm } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
 import simpleGit from "simple-git";
-
+import { defaultConfig } from "../../config/schema.js";
+import type { FlowDraft } from "../../spec/decompose.js";
+import { FlowManifestSchema } from "../../spec/schema.js";
+import type { ToolContext } from "../context.js";
+import type { ToolRegistry } from "../server.js";
 import { registerFlowTools } from "./flow.js";
 import { registerSpecTools } from "./spec.js";
-import type { ToolRegistry } from "../server.js";
-import type { ToolContext } from "../context.js";
-import type { FlowDraft } from "../../spec/decompose.js";
-import { defaultConfig } from "../../config/schema.js";
-import { FlowManifestSchema } from "../../spec/schema.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -206,8 +205,12 @@ describe("kotikit_flow_create", () => {
 
       // Compare each screen spec structure (shape, not UUIDs)
       for (const screen of draft.screens) {
-        const spec1 = JSON.parse(await readFile(join(specsDir1, `${screen.slug}.spec.json`), "utf-8"));
-        const spec2 = JSON.parse(await readFile(join(specsDir2, `${screen.slug}.spec.json`), "utf-8"));
+        const spec1 = JSON.parse(
+          await readFile(join(specsDir1, `${screen.slug}.spec.json`), "utf-8")
+        );
+        const spec2 = JSON.parse(
+          await readFile(join(specsDir2, `${screen.slug}.spec.json`), "utf-8")
+        );
 
         expect(spec1.title).toBe(spec2.title);
         expect(spec1.requirements.functional).toEqual(spec2.requirements.functional);

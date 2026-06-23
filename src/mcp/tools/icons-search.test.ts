@@ -1,14 +1,14 @@
-import { describe, it, expect, afterAll } from "bun:test";
+import { afterAll, describe, expect, it } from "bun:test";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { initIconsDb, upsertIcon } from "../../db/icons-db.js";
+import { openDb } from "../../db/sqlite.js";
+import { iconsDbPath } from "../../util/paths.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
 import { registerIconsSearchTools } from "./icons-search.js";
-import { openDb } from "../../db/sqlite.js";
-import { initIconsDb, upsertIcon } from "../../db/icons-db.js";
-import { iconsDbPath } from "../../util/paths.js";
 
 const tmpDirs: string[] = [];
 function mkTmp(): string {
@@ -16,7 +16,9 @@ function mkTmp(): string {
   tmpDirs.push(d);
   return d;
 }
-afterAll(() => { for (const d of tmpDirs) rmSync(d, { recursive: true, force: true }); });
+afterAll(() => {
+  for (const d of tmpDirs) rmSync(d, { recursive: true, force: true });
+});
 
 function makeRegistry(): ToolRegistry {
   return { tools: [] as Tool[], handlers: new Map() };
@@ -51,15 +53,17 @@ describe("kotikit_icons_search", () => {
     const root = mkTmp();
     seedIcons(root, [
       { name: "arrow-right", key: "k1", svg: "<svg>R</svg>" },
-      { name: "arrow-left",  key: "k2", svg: "<svg>L</svg>" },
-      { name: "home",        key: "k3", svg: "<svg>H</svg>" },
+      { name: "arrow-left", key: "k2", svg: "<svg>L</svg>" },
+      { name: "home", key: "k3", svg: "<svg>H</svg>" },
     ]);
     const registry = makeRegistry();
     registerIconsSearchTools(registry, makeCtx(root));
     const result = await callTool(registry, "kotikit_icons_search", { query: "arrow*" });
     expect(result.isError).toBeFalsy();
-    const detail = parseDetail(result.content[0]!.text) as { results: { name: string; svg?: string }[] };
-    expect(detail.results.map(r => r.name).sort()).toEqual(["arrow-left", "arrow-right"]);
+    const detail = parseDetail(result.content[0]!.text) as {
+      results: { name: string; svg?: string }[];
+    };
+    expect(detail.results.map((r) => r.name).sort()).toEqual(["arrow-left", "arrow-right"]);
     for (const r of detail.results) {
       expect(r.svg).toBeUndefined();
     }
@@ -70,16 +74,23 @@ describe("kotikit_icons_search", () => {
     seedIcons(root, [{ name: "arrow-right", key: "k1", svg: "<svg>R</svg>" }]);
     const registry = makeRegistry();
     registerIconsSearchTools(registry, makeCtx(root));
-    const result = await callTool(registry, "kotikit_icons_search", { query: "arrow*", includeSvg: true });
+    const result = await callTool(registry, "kotikit_icons_search", {
+      query: "arrow*",
+      includeSvg: true,
+    });
     expect(result.isError).toBeFalsy();
-    const detail = parseDetail(result.content[0]!.text) as { results: { name: string; svg?: string }[] };
+    const detail = parseDetail(result.content[0]!.text) as {
+      results: { name: string; svg?: string }[];
+    };
     expect(detail.results[0]?.svg).toBe("<svg>R</svg>");
   });
 
   it("respects the limit argument", async () => {
     const root = mkTmp();
     seedIcons(root, [
-      { name: "arrow-1", key: "k1" }, { name: "arrow-2", key: "k2" }, { name: "arrow-3", key: "k3" },
+      { name: "arrow-1", key: "k1" },
+      { name: "arrow-2", key: "k2" },
+      { name: "arrow-3", key: "k3" },
     ]);
     const registry = makeRegistry();
     registerIconsSearchTools(registry, makeCtx(root));

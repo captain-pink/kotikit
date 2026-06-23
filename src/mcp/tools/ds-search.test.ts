@@ -1,15 +1,15 @@
-import { describe, it, expect, afterAll } from "bun:test";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "fs";
+import { afterAll, describe, expect, it } from "bun:test";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { initComponentsDb, upsertComponent } from "../../db/components-db.js";
+import { openDb } from "../../db/sqlite.js";
+import { nowIso } from "../../util/ids.js";
+import { componentJsonPath, componentsDbPath } from "../../util/paths.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
 import { registerDsSearchTools } from "./ds-search.js";
-import { openDb } from "../../db/sqlite.js";
-import { initComponentsDb, upsertComponent } from "../../db/components-db.js";
-import { componentsDbPath, componentJsonPath } from "../../util/paths.js";
-import { nowIso } from "../../util/ids.js";
 
 const tmpDirs: string[] = [];
 function mkTmp(): string {
@@ -17,7 +17,9 @@ function mkTmp(): string {
   tmpDirs.push(d);
   return d;
 }
-afterAll(() => { for (const d of tmpDirs) rmSync(d, { recursive: true, force: true }); });
+afterAll(() => {
+  for (const d of tmpDirs) rmSync(d, { recursive: true, force: true });
+});
 
 function makeRegistry(): ToolRegistry {
   return { tools: [] as Tool[], handlers: new Map() };
@@ -26,7 +28,10 @@ function makeCtx(root: string): ToolContext {
   return { root, loadConfig: async () => null };
 }
 
-function seedDesignSystem(root: string, components: { name: string; key: string; fileKey: string; }[]): void {
+function seedDesignSystem(
+  root: string,
+  components: { name: string; key: string; fileKey: string }[]
+): void {
   const dbPath = componentsDbPath(root);
   const db = openDb(dbPath);
   initComponentsDb(db);
@@ -41,15 +46,22 @@ function seedDesignSystem(root: string, components: { name: string; key: string;
     // Also write the per-component JSON file
     const filePath = componentJsonPath(root, c.name.toLowerCase());
     mkdirSync(join(filePath, ".."), { recursive: true });
-    writeFileSync(filePath, JSON.stringify({
-      name: c.name,
-      key: c.key,
-      fileKey: c.fileKey,
-      path: `components/${c.name.toLowerCase()}.json`,
-      variants: [],
-      properties: {},
-      updatedAt: nowIso(),
-    }, null, 2));
+    writeFileSync(
+      filePath,
+      JSON.stringify(
+        {
+          name: c.name,
+          key: c.key,
+          fileKey: c.fileKey,
+          path: `components/${c.name.toLowerCase()}.json`,
+          variants: [],
+          properties: {},
+          updatedAt: nowIso(),
+        },
+        null,
+        2
+      )
+    );
   }
   db.close();
 }
@@ -90,7 +102,9 @@ describe("kotikit_ds_get_component", () => {
     seedDesignSystem(root, [{ name: "Button", key: "k1", fileKey: "fA" }]);
     const registry = makeRegistry();
     registerDsSearchTools(registry, makeCtx(root));
-    const result = await callTool(registry, "kotikit_ds_get_component", { path: "components/button.json" });
+    const result = await callTool(registry, "kotikit_ds_get_component", {
+      path: "components/button.json",
+    });
     expect(result.isError).toBeFalsy();
     expect(result.content[0]?.text).toContain("Button");
   });
@@ -108,7 +122,9 @@ describe("kotikit_ds_get_component", () => {
     seedDesignSystem(root, [{ name: "Button", key: "k", fileKey: "f" }]);
     const registry = makeRegistry();
     registerDsSearchTools(registry, makeCtx(root));
-    const result = await callTool(registry, "kotikit_ds_get_component", { path: "components/does-not-exist.json" });
+    const result = await callTool(registry, "kotikit_ds_get_component", {
+      path: "components/does-not-exist.json",
+    });
     expect(result.isError).toBe(true);
   });
 });

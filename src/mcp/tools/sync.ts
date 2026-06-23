@@ -1,13 +1,13 @@
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import type { ToolContext } from "../context.js";
-import type { ToolRegistry } from "../server.js";
+import { hasCheckpoint } from "../../sync/checkpoint.js";
+import { SyncPausedError } from "../../sync/errors.js";
 import { FigmaClient } from "../../sync/figma-client.js";
+import { resolveFigmaToken } from "../../sync/figma-token.js";
 import { syncAllFiles } from "../../sync/multi-file.js";
 import type { ProgressEmitter } from "../../sync/progress.js";
-import { toolText, toolError, KotikitError } from "../../util/result.js";
-import { hasCheckpoint } from "../../sync/checkpoint.js";
-import { resolveFigmaToken } from "../../sync/figma-token.js";
-import { SyncPausedError } from "../../sync/errors.js";
+import { KotikitError, toolError, toolText } from "../../util/result.js";
+import type { ToolContext } from "../context.js";
+import type { ToolRegistry } from "../server.js";
 
 const SYNC_SOFT_DEADLINE_MS = 45_000;
 
@@ -27,8 +27,7 @@ export function registerSyncTools(
 ): void {
   const tool: Tool = {
     name: "kotikit_sync_ds",
-    description:
-      "Pull the latest design system from Figma into the local search index.",
+    description: "Pull the latest design system from Figma into the local search index.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -87,22 +86,16 @@ export function registerSyncTools(
       });
 
       // 6. Build a human-readable summary
-      const totalComponents = report.files.reduce(
-        (sum, f) => sum + f.componentCount,
-        0
-      );
-      const totalIcons = report.files.reduce(
-        (sum, f) => sum + f.iconCount,
-        0
-      );
+      const totalComponents = report.files.reduce((sum, f) => sum + f.componentCount, 0);
+      const totalIcons = report.files.reduce((sum, f) => sum + f.iconCount, 0);
       const conflictCount = report.conflicts.length;
       let summary =
         `Synced ${report.files.length} file(s). ` +
         `${totalComponents} components, ${totalIcons} icons. ` +
         `${conflictCount} name conflict(s).`;
 
-      const emptyFiles = report.files.filter((file) =>
-        file.componentCount === 0 && file.iconCount === 0
+      const emptyFiles = report.files.filter(
+        (file) => file.componentCount === 0 && file.iconCount === 0
       );
       if (emptyFiles.length > 0) {
         const names = emptyFiles.map((file) => `"${file.name}"`).join(", ");
@@ -151,19 +144,12 @@ export function registerSyncTools(
       if (err instanceof KotikitError) {
         // Append resume hint to the existing hint, if any
         const combinedHint = [err.hint, hint].filter(Boolean).join(" ");
-        return toolError(
-          new KotikitError(err.userMessage, combinedHint || undefined)
-        );
+        return toolError(new KotikitError(err.userMessage, combinedHint || undefined));
       }
 
       // Unknown error — wrap with the resume hint if present
       if (hint) {
-        return toolError(
-          new KotikitError(
-            "Something went wrong during the sync.",
-            hint
-          )
-        );
+        return toolError(new KotikitError("Something went wrong during the sync.", hint));
       }
 
       return toolError(err);

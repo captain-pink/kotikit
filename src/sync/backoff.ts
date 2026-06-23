@@ -1,17 +1,16 @@
 export interface BackoffOpts {
-  initialMs?: number;   // default 500
-  maxMs?: number;       // default 30000
-  jitterMs?: number;    // default 250
+  initialMs?: number; // default 500
+  maxMs?: number; // default 30000
+  jitterMs?: number; // default 250
   maxAttempts?: number; // default 6
 }
 
 export interface RetryableError {
-  status: number;        // 429 or 5xx
+  status: number; // 429 or 5xx
   retryAfterMs?: number; // if present, use this instead of the computed delay
 }
 
-const sleep = (ms: number): Promise<void> =>
-  new Promise<void>((r) => setTimeout(r, ms));
+const sleep = (ms: number): Promise<void> => new Promise<void>((r) => setTimeout(r, ms));
 
 /**
  * Run `fn`, retrying on retryable errors with exponential growth + jitter.
@@ -27,12 +26,7 @@ export async function withBackoff<T>(
   isRetryable: (err: unknown) => null | RetryableError,
   opts?: BackoffOpts
 ): Promise<T> {
-  const {
-    initialMs = 500,
-    maxMs = 30000,
-    jitterMs = 250,
-    maxAttempts = 6,
-  } = opts ?? {};
+  const { initialMs = 500, maxMs = 30000, jitterMs = 250, maxAttempts = 6 } = opts ?? {};
 
   let lastErr: unknown;
 
@@ -51,7 +45,7 @@ export async function withBackoff<T>(
       if (r.retryAfterMs !== undefined) {
         delay = r.retryAfterMs;
       } else {
-        const base = Math.min(initialMs * Math.pow(2, attempt), maxMs);
+        const base = Math.min(initialMs * 2 ** attempt, maxMs);
         delay = base + Math.random() * jitterMs;
       }
 

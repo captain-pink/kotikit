@@ -1,13 +1,13 @@
 import type { ToolRegistry } from "../server.js";
-import type { BridgeConfig } from "./token.js";
 import {
   BridgeRequestSchema,
   type BridgeResponse,
-  RPC_PARSE_ERROR,
+  RPC_INTERNAL_ERROR,
   RPC_INVALID_REQUEST,
   RPC_METHOD_NOT_FOUND,
-  RPC_INTERNAL_ERROR,
+  RPC_PARSE_ERROR,
 } from "./protocol.js";
+import type { BridgeConfig } from "./token.js";
 
 export interface BridgeOpts {
   registry: ToolRegistry;
@@ -49,7 +49,7 @@ export function startBridgeServer(opts: BridgeOpts): BridgeServer {
             projectName: config.projectName,
             projectRoot: config.projectRoot,
           }),
-          { headers: { "Content-Type": "application/json" } },
+          { headers: { "Content-Type": "application/json" } }
         );
       }
 
@@ -74,23 +74,15 @@ export function startBridgeServer(opts: BridgeOpts): BridgeServer {
       async message(ws, raw) {
         let req;
         try {
-          const parsed = JSON.parse(
-            typeof raw === "string" ? raw : raw.toString(),
-          );
+          const parsed = JSON.parse(typeof raw === "string" ? raw : raw.toString());
           const parsedReq = BridgeRequestSchema.safeParse(parsed);
           if (!parsedReq.success) {
-            ws.send(
-              JSON.stringify(
-                rpcError(null, RPC_INVALID_REQUEST, "Invalid request shape."),
-              ),
-            );
+            ws.send(JSON.stringify(rpcError(null, RPC_INVALID_REQUEST, "Invalid request shape.")));
             return;
           }
           req = parsedReq.data;
         } catch {
-          ws.send(
-            JSON.stringify(rpcError(null, RPC_PARSE_ERROR, "Parse error.")),
-          );
+          ws.send(JSON.stringify(rpcError(null, RPC_PARSE_ERROR, "Parse error.")));
           return;
         }
 
@@ -106,32 +98,18 @@ export function startBridgeServer(opts: BridgeOpts): BridgeServer {
               return;
             }
             case "tools/call": {
-              const params = req.params as
-                | { name?: string; arguments?: unknown }
-                | undefined;
+              const params = req.params as { name?: string; arguments?: unknown } | undefined;
               const name = params?.name;
               if (!name) {
                 ws.send(
-                  JSON.stringify(
-                    rpcError(
-                      req.id,
-                      RPC_INVALID_REQUEST,
-                      "Missing tool name.",
-                    ),
-                  ),
+                  JSON.stringify(rpcError(req.id, RPC_INVALID_REQUEST, "Missing tool name."))
                 );
                 return;
               }
               const handler = registry.handlers.get(name);
               if (!handler) {
                 ws.send(
-                  JSON.stringify(
-                    rpcError(
-                      req.id,
-                      RPC_METHOD_NOT_FOUND,
-                      `Unknown tool: ${name}`,
-                    ),
-                  ),
+                  JSON.stringify(rpcError(req.id, RPC_METHOD_NOT_FOUND, `Unknown tool: ${name}`))
                 );
                 return;
               }
@@ -147,20 +125,12 @@ export function startBridgeServer(opts: BridgeOpts): BridgeServer {
             default:
               ws.send(
                 JSON.stringify(
-                  rpcError(
-                    req.id,
-                    RPC_METHOD_NOT_FOUND,
-                    `Unknown method: ${req.method}`,
-                  ),
-                ),
+                  rpcError(req.id, RPC_METHOD_NOT_FOUND, `Unknown method: ${req.method}`)
+                )
               );
           }
         } catch (err) {
-          ws.send(
-            JSON.stringify(
-              rpcError(req.id, RPC_INTERNAL_ERROR, (err as Error).message),
-            ),
-          );
+          ws.send(JSON.stringify(rpcError(req.id, RPC_INTERNAL_ERROR, (err as Error).message)));
         }
       },
       close(_ws, _code, _reason) {
@@ -178,10 +148,6 @@ export function startBridgeServer(opts: BridgeOpts): BridgeServer {
   };
 }
 
-function rpcError(
-  id: number | string | null,
-  code: number,
-  message: string,
-): BridgeResponse {
+function rpcError(id: number | string | null, code: number, message: string): BridgeResponse {
   return { jsonrpc: "2.0", id, error: { code, message } };
 }

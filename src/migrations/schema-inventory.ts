@@ -2,19 +2,12 @@ import { existsSync } from "fs";
 import { readdir, readFile } from "fs/promises";
 import { basename, join } from "path";
 import { CONFIG_SCHEMA_VERSION } from "../config/schema.js";
-import {
-  FLOW_MANIFEST_SCHEMA_VERSION,
-  SCREEN_SPEC_SCHEMA_VERSION,
-} from "../spec/schema.js";
+import { FLOW_MANIFEST_SCHEMA_VERSION, SCREEN_SPEC_SCHEMA_VERSION } from "../spec/schema.js";
 import { configPath, scopeDir } from "../util/paths.js";
 
 export type SchemaArtifactKind = "config" | "screen" | "flow";
 
-export type SchemaArtifactStatus =
-  | "current"
-  | "legacy-or-older"
-  | "future"
-  | "unreadable";
+export type SchemaArtifactStatus = "current" | "legacy-or-older" | "future" | "unreadable";
 
 export interface SchemaArtifactFinding {
   path: string;
@@ -98,9 +91,8 @@ const inspectRawSchemaVersion = (
       reason: "not a JSON object",
     };
   }
-  const schemaVersion = "schemaVersion" in raw
-    ? (raw as { schemaVersion?: unknown }).schemaVersion
-    : undefined;
+  const schemaVersion =
+    "schemaVersion" in raw ? (raw as { schemaVersion?: unknown }).schemaVersion : undefined;
   if (schemaVersion === undefined) {
     return {
       status: "legacy-or-older",

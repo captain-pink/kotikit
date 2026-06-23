@@ -25,11 +25,14 @@ const relativePath = (root: string, path: string): string =>
   relative(root, path).replaceAll("\\", "/");
 
 export const formatSchemaFinding = (root: string, finding: SchemaArtifactFinding): string => {
-  const schemaVersion = finding.schemaVersion === null
-    ? "no usable schemaVersion"
-    : `schemaVersion ${finding.schemaVersion}`;
-  return `${statusLabel(finding.status)} ${finding.kind}: ${relativePath(root, finding.path)} ` +
-    `(${schemaVersion}; latest ${finding.latestVersion}; ${finding.reason})`;
+  const schemaVersion =
+    finding.schemaVersion === null
+      ? "no usable schemaVersion"
+      : `schemaVersion ${finding.schemaVersion}`;
+  return (
+    `${statusLabel(finding.status)} ${finding.kind}: ${relativePath(root, finding.path)} ` +
+    `(${schemaVersion}; latest ${finding.latestVersion}; ${finding.reason})`
+  );
 };
 
 export const formatSchemaInventoryDetails = (
@@ -38,7 +41,8 @@ export const formatSchemaInventoryDetails = (
   maxFindings = 5
 ): string[] => {
   const nonCurrent = inventory.findings.filter((finding) => finding.status !== "current");
-  const summary = `Checked ${inventory.checked} kotikit JSON artifact(s): ` +
+  const summary =
+    `Checked ${inventory.checked} kotikit JSON artifact(s): ` +
     `${inventory.current} current, ${inventory.legacyOrOlder} older, ` +
     `${inventory.future} future, ${inventory.unreadable} unreadable.`;
   const findingLines = nonCurrent
@@ -84,7 +88,9 @@ export function formatMigrationDryRunReport(report: MigrationDryRunReport): stri
     lines.push(
       "",
       "Files:",
-      ...nonCurrent.slice(0, 20).map((finding) => `  - ${formatSchemaFinding(report.root, finding)}`)
+      ...nonCurrent
+        .slice(0, 20)
+        .map((finding) => `  - ${formatSchemaFinding(report.root, finding)}`)
     );
     if (nonCurrent.length > 20) {
       lines.push(`  - ${nonCurrent.length - 20} more schema finding(s) omitted.`);

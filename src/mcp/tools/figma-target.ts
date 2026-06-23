@@ -1,13 +1,13 @@
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import type { ToolContext } from "../context.js";
-import type { ToolRegistry } from "../server.js";
-import { FigmaClient } from "../../sync/figma-client.js";
-import { resolveFigmaToken } from "../../sync/figma-token.js";
+import type { FigmaDraftTargetClient } from "../../figma/draft-target-resolver.js";
 import { resolveFigmaDraftTargetFromUrl } from "../../figma/draft-target-resolver.js";
 import { writeFigmaDraftTarget } from "../../figma/draft-target-store.js";
 import { autoCommit } from "../../git/auto-commit.js";
-import { toolError, toolText, KotikitError } from "../../util/result.js";
-import type { FigmaDraftTargetClient } from "../../figma/draft-target-resolver.js";
+import { FigmaClient } from "../../sync/figma-client.js";
+import { resolveFigmaToken } from "../../sync/figma-token.js";
+import { KotikitError, toolError, toolText } from "../../util/result.js";
+import type { ToolContext } from "../context.js";
+import type { ToolRegistry } from "../server.js";
 
 export interface RegisterFigmaTargetToolsOpts {
   figmaClientFactory?: (token: string) => FigmaDraftTargetClient;
@@ -26,7 +26,10 @@ export function registerFigmaTargetTools(
       type: "object",
       properties: {
         scope: { type: "string", description: "Scope (flow or single-screen folder) slug." },
-        screen: { type: "string", description: "Screen slug. Omit for a single-screen spec or flow-level target." },
+        screen: {
+          type: "string",
+          description: "Screen slug. Omit for a single-screen spec or flow-level target.",
+        },
         pageUrl: { type: "string", description: "Figma draft page URL containing node-id." },
       },
       required: ["scope", "pageUrl"],

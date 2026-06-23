@@ -1,13 +1,13 @@
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import {
-  materializeFlow,
-  materializeSingle,
+  type FlowDraft,
   isMultiScreen,
   isSingleScreen,
-  type FlowDraft,
+  materializeFlow,
+  materializeSingle,
   type SingleDraft,
 } from "./decompose";
-import { ScreenSpecSchema, FlowManifestSchema } from "./schema";
+import { FlowManifestSchema, ScreenSpecSchema } from "./schema";
 
 const makeScreenDraft = (slug: string, title: string) => ({
   slug,
@@ -52,7 +52,9 @@ describe("isMultiScreen", () => {
   });
 
   it("returns false for a malformed flow-like draft with no scope", () => {
-    expect(isMultiScreen({ screens: [makeScreenDraft("members", "Members")] } as never)).toBe(false);
+    expect(isMultiScreen({ screens: [makeScreenDraft("members", "Members")] } as never)).toBe(
+      false
+    );
   });
 });
 

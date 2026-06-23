@@ -21,10 +21,7 @@ function labelTokens(value: string): string[] {
  *
  *  Returns null if none of the signals fire.
  */
-export function detectIconSignal(input: {
-  pageName: string;
-  componentName: string;
-}): IconSignal {
+export function detectIconSignal(input: { pageName: string; componentName: string }): IconSignal {
   const { pageName, componentName } = input;
 
   // Page-name signal — strongest authorial intent

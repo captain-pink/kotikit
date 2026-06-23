@@ -1,9 +1,9 @@
-import { readFile, writeFile, mkdir, unlink } from "fs/promises";
 import { existsSync } from "fs";
+import { mkdir, readFile, unlink, writeFile } from "fs/promises";
 import { dirname } from "path";
 import { componentPlanPath } from "../util/paths.js";
-import { parseComponentPlan, type ComponentPlan } from "./component-plan-schema.js";
 import { KotikitError } from "../util/result.js";
+import { type ComponentPlan, parseComponentPlan } from "./component-plan-schema.js";
 
 /** Write the component plan as pretty JSON with a trailing newline. Returns absolute path. */
 export async function writeComponentPlan(

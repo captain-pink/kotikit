@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { KotikitError } from "../util/result.js";
-import { ComponentVariablePolicySchema } from "../spec/schema.js";
 import { FigmaDraftTargetSchema } from "../figma/draft-target.js";
+import { ComponentVariablePolicySchema } from "../spec/schema.js";
+import { KotikitError } from "../util/result.js";
 
 export const ComponentPlanModeSchema = z.enum(["create-draft-components", "inline-draft"]);
 export type ComponentPlanMode = z.infer<typeof ComponentPlanModeSchema>;

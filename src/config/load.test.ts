@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { loadConfig, configExists, writeConfig, resolveSecret, resolveSecretImpl } from "./load";
 import { buildConfig } from "./init";
+import { configExists, loadConfig, resolveSecret, resolveSecretImpl, writeConfig } from "./load";
 import { CONFIG_SCHEMA_VERSION, defaultConfig, parseConfig } from "./schema";
 
 let tmp: string;

@@ -1,16 +1,11 @@
-import { readFile, writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
-import type { ScreenSpec, FlowManifest } from "./schema";
-import { parseScreenSpec, parseFlowManifest } from "./schema";
-import {
-  scopeDir,
-  screenSpecPath,
-  singleSpecPath,
-  flowManifestPath,
-} from "../util/paths";
-import { upsertIndexEntry, readIndex } from "./index-store";
-import type { IndexEntry } from "./index-store";
+import { mkdir, readFile, writeFile } from "fs/promises";
+import { flowManifestPath, scopeDir, screenSpecPath, singleSpecPath } from "../util/paths";
 import { KotikitError } from "../util/result";
+import type { IndexEntry } from "./index-store";
+import { readIndex, upsertIndexEntry } from "./index-store";
+import type { FlowManifest, ScreenSpec } from "./schema";
+import { parseFlowManifest, parseScreenSpec } from "./schema";
 
 /**
  * Write a screen spec to disk and update the index.
@@ -25,9 +20,7 @@ export async function writeScreenSpec(
 ): Promise<string> {
   const dir = scopeDir(root, scope);
   await mkdir(dir, { recursive: true });
-  const path = screenSlug
-    ? screenSpecPath(root, scope, screenSlug)
-    : singleSpecPath(root, scope);
+  const path = screenSlug ? screenSpecPath(root, scope, screenSlug) : singleSpecPath(root, scope);
   await writeFile(path, JSON.stringify(spec, null, 2) + "\n", "utf-8");
 
   // For flow screens (screenSlug != null), preserve the flow-level index entry.
@@ -61,9 +54,7 @@ export async function readScreenSpec(
   scope: string,
   screenSlug: string | null
 ): Promise<ScreenSpec> {
-  const path = screenSlug
-    ? screenSpecPath(root, scope, screenSlug)
-    : singleSpecPath(root, scope);
+  const path = screenSlug ? screenSpecPath(root, scope, screenSlug) : singleSpecPath(root, scope);
   if (!existsSync(path)) {
     const slug = screenSlug ?? "spec";
     throw new KotikitError(
@@ -105,10 +96,7 @@ export async function writeFlowManifest(
 /**
  * Read a flow manifest from disk.
  */
-export async function readFlowManifest(
-  root: string,
-  scope: string
-): Promise<FlowManifest> {
+export async function readFlowManifest(root: string, scope: string): Promise<FlowManifest> {
   const path = flowManifestPath(root, scope);
   if (!existsSync(path)) {
     throw new KotikitError(

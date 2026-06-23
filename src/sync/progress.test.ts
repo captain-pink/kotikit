@@ -1,9 +1,5 @@
-import { describe, it, expect } from "bun:test";
-import {
-  nullProgressEmitter,
-  recordingProgressEmitter,
-  formatMs,
-} from "./progress.js";
+import { describe, expect, it } from "bun:test";
+import { formatMs, nullProgressEmitter, recordingProgressEmitter } from "./progress.js";
 
 const CTX = { index: 1, total: 1, name: "TestFile" };
 
@@ -17,8 +13,18 @@ describe("nullProgressEmitter", () => {
     expect(() => e.stageProgress(CTX, "node_details", { processed: 50, total: 100 })).not.toThrow();
     expect(() => e.stageDone(CTX, "metadata", "1.4s")).not.toThrow();
     expect(() => e.stageDone(CTX, "writes", "0.3s")).not.toThrow();
-    expect(() => e.fileDone(CTX, { componentCount: 10, iconCount: 5, elapsedMs: 3000 })).not.toThrow();
-    expect(() => e.syncDone({ fileCount: 1, componentTotal: 10, iconTotal: 5, conflictCount: 0, elapsedMs: 3000 })).not.toThrow();
+    expect(() =>
+      e.fileDone(CTX, { componentCount: 10, iconCount: 5, elapsedMs: 3000 })
+    ).not.toThrow();
+    expect(() =>
+      e.syncDone({
+        fileCount: 1,
+        componentTotal: 10,
+        iconTotal: 5,
+        conflictCount: 0,
+        elapsedMs: 3000,
+      })
+    ).not.toThrow();
   });
 });
 
@@ -33,7 +39,13 @@ describe("recordingProgressEmitter", () => {
     emitter.stageProgress(CTX, "node_details", { processed: 100, total: 200 });
     emitter.stageProgress(CTX, "node_details", { processed: 200, total: 200, label: "1.1s" });
     emitter.fileDone(CTX, { componentCount: 3, iconCount: 1, elapsedMs: 2000 });
-    emitter.syncDone({ fileCount: 1, componentTotal: 3, iconTotal: 1, conflictCount: 0, elapsedMs: 2100 });
+    emitter.syncDone({
+      fileCount: 1,
+      componentTotal: 3,
+      iconTotal: 1,
+      conflictCount: 0,
+      elapsedMs: 2100,
+    });
 
     expect(events).toHaveLength(8);
     expect(events[0]?.kind).toBe("syncStart");

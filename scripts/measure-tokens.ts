@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * Measure the response size of each kotikit MCP tool against a fixture project.
  *
@@ -13,36 +14,34 @@
  * Re-run after changing tool payloads. Paste the output into docs/TOKENS.md.
  */
 
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "fs";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import simpleGit from "simple-git";
-
-import { registerSpecTools } from "../src/mcp/tools/spec.js";
-import { registerConfigTools } from "../src/mcp/tools/config.js";
-import { registerFlowTools } from "../src/mcp/tools/flow.js";
-import { registerBrainstormTools } from "../src/mcp/tools/brainstorm.js";
-import { registerDsSearchTools } from "../src/mcp/tools/ds-search.js";
-import { registerIconsSearchTools } from "../src/mcp/tools/icons-search.js";
-import { registerPlanCodeTools } from "../src/mcp/tools/plan-code.js";
-import { registerImplementCodeTools } from "../src/mcp/tools/implement-code.js";
-import { registerRegistryTools } from "../src/mcp/tools/registry.js";
-import { registerScaffoldTools } from "../src/mcp/tools/scaffold.js";
-import { registerPlanDesignTools } from "../src/mcp/tools/plan-design.js";
-import { registerDesignScreenTools } from "../src/mcp/tools/design-screen.js";
-import { registerDesignApplyTools } from "../src/mcp/tools/design-apply.js";
-import { registerAuditTools } from "../src/mcp/tools/audit.js";
-import { registerSystemPromptTools } from "../src/mcp/tools/system-prompt.js";
-
 import { loadConfig, writeConfig } from "../src/config/load.js";
 import { defaultConfig } from "../src/config/schema.js";
+import { initComponentsDb, upsertComponent } from "../src/db/components-db.js";
+import { initRegistryDb, upsertRegistry } from "../src/db/registry-db.js";
+import { openDb } from "../src/db/sqlite.js";
 import type { ToolContext } from "../src/mcp/context.js";
 import type { ToolRegistry } from "../src/mcp/server.js";
-import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { openDb } from "../src/db/sqlite.js";
-import { initRegistryDb, upsertRegistry } from "../src/db/registry-db.js";
-import { registryDbPath, componentsDbPath } from "../src/util/paths.js";
-import { initComponentsDb, upsertComponent } from "../src/db/components-db.js";
+import { registerAuditTools } from "../src/mcp/tools/audit.js";
+import { registerBrainstormTools } from "../src/mcp/tools/brainstorm.js";
+import { registerConfigTools } from "../src/mcp/tools/config.js";
+import { registerDesignApplyTools } from "../src/mcp/tools/design-apply.js";
+import { registerDesignScreenTools } from "../src/mcp/tools/design-screen.js";
+import { registerDsSearchTools } from "../src/mcp/tools/ds-search.js";
+import { registerFlowTools } from "../src/mcp/tools/flow.js";
+import { registerIconsSearchTools } from "../src/mcp/tools/icons-search.js";
+import { registerImplementCodeTools } from "../src/mcp/tools/implement-code.js";
+import { registerPlanCodeTools } from "../src/mcp/tools/plan-code.js";
+import { registerPlanDesignTools } from "../src/mcp/tools/plan-design.js";
+import { registerRegistryTools } from "../src/mcp/tools/registry.js";
+import { registerScaffoldTools } from "../src/mcp/tools/scaffold.js";
+import { registerSpecTools } from "../src/mcp/tools/spec.js";
+import { registerSystemPromptTools } from "../src/mcp/tools/system-prompt.js";
+import { componentsDbPath, registryDbPath } from "../src/util/paths.js";
 
 type ToolResult = { content: { type: "text"; text: string }[]; isError?: boolean };
 
@@ -92,7 +91,7 @@ function seedDsComponent(root: string, name: string, variantAxes: string[]): voi
     key: `k-${slug}`,
     fileKey: "f",
     path: `components/${slug}.json`,
-    variants: variantAxes.map(a => ({ propertyName: a, values: ["primary", "secondary"] })),
+    variants: variantAxes.map((a) => ({ propertyName: a, values: ["primary", "secondary"] })),
     properties: { Disabled: { type: "BOOLEAN" as const } },
     updatedAt: "2026-05-29T00:00:00.000Z",
   };
@@ -115,7 +114,8 @@ function seedDsRegistry(root: string, name: string): void {
   const db = openDb(registryDbPath(root));
   initRegistryDb(db);
   upsertRegistry(db, {
-    kind: "component", name,
+    kind: "component",
+    name,
     dsPath: `components/${name.toLowerCase()}.json`,
     codePath: null,
     status: "design-only",
@@ -151,7 +151,13 @@ async function setupFixture(): Promise<string> {
         title: "Profile Page",
         description: "User profile screen.",
         functional: ["Display name and avatar"],
-        states: { default: "Shown", loading: "Spinner", empty: "No data", error: "Error", filled: "Full data" },
+        states: {
+          default: "Shown",
+          loading: "Spinner",
+          empty: "No data",
+          error: "Error",
+          filled: "Full data",
+        },
         components: [{ name: "Button" }, { name: "Card" }],
         acceptanceCriteria: ["renders", "edit button works"],
       },
@@ -175,7 +181,12 @@ function bytesToTokens(bytes: number): number {
   return Math.round(bytes / 3.8);
 }
 
-async function measure(registry: ToolRegistry, name: string, args: unknown, label = name): Promise<Row> {
+async function measure(
+  registry: ToolRegistry,
+  name: string,
+  args: unknown,
+  label = name
+): Promise<Row> {
   try {
     const result = await callTool(registry, name, args);
     const bytes = Buffer.byteLength(JSON.stringify(result), "utf-8");
@@ -196,21 +207,58 @@ async function main(): Promise<void> {
   rows.push(await measure(registry, "kotikit_config_get", {}));
   rows.push(await measure(registry, "kotikit_spec_list", {}));
   rows.push(await measure(registry, "kotikit_spec_get", { scope: "profile-page" }));
-  rows.push(await measure(registry, "kotikit_brainstorm_start", { idea: "a profile page" }, "kotikit_brainstorm_start (Phase 6 ref)"));
+  rows.push(
+    await measure(
+      registry,
+      "kotikit_brainstorm_start",
+      { idea: "a profile page" },
+      "kotikit_brainstorm_start (Phase 6 ref)"
+    )
+  );
 
   // Phase 2
   rows.push(await measure(registry, "kotikit_ds_search", { query: "but*" }));
   rows.push(await measure(registry, "kotikit_icons_search", { query: "arrow*" }));
-  rows.push(await measure(registry, "kotikit_ds_get_component", { path: "components/button.json" }));
+  rows.push(
+    await measure(registry, "kotikit_ds_get_component", { path: "components/button.json" })
+  );
 
   // Phase 3 — measure BOTH default (lazy) AND expand=true
-  rows.push(await measure(registry, "kotikit_implement_code_start", { scope: "profile-page" }, "kotikit_implement_code_start (default: refs)"));
-  rows.push(await measure(registry, "kotikit_implement_code_start", { scope: "profile-page", expand: true }, "kotikit_implement_code_start (expand: full)"));
+  rows.push(
+    await measure(
+      registry,
+      "kotikit_implement_code_start",
+      { scope: "profile-page" },
+      "kotikit_implement_code_start (default: refs)"
+    )
+  );
+  rows.push(
+    await measure(
+      registry,
+      "kotikit_implement_code_start",
+      { scope: "profile-page", expand: true },
+      "kotikit_implement_code_start (expand: full)"
+    )
+  );
   rows.push(await measure(registry, "kotikit_plan_code", { scope: "profile-page" }));
 
   // Phase 4 — measure BOTH default (compact, pageSize 3) AND expand
-  rows.push(await measure(registry, "kotikit_scaffold_start", {}, "kotikit_scaffold_start (default: compact, pageSize 3)"));
-  rows.push(await measure(registry, "kotikit_scaffold_start", { compact: false, pageSize: 3 }, "kotikit_scaffold_start (full dsJson, pageSize 3)"));
+  rows.push(
+    await measure(
+      registry,
+      "kotikit_scaffold_start",
+      {},
+      "kotikit_scaffold_start (default: compact, pageSize 3)"
+    )
+  );
+  rows.push(
+    await measure(
+      registry,
+      "kotikit_scaffold_start",
+      { compact: false, pageSize: 3 },
+      "kotikit_scaffold_start (full dsJson, pageSize 3)"
+    )
+  );
 
   rows.push(await measure(registry, "kotikit_registry_search", { kind: "component" }));
 
@@ -224,9 +272,11 @@ async function main(): Promise<void> {
   rows.push(await measure(registry, "kotikit_get_system_prompt", { kind: "brainstorm" }));
 
   // Print table
-  const labelWidth = Math.max(...rows.map(r => r.tool.length), 32);
+  const labelWidth = Math.max(...rows.map((r) => r.tool.length), 32);
   console.log("");
-  console.log(`${"tool".padEnd(labelWidth)}  ${"bytes".padStart(8)}  ${"~tokens".padStart(8)}  notes`);
+  console.log(
+    `${"tool".padEnd(labelWidth)}  ${"bytes".padStart(8)}  ${"~tokens".padStart(8)}  notes`
+  );
   console.log(`${"-".repeat(labelWidth)}  ${"-".repeat(8)}  ${"-".repeat(8)}  ${"-".repeat(8)}`);
   for (const r of rows) {
     console.log(

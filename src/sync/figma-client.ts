@@ -1,26 +1,26 @@
-import { z } from "zod";
+import type { z } from "zod";
 import { KotikitError } from "../util/result.js";
-import { createAdaptiveLimiter, type AdaptiveLimiter } from "./rate-limit.js";
-import { withBackoff, type RetryableError, type BackoffOpts } from "./backoff.js";
+import { type BackoffOpts, type RetryableError, withBackoff } from "./backoff.js";
 import {
-  FigmaFileSchema,
-  FigmaComponentsResponseSchema,
-  FigmaComponentSetsResponseSchema,
-  FigmaStylesResponseSchema,
-  FigmaVariablesResponseSchema,
-  FigmaNodesResponseSchema,
-  FigmaImagesResponseSchema,
-  FigmaCommentsResponseSchema,
+  type FigmaComment,
   FigmaCommentSchema,
-  type FigmaFile,
-  type FigmaPublishedComponent,
+  FigmaCommentsResponseSchema,
   type FigmaComponentSet,
-  type FigmaStyle,
+  FigmaComponentSetsResponseSchema,
+  FigmaComponentsResponseSchema,
+  type FigmaFile,
+  FigmaFileSchema,
+  FigmaImagesResponseSchema,
   type FigmaLocalVariables,
   type FigmaNode,
+  FigmaNodesResponseSchema,
+  type FigmaPublishedComponent,
+  type FigmaStyle,
+  FigmaStylesResponseSchema,
   type FigmaTreeNode,
-  type FigmaComment,
+  FigmaVariablesResponseSchema,
 } from "./figma-types.js";
+import { type AdaptiveLimiter, createAdaptiveLimiter } from "./rate-limit.js";
 
 export type FetchFn = typeof globalThis.fetch;
 
@@ -47,10 +47,10 @@ const DEFAULT_BACKOFF: BackoffOpts = {
 
 export interface FigmaClientOpts {
   token: string;
-  fetch?: FetchFn;                  // injectable for tests
+  fetch?: FetchFn; // injectable for tests
   limiter?: FigmaLimiter;
   backoffOpts?: BackoffOpts;
-  baseUrl?: string;                 // default "https://api.figma.com"
+  baseUrl?: string; // default "https://api.figma.com"
 }
 
 function parseNonNegativeInt(value: string | undefined, fallback: number): number {
@@ -129,11 +129,7 @@ export class FigmaClient {
     this.baseUrl = opts.baseUrl ?? "https://api.figma.com";
   }
 
-  private async request<T>(
-    path: string,
-    schema: z.ZodType<T>,
-    init: RequestInit = {}
-  ): Promise<T> {
+  private async request<T>(path: string, schema: z.ZodType<T>, init: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${path}`;
     return withBackoff(
       () =>
@@ -178,10 +174,7 @@ export class FigmaClient {
    */
   async getDocument(fileKey: string, depth: number = 4): Promise<FigmaFile> {
     try {
-      return await this.request(
-        `/v1/files/${fileKey}?depth=${depth}`,
-        FigmaFileSchema
-      );
+      return await this.request(`/v1/files/${fileKey}?depth=${depth}`, FigmaFileSchema);
     } catch (err) {
       throw this.mapError(err, fileKey, "document");
     }
@@ -190,7 +183,10 @@ export class FigmaClient {
   /** GET /v1/files/:key/components — published components. */
   async getComponents(fileKey: string): Promise<FigmaPublishedComponent[]> {
     try {
-      const res = await this.request(`/v1/files/${fileKey}/components`, FigmaComponentsResponseSchema);
+      const res = await this.request(
+        `/v1/files/${fileKey}/components`,
+        FigmaComponentsResponseSchema
+      );
       return res.meta.components;
     } catch (err) {
       throw this.mapError(err, fileKey, "components");
@@ -200,7 +196,10 @@ export class FigmaClient {
   /** GET /v1/files/:key/component_sets — component sets (variants). */
   async getComponentSets(fileKey: string): Promise<FigmaComponentSet[]> {
     try {
-      const res = await this.request(`/v1/files/${fileKey}/component_sets`, FigmaComponentSetsResponseSchema);
+      const res = await this.request(
+        `/v1/files/${fileKey}/component_sets`,
+        FigmaComponentSetsResponseSchema
+      );
       return res.meta.component_sets;
     } catch (err) {
       throw this.mapError(err, fileKey, "component_sets");
@@ -223,7 +222,10 @@ export class FigmaClient {
    */
   async getLocalVariables(fileKey: string): Promise<FigmaLocalVariables | null> {
     try {
-      const res = await this.request(`/v1/files/${fileKey}/variables/local`, FigmaVariablesResponseSchema);
+      const res = await this.request(
+        `/v1/files/${fileKey}/variables/local`,
+        FigmaVariablesResponseSchema
+      );
       return res.meta;
     } catch (err) {
       if (err instanceof FigmaResponseError && err.status === 403) return null;
@@ -236,9 +238,8 @@ export class FigmaClient {
    */
   async getNodes(fileKey: string, ids: string[]): Promise<Record<string, FigmaNode>> {
     const BATCH_SIZE = 100;
-    const batches = Array.from(
-      { length: Math.ceil(ids.length / BATCH_SIZE) },
-      (_, index) => ids.slice(index * BATCH_SIZE, index * BATCH_SIZE + BATCH_SIZE)
+    const batches = Array.from({ length: Math.ceil(ids.length / BATCH_SIZE) }, (_, index) =>
+      ids.slice(index * BATCH_SIZE, index * BATCH_SIZE + BATCH_SIZE)
     );
 
     try {
@@ -265,7 +266,11 @@ export class FigmaClient {
    * Returns the root CANVAS node for that page (with children to the requested depth).
    * Kept for diagnostics and targeted Figma tree inspection.
    */
-  async getPageTree(fileKey: string, pageId: string, depth: number = 4): Promise<FigmaTreeNode | null> {
+  async getPageTree(
+    fileKey: string,
+    pageId: string,
+    depth: number = 4
+  ): Promise<FigmaTreeNode | null> {
     try {
       const res = await this.request(
         `/v1/files/${fileKey}/nodes?ids=${encodeURIComponent(pageId)}&depth=${depth}`,
@@ -306,10 +311,7 @@ export class FigmaClient {
   }
 
   /** GET /v1/files/:key/comments — comments and replies for design review. */
-  async getComments(
-    fileKey: string,
-    opts: { asMarkdown?: boolean } = {}
-  ): Promise<FigmaComment[]> {
+  async getComments(fileKey: string, opts: { asMarkdown?: boolean } = {}): Promise<FigmaComment[]> {
     try {
       const suffix = opts.asMarkdown === true ? "?as_md=true" : "";
       const res = await this.request(
@@ -328,19 +330,15 @@ export class FigmaClient {
     input: { message: string; commentId?: string; clientMeta?: unknown }
   ): Promise<FigmaComment> {
     try {
-      return await this.request(
-        `/v1/files/${fileKey}/comments`,
-        FigmaCommentSchema,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: input.message,
-            ...(input.commentId !== undefined ? { comment_id: input.commentId } : {}),
-            ...(input.clientMeta !== undefined ? { client_meta: input.clientMeta } : {}),
-          }),
-        }
-      );
+      return await this.request(`/v1/files/${fileKey}/comments`, FigmaCommentSchema, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: input.message,
+          ...(input.commentId !== undefined ? { comment_id: input.commentId } : {}),
+          ...(input.clientMeta !== undefined ? { client_meta: input.clientMeta } : {}),
+        }),
+      });
     } catch (err) {
       throw this.mapError(err, fileKey, "comments-write");
     }
@@ -355,11 +353,12 @@ export class FigmaClient {
         );
       }
       if (err.status === 403) {
-        const scopeHint = kind === "comments"
-          ? "Make sure the file is accessible to the token and the token has the file_comments:read scope."
-          : kind === "comments-write"
-            ? "Make sure the file is accessible to the token and the token has the file_comments:write scope."
-          : "Make sure the file is published to your team and the token has the file_read scope.";
+        const scopeHint =
+          kind === "comments"
+            ? "Make sure the file is accessible to the token and the token has the file_comments:read scope."
+            : kind === "comments-write"
+              ? "Make sure the file is accessible to the token and the token has the file_comments:write scope."
+              : "Make sure the file is published to your team and the token has the file_read scope.";
         return new KotikitError(
           `Your Figma token doesn't have access to file ${fileKey}.`,
           scopeHint

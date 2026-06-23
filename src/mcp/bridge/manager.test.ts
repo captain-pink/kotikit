@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { createBridgeManager, bridgeUrlForConfig } from "./manager.js";
-import type { BridgeConfig } from "./token.js";
-import type { BridgeServer } from "./server.js";
 import type { ToolRegistry } from "../server.js";
 import type { CreateBridgeManagerInput } from "./manager.js";
+import { bridgeUrlForConfig, createBridgeManager } from "./manager.js";
+import type { BridgeServer } from "./server.js";
+import type { BridgeConfig } from "./token.js";
 
 const registry = (): ToolRegistry => ({
   tools: [] as Tool[],
@@ -40,7 +40,9 @@ describe("bridge manager", () => {
         nowIso: () => "2026-06-20T00:00:00.000Z",
         generateToken: () => "tok123456789",
         startBridgeServer: ({ config }) => fakeServer([`server:${config.port}`]),
-        writeBridgeConfig: async (_root, config) => { written.push(config); },
+        writeBridgeConfig: async (_root, config) => {
+          written.push(config);
+        },
         clearBridgeConfig: async () => {},
         readBridgeConfig: async () => null,
       }),
@@ -98,8 +100,14 @@ describe("bridge manager", () => {
           if (config.port === 53124) throw new Error("in use");
           return fakeServer([]);
         },
-        preparePluginBuild: async () => { prepared += 1; return { rebuilt: false }; },
-        patchPluginManifestAllowedDomains: async (_pluginRoot, port) => { patchedPorts.push(port); return []; },
+        preparePluginBuild: async () => {
+          prepared += 1;
+          return { rebuilt: false };
+        },
+        patchPluginManifestAllowedDomains: async (_pluginRoot, port) => {
+          patchedPorts.push(port);
+          return [];
+        },
         writeBridgeConfig: async () => {},
         clearBridgeConfig: async () => {},
         readBridgeConfig: async () => null,
@@ -126,7 +134,9 @@ describe("bridge manager", () => {
         generateToken: () => "tok123456789",
         startBridgeServer: () => fakeServer(closed),
         writeBridgeConfig: async () => {},
-        clearBridgeConfig: async () => { cleared += 1; },
+        clearBridgeConfig: async () => {
+          cleared += 1;
+        },
         readBridgeConfig: async () => null,
       }),
     });
@@ -170,13 +180,15 @@ describe("bridge manager", () => {
   });
 
   it("builds bridge URLs from config", () => {
-    expect(bridgeUrlForConfig({
-      version: 1,
-      port: 53124,
-      token: "tok123456789",
-      projectRoot: root,
-      projectName: "Project",
-      startedAt: "2026-06-20T00:00:00.000Z",
-    })).toBe("ws://localhost:53124?token=tok123456789");
+    expect(
+      bridgeUrlForConfig({
+        version: 1,
+        port: 53124,
+        token: "tok123456789",
+        projectRoot: root,
+        projectName: "Project",
+        startedAt: "2026-06-20T00:00:00.000Z",
+      })
+    ).toBe("ws://localhost:53124?token=tok123456789");
   });
 });

@@ -1,10 +1,10 @@
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
+import type { ComponentJson } from "./component-shape.js";
+import type { FigmaComponentSet, FigmaNode, FigmaPublishedComponent } from "./figma-types.js";
 import {
   buildNormalizationDiagnostics,
   normalizePublishedDesignSystem,
 } from "./normalize-design-system.js";
-import type { FigmaPublishedComponent, FigmaComponentSet, FigmaNode } from "./figma-types.js";
-import type { ComponentJson } from "./component-shape.js";
 
 const buttonVariants: FigmaPublishedComponent[] = [
   {
@@ -167,7 +167,12 @@ describe("normalizePublishedDesignSystem", () => {
     const result = normalizePublishedDesignSystem({
       fileKey: "F1",
       publishedComponents: [
-        { key: "cardKey", node_id: "cardNode", name: "Card", containing_frame: { pageName: "Components" } },
+        {
+          key: "cardKey",
+          node_id: "cardNode",
+          name: "Card",
+          containing_frame: { pageName: "Components" },
+        },
       ],
       componentSets: [],
       nodeDetailsById: {},

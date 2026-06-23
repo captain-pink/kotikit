@@ -1,8 +1,8 @@
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import { KotikitError, toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
-import { KotikitError, toolError, toolText } from "../../util/result.js";
 
 const BridgeStartArgsSchema = z.object({
   preferredPort: z.number().int().min(1024).max(65535).optional(),
@@ -16,14 +16,14 @@ const unavailableBridgeError = (): KotikitError =>
 
 const bridgeStartTool: Tool = {
   name: "kotikit_bridge_start",
-  description:
-    "Start the local Figma plugin WebSocket bridge and return the pasteable plugin URL.",
+  description: "Start the local Figma plugin WebSocket bridge and return the pasteable plugin URL.",
   inputSchema: {
     type: "object",
     properties: {
       preferredPort: {
         type: "number",
-        description: "Optional preferred localhost port. Defaults to 53124 and falls forward if busy.",
+        description:
+          "Optional preferred localhost port. Defaults to 53124 and falls forward if busy.",
       },
     },
   },
@@ -75,7 +75,10 @@ export function registerBridgeTools(registry: ToolRegistry, ctx: ToolContext): v
       return toolText("Figma plugin bridge stopped.", result);
     }
     if (result.clearedConfig) {
-      return toolText("No running bridge was owned by this session, but stale bridge config was cleared.", result);
+      return toolText(
+        "No running bridge was owned by this session, but stale bridge config was cleared.",
+        result
+      );
     }
     return toolText("No Figma plugin bridge is running in this kotikit session.", result);
   });

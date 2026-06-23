@@ -1,17 +1,24 @@
-import { describe, it, expect, afterAll } from "bun:test";
-import { mkdtempSync, rmSync, existsSync, readFileSync } from "fs";
+import { Database } from "bun:sqlite";
+import { afterAll, describe, expect, it } from "bun:test";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { Database } from "bun:sqlite";
-import { syncAllFiles } from "./multi-file.js";
-import { FigmaClient } from "./figma-client.js";
-import { createLimiter } from "./rate-limit.js";
-import { SyncManifestSchema } from "./manifest.js";
-import { SyncPausedError } from "./errors.js";
-import { manifestPath, componentJsonPath, variablesJsonPath, syncReportPath, registryDbPath, checkpointPath } from "../util/paths.js";
+import { getRegistry, initRegistryDb, upsertRegistry } from "../db/registry-db.js";
 import { openDb } from "../db/sqlite.js";
-import { initRegistryDb, getRegistry, upsertRegistry } from "../db/registry-db.js";
+import {
+  checkpointPath,
+  componentJsonPath,
+  manifestPath,
+  registryDbPath,
+  syncReportPath,
+  variablesJsonPath,
+} from "../util/paths.js";
+import { SyncPausedError } from "./errors.js";
+import { FigmaClient } from "./figma-client.js";
+import { SyncManifestSchema } from "./manifest.js";
+import { syncAllFiles } from "./multi-file.js";
 import { nullProgressEmitter, recordingProgressEmitter } from "./progress.js";
+import { createLimiter } from "./rate-limit.js";
 
 const tmpDirs: string[] = [];
 function mkTmp(): string {
@@ -19,7 +26,9 @@ function mkTmp(): string {
   tmpDirs.push(d);
   return d;
 }
-afterAll(() => { for (const d of tmpDirs) rmSync(d, { recursive: true, force: true }); });
+afterAll(() => {
+  for (const d of tmpDirs) rmSync(d, { recursive: true, force: true });
+});
 
 const FAST = { initialMs: 1, maxMs: 5, jitterMs: 0, maxAttempts: 3 };
 
@@ -31,19 +40,26 @@ function jsonRes(body: unknown, status = 200): Response {
 }
 
 /** Builds a fetch stub from a per-file URL handler map. */
-function makeFetch(fileResponses: Record<string, Record<string, () => unknown>>): typeof globalThis.fetch {
+function makeFetch(
+  fileResponses: Record<string, Record<string, () => unknown>>
+): typeof globalThis.fetch {
   return (async (url: string | URL) => {
     const u = url.toString();
     for (const [fileKey, handlers] of Object.entries(fileResponses)) {
-      if (u.includes(`/v1/files/${fileKey}/components`)) return jsonRes(handlers.components?.() ?? { meta: { components: [] } });
-      if (u.includes(`/v1/files/${fileKey}/component_sets`)) return jsonRes(handlers.component_sets?.() ?? { meta: { component_sets: [] } });
-      if (u.includes(`/v1/files/${fileKey}/styles`)) return jsonRes(handlers.styles?.() ?? { meta: { styles: [] } });
+      if (u.includes(`/v1/files/${fileKey}/components`))
+        return jsonRes(handlers.components?.() ?? { meta: { components: [] } });
+      if (u.includes(`/v1/files/${fileKey}/component_sets`))
+        return jsonRes(handlers.component_sets?.() ?? { meta: { component_sets: [] } });
+      if (u.includes(`/v1/files/${fileKey}/styles`))
+        return jsonRes(handlers.styles?.() ?? { meta: { styles: [] } });
       if (u.includes(`/v1/files/${fileKey}/variables/local`)) {
         const body = handlers.variables?.() ?? { meta: { variables: {}, variableCollections: {} } };
         return jsonRes(body);
       }
-      if (u.includes(`/v1/files/${fileKey}/nodes`)) return jsonRes(handlers.nodes?.() ?? { nodes: {} });
-      if (u.includes(`/v1/files/${fileKey}`) && !u.includes(`/v1/files/${fileKey}/`)) return jsonRes(handlers.file?.() ?? { name: fileKey, document: { children: [] } });
+      if (u.includes(`/v1/files/${fileKey}/nodes`))
+        return jsonRes(handlers.nodes?.() ?? { nodes: {} });
+      if (u.includes(`/v1/files/${fileKey}`) && !u.includes(`/v1/files/${fileKey}/`))
+        return jsonRes(handlers.file?.() ?? { name: fileKey, document: { children: [] } });
     }
     throw new Error("no fixture for " + u);
   }) as unknown as typeof globalThis.fetch;
@@ -55,12 +71,30 @@ describe("syncAllFiles", () => {
 
     const fileResponses = {
       FA: {
-        file: () => ({ name: "FileA", document: { children: [{ id: "p1", name: "Components", children: [{ id: "btnA", name: "Button" }] }] } }),
-        components: () => ({ meta: { components: [{ key: "ckA", node_id: "btnA", name: "Button" }] } }),
+        file: () => ({
+          name: "FileA",
+          document: {
+            children: [
+              { id: "p1", name: "Components", children: [{ id: "btnA", name: "Button" }] },
+            ],
+          },
+        }),
+        components: () => ({
+          meta: { components: [{ key: "ckA", node_id: "btnA", name: "Button" }] },
+        }),
       },
       FB: {
-        file: () => ({ name: "FileB", document: { children: [{ id: "p1", name: "Components", children: [{ id: "btnB", name: "Button" }] }] } }),
-        components: () => ({ meta: { components: [{ key: "ckB", node_id: "btnB", name: "Button" }] } }),
+        file: () => ({
+          name: "FileB",
+          document: {
+            children: [
+              { id: "p1", name: "Components", children: [{ id: "btnB", name: "Button" }] },
+            ],
+          },
+        }),
+        components: () => ({
+          meta: { components: [{ key: "ckB", node_id: "btnB", name: "Button" }] },
+        }),
       },
     };
 
@@ -73,7 +107,10 @@ describe("syncAllFiles", () => {
 
     const report = await syncAllFiles({
       root,
-      files: [{ key: "FA", name: "FileA" }, { key: "FB", name: "FileB" }],
+      files: [
+        { key: "FA", name: "FileA" },
+        { key: "FB", name: "FileB" },
+      ],
       client,
       progress: nullProgressEmitter(),
     });
@@ -107,7 +144,12 @@ describe("syncAllFiles", () => {
       limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
       backoffOpts: FAST,
     });
-    await syncAllFiles({ root, files: [{ key: "FX", name: "FX" }], client, progress: nullProgressEmitter() });
+    await syncAllFiles({
+      root,
+      files: [{ key: "FX", name: "FX" }],
+      client,
+      progress: nullProgressEmitter(),
+    });
     expect(existsSync(variablesJsonPath(root))).toBe(true);
     expect(existsSync(syncReportPath(root))).toBe(true);
   });
@@ -175,7 +217,12 @@ describe("syncAllFiles", () => {
       limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
       backoffOpts: FAST,
     });
-    await syncAllFiles({ root, files: [{ key: "FX", name: "FX" }], client, progress: nullProgressEmitter() });
+    await syncAllFiles({
+      root,
+      files: [{ key: "FX", name: "FX" }],
+      client,
+      progress: nullProgressEmitter(),
+    });
     expect(existsSync(`${root}/design-system/.sync-checkpoint.json`)).toBe(false);
   });
 
@@ -290,12 +337,24 @@ describe("syncAllFiles", () => {
 
     const fileResponses = {
       FA: {
-        components: () => ({ meta: { components: [{ key: "ckA", node_id: "nA", name: "Button" }] } }),
-        file: () => ({ name: "FileA", document: { children: [{ id: "p1", name: "Components", children: [{ id: "nA", name: "Button" }] }] } }),
+        components: () => ({
+          meta: { components: [{ key: "ckA", node_id: "nA", name: "Button" }] },
+        }),
+        file: () => ({
+          name: "FileA",
+          document: {
+            children: [{ id: "p1", name: "Components", children: [{ id: "nA", name: "Button" }] }],
+          },
+        }),
       },
       FB: {
         components: () => ({ meta: { components: [{ key: "ckB", node_id: "nB", name: "Card" }] } }),
-        file: () => ({ name: "FileB", document: { children: [{ id: "p1", name: "Components", children: [{ id: "nB", name: "Card" }] }] } }),
+        file: () => ({
+          name: "FileB",
+          document: {
+            children: [{ id: "p1", name: "Components", children: [{ id: "nB", name: "Card" }] }],
+          },
+        }),
       },
     };
 
@@ -308,7 +367,10 @@ describe("syncAllFiles", () => {
 
     const report = await syncAllFiles({
       root,
-      files: [{ key: "FA", name: "FileA" }, { key: "FB", name: "FileB" }],
+      files: [
+        { key: "FA", name: "FileA" },
+        { key: "FB", name: "FileB" },
+      ],
       client,
       progress: nullProgressEmitter(),
     });
@@ -335,8 +397,15 @@ describe("syncAllFiles", () => {
 
     const fileResponses = {
       FA: {
-        components: () => ({ meta: { components: [{ key: "ckA", node_id: "nA", name: "Button" }] } }),
-        file: () => ({ name: "FileA", document: { children: [{ id: "p1", name: "Components", children: [{ id: "nA", name: "Button" }] }] } }),
+        components: () => ({
+          meta: { components: [{ key: "ckA", node_id: "nA", name: "Button" }] },
+        }),
+        file: () => ({
+          name: "FileA",
+          document: {
+            children: [{ id: "p1", name: "Components", children: [{ id: "nA", name: "Button" }] }],
+          },
+        }),
       },
     };
 
@@ -388,8 +457,15 @@ describe("syncAllFiles", () => {
     // Now run sync with Button as a DS component
     const fileResponses = {
       FA: {
-        components: () => ({ meta: { components: [{ key: "ckA", node_id: "nA", name: "Button" }] } }),
-        file: () => ({ name: "FileA", document: { children: [{ id: "p1", name: "Components", children: [{ id: "nA", name: "Button" }] }] } }),
+        components: () => ({
+          meta: { components: [{ key: "ckA", node_id: "nA", name: "Button" }] },
+        }),
+        file: () => ({
+          name: "FileA",
+          document: {
+            children: [{ id: "p1", name: "Components", children: [{ id: "nA", name: "Button" }] }],
+          },
+        }),
       },
     };
 
@@ -435,8 +511,15 @@ describe("syncAllFiles", () => {
     // Run sync with a DS Button component
     const fileResponses = {
       FA: {
-        components: () => ({ meta: { components: [{ key: "ckA", node_id: "nA", name: "Button" }] } }),
-        file: () => ({ name: "FileA", document: { children: [{ id: "p1", name: "Components", children: [{ id: "nA", name: "Button" }] }] } }),
+        components: () => ({
+          meta: { components: [{ key: "ckA", node_id: "nA", name: "Button" }] },
+        }),
+        file: () => ({
+          name: "FileA",
+          document: {
+            children: [{ id: "p1", name: "Components", children: [{ id: "nA", name: "Button" }] }],
+          },
+        }),
       },
     };
 
@@ -471,8 +554,15 @@ describe("syncAllFiles", () => {
 
     const fileResponses = {
       FA: {
-        components: () => ({ meta: { components: [{ key: "ckA", node_id: "nA", name: "Button" }] } }),
-        file: () => ({ name: "FileA", document: { children: [{ id: "p1", name: "Components", children: [{ id: "nA", name: "Button" }] }] } }),
+        components: () => ({
+          meta: { components: [{ key: "ckA", node_id: "nA", name: "Button" }] },
+        }),
+        file: () => ({
+          name: "FileA",
+          document: {
+            children: [{ id: "p1", name: "Components", children: [{ id: "nA", name: "Button" }] }],
+          },
+        }),
       },
     };
 
@@ -508,8 +598,15 @@ describe("syncAllFiles", () => {
     const root = mkTmp();
     const fileResponses = {
       FA: {
-        components: () => ({ meta: { components: [{ key: "ckA", node_id: "nA", name: "Button" }] } }),
-        file: () => ({ name: "FileA", document: { children: [{ id: "p1", name: "Components", children: [{ id: "nA", name: "Button" }] }] } }),
+        components: () => ({
+          meta: { components: [{ key: "ckA", node_id: "nA", name: "Button" }] },
+        }),
+        file: () => ({
+          name: "FileA",
+          document: {
+            children: [{ id: "p1", name: "Components", children: [{ id: "nA", name: "Button" }] }],
+          },
+        }),
       },
     };
     const client = new FigmaClient({

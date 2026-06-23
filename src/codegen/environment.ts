@@ -13,9 +13,12 @@ export interface EnvironmentReport {
 
 const INSTALL_HINTS: Record<GateKind, string> = {
   tsc: "Add typescript: `bun add -d typescript` — kotikit runs `tsc --noEmit` to enforce strict types.",
-  eslint: "Add eslint with jsx-a11y: `bun add -d eslint eslint-plugin-jsx-a11y` — used to enforce the §7 accessibility lint rules.",
-  prettier: "Add prettier: `bun add -d prettier` — kotikit runs `prettier --check` to enforce formatting.",
-  vitest: "Add vitest with React Testing Library: `bun add -d vitest @testing-library/react @testing-library/jest-dom jsdom` — used to run generated unit tests.",
+  eslint:
+    "Add eslint with jsx-a11y: `bun add -d eslint eslint-plugin-jsx-a11y` — used to enforce the §7 accessibility lint rules.",
+  prettier:
+    "Add prettier: `bun add -d prettier` — kotikit runs `prettier --check` to enforce formatting.",
+  vitest:
+    "Add vitest with React Testing Library: `bun add -d vitest @testing-library/react @testing-library/jest-dom jsdom` — used to run generated unit tests.",
 };
 
 /**

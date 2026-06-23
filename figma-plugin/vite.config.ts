@@ -1,8 +1,8 @@
-import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
-import { viteSingleFile } from "vite-plugin-singlefile";
 import { existsSync, renameSync, rmSync } from "fs";
 import { fileURLToPath } from "url";
+import { defineConfig, type Plugin } from "vite";
+import { viteSingleFile } from "vite-plugin-singlefile";
 
 const renameUiHtml = (): Plugin => ({
   name: "kotikit-ui-html-output",

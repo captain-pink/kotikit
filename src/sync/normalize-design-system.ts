@@ -1,13 +1,10 @@
 import type { IconRow } from "../db/icons-db.js";
 import { buildComponentJson, type ComponentJson } from "./component-shape.js";
-import { detectIconSignal } from "./icon-detect.js";
 import type { FigmaComponentSet, FigmaNode, FigmaPublishedComponent } from "./figma-types.js";
+import { detectIconSignal } from "./icon-detect.js";
 
 export interface NormalizeWarning {
-  code:
-    | "inferred-variants"
-    | "missing-component-set-metadata"
-    | "duplicate-logical-name";
+  code: "inferred-variants" | "missing-component-set-metadata" | "duplicate-logical-name";
   message: string;
 }
 
@@ -193,14 +190,16 @@ function enrichedComponentSet(
 
   return {
     key: apiSet?.key ?? representative.key,
-    ...(apiSet?.node_id ?? setRef?.id ? { node_id: apiSet?.node_id ?? setRef?.id } : {}),
+    ...((apiSet?.node_id ?? setRef?.id) ? { node_id: apiSet?.node_id ?? setRef?.id } : {}),
     name: apiSet?.name ?? nodeDetails?.name ?? setRef?.name ?? representative.name,
-    ...(apiSet?.description ?? representative.description
+    ...((apiSet?.description ?? representative.description)
       ? { description: apiSet?.description ?? representative.description }
       : {}),
     ...(apiSet?.defaultVariantId ? { defaultVariantId: apiSet.defaultVariantId } : {}),
-    ...(apiSet?.componentPropertyDefinitions ?? inferredDefinitions
-      ? { componentPropertyDefinitions: apiSet?.componentPropertyDefinitions ?? inferredDefinitions }
+    ...((apiSet?.componentPropertyDefinitions ?? inferredDefinitions)
+      ? {
+          componentPropertyDefinitions: apiSet?.componentPropertyDefinitions ?? inferredDefinitions,
+        }
       : {}),
   };
 }
@@ -211,7 +210,9 @@ function nodeDetailsForGroup(
 ): FigmaNode["document"] | undefined {
   const setNode = group.setRef?.id ? nodeDetailsById[group.setRef.id]?.document : undefined;
   const representative = group.components[0];
-  const componentNode = representative ? nodeDetailsById[representative.node_id]?.document : undefined;
+  const componentNode = representative
+    ? nodeDetailsById[representative.node_id]?.document
+    : undefined;
   return setNode ?? componentNode;
 }
 

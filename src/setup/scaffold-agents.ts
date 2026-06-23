@@ -81,7 +81,10 @@ function uniqueAgents(agents: readonly AgentKind[] | undefined): AgentKind[] {
 
 export function parseAgentSelection(value: string | undefined): AgentKind[] {
   if (value === undefined || value === "both") return ["claude", "codex"];
-  const agents = value.split(",").map((part) => part.trim()).filter(Boolean);
+  const agents = value
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
   const invalid = agents.filter((agent) => agent !== "claude" && agent !== "codex");
   if (invalid.length > 0 || agents.length === 0) {
     throw new Error("agents must be one of: claude, codex, both, claude,codex");
@@ -103,7 +106,8 @@ function serverPath(kotikitRoot: string): string {
 
 function buildClaudeConfig(existing: string | null, kotikitRoot: string): string {
   const parsed = existing === null ? {} : JSON.parse(existing);
-  const root = typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) ? parsed : {};
+  const root =
+    typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) ? parsed : {};
   const mcpServers =
     "mcpServers" in root && typeof root.mcpServers === "object" && root.mcpServers !== null
       ? root.mcpServers
@@ -145,7 +149,11 @@ function isTomlSection(line: string): boolean {
   return /^\s*\[[^\]]+\]\s*$/.test(line);
 }
 
-export function upsertCodexConfig(existing: string | null, kotikitRoot: string, targetRoot: string): string {
+export function upsertCodexConfig(
+  existing: string | null,
+  kotikitRoot: string,
+  targetRoot: string
+): string {
   const block = buildCodexBlock(kotikitRoot, targetRoot);
   if (existing === null || existing.trim().length === 0) return `${block}\n`;
 
@@ -167,7 +175,8 @@ function envWithFigmaToken(existing: string | null): string | null {
 
 function configWithCoAuthor(existing: string, coAuthor: CoAuthor): string {
   const parsed = JSON.parse(existing);
-  const root = typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) ? parsed : {};
+  const root =
+    typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) ? parsed : {};
   const git = "git" in root && typeof root.git === "object" && root.git !== null ? root.git : {};
   return `${JSON.stringify(
     {
@@ -182,32 +191,51 @@ function configWithCoAuthor(existing: string, coAuthor: CoAuthor): string {
   )}\n`;
 }
 
-async function writeClaudeConfig(result: ScaffoldAgentsResult, targetRoot: string, kotikitRoot: string): Promise<void> {
+async function writeClaudeConfig(
+  result: ScaffoldAgentsResult,
+  targetRoot: string,
+  kotikitRoot: string
+): Promise<void> {
   const path = join(targetRoot, ".mcp.json");
   await writeTextAtomic(path, buildClaudeConfig(await readTextIfExists(path), kotikitRoot));
   result.written.push(path);
-  result.notes.push(`Claude Code project MCP config written to ${path}. Open Claude Code in the target project and approve kotikit if prompted.`);
+  result.notes.push(
+    `Claude Code project MCP config written to ${path}. Open Claude Code in the target project and approve kotikit if prompted.`
+  );
 
   const legacyPath = join(targetRoot, ".claude", "mcp.json");
-  if (await readTextIfExists(legacyPath) !== null) {
-    result.notes.push(`Existing legacy Claude config left unchanged: ${legacyPath}. Current Claude Code project MCP config lives at ${path}.`);
+  if ((await readTextIfExists(legacyPath)) !== null) {
+    result.notes.push(
+      `Existing legacy Claude config left unchanged: ${legacyPath}. Current Claude Code project MCP config lives at ${path}.`
+    );
   }
 }
 
-async function writeCodexConfig(result: ScaffoldAgentsResult, targetRoot: string, kotikitRoot: string): Promise<void> {
+async function writeCodexConfig(
+  result: ScaffoldAgentsResult,
+  targetRoot: string,
+  kotikitRoot: string
+): Promise<void> {
   const path = join(targetRoot, ".codex", "config.toml");
-  await writeTextAtomic(path, upsertCodexConfig(await readTextIfExists(path), kotikitRoot, targetRoot));
+  await writeTextAtomic(
+    path,
+    upsertCodexConfig(await readTextIfExists(path), kotikitRoot, targetRoot)
+  );
   result.written.push(path);
 }
 
 const KOTIKIT_SKILL_NAMES = ["kotikit-auto", "kotikit-design-review"] as const;
-type KotikitSkillName = typeof KOTIKIT_SKILL_NAMES[number];
+type KotikitSkillName = (typeof KOTIKIT_SKILL_NAMES)[number];
 
 function kotikitSkillSourcePath(kotikitRoot: string, name: KotikitSkillName): string {
   return join(kotikitRoot, ".agents", "skills", name, "SKILL.md");
 }
 
-function kotikitSkillTargetPath(targetRoot: string, agent: AgentKind, name: KotikitSkillName): string {
+function kotikitSkillTargetPath(
+  targetRoot: string,
+  agent: AgentKind,
+  name: KotikitSkillName
+): string {
   if (agent === "claude") {
     return join(targetRoot, ".claude", "skills", name, "SKILL.md");
   }
@@ -219,7 +247,10 @@ function agentLabel(agent: AgentKind): string {
 }
 
 function isOutdatedKotikitAutoSkill(existing: string): boolean {
-  return existing.includes("../../../docs/agent_workflow.md") || existing.includes("docs/agent_workflow.md");
+  return (
+    existing.includes("../../../docs/agent_workflow.md") ||
+    existing.includes("docs/agent_workflow.md")
+  );
 }
 
 async function installKotikitSkill(
@@ -288,7 +319,9 @@ async function updateCoAuthor(
   result.written.push(path);
 }
 
-export async function scaffoldAgents(options: ScaffoldAgentsOptions): Promise<ScaffoldAgentsResult> {
+export async function scaffoldAgents(
+  options: ScaffoldAgentsOptions
+): Promise<ScaffoldAgentsResult> {
   const targetRoot = resolve(options.targetRoot);
   const kotikitRoot = resolve(options.kotikitRoot);
   const agents = uniqueAgents(options.agents);
@@ -297,8 +330,12 @@ export async function scaffoldAgents(options: ScaffoldAgentsOptions): Promise<Sc
   await assertReadableFile(serverPath(kotikitRoot), "kotikit MCP server");
 
   await Promise.all([
-    agents.includes("claude") ? writeClaudeConfig(result, targetRoot, kotikitRoot) : Promise.resolve(),
-    agents.includes("codex") ? writeCodexConfig(result, targetRoot, kotikitRoot) : Promise.resolve(),
+    agents.includes("claude")
+      ? writeClaudeConfig(result, targetRoot, kotikitRoot)
+      : Promise.resolve(),
+    agents.includes("codex")
+      ? writeCodexConfig(result, targetRoot, kotikitRoot)
+      : Promise.resolve(),
   ]);
 
   const installSkills = options.installSkills ?? options.installCodexSkill ?? true;
@@ -316,11 +353,7 @@ export async function scaffoldAgents(options: ScaffoldAgentsOptions): Promise<Sc
     await ensureEnvFile(result, targetRoot);
   }
 
-  await updateCoAuthor(
-    result,
-    targetRoot,
-    coAuthorForMode(options.coAuthorMode ?? "auto", agents)
-  );
+  await updateCoAuthor(result, targetRoot, coAuthorForMode(options.coAuthorMode ?? "auto", agents));
 
   return result;
 }

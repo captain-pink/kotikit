@@ -7,7 +7,9 @@ export const realFigmaShim: FigmaShim = {
     return figma.fileKey;
   },
   async findOrCreatePage(name) {
-    const existing = figma.root.children.find((p: { type: string; name: string; id: string }) => p.type === "PAGE" && p.name === name);
+    const existing = figma.root.children.find(
+      (p: { type: string; name: string; id: string }) => p.type === "PAGE" && p.name === name
+    );
     if (existing) return { id: existing.id };
     const page = figma.createPage();
     page.name = name;
@@ -33,8 +35,9 @@ export const realFigmaShim: FigmaShim = {
   async findOrCreateSection({ pageId, name, metadata }) {
     const page = await figma.getNodeByIdAsync(pageId);
     if (!page || page.type !== "PAGE") throw new Error(`Page not found: ${pageId}`);
-    const existing = page.children.find((node: { type: string; name: string; id: string }) =>
-      node.type === "SECTION" && node.name === name
+    const existing = page.children.find(
+      (node: { type: string; name: string; id: string }) =>
+        node.type === "SECTION" && node.name === name
     );
     if (existing) return { id: existing.id, name: existing.name };
     const section = figma.createSection();

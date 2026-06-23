@@ -1,5 +1,5 @@
-import { describe, it, expect } from "bun:test";
-import { KotikitError, toolText, toolError } from "./result";
+import { describe, expect, it } from "bun:test";
+import { KotikitError, toolError, toolText } from "./result";
 
 describe("result helpers", () => {
   describe("toolText", () => {
@@ -25,9 +25,7 @@ describe("result helpers", () => {
     });
 
     it("includes hint on second line", () => {
-      const r = toolError(
-        new KotikitError("No screen named 'cart'", "Try: shipping, payment")
-      );
+      const r = toolError(new KotikitError("No screen named 'cart'", "Try: shipping, payment"));
       expect(r.content[0].text).toContain("No screen named 'cart'");
       expect(r.content[0].text).toContain("Try: shipping, payment");
     });

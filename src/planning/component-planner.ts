@@ -1,15 +1,12 @@
-import { slugifyComponentName, nowIso } from "../util/ids.js";
 import type {
   ComponentResolution,
   ComponentVariablePolicy,
   ScreenComponent,
   ScreenSpec,
 } from "../spec/schema.js";
-import type { VariablesJson, VariableEntry } from "../sync/variables.js";
-import {
-  hasUsableVariables,
-  resolveVariable,
-} from "../sync/variable-resolver.js";
+import { hasUsableVariables, resolveVariable } from "../sync/variable-resolver.js";
+import type { VariableEntry, VariablesJson } from "../sync/variables.js";
+import { nowIso, slugifyComponentName } from "../util/ids.js";
 import { KotikitError } from "../util/result.js";
 import type {
   ComponentPlan,
@@ -50,10 +47,7 @@ const componentNeedsDecision = (component: ScreenComponent): boolean =>
 const selectedComponentNames = (names?: string[]): Set<string> | null =>
   names !== undefined && names.length > 0 ? new Set(names) : null;
 
-const componentsToPlan = (
-  components: ScreenComponent[],
-  names?: string[]
-): ScreenComponent[] => {
+const componentsToPlan = (components: ScreenComponent[], names?: string[]): ScreenComponent[] => {
   const selected = selectedComponentNames(names);
   return components.filter((component) => {
     if (!componentNeedsDecision(component)) return false;
@@ -80,9 +74,18 @@ const plannedTokenRefs = (variables: VariablesJson | null): ComponentTokenRef[] 
   if (variables === null) return [];
 
   return [
-    tokenRefFrom("surface", resolveVariable(variables, { kind: "color", nameHints: ["primary", "surface"] })),
-    tokenRefFrom("text", resolveVariable(variables, { kind: "color", nameHints: ["text", "on surface"] })),
-    tokenRefFrom("spacing", resolveVariable(variables, { kind: "spacing", nameHints: ["space", "spacing", "4"] })),
+    tokenRefFrom(
+      "surface",
+      resolveVariable(variables, { kind: "color", nameHints: ["primary", "surface"] })
+    ),
+    tokenRefFrom(
+      "text",
+      resolveVariable(variables, { kind: "color", nameHints: ["text", "on surface"] })
+    ),
+    tokenRefFrom(
+      "spacing",
+      resolveVariable(variables, { kind: "spacing", nameHints: ["space", "spacing", "4"] })
+    ),
     tokenRefFrom("radius", resolveVariable(variables, { kind: "spacing", nameHints: ["radius"] })),
   ].filter((entry): entry is ComponentTokenRef => entry !== null);
 };

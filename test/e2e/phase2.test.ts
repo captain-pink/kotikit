@@ -1,34 +1,31 @@
-import { describe, it, expect, afterAll } from "bun:test";
-import { mkdtemp, rm, readFile } from "fs/promises";
+import { afterAll, describe, expect, it } from "bun:test";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { existsSync } from "fs";
+import { mkdtemp, readFile, rm } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
-
-import { registerSpecTools } from "../../src/mcp/tools/spec.js";
-import { registerConfigTools } from "../../src/mcp/tools/config.js";
-import { registerFlowTools } from "../../src/mcp/tools/flow.js";
-import { registerBrainstormTools } from "../../src/mcp/tools/brainstorm.js";
-import { registerDsSearchTools } from "../../src/mcp/tools/ds-search.js";
-import { registerIconsSearchTools } from "../../src/mcp/tools/icons-search.js";
-import { registerSyncTools } from "../../src/mcp/tools/sync.js";
-
 import { loadConfig, writeConfig } from "../../src/config/load.js";
 import type { ToolContext } from "../../src/mcp/context.js";
 import type { ToolRegistry } from "../../src/mcp/server.js";
-import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-
-import { SyncManifestSchema } from "../../src/sync/manifest.js";
+import { registerBrainstormTools } from "../../src/mcp/tools/brainstorm.js";
+import { registerConfigTools } from "../../src/mcp/tools/config.js";
+import { registerDsSearchTools } from "../../src/mcp/tools/ds-search.js";
+import { registerFlowTools } from "../../src/mcp/tools/flow.js";
+import { registerIconsSearchTools } from "../../src/mcp/tools/icons-search.js";
+import { registerSpecTools } from "../../src/mcp/tools/spec.js";
+import { registerSyncTools } from "../../src/mcp/tools/sync.js";
 import { FigmaClient } from "../../src/sync/figma-client.js";
+import { SyncManifestSchema } from "../../src/sync/manifest.js";
 import { createLimiter } from "../../src/sync/rate-limit.js";
 
 import {
-  manifestPath,
+  checkpointPath,
   componentJsonPath,
-  variablesJsonPath,
-  syncReportPath,
   componentsDbPath,
   iconsDbPath,
-  checkpointPath,
+  manifestPath,
+  syncReportPath,
+  variablesJsonPath,
 } from "../../src/util/paths.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -61,11 +58,7 @@ function buildTestServer(
   return registry;
 }
 
-async function callTool(
-  registry: ToolRegistry,
-  name: string,
-  args: unknown
-): Promise<ToolResult> {
+async function callTool(registry: ToolRegistry, name: string, args: unknown): Promise<ToolResult> {
   const handler = registry.handlers.get(name);
   if (!handler) throw new Error(`Tool not found: ${name}`);
   return handler(args);
@@ -83,8 +76,7 @@ function jsonRes(body: unknown, status = 200): Response {
 describe("Phase 2 E2E — sync + search", () => {
   const tmpDirs: string[] = [];
   afterAll(async () => {
-    for (const d of tmpDirs)
-      await rm(d, { recursive: true, force: true }).catch(() => {});
+    for (const d of tmpDirs) await rm(d, { recursive: true, force: true }).catch(() => {});
   });
 
   it("config_init → sync_ds → ds_search → ds_get_component → icons_search", async () => {
@@ -176,8 +168,7 @@ describe("Phase 2 E2E — sync + search", () => {
         });
       if (u.includes("/v1/files/FB/component_sets"))
         return jsonRes({ meta: { component_sets: [] } });
-      if (u.includes("/v1/files/FB/styles"))
-        return jsonRes({ meta: { styles: [] } });
+      if (u.includes("/v1/files/FB/styles")) return jsonRes({ meta: { styles: [] } });
       if (u.includes("/v1/files/FB/variables/local")) return jsonRes({}, 403);
       if (u.includes("/v1/files/FB/nodes")) return jsonRes({ nodes: {} });
       if (u.includes("/v1/files/FB") && !u.includes("/v1/files/FB/"))
@@ -235,15 +226,11 @@ describe("Phase 2 E2E — sync + search", () => {
     expect(existsSync(syncReportPath(tmpDir))).toBe(true);
     expect(existsSync(checkpointPath(tmpDir))).toBe(false);
 
-    const manifestRaw = JSON.parse(
-      await readFile(manifestPath(tmpDir), "utf-8")
-    );
+    const manifestRaw = JSON.parse(await readFile(manifestPath(tmpDir), "utf-8"));
     const manifest = SyncManifestSchema.parse(manifestRaw);
     expect(manifest.files).toHaveLength(2);
     // Conflict on Button (both files publish it)
-    expect(
-      manifest.conflicts.find((c) => c.name === "Button")?.winnerFileKey
-    ).toBe("FB");
+    expect(manifest.conflicts.find((c) => c.name === "Button")?.winnerFileKey).toBe("FB");
 
     // Step 4: ds_search finds Button (only one row)
     const searchResult = await callTool(registry, "kotikit_ds_search", {
@@ -253,9 +240,7 @@ describe("Phase 2 E2E — sync + search", () => {
     expect(searchResult.content[0]?.text).toContain("Button");
 
     // Parse the JSON detail from toolText for typed assertions
-    const detail = JSON.parse(
-      searchResult.content[0]!.text.split("\n\n")[1]!
-    ) as {
+    const detail = JSON.parse(searchResult.content[0]!.text.split("\n\n")[1]!) as {
       results: { name: string; path: string; key: string; fileKey: string }[];
     };
     const buttonRow = detail.results.find((r) => r.name === "Button");
@@ -270,9 +255,7 @@ describe("Phase 2 E2E — sync + search", () => {
     expect(getResult.content[0]?.text).toContain("Button");
 
     // Verify on disk
-    const buttonJson = JSON.parse(
-      await readFile(componentJsonPath(tmpDir, "button"), "utf-8")
-    );
+    const buttonJson = JSON.parse(await readFile(componentJsonPath(tmpDir, "button"), "utf-8"));
     expect(buttonJson.fileKey).toBe("FB");
 
     // Step 6: icons_search returns the arrow-right icon, no svg by default
@@ -280,14 +263,10 @@ describe("Phase 2 E2E — sync + search", () => {
       query: "arrow*",
     });
     expect(iconsResult.isError).toBeFalsy();
-    const iconsDetail = JSON.parse(
-      iconsResult.content[0]!.text.split("\n\n")[1]!
-    ) as {
+    const iconsDetail = JSON.parse(iconsResult.content[0]!.text.split("\n\n")[1]!) as {
       results: { name: string; key: string; svg?: string }[];
     };
-    expect(iconsDetail.results.some((r) => r.name === "arrow-right")).toBe(
-      true
-    );
+    expect(iconsDetail.results.some((r) => r.name === "arrow-right")).toBe(true);
     for (const r of iconsDetail.results) expect(r.svg).toBeUndefined();
   });
 });
@@ -297,8 +276,7 @@ describe("Phase 2 E2E — sync + search", () => {
 describe("Phase 2 E2E — checkpoint resume", () => {
   const tmpDirs: string[] = [];
   afterAll(async () => {
-    for (const d of tmpDirs)
-      await rm(d, { recursive: true, force: true }).catch(() => {});
+    for (const d of tmpDirs) await rm(d, { recursive: true, force: true }).catch(() => {});
   });
 
   it("a mid-sync failure clears the checkpoint; a clean retry completes", async () => {
@@ -320,8 +298,7 @@ describe("Phase 2 E2E — checkpoint resume", () => {
         });
       if (u.includes("/v1/files/FA/component_sets"))
         return jsonRes({ meta: { component_sets: [] } });
-      if (u.includes("/v1/files/FA/styles"))
-        return jsonRes({ meta: { styles: [] } });
+      if (u.includes("/v1/files/FA/styles")) return jsonRes({ meta: { styles: [] } });
       if (u.includes("/v1/files/FA/variables/local")) return jsonRes({}, 403);
       if (u.includes("/v1/files/FA/nodes")) return jsonRes({ nodes: {} });
       if (u.endsWith("/v1/files/FA"))
@@ -346,8 +323,7 @@ describe("Phase 2 E2E — checkpoint resume", () => {
         });
       if (u.includes("/v1/files/FB/component_sets"))
         return jsonRes({ meta: { component_sets: [] } });
-      if (u.includes("/v1/files/FB/styles"))
-        return jsonRes({ meta: { styles: [] } });
+      if (u.includes("/v1/files/FB/styles")) return jsonRes({ meta: { styles: [] } });
       if (u.includes("/v1/files/FB/variables/local")) return jsonRes({}, 403);
       if (u.includes("/v1/files/FB/nodes")) return jsonRes({ nodes: {} });
       if (u.endsWith("/v1/files/FB"))

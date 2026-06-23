@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
-import { runKotikitDoctor, formatDoctorReport } from "./doctor/doctor.js";
-import { runMigrationDryRun, formatMigrationDryRunReport } from "./migrations/dry-run.js";
+import { formatDoctorReport, runKotikitDoctor } from "./doctor/doctor.js";
 import { startServer } from "./mcp/server.js";
+import { formatMigrationDryRunReport, runMigrationDryRun } from "./migrations/dry-run.js";
 import { findProjectRoot } from "./util/paths.js";
 
 const [command = "help", ...args] = process.argv.slice(2);

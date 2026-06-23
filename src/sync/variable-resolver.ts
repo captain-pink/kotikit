@@ -1,6 +1,6 @@
 import { readFile } from "fs/promises";
 import { variablesJsonPath } from "../util/paths.js";
-import { VariablesJsonSchema, type VariableEntry, type VariablesJson } from "./variables.js";
+import { type VariableEntry, type VariablesJson, VariablesJsonSchema } from "./variables.js";
 
 export interface ResolveVariableInput {
   kind: VariableEntry["kind"];
@@ -14,7 +14,10 @@ export interface VariableAvailabilitySummary {
 }
 
 const normalize = (value: string): string =>
-  value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 
 const scoreEntry = (entry: VariableEntry, hints: string[]): number => {
   const normalizedName = normalize(entry.name);
@@ -39,9 +42,12 @@ export function resolveVariable(
   if (entries.length === 0) return null;
 
   const hints = input.nameHints ?? [];
-  return entries
-    .map((entry) => ({ entry, score: scoreEntry(entry, hints) }))
-    .sort((a, b) => b.score - a.score || a.entry.name.localeCompare(b.entry.name))[0]?.entry ?? null;
+  return (
+    entries
+      .map((entry) => ({ entry, score: scoreEntry(entry, hints) }))
+      .sort((a, b) => b.score - a.score || a.entry.name.localeCompare(b.entry.name))[0]?.entry ??
+    null
+  );
 }
 
 export function hasUsableVariables(variables: VariablesJson): boolean {

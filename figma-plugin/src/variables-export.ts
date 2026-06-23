@@ -40,7 +40,9 @@ export interface BuildPluginVariablesPayloadInput {
   variables: PluginVariableInput[];
 }
 
-const compactCollection = (collection: PluginVariableCollectionInput): PluginVariableCollectionInput => ({
+const compactCollection = (
+  collection: PluginVariableCollectionInput
+): PluginVariableCollectionInput => ({
   id: collection.id,
   name: collection.name,
   modes: collection.modes.map((mode) => ({ modeId: mode.modeId, name: mode.name })),
@@ -59,7 +61,9 @@ const compactVariable = (variable: PluginVariableInput): PluginVariableInput => 
   ...(variable.scopes !== undefined ? { scopes: variable.scopes } : {}),
 });
 
-export function buildPluginVariablesPayload(input: BuildPluginVariablesPayloadInput): PluginVariablesPayload {
+export function buildPluginVariablesPayload(
+  input: BuildPluginVariablesPayloadInput
+): PluginVariablesPayload {
   return {
     version: 1,
     ...(input.source !== undefined ? { source: input.source } : {}),

@@ -1,22 +1,19 @@
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import type { ToolContext } from "../context.js";
-import type { ToolRegistry } from "../server.js";
 import { defaultConfig } from "../../config/schema.js";
-import { readScreenSpec, readFlowManifest } from "../../spec/engine.js";
-import { generateDesignPlan } from "../../planning/design-planner.js";
-import { writeDesignPlan, readDesignPlan } from "../../planning/design-plan-store.js";
 import { readFigmaDraftTarget } from "../../figma/draft-target-store.js";
 import { autoCommit } from "../../git/auto-commit.js";
+import { readDesignPlan, writeDesignPlan } from "../../planning/design-plan-store.js";
+import { generateDesignPlan } from "../../planning/design-planner.js";
+import { readFlowManifest, readScreenSpec } from "../../spec/engine.js";
 import { designPlanPath } from "../../util/paths.js";
-import { toolText, toolError, KotikitError } from "../../util/result.js";
+import { KotikitError, toolError, toolText } from "../../util/result.js";
+import type { ToolContext } from "../context.js";
+import type { ToolRegistry } from "../server.js";
 
 // Avoid the unused-locals warning for KotikitError if it isn't used inline
 void (KotikitError as unknown);
 
-export function registerPlanDesignTools(
-  registry: ToolRegistry,
-  ctx: ToolContext
-): void {
+export function registerPlanDesignTools(registry: ToolRegistry, ctx: ToolContext): void {
   registry.tools.push({
     name: "kotikit_plan_design",
     description: "Generate the per-screen design plan from a spec.",
@@ -24,7 +21,10 @@ export function registerPlanDesignTools(
       type: "object",
       properties: {
         scope: { type: "string", description: "Scope (flow or single-screen folder) slug." },
-        screen: { type: "string", description: "Screen slug within a flow. Omit for single-screen specs." },
+        screen: {
+          type: "string",
+          description: "Screen slug within a flow. Omit for single-screen specs.",
+        },
       },
       required: ["scope"],
     },

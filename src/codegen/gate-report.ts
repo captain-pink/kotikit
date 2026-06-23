@@ -19,7 +19,7 @@ export function formatGateReport(report: GateRunReport): string {
 
   const summaryParts: string[] = [];
   summaryParts.push(
-    `Gates: ${passed.length} of ${report.results.length} passed (${passed.map((r) => r.gate).join(", ") || "none"}).`,
+    `Gates: ${passed.length} of ${report.results.length} passed (${passed.map((r) => r.gate).join(", ") || "none"}).`
   );
   if (failed.length > 0) {
     summaryParts.push(`${failed.length} failed (${failed.map((r) => r.gate).join(", ")}).`);

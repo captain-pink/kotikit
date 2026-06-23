@@ -1,11 +1,7 @@
-import { describe, it, expect } from "bun:test";
-import {
-  layoutZoneForRole,
-  resolveComponentRole,
-  buildLayoutContract,
-} from "./layout-contract.js";
+import { describe, expect, it } from "bun:test";
 import type { ScreenSpec } from "../spec/schema.js";
 import { newScreenSpec } from "../spec/schema.js";
+import { buildLayoutContract, layoutZoneForRole, resolveComponentRole } from "./layout-contract.js";
 
 const specWithComponents = (components: ScreenSpec["components"]): ScreenSpec => {
   const spec = newScreenSpec({ title: "Members", description: "Manage team access." });
@@ -16,11 +12,21 @@ const specWithComponents = (components: ScreenSpec["components"]): ScreenSpec =>
 
 describe("layout contracts", () => {
   it("resolves semantic component roles without depending on a specific design system", () => {
-    expect(resolveComponentRole({ name: "Search field", usage: "Find members by name" })).toBe("search-input");
-    expect(resolveComponentRole({ name: "Status toggle", usage: "Activate or deactivate a member" })).toBe("binary-control");
-    expect(resolveComponentRole({ name: "Remove action", usage: "Delete a member" })).toBe("destructive-action");
-    expect(resolveComponentRole({ name: "Members data grid", usage: "Shows member rows" })).toBe("data-display");
-    expect(resolveComponentRole({ name: "Invite member", usage: "Primary action" })).toBe("primary-action");
+    expect(resolveComponentRole({ name: "Search field", usage: "Find members by name" })).toBe(
+      "search-input"
+    );
+    expect(
+      resolveComponentRole({ name: "Status toggle", usage: "Activate or deactivate a member" })
+    ).toBe("binary-control");
+    expect(resolveComponentRole({ name: "Remove action", usage: "Delete a member" })).toBe(
+      "destructive-action"
+    );
+    expect(resolveComponentRole({ name: "Members data grid", usage: "Shows member rows" })).toBe(
+      "data-display"
+    );
+    expect(resolveComponentRole({ name: "Invite member", usage: "Primary action" })).toBe(
+      "primary-action"
+    );
   });
 
   it("maps roles to stable generic layout zones", () => {
@@ -52,7 +58,13 @@ describe("layout contracts", () => {
       "content-toggles",
       "content-actions",
     ]);
-    expect(contract.placements.map((placement) => [placement.componentName, placement.role, placement.zone])).toEqual([
+    expect(
+      contract.placements.map((placement) => [
+        placement.componentName,
+        placement.role,
+        placement.zone,
+      ])
+    ).toEqual([
       ["Invite member", "primary-action", "header-actions"],
       ["Search field", "search-input", "controls"],
       ["Status filter tabs", "filter-control", "controls"],

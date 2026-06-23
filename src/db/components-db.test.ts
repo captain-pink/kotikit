@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
+import { beforeEach, describe, expect, it } from "bun:test";
 import {
-  initComponentsDb,
   clearComponents,
   deleteComponentsByFileKey,
-  upsertComponent,
+  initComponentsDb,
   searchComponents,
+  upsertComponent,
 } from "./components-db.js";
 
 describe("components-db", () => {
@@ -17,9 +17,9 @@ describe("components-db", () => {
   });
 
   it("inits the FTS5 table", () => {
-    const rows = db.query(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='components'"
-    ).all();
+    const rows = db
+      .query("SELECT name FROM sqlite_master WHERE type='table' AND name='components'")
+      .all();
     expect(rows.length).toBeGreaterThan(0);
   });
 
@@ -48,15 +48,33 @@ describe("components-db", () => {
       props: "",
     });
     const results = searchComponents(db, "arrow");
-    expect(results.some(r => r.name === "IconArrowLeft")).toBe(true);
+    expect(results.some((r) => r.name === "IconArrowLeft")).toBe(true);
   });
 
   it("supports prefix matching with 'but*'", () => {
-    upsertComponent(db, { name: "Button", path: "components/button.json", key: "k1", fileKey: "f1", props: "" });
-    upsertComponent(db, { name: "Buttonish", path: "components/buttonish.json", key: "k2", fileKey: "f1", props: "" });
-    upsertComponent(db, { name: "Card", path: "components/card.json", key: "k3", fileKey: "f1", props: "" });
+    upsertComponent(db, {
+      name: "Button",
+      path: "components/button.json",
+      key: "k1",
+      fileKey: "f1",
+      props: "",
+    });
+    upsertComponent(db, {
+      name: "Buttonish",
+      path: "components/buttonish.json",
+      key: "k2",
+      fileKey: "f1",
+      props: "",
+    });
+    upsertComponent(db, {
+      name: "Card",
+      path: "components/card.json",
+      key: "k3",
+      fileKey: "f1",
+      props: "",
+    });
     const results = searchComponents(db, "but*");
-    expect(results.map(r => r.name).sort()).toEqual(["Button", "Buttonish"]);
+    expect(results.map((r) => r.name).sort()).toEqual(["Button", "Buttonish"]);
   });
 
   it("upserts by name: second upsert with same name replaces the row", () => {
@@ -82,13 +100,17 @@ describe("components-db", () => {
     deleteComponentsByFileKey(db, "f1");
 
     expect(searchComponents(db, "Button")).toEqual([]);
-    expect(searchComponents(db, "Card").map(r => r.name)).toEqual(["Card"]);
+    expect(searchComponents(db, "Card").map((r) => r.name)).toEqual(["Card"]);
   });
 
   it("respects the limit argument", () => {
     for (let i = 0; i < 10; i++) {
       upsertComponent(db, {
-        name: `Component${i}`, path: `p${i}`, key: `k${i}`, fileKey: "f", props: "",
+        name: `Component${i}`,
+        path: `p${i}`,
+        key: `k${i}`,
+        fileKey: "f",
+        props: "",
       });
     }
     const results = searchComponents(db, "component*", 3);

@@ -1,23 +1,20 @@
-import { describe, it, expect, afterAll } from "bun:test";
-import { mkdtemp, rm, readFile } from "fs/promises";
+import { afterAll, describe, expect, it } from "bun:test";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { existsSync } from "fs";
+import { mkdtemp, readFile, rm } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
 import simpleGit from "simple-git";
-
-import { registerSpecTools } from "../../src/mcp/tools/spec.js";
-import { registerConfigTools } from "../../src/mcp/tools/config.js";
-import { registerFlowTools } from "../../src/mcp/tools/flow.js";
-import { registerBrainstormTools } from "../../src/mcp/tools/brainstorm.js";
 import { loadConfig } from "../../src/config/load.js";
+import { ConfigSchema } from "../../src/config/schema.js";
 import type { ToolContext } from "../../src/mcp/context.js";
 import type { ToolRegistry } from "../../src/mcp/server.js";
-import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-
-import { ConfigSchema } from "../../src/config/schema.js";
+import { registerBrainstormTools } from "../../src/mcp/tools/brainstorm.js";
+import { registerConfigTools } from "../../src/mcp/tools/config.js";
+import { registerFlowTools } from "../../src/mcp/tools/flow.js";
+import { registerSpecTools } from "../../src/mcp/tools/spec.js";
+import type { FlowDraft, SingleDraft } from "../../src/spec/decompose.js";
 import { FlowManifestSchema, ScreenSpecSchema } from "../../src/spec/schema.js";
-import type { FlowDraft } from "../../src/spec/decompose.js";
-import type { SingleDraft } from "../../src/spec/decompose.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -213,9 +210,7 @@ describe("Phase 1 E2E — happy path", () => {
 
     // ── Step 7: Assert git ─────────────────────────────────────────────────
     const log = await git.log();
-    const specCommit = log.all.find((c) =>
-      c.message.includes("feat(spec): create checkout-flow")
-    );
+    const specCommit = log.all.find((c) => c.message.includes("feat(spec): create checkout-flow"));
     expect(specCommit).toBeDefined();
 
     // Check Co-authored-by in commit body
@@ -307,9 +302,7 @@ describe("Phase 1 E2E — happy path", () => {
 
     // Assert git commit
     const log = await git.log();
-    const createCommit = log.all.find((c) =>
-      c.message.includes("feat(spec): create profile-page")
-    );
+    const createCommit = log.all.find((c) => c.message.includes("feat(spec): create profile-page"));
     expect(createCommit).toBeDefined();
   });
 });

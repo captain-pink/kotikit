@@ -1,28 +1,40 @@
-import type { FigmaClient } from "./figma-client.js";
-import { syncOneFile } from "./sync-engine.js";
-import {
-  readCheckpoint, writeCheckpoint, clearCheckpoint,
-  type Checkpoint, type FileCheckpoint,
-} from "./checkpoint.js";
-import { stderrProgressEmitter, formatMs, type ProgressEmitter, type FileContext } from "./progress.js";
-import { writeVariablesJson, type VariablesJson } from "./variables.js";
-import { writeManifest, type SyncManifest } from "./manifest.js";
-import {
-  componentsDbPath, iconsDbPath, syncReportPath, componentJsonPath,
-  designSystemDir, registryDbPath,
-} from "../util/paths.js";
-import { openDb } from "../db/sqlite.js";
-import { initComponentsDb, upsertComponent } from "../db/components-db.js";
-import { initIconsDb } from "../db/icons-db.js";
-import { initRegistryDb, getRegistry, upsertRegistryDsRow } from "../db/registry-db.js";
-import { nowIso, slugifyComponentName } from "../util/ids.js";
-import { buildPropsString } from "./component-shape.js";
-import type { ComponentJson } from "./component-shape.js";
-import type { NormalizationDiagnostics } from "./normalize-design-system.js";
-import { SyncPausedError } from "./errors.js";
+import type { Database } from "bun:sqlite";
 import { mkdir, writeFile } from "fs/promises";
 import { dirname } from "path";
-import type { Database } from "bun:sqlite";
+import { initComponentsDb, upsertComponent } from "../db/components-db.js";
+import { initIconsDb } from "../db/icons-db.js";
+import { getRegistry, initRegistryDb, upsertRegistryDsRow } from "../db/registry-db.js";
+import { openDb } from "../db/sqlite.js";
+import { nowIso, slugifyComponentName } from "../util/ids.js";
+import {
+  componentJsonPath,
+  componentsDbPath,
+  designSystemDir,
+  iconsDbPath,
+  registryDbPath,
+  syncReportPath,
+} from "../util/paths.js";
+import {
+  type Checkpoint,
+  clearCheckpoint,
+  type FileCheckpoint,
+  readCheckpoint,
+  writeCheckpoint,
+} from "./checkpoint.js";
+import type { ComponentJson } from "./component-shape.js";
+import { buildPropsString } from "./component-shape.js";
+import { SyncPausedError } from "./errors.js";
+import type { FigmaClient } from "./figma-client.js";
+import { type SyncManifest, writeManifest } from "./manifest.js";
+import type { NormalizationDiagnostics } from "./normalize-design-system.js";
+import {
+  type FileContext,
+  formatMs,
+  type ProgressEmitter,
+  stderrProgressEmitter,
+} from "./progress.js";
+import { syncOneFile } from "./sync-engine.js";
+import { type VariablesJson, writeVariablesJson } from "./variables.js";
 
 export interface SyncAllOpts {
   root: string;
@@ -74,9 +86,8 @@ async function writeReport(root: string, report: SyncReport): Promise<void> {
 export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
   const { root, files, client, progress = stderrProgressEmitter } = opts;
   const syncStart = Date.now();
-  const softDeadlineAt = opts.softDeadlineMs === undefined
-    ? undefined
-    : syncStart + opts.softDeadlineMs;
+  const softDeadlineAt =
+    opts.softDeadlineMs === undefined ? undefined : syncStart + opts.softDeadlineMs;
 
   await mkdir(designSystemDir(root), { recursive: true });
 
@@ -95,8 +106,7 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
     startedAt: nowIso(),
     files: files.map((f) => ({ fileKey: f.key, stage: "metadata" as const })),
   };
-  const shouldPause = (): boolean =>
-    softDeadlineAt !== undefined && Date.now() >= softDeadlineAt;
+  const shouldPause = (): boolean => softDeadlineAt !== undefined && Date.now() >= softDeadlineAt;
   const completedFileCount = (): number =>
     checkpoint.files.filter((file) => file.stage === "done").length;
 

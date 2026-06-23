@@ -75,7 +75,13 @@ export type LayoutZoneId =
 
 export type DesignPlanStep =
   | { kind: "define-state-frame"; state: string; width: number; height: number | "auto" }
-  | { kind: "apply-auto-layout"; state: string; direction: "VERTICAL" | "HORIZONTAL"; padding: number; itemSpacing: number }
+  | {
+      kind: "apply-auto-layout";
+      state: string;
+      direction: "VERTICAL" | "HORIZONTAL";
+      padding: number;
+      itemSpacing: number;
+    }
   | {
       kind: "define-layout-zone";
       state: string;
@@ -86,8 +92,22 @@ export type DesignPlanStep =
       itemSpacing: number;
       minTargetSize: number;
     }
-  | { kind: "place-component"; state: string; componentName: string; dsKey?: string; variant?: Record<string, string>; role?: ComponentRole; zone?: LayoutZoneId }
-  | { kind: "bind-variable"; state: string; variableName: string; property: "fill" | "text" | "effect"; nodeNameHint?: string };
+  | {
+      kind: "place-component";
+      state: string;
+      componentName: string;
+      dsKey?: string;
+      variant?: Record<string, string>;
+      role?: ComponentRole;
+      zone?: LayoutZoneId;
+    }
+  | {
+      kind: "bind-variable";
+      state: string;
+      variableName: string;
+      property: "fill" | "text" | "effect";
+      nodeNameHint?: string;
+    };
 
 export interface ApplyStepResult {
   stepIndex: number;
@@ -141,13 +161,19 @@ const resultWithContext = (
 ): ApplyStepResult => ({
   ...result,
   ...(shim.getFileKey() !== undefined ? { fileKey: shim.getFileKey() } : {}),
-  ...(state.pageId !== null && state.pageName !== null ? { page: { id: state.pageId, name: state.pageName } } : {}),
+  ...(state.pageId !== null && state.pageName !== null
+    ? { page: { id: state.pageId, name: state.pageName } }
+    : {}),
   ...(state.sectionId !== null && state.sectionName !== null
     ? { section: { id: state.sectionId, name: state.sectionName } }
     : {}),
 });
 
-async function ensureState(state: OrchestratorState, shim: FigmaShim, plan: DesignPlan): Promise<void> {
+async function ensureState(
+  state: OrchestratorState,
+  shim: FigmaShim,
+  plan: DesignPlan
+): Promise<void> {
   if (state.pageId !== null && state.sectionId !== null) return;
   const target = plan.target;
   if (target === undefined) {
@@ -162,10 +188,13 @@ async function ensureState(state: OrchestratorState, shim: FigmaShim, plan: Desi
     throw new Error("The bound Figma draft page could not be found.");
   }
   if (!isDraftPageName(page.name)) {
-    throw new Error("The bound Figma page name must contain Draft or Drafts before kotikit can write to it.");
+    throw new Error(
+      "The bound Figma page name must contain Draft or Drafts before kotikit can write to it."
+    );
   }
   await shim.setCurrentPage(page.id);
-  const sectionName = target.section?.name ?? `kotikit / ${plan.scope}${plan.screen ? ` / ${plan.screen}` : ""}`;
+  const sectionName =
+    target.section?.name ?? `kotikit / ${plan.scope}${plan.screen ? ` / ${plan.screen}` : ""}`;
   const section = await shim.findOrCreateSection({
     pageId: page.id,
     name: sectionName,
@@ -202,42 +231,69 @@ async function applyStepInner(
       });
       state.frameByState.set(step.state, frame.id);
       state.frameByZone.set(zoneKey(step.state, "root"), frame.id);
-      return resultWithContext({
-        stepIndex,
-        outcome: "ok",
-        stepKind: step.kind,
-        state: step.state,
-        node: { id: frame.id, kind: "frame", name: step.state },
-      }, shim, state, plan);
+      return resultWithContext(
+        {
+          stepIndex,
+          outcome: "ok",
+          stepKind: step.kind,
+          state: step.state,
+          node: { id: frame.id, kind: "frame", name: step.state },
+        },
+        shim,
+        state,
+        plan
+      );
     }
     if (step.kind === "apply-auto-layout") {
       const frameId = state.frameByState.get(step.state);
-      if (!frameId) return resultWithContext({ stepIndex, outcome: "warned", note: `no state frame for ${step.state}`, stepKind: step.kind, state: step.state }, shim, state, plan);
+      if (!frameId)
+        return resultWithContext(
+          {
+            stepIndex,
+            outcome: "warned",
+            note: `no state frame for ${step.state}`,
+            stepKind: step.kind,
+            state: step.state,
+          },
+          shim,
+          state,
+          plan
+        );
       await shim.setAutoLayout(frameId, {
         direction: step.direction,
         padding: step.padding,
         itemSpacing: step.itemSpacing,
       });
-      return resultWithContext({
-        stepIndex,
-        outcome: "ok",
-        stepKind: step.kind,
-        state: step.state,
-        node: { id: frameId, kind: "frame", name: step.state },
-      }, shim, state, plan);
+      return resultWithContext(
+        {
+          stepIndex,
+          outcome: "ok",
+          stepKind: step.kind,
+          state: step.state,
+          node: { id: frameId, kind: "frame", name: step.state },
+        },
+        shim,
+        state,
+        plan
+      );
     }
     if (step.kind === "define-layout-zone") {
       const parentZone = step.parentZone ?? "root";
       const parentId = state.frameByZone.get(zoneKey(step.state, parentZone));
       if (!parentId) {
-        return resultWithContext({
-          stepIndex,
-          outcome: "warned",
-          note: `no parent zone ${parentZone} for ${step.state}`,
-          stepKind: step.kind,
-          state: step.state,
-          zone: step.zone,
-        }, shim, state, plan);
+        return resultWithContext(
+          {
+            stepIndex,
+            outcome: "warned",
+            note: `no parent zone ${parentZone} for ${step.state}`,
+            stepKind: step.kind,
+            state: step.state,
+            zone: step.zone,
+          },
+          shim,
+          state,
+          plan
+        );
       }
       const parentSize = await shim.getNodeSize(parentId);
       const frame = await shim.createFrame({
@@ -252,62 +308,127 @@ async function applyStepInner(
         itemSpacing: step.itemSpacing,
       });
       state.frameByZone.set(zoneKey(step.state, step.zone), frame.id);
-      return resultWithContext({
-        stepIndex,
-        outcome: "ok",
-        stepKind: step.kind,
-        state: step.state,
-        zone: step.zone,
-        node: { id: frame.id, kind: "frame", name: step.zone },
-      }, shim, state, plan);
+      return resultWithContext(
+        {
+          stepIndex,
+          outcome: "ok",
+          stepKind: step.kind,
+          state: step.state,
+          zone: step.zone,
+          node: { id: frame.id, kind: "frame", name: step.zone },
+        },
+        shim,
+        state,
+        plan
+      );
     }
     if (step.kind === "place-component") {
       if (!step.dsKey) {
-        return resultWithContext({
-          stepIndex,
-          outcome: "warned",
-          note: `no dsKey for ${step.componentName}`,
-          stepKind: step.kind,
-          state: step.state,
-          componentName: step.componentName,
-        }, shim, state, plan);
+        return resultWithContext(
+          {
+            stepIndex,
+            outcome: "warned",
+            note: `no dsKey for ${step.componentName}`,
+            stepKind: step.kind,
+            state: step.state,
+            componentName: step.componentName,
+          },
+          shim,
+          state,
+          plan
+        );
       }
       const frameId = step.zone
         ? state.frameByZone.get(zoneKey(step.state, step.zone))
         : state.frameByState.get(step.state);
-      if (!frameId) return resultWithContext({ stepIndex, outcome: "warned", note: `no target frame for ${step.state}${step.zone ? `/${step.zone}` : ""}`, stepKind: step.kind, state: step.state, componentName: step.componentName, dsKey: step.dsKey, role: step.role, zone: step.zone }, shim, state, plan);
+      if (!frameId)
+        return resultWithContext(
+          {
+            stepIndex,
+            outcome: "warned",
+            note: `no target frame for ${step.state}${step.zone ? `/${step.zone}` : ""}`,
+            stepKind: step.kind,
+            state: step.state,
+            componentName: step.componentName,
+            dsKey: step.dsKey,
+            role: step.role,
+            zone: step.zone,
+          },
+          shim,
+          state,
+          plan
+        );
       const component = await shim.importComponentByKey(step.dsKey);
       const inst = await shim.appendInstance(frameId, component.id);
       if (step.variant) {
         await shim.setVariantProperties(inst.instanceId, step.variant);
       }
-      return resultWithContext({
+      return resultWithContext(
+        {
+          stepIndex,
+          outcome: "ok",
+          stepKind: step.kind,
+          state: step.state,
+          componentName: step.componentName,
+          dsKey: step.dsKey,
+          role: step.role,
+          zone: step.zone,
+          node: { id: inst.instanceId, kind: "instance", name: step.componentName },
+        },
+        shim,
+        state,
+        plan
+      );
+    }
+    // bind-variable
+    const frameId = state.frameByState.get(step.state);
+    if (!frameId)
+      return resultWithContext(
+        {
+          stepIndex,
+          outcome: "warned",
+          note: `no state frame for ${step.state}`,
+          stepKind: step.kind,
+          state: step.state,
+        },
+        shim,
+        state,
+        plan
+      );
+    const variable = await shim.findVariableByName(step.variableName);
+    if (!variable)
+      return resultWithContext(
+        {
+          stepIndex,
+          outcome: "warned",
+          note: `variable not found: ${step.variableName}`,
+          stepKind: step.kind,
+          state: step.state,
+        },
+        shim,
+        state,
+        plan
+      );
+    await shim.setBoundVariable(frameId, step.property, variable.id);
+    return resultWithContext(
+      {
         stepIndex,
         outcome: "ok",
         stepKind: step.kind,
         state: step.state,
-        componentName: step.componentName,
-        dsKey: step.dsKey,
-        role: step.role,
-        zone: step.zone,
-        node: { id: inst.instanceId, kind: "instance", name: step.componentName },
-      }, shim, state, plan);
-    }
-    // bind-variable
-    const frameId = state.frameByState.get(step.state);
-    if (!frameId) return resultWithContext({ stepIndex, outcome: "warned", note: `no state frame for ${step.state}`, stepKind: step.kind, state: step.state }, shim, state, plan);
-    const variable = await shim.findVariableByName(step.variableName);
-    if (!variable) return resultWithContext({ stepIndex, outcome: "warned", note: `variable not found: ${step.variableName}`, stepKind: step.kind, state: step.state }, shim, state, plan);
-    await shim.setBoundVariable(frameId, step.property, variable.id);
-    return resultWithContext({
-      stepIndex,
-      outcome: "ok",
-      stepKind: step.kind,
-      state: step.state,
-      node: { id: frameId, kind: "frame", name: step.state },
-    }, shim, state, plan);
+        node: { id: frameId, kind: "frame", name: step.state },
+      },
+      shim,
+      state,
+      plan
+    );
   } catch (err) {
-    return resultWithContext({ stepIndex, outcome: "failed", note: (err as Error).message, stepKind: step.kind }, shim, state, plan);
+    return resultWithContext(
+      { stepIndex, outcome: "failed", note: (err as Error).message, stepKind: step.kind },
+      shim,
+      state,
+      plan
+    );
   }
 }
 
@@ -330,7 +451,9 @@ export async function applyAll(opts: OrchestratorOpts): Promise<ApplyStepResult[
   return results;
 }
 
-export async function applyStep(opts: OrchestratorOpts & { stepIndex: number }): Promise<ApplyStepResult> {
+export async function applyStep(
+  opts: OrchestratorOpts & { stepIndex: number }
+): Promise<ApplyStepResult> {
   const state: OrchestratorState = {
     pageId: null,
     pageName: null,
@@ -345,7 +468,11 @@ export async function applyStep(opts: OrchestratorOpts & { stepIndex: number }):
   // step is define-state-frame for the same state, re-create it.
   // Simpler: apply ALL steps up to and including stepIndex, returning the final.
   // (The plugin UI typically uses applyAll; per-step Run is meant for incremental.)
-  let final: ApplyStepResult = { stepIndex: opts.stepIndex, outcome: "failed", note: "step index out of range" };
+  let final: ApplyStepResult = {
+    stepIndex: opts.stepIndex,
+    outcome: "failed",
+    note: "step index out of range",
+  };
   for (let i = 0; i <= opts.stepIndex && i < opts.plan.steps.length; i++) {
     const step = opts.plan.steps[i]!;
     final = await applyStepInner(step, i, opts.shim, state, opts.plan);

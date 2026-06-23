@@ -1,10 +1,10 @@
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import {
   buildComponentJson,
   buildPropsString,
   ComponentJsonSchema,
-  type FigmaPublishedComponent,
   type FigmaComponentSet,
+  type FigmaPublishedComponent,
 } from "./component-shape.js";
 
 describe("buildComponentJson", () => {
@@ -20,13 +20,20 @@ describe("buildComponentJson", () => {
       name: "Button",
       defaultVariantId: "defaultvariantid",
       componentPropertyDefinitions: {
-        Variant: { type: "VARIANT", variantOptions: ["Primary", "Secondary", "Destructive", "Ghost"] },
+        Variant: {
+          type: "VARIANT",
+          variantOptions: ["Primary", "Secondary", "Destructive", "Ghost"],
+        },
         Size: { type: "VARIANT", variantOptions: ["sm", "md", "lg"] },
         Disabled: { type: "BOOLEAN", defaultValue: false },
         Label: { type: "TEXT", defaultValue: "Click me" },
       },
     };
-    const result = buildComponentJson({ fileKey: "F1", publishedComponent: pub, componentSet: set });
+    const result = buildComponentJson({
+      fileKey: "F1",
+      publishedComponent: pub,
+      componentSet: set,
+    });
 
     ComponentJsonSchema.parse(result);
 
@@ -40,8 +47,8 @@ describe("buildComponentJson", () => {
     expect(result.thumbnailUrl).toBe("https://figma.example/thumb.png");
 
     expect(result.variants).toHaveLength(2);
-    const variantProp = result.variants.find(v => v.propertyName === "Variant");
-    const sizeProp = result.variants.find(v => v.propertyName === "Size");
+    const variantProp = result.variants.find((v) => v.propertyName === "Variant");
+    const sizeProp = result.variants.find((v) => v.propertyName === "Size");
     expect(variantProp?.values).toEqual(["Primary", "Secondary", "Destructive", "Ghost"]);
     expect(sizeProp?.values).toEqual(["sm", "md", "lg"]);
 
@@ -72,7 +79,8 @@ describe("buildComponentJson", () => {
 
   it("BOOLEAN/TEXT/INSTANCE_SWAP land in properties, VARIANT lands in variants", () => {
     const set: FigmaComponentSet = {
-      key: "k", name: "Box",
+      key: "k",
+      name: "Box",
       componentPropertyDefinitions: {
         Kind: { type: "VARIANT", variantOptions: ["A", "B"] },
         On: { type: "BOOLEAN", defaultValue: true },
@@ -85,7 +93,7 @@ describe("buildComponentJson", () => {
       publishedComponent: { key: "p", name: "Box" },
       componentSet: set,
     });
-    expect(result.variants.map(v => v.propertyName)).toEqual(["Kind"]);
+    expect(result.variants.map((v) => v.propertyName)).toEqual(["Kind"]);
     expect(Object.keys(result.properties).sort()).toEqual(["Label", "On", "Swap"]);
   });
 
@@ -118,7 +126,8 @@ describe("buildPropsString", () => {
       fileKey: "F",
       publishedComponent: { key: "p", name: "Btn" },
       componentSet: {
-        key: "s", name: "Btn",
+        key: "s",
+        name: "Btn",
         componentPropertyDefinitions: {
           Variant: { type: "VARIANT", variantOptions: ["a", "b"] },
           Disabled: { type: "BOOLEAN" },

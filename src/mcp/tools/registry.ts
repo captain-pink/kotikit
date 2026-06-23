@@ -1,26 +1,20 @@
-import type { ToolContext } from "../context.js";
-import type { ToolRegistry } from "../server.js";
-import { existsSync } from "fs";
 import { Database } from "bun:sqlite";
+import { existsSync } from "fs";
 import { searchRegistry } from "../../db/registry-db.js";
 import { registryDbPath } from "../../util/paths.js";
-import { toolText, toolError } from "../../util/result.js";
+import { toolError, toolText } from "../../util/result.js";
+import type { ToolContext } from "../context.js";
+import type { ToolRegistry } from "../server.js";
 
 // ─── Register all registry tools ─────────────────────────────────────────────
 
-export function registerRegistryTools(
-  registry: ToolRegistry,
-  ctx: ToolContext
-): void {
+export function registerRegistryTools(registry: ToolRegistry, ctx: ToolContext): void {
   registerRegistrySearch(registry, ctx);
 }
 
 // ─── kotikit_registry_search ─────────────────────────────────────────────────
 
-function registerRegistrySearch(
-  registry: ToolRegistry,
-  ctx: ToolContext
-): void {
+function registerRegistrySearch(registry: ToolRegistry, ctx: ToolContext): void {
   registry.tools.push({
     name: "kotikit_registry_search",
     description: "Search the kotikit component registry by name prefix, status, and/or kind.",

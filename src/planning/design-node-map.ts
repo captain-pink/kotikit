@@ -2,11 +2,11 @@ import { existsSync } from "fs";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import { dirname } from "path";
 import { z } from "zod";
+import type { FigmaDraftSection, FigmaDraftTarget } from "../figma/draft-target.js";
+import { FigmaDraftSectionSchema, FigmaDraftTargetSchema } from "../figma/draft-target.js";
 import { designNodeMapPath } from "../util/paths.js";
 import { KotikitError } from "../util/result.js";
 import { DesignPlanStepKindSchema } from "./design-plan-schema.js";
-import { FigmaDraftSectionSchema, FigmaDraftTargetSchema } from "../figma/draft-target.js";
-import type { FigmaDraftSection, FigmaDraftTarget } from "../figma/draft-target.js";
 
 export const DesignNodeKindSchema = z.enum(["page", "frame", "instance", "node"]);
 export type DesignNodeKind = z.infer<typeof DesignNodeKindSchema>;
@@ -30,10 +30,12 @@ export const DesignNodeMapSchema = z.object({
   screen: z.string().optional(),
   figmaFileKey: z.string().optional(),
   target: FigmaDraftTargetSchema.optional(),
-  page: z.object({
-    id: z.string(),
-    name: z.string(),
-  }).optional(),
+  page: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+    })
+    .optional(),
   section: FigmaDraftSectionSchema.optional(),
   nodes: z.array(DesignNodeMapEntrySchema),
   updatedAt: z.string(),
@@ -69,9 +71,7 @@ export interface DesignNodeMapUpsert {
 const parseDesignNodeMap = (raw: unknown): DesignNodeMap => {
   const result = DesignNodeMapSchema.safeParse(raw);
   if (!result.success) {
-    const fields = result.error.issues
-      .map((issue) => issue.path.join(".") || "root")
-      .join(", ");
+    const fields = result.error.issues.map((issue) => issue.path.join(".") || "root").join(", ");
     throw new KotikitError(
       "The design node map has an invalid format.",
       `Problem with: ${fields}. Regenerate the Figma design apply map and try again.`
@@ -94,12 +94,14 @@ export const mergeDesignNodeMap = (
     version: 1,
     scope: update.scope,
     ...(update.screen !== undefined ? { screen: update.screen } : {}),
-    ...(update.figmaFileKey ?? existing?.figmaFileKey
+    ...((update.figmaFileKey ?? existing?.figmaFileKey)
       ? { figmaFileKey: update.figmaFileKey ?? existing?.figmaFileKey }
       : {}),
-    ...(update.target ?? existing?.target ? { target: update.target ?? existing?.target } : {}),
-    ...(update.page ?? existing?.page ? { page: update.page ?? existing?.page } : {}),
-    ...(update.section ?? existing?.section ? { section: update.section ?? existing?.section } : {}),
+    ...((update.target ?? existing?.target) ? { target: update.target ?? existing?.target } : {}),
+    ...((update.page ?? existing?.page) ? { page: update.page ?? existing?.page } : {}),
+    ...((update.section ?? existing?.section)
+      ? { section: update.section ?? existing?.section }
+      : {}),
     nodes,
     updatedAt: update.updatedAt,
   };

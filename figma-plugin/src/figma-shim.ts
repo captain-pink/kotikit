@@ -16,15 +16,22 @@ export interface FigmaShim {
     height: number | "auto";
   }): Promise<{ id: string }>;
   getNodeSize(nodeId: string): Promise<{ width: number; height: number | "auto" } | null>;
-  setAutoLayout(frameId: string, opts: {
-    direction: "VERTICAL" | "HORIZONTAL";
-    padding: number;
-    itemSpacing: number;
-  }): Promise<void>;
+  setAutoLayout(
+    frameId: string,
+    opts: {
+      direction: "VERTICAL" | "HORIZONTAL";
+      padding: number;
+      itemSpacing: number;
+    }
+  ): Promise<void>;
   importComponentByKey(dsKey: string): Promise<{ id: string }>;
   appendInstance(parentId: string, componentId: string): Promise<{ instanceId: string }>;
   setVariantProperties(instanceId: string, props: Record<string, string>): Promise<void>;
   findVariableByName(name: string): Promise<{ id: string } | null>;
-  setBoundVariable(nodeId: string, property: "fill" | "text" | "effect", variableId: string): Promise<void>;
+  setBoundVariable(
+    nodeId: string,
+    property: "fill" | "text" | "effect",
+    variableId: string
+  ): Promise<void>;
   notify(message: string, opts?: { error?: boolean }): void;
 }

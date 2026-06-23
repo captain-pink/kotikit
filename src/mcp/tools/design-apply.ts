@@ -1,23 +1,20 @@
-import type { ToolContext } from "../context.js";
-import type { ToolRegistry } from "../server.js";
-import { mkdir, appendFile } from "fs/promises";
+import { appendFile, mkdir } from "fs/promises";
 import { dirname } from "path";
-import { designApplyLogPath } from "../../util/paths.js";
-import { nowIso } from "../../util/ids.js";
-import { toolText, toolError, KotikitError } from "../../util/result.js";
-import { upsertDesignNodeMapEntry } from "../../planning/design-node-map.js";
-import { readFigmaDraftTarget } from "../../figma/draft-target-store.js";
 import { isDraftPageName } from "../../figma/draft-target.js";
+import { readFigmaDraftTarget } from "../../figma/draft-target-store.js";
+import type { DesignNodeKind } from "../../planning/design-node-map.js";
+import { upsertDesignNodeMapEntry } from "../../planning/design-node-map.js";
 import {
   DESIGN_PLAN_STEP_KINDS,
   type DesignPlanStepKind,
 } from "../../planning/design-plan-schema.js";
-import type { DesignNodeKind } from "../../planning/design-node-map.js";
+import { nowIso } from "../../util/ids.js";
+import { designApplyLogPath } from "../../util/paths.js";
+import { KotikitError, toolError, toolText } from "../../util/result.js";
+import type { ToolContext } from "../context.js";
+import type { ToolRegistry } from "../server.js";
 
-export function registerDesignApplyTools(
-  registry: ToolRegistry,
-  ctx: ToolContext
-): void {
+export function registerDesignApplyTools(registry: ToolRegistry, ctx: ToolContext): void {
   registry.tools.push({
     name: "kotikit_design_apply_step",
     description: "Record that the Figma plugin applied a design plan step (audit log).",
@@ -26,7 +23,10 @@ export function registerDesignApplyTools(
       properties: {
         scope: { type: "string", description: "Scope (flow or single-screen) slug." },
         screen: { type: "string", description: "Screen slug; omit for single-screen specs." },
-        stepIndex: { type: "number", description: "Zero-based index of the step that was applied." },
+        stepIndex: {
+          type: "number",
+          description: "Zero-based index of the step that was applied.",
+        },
         outcome: {
           type: "string",
           enum: ["ok", "warned", "failed"],
@@ -39,21 +39,42 @@ export function registerDesignApplyTools(
           description: "Design plan step kind applied by the Figma plugin.",
         },
         state: { type: "string", description: "Design state affected by the step." },
-        componentName: { type: "string", description: "Component name when the step placed a component." },
+        componentName: {
+          type: "string",
+          description: "Component name when the step placed a component.",
+        },
         dsKey: { type: "string", description: "Design-system component key when available." },
-        figmaFileKey: { type: "string", description: "Figma file key containing the applied node." },
+        figmaFileKey: {
+          type: "string",
+          description: "Figma file key containing the applied node.",
+        },
         figmaPageId: { type: "string", description: "Figma page ID containing the applied node." },
-        figmaPageName: { type: "string", description: "Figma page name containing the applied node." },
+        figmaPageName: {
+          type: "string",
+          description: "Figma page name containing the applied node.",
+        },
         figmaPageUrl: { type: "string", description: "Figma page URL bound for this design." },
-        figmaSectionId: { type: "string", description: "Kotikit-owned Figma section ID containing the applied node." },
-        figmaSectionName: { type: "string", description: "Kotikit-owned Figma section name containing the applied node." },
-        figmaNodeId: { type: "string", description: "Figma node ID created or updated by this step." },
+        figmaSectionId: {
+          type: "string",
+          description: "Kotikit-owned Figma section ID containing the applied node.",
+        },
+        figmaSectionName: {
+          type: "string",
+          description: "Kotikit-owned Figma section name containing the applied node.",
+        },
+        figmaNodeId: {
+          type: "string",
+          description: "Figma node ID created or updated by this step.",
+        },
         figmaNodeKind: {
           type: "string",
           enum: ["page", "frame", "instance", "node"],
           description: "Kind of Figma node created or updated by this step.",
         },
-        figmaNodeName: { type: "string", description: "Figma node name created or updated by this step." },
+        figmaNodeName: {
+          type: "string",
+          description: "Figma node name created or updated by this step.",
+        },
       },
       required: ["scope", "stepIndex", "outcome"],
     },
@@ -134,7 +155,10 @@ export function registerDesignApplyTools(
           "Rename the page so it contains Draft or Drafts before applying the design."
         );
       }
-      if (target?.section?.name !== undefined && (figmaSectionId === undefined || figmaSectionName === undefined)) {
+      if (
+        target?.section?.name !== undefined &&
+        (figmaSectionId === undefined || figmaSectionName === undefined)
+      ) {
         throw new KotikitError(
           "This applied Figma node is missing kotikit Section metadata.",
           "Apply the design with the updated kotikit plugin so generated nodes stay inside the draft Section."
@@ -177,8 +201,12 @@ export function registerDesignApplyTools(
           updatedAt: ts,
           ...(figmaFileKey !== undefined ? { figmaFileKey } : {}),
           target,
-          ...(figmaPageId && figmaPageName ? { page: { id: figmaPageId, name: figmaPageName } } : {}),
-          ...(figmaSectionId && figmaSectionName ? { section: { id: figmaSectionId, name: figmaSectionName } } : {}),
+          ...(figmaPageId && figmaPageName
+            ? { page: { id: figmaPageId, name: figmaPageName } }
+            : {}),
+          ...(figmaSectionId && figmaSectionName
+            ? { section: { id: figmaSectionId, name: figmaSectionName } }
+            : {}),
           entry: {
             stepIndex,
             stepKind,
@@ -193,10 +221,7 @@ export function registerDesignApplyTools(
         });
       }
 
-      return toolText(
-        `Recorded apply: step ${stepIndex} ${outcome}.`,
-        { line }
-      );
+      return toolText(`Recorded apply: step ${stepIndex} ${outcome}.`, { line });
     } catch (err) {
       return toolError(err);
     }

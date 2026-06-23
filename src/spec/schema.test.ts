@@ -1,15 +1,15 @@
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
+import { CONFIG_SCHEMA_VERSION, defaultConfig, parseConfig } from "../config/schema";
 import {
-  ScreenSpecSchema,
-  FlowManifestSchema,
-  SCREEN_SPEC_SCHEMA_VERSION,
   FLOW_MANIFEST_SCHEMA_VERSION,
-  newScreenSpec,
+  FlowManifestSchema,
   newFlowManifest,
-  parseScreenSpec,
+  newScreenSpec,
   parseFlowManifest,
+  parseScreenSpec,
+  SCREEN_SPEC_SCHEMA_VERSION,
+  ScreenSpecSchema,
 } from "./schema";
-import { CONFIG_SCHEMA_VERSION, parseConfig, defaultConfig } from "../config/schema";
 
 describe("ScreenSpecSchema", () => {
   it("accepts a valid minimal screen spec", () => {
@@ -73,12 +73,19 @@ describe("ScreenSpecSchema", () => {
   });
 
   it("throws a plain-English error when context.description is missing", () => {
-    const bad = { ...newScreenSpec({ title: "Cart", description: "x" }), context: { userTypes: [], entryPoints: [] } };
+    const bad = {
+      ...newScreenSpec({ title: "Cart", description: "x" }),
+      context: { userTypes: [], entryPoints: [] },
+    };
     expect(() => parseScreenSpec(bad)).toThrow(/context/);
   });
 
   it("flowRef is present when supplied", () => {
-    const spec = newScreenSpec({ title: "Cart", description: "x", flowRef: "checkout-flow/flow.json" });
+    const spec = newScreenSpec({
+      title: "Cart",
+      description: "x",
+      flowRef: "checkout-flow/flow.json",
+    });
     expect(spec.flowRef).toBe("checkout-flow/flow.json");
   });
 

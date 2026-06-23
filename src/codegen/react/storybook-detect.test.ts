@@ -1,5 +1,5 @@
-import { describe, it, expect, afterAll } from "bun:test";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "fs";
+import { afterAll, describe, expect, it } from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { hasStorybook } from "./storybook-detect.js";
@@ -31,7 +31,7 @@ describe("hasStorybook", () => {
     const root = mkTmp();
     writeFileSync(
       join(root, "package.json"),
-      JSON.stringify({ devDependencies: { storybook: "^8.0.0" } }),
+      JSON.stringify({ devDependencies: { storybook: "^8.0.0" } })
     );
     expect(await hasStorybook(root)).toBe(true);
   });
@@ -40,7 +40,7 @@ describe("hasStorybook", () => {
     const root = mkTmp();
     writeFileSync(
       join(root, "package.json"),
-      JSON.stringify({ devDependencies: { "@storybook/react": "^8.0.0" } }),
+      JSON.stringify({ devDependencies: { "@storybook/react": "^8.0.0" } })
     );
     expect(await hasStorybook(root)).toBe(true);
   });
@@ -49,7 +49,7 @@ describe("hasStorybook", () => {
     const root = mkTmp();
     writeFileSync(
       join(root, "package.json"),
-      JSON.stringify({ dependencies: { storybook: "^8.0.0" } }),
+      JSON.stringify({ dependencies: { storybook: "^8.0.0" } })
     );
     expect(await hasStorybook(root)).toBe(true);
   });
@@ -64,7 +64,7 @@ describe("hasStorybook", () => {
     const root = mkTmp();
     writeFileSync(
       join(root, "package.json"),
-      JSON.stringify({ devDependencies: { react: "^19.0.0", vitest: "^3.0.0" } }),
+      JSON.stringify({ devDependencies: { react: "^19.0.0", vitest: "^3.0.0" } })
     );
     expect(await hasStorybook(root)).toBe(false);
   });

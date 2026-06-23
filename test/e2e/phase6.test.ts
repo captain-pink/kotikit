@@ -1,37 +1,28 @@
-import { describe, it, expect, afterAll } from "bun:test";
+import { afterAll, describe, expect, it } from "bun:test";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "fs";
 import { rm } from "fs/promises";
-import {
-  existsSync,
-  mkdtempSync,
-  mkdirSync,
-  writeFileSync,
-  readFileSync,
-} from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import simpleGit from "simple-git";
-
-import { registerSpecTools } from "../../src/mcp/tools/spec.js";
-import { registerConfigTools } from "../../src/mcp/tools/config.js";
-import { registerFlowTools } from "../../src/mcp/tools/flow.js";
-import { registerBrainstormTools } from "../../src/mcp/tools/brainstorm.js";
-import { registerPlanCodeTools } from "../../src/mcp/tools/plan-code.js";
-import { registerImplementCodeTools } from "../../src/mcp/tools/implement-code.js";
-import { registerRegistryTools } from "../../src/mcp/tools/registry.js";
-import { registerScaffoldTools } from "../../src/mcp/tools/scaffold.js";
-import { registerAuditTools } from "../../src/mcp/tools/audit.js";
-import { registerSystemPromptTools } from "../../src/mcp/tools/system-prompt.js";
-
-import { loadConfig } from "../../src/config/load.js";
+import { AuditReportSchema } from "../../src/audit/schema.js";
+import type { runGates as defaultRunGates } from "../../src/codegen/gate-runner.js";
+import { loadConfig, writeConfig } from "../../src/config/load.js";
 import { defaultConfig } from "../../src/config/schema.js";
-import { writeConfig } from "../../src/config/load.js";
+import { initRegistryDb, upsertRegistry } from "../../src/db/registry-db.js";
+import { openDb } from "../../src/db/sqlite.js";
 import type { ToolContext } from "../../src/mcp/context.js";
 import type { ToolRegistry } from "../../src/mcp/server.js";
-import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import type { runGates as defaultRunGates } from "../../src/codegen/gate-runner.js";
-import { AuditReportSchema } from "../../src/audit/schema.js";
-import { openDb } from "../../src/db/sqlite.js";
-import { initRegistryDb, upsertRegistry } from "../../src/db/registry-db.js";
+import { registerAuditTools } from "../../src/mcp/tools/audit.js";
+import { registerBrainstormTools } from "../../src/mcp/tools/brainstorm.js";
+import { registerConfigTools } from "../../src/mcp/tools/config.js";
+import { registerFlowTools } from "../../src/mcp/tools/flow.js";
+import { registerImplementCodeTools } from "../../src/mcp/tools/implement-code.js";
+import { registerPlanCodeTools } from "../../src/mcp/tools/plan-code.js";
+import { registerRegistryTools } from "../../src/mcp/tools/registry.js";
+import { registerScaffoldTools } from "../../src/mcp/tools/scaffold.js";
+import { registerSpecTools } from "../../src/mcp/tools/spec.js";
+import { registerSystemPromptTools } from "../../src/mcp/tools/system-prompt.js";
 import { registryDbPath } from "../../src/util/paths.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -45,17 +36,13 @@ function mkTmp(): string {
 }
 
 afterAll(async () => {
-  for (const d of tmpDirs)
-    await rm(d, { recursive: true, force: true }).catch(() => {});
+  for (const d of tmpDirs) await rm(d, { recursive: true, force: true }).catch(() => {});
 });
 
 type McpContent = { type: "text"; text: string };
 type ToolResult = { content: McpContent[]; isError?: boolean };
 
-function buildRegistry(
-  root: string,
-  gateRunner?: typeof defaultRunGates
-): ToolRegistry {
+function buildRegistry(root: string, gateRunner?: typeof defaultRunGates): ToolRegistry {
   const tools: Tool[] = [];
   const handlers = new Map<string, (args: unknown) => Promise<ToolResult>>();
   const registry: ToolRegistry = { tools, handlers };
@@ -73,11 +60,7 @@ function buildRegistry(
   return registry;
 }
 
-async function callTool(
-  registry: ToolRegistry,
-  name: string,
-  args: unknown
-): Promise<ToolResult> {
+async function callTool(registry: ToolRegistry, name: string, args: unknown): Promise<ToolResult> {
   const handler = registry.handlers.get(name);
   if (!handler) throw new Error(`Tool not found: ${name}`);
   return handler(args);
@@ -136,17 +119,14 @@ function seedRegistry(
 ): void {
   const db = openDb(registryDbPath(root));
   initRegistryDb(db);
-  for (const row of rows)
-    upsertRegistry(db, { kind: "component", ...row });
+  for (const row of rows) upsertRegistry(db, { kind: "component", ...row });
   db.close();
 }
 
 function seedCodeFile(root: string, codePath: string, cvaAxes: string[]): void {
   const abs = join(root, codePath);
   mkdirSync(join(abs, ".."), { recursive: true });
-  const variantsObj = cvaAxes
-    .map((a) => `${a}: { primary: "" }`)
-    .join(", ");
+  const variantsObj = cvaAxes.map((a) => `${a}: { primary: "" }`).join(", ");
   const content = `import { cva } from "class-variance-authority";\n\nconst x = cva("", { variants: { ${variantsObj} }, defaultVariants: {} });\n`;
   writeFileSync(abs, content);
 }
@@ -196,9 +176,7 @@ describe("Phase 6 E2E — audit", () => {
 
     const reportPath = join(root, ".kotikit/audit-report.json");
     expect(existsSync(reportPath)).toBe(true);
-    const report = AuditReportSchema.parse(
-      JSON.parse(readFileSync(reportPath, "utf-8"))
-    );
+    const report = AuditReportSchema.parse(JSON.parse(readFileSync(reportPath, "utf-8")));
     expect(report.summary).toEqual({
       syncedOk: 1,
       syncedMismatched: 1,
@@ -207,9 +185,7 @@ describe("Phase 6 E2E — audit", () => {
     });
 
     // Button is synced-ok
-    expect(report.entries.find((e) => e.name === "Button")?.outcome).toBe(
-      "synced-ok"
-    );
+    expect(report.entries.find((e) => e.name === "Button")?.outcome).toBe("synced-ok");
 
     // Card is synced-mismatched (DS has [Variant, Size], code has [variant])
     const card = report.entries.find((e) => e.name === "Card")!;

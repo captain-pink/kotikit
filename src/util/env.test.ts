@@ -1,8 +1,8 @@
-import { describe, it, expect, afterAll, beforeEach } from "bun:test";
+import { afterAll, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { parseDotEnv, loadDotEnv } from "./env.js";
+import { loadDotEnv, parseDotEnv } from "./env.js";
 
 const tmpDirs: string[] = [];
 function mkTmp(): string {

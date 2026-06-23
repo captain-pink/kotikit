@@ -1,37 +1,37 @@
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import type { ToolContext } from "../context.js";
-import type { ToolRegistry } from "../server.js";
 import { existsSync } from "fs";
-import { readFile, writeFile, mkdir } from "fs/promises";
-import { dirname, resolve as resolvePath, relative as relativePath } from "path";
-import { defaultConfig } from "../../config/schema.js";
-import { reactAdapter } from "../../codegen/react/adapter.js";
-import { runGates as defaultRunGates } from "../../codegen/gate-runner.js";
+import { mkdir, readFile, writeFile } from "fs/promises";
+import { dirname, relative as relativePath, resolve as resolvePath } from "path";
+import type { AdapterContext } from "../../codegen/adapter.js";
 import { verifyGateEnvironment } from "../../codegen/environment.js";
-import { autoCommit } from "../../git/auto-commit.js";
+import type { GateRunReport } from "../../codegen/gate-output.js";
 import { formatGateReport } from "../../codegen/gate-report.js";
-import { hasStorybook } from "../../codegen/react/storybook-detect.js";
+import { runGates as defaultRunGates } from "../../codegen/gate-runner.js";
+import { reactAdapter } from "../../codegen/react/adapter.js";
 import { scaffoldComponent } from "../../codegen/react/scaffold.js";
-import { openDb } from "../../db/sqlite.js";
+import { hasStorybook } from "../../codegen/react/storybook-detect.js";
+import { defaultConfig } from "../../config/schema.js";
 import {
-  initRegistryDb,
-  upsertRegistry,
-  listDesignOnlyComponents,
   getRegistry,
+  initRegistryDb,
+  listDesignOnlyComponents,
+  upsertRegistry,
 } from "../../db/registry-db.js";
-import { ComponentJsonSchema, type ComponentJson } from "../../sync/component-shape.js";
+import { openDb } from "../../db/sqlite.js";
+import { autoCommit } from "../../git/auto-commit.js";
+import { newScreenSpec } from "../../spec/schema.js";
+import { type ComponentJson, ComponentJsonSchema } from "../../sync/component-shape.js";
+import { pascalCase } from "../../util/ids.js";
 import {
   designSystemDir,
   registryDbPath,
-  uiDir,
   uiComponentFile,
+  uiDir,
   uiStoryFile,
 } from "../../util/paths.js";
-import { toolText, toolError, KotikitError } from "../../util/result.js";
-import { pascalCase } from "../../util/ids.js";
-import type { AdapterContext } from "../../codegen/adapter.js";
-import type { GateRunReport } from "../../codegen/gate-output.js";
-import { newScreenSpec } from "../../spec/schema.js";
+import { KotikitError, toolError, toolText } from "../../util/result.js";
+import type { ToolContext } from "../context.js";
+import type { ToolRegistry } from "../server.js";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -84,8 +84,7 @@ function registerScaffoldStart(registry: ToolRegistry, ctx: ToolContext): void {
         names: {
           type: "array",
           items: { type: "string" },
-          description:
-            "Component names to scaffold. Omit to scaffold all design-only components.",
+          description: "Component names to scaffold. Omit to scaffold all design-only components.",
         },
         pageSize: {
           type: "number",
@@ -112,7 +111,13 @@ function registerScaffoldStart(registry: ToolRegistry, ctx: ToolContext): void {
   registry.tools.push(tool);
 
   registry.handlers.set("kotikit_scaffold_start", async (args) => {
-    const { names, pageSize: rawPageSize, cursor, compact: rawCompact, expand: rawExpand } = args as {
+    const {
+      names,
+      pageSize: rawPageSize,
+      cursor,
+      compact: rawCompact,
+      expand: rawExpand,
+    } = args as {
       names?: string[];
       pageSize?: number;
       cursor?: string;
@@ -122,9 +127,12 @@ function registerScaffoldStart(registry: ToolRegistry, ctx: ToolContext): void {
     const root = ctx.root;
 
     // Resolve pagination + compact defaults
-    const pageSize = Math.min(10, Math.max(1, typeof rawPageSize === "number" ? Math.floor(rawPageSize) : 3));
+    const pageSize = Math.min(
+      10,
+      Math.max(1, typeof rawPageSize === "number" ? Math.floor(rawPageSize) : 3)
+    );
     // compact defaults true; expand defaults false (inverse of compact)
-    const compact = rawExpand === true ? false : (rawCompact !== undefined ? rawCompact : true);
+    const compact = rawExpand === true ? false : rawCompact !== undefined ? rawCompact : true;
 
     try {
       // 1. Load config (default if missing)
@@ -133,12 +141,7 @@ function registerScaffoldStart(registry: ToolRegistry, ctx: ToolContext): void {
       // 2. Check registry exists
       const regPath = registryDbPath(root);
       if (!existsSync(regPath)) {
-        return toolError(
-          new KotikitError(
-            "No registry yet.",
-            "Run sync_ds first to populate it."
-          )
-        );
+        return toolError(new KotikitError("No registry yet.", "Run sync_ds first to populate it."));
       }
 
       // 3. Open registry (write mode so initRegistryDb migration can run if needed; it's idempotent)
@@ -217,13 +220,9 @@ function registerScaffoldStart(registry: ToolRegistry, ctx: ToolContext): void {
       });
       if (!envReport.ok) {
         const hint =
-          "Install the missing tools:" +
-          envReport.missing.map((m) => `\n  • ${m.hint}`).join("");
+          "Install the missing tools:" + envReport.missing.map((m) => `\n  • ${m.hint}`).join("");
         return toolError(
-          new KotikitError(
-            "Some required gate tools aren't installed in your project.",
-            hint
-          )
+          new KotikitError("Some required gate tools aren't installed in your project.", hint)
         );
       }
 
@@ -243,7 +242,10 @@ function registerScaffoldStart(registry: ToolRegistry, ctx: ToolContext): void {
       const components: ComponentOutput[] = [];
 
       for (const { json } of entries) {
-        const result = scaffoldComponent({ json, hasStorybook: hasSb }, config.project.codeComponentsDir);
+        const result = scaffoldComponent(
+          { json, hasStorybook: hasSb },
+          config.project.codeComponentsDir
+        );
         const kebabName = result.kebabName;
 
         // Paths are relative (e.g. "src/components/ui/button.tsx")

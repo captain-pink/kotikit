@@ -1,16 +1,32 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdirSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import {
-  configPath, screenSpecPath,
-  singleSpecPath, findProjectRoot,
-  designSystemDir, componentsDbPath, iconsDbPath,
-  variablesJsonPath, manifestPath, componentJsonPath,
-  checkpointPath, syncReportPath,
-  codePlanPath, registryDbPath, codeComponentDir, codeComponentFile,
-  uiDir, uiComponentFile, uiStoryFile,
-  designPlanPath, designApplyLogPath, designNodeMapPath, designReviewDbPath, bridgeConfigPath,
+  bridgeConfigPath,
+  checkpointPath,
+  codeComponentDir,
+  codeComponentFile,
+  codePlanPath,
+  componentJsonPath,
+  componentsDbPath,
+  configPath,
+  designApplyLogPath,
+  designNodeMapPath,
+  designPlanPath,
+  designReviewDbPath,
+  designSystemDir,
+  findProjectRoot,
+  iconsDbPath,
+  manifestPath,
+  registryDbPath,
+  screenSpecPath,
+  singleSpecPath,
+  syncReportPath,
+  uiComponentFile,
+  uiDir,
+  uiStoryFile,
+  variablesJsonPath,
 } from "./paths";
 
 let tmp: string;
@@ -97,27 +113,19 @@ describe("paths", () => {
     });
 
     it("componentsDbPath returns root/design-system/components.db", () => {
-      expect(componentsDbPath("/tmp/proj")).toBe(
-        "/tmp/proj/design-system/components.db"
-      );
+      expect(componentsDbPath("/tmp/proj")).toBe("/tmp/proj/design-system/components.db");
     });
 
     it("iconsDbPath returns root/design-system/icons.db", () => {
-      expect(iconsDbPath("/tmp/proj")).toBe(
-        "/tmp/proj/design-system/icons.db"
-      );
+      expect(iconsDbPath("/tmp/proj")).toBe("/tmp/proj/design-system/icons.db");
     });
 
     it("variablesJsonPath returns root/design-system/variables.json", () => {
-      expect(variablesJsonPath("/tmp/proj")).toBe(
-        "/tmp/proj/design-system/variables.json"
-      );
+      expect(variablesJsonPath("/tmp/proj")).toBe("/tmp/proj/design-system/variables.json");
     });
 
     it("manifestPath returns root/design-system/manifest.json", () => {
-      expect(manifestPath("/tmp/proj")).toBe(
-        "/tmp/proj/design-system/manifest.json"
-      );
+      expect(manifestPath("/tmp/proj")).toBe("/tmp/proj/design-system/manifest.json");
     });
 
     it("componentJsonPath returns root/design-system/components/<slug>.json", () => {
@@ -130,15 +138,11 @@ describe("paths", () => {
     });
 
     it("checkpointPath returns root/design-system/.sync-checkpoint.json", () => {
-      expect(checkpointPath("/tmp/proj")).toBe(
-        "/tmp/proj/design-system/.sync-checkpoint.json"
-      );
+      expect(checkpointPath("/tmp/proj")).toBe("/tmp/proj/design-system/.sync-checkpoint.json");
     });
 
     it("syncReportPath returns root/design-system/.sync-report.json", () => {
-      expect(syncReportPath("/tmp/proj")).toBe(
-        "/tmp/proj/design-system/.sync-report.json"
-      );
+      expect(syncReportPath("/tmp/proj")).toBe("/tmp/proj/design-system/.sync-report.json");
     });
   });
 
@@ -156,9 +160,7 @@ describe("paths", () => {
     });
 
     it("registryDbPath returns .kotikit/registry.db", () => {
-      expect(registryDbPath("/tmp/proj")).toBe(
-        "/tmp/proj/.kotikit/registry.db"
-      );
+      expect(registryDbPath("/tmp/proj")).toBe("/tmp/proj/.kotikit/registry.db");
     });
 
     it("codeComponentDir returns <root>/<codeComponentsDir>/<scope>", () => {
@@ -168,9 +170,9 @@ describe("paths", () => {
     });
 
     it("codeComponentFile returns full path to component file", () => {
-      expect(
-        codeComponentFile("/tmp/proj", "src/components", "checkout-flow", "Cart.tsx")
-      ).toBe("/tmp/proj/src/components/checkout-flow/Cart.tsx");
+      expect(codeComponentFile("/tmp/proj", "src/components", "checkout-flow", "Cart.tsx")).toBe(
+        "/tmp/proj/src/components/checkout-flow/Cart.tsx"
+      );
     });
   });
 

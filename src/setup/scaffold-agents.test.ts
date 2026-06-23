@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -97,9 +97,15 @@ describe("scaffoldAgents", () => {
     });
 
     const config = readJson(join(targetRoot, ".mcp.json")) as {
-      mcpServers: Record<string, { command: string; args: string[]; type?: string; timeout?: number }>;
+      mcpServers: Record<
+        string,
+        { command: string; args: string[]; type?: string; timeout?: number }
+      >;
     };
-    const installedSkill = readFileSync(join(targetRoot, ".claude", "skills", "kotikit-auto", "SKILL.md"), "utf8");
+    const installedSkill = readFileSync(
+      join(targetRoot, ".claude", "skills", "kotikit-auto", "SKILL.md"),
+      "utf8"
+    );
     const installedReviewSkill = readFileSync(
       join(targetRoot, ".claude", "skills", "kotikit-design-review", "SKILL.md"),
       "utf8"
@@ -115,15 +121,19 @@ describe("scaffoldAgents", () => {
     expect(installedReviewSkill).toBe(currentKotikitSkill("kotikit-design-review"));
     expect(installedSkill).toContain("Use this self-contained skill");
     expect(result.written).toContain(join(targetRoot, ".mcp.json"));
-    expect(result.written).toContain(join(targetRoot, ".claude", "skills", "kotikit-auto", "SKILL.md"));
-    expect(result.written).toContain(join(targetRoot, ".claude", "skills", "kotikit-design-review", "SKILL.md"));
+    expect(result.written).toContain(
+      join(targetRoot, ".claude", "skills", "kotikit-auto", "SKILL.md")
+    );
+    expect(result.written).toContain(
+      join(targetRoot, ".claude", "skills", "kotikit-design-review", "SKILL.md")
+    );
     expect(result.notes.join("\n")).toContain("Claude Code project MCP config");
   });
 
   it("leaves legacy .claude/mcp.json untouched and notes the current Claude path", async () => {
     const legacyPath = join(targetRoot, ".claude", "mcp.json");
     mkdirSync(join(targetRoot, ".claude"), { recursive: true });
-    writeFileSync(legacyPath, "{\"mcpServers\":{\"old\":{\"command\":\"node\"}}}\n");
+    writeFileSync(legacyPath, '{"mcpServers":{"old":{"command":"node"}}}\n');
 
     const result = await scaffoldAgents({
       targetRoot,
@@ -131,8 +141,8 @@ describe("scaffoldAgents", () => {
       agents: ["claude"],
     });
 
-    expect(readFileSync(legacyPath, "utf8")).toBe("{\"mcpServers\":{\"old\":{\"command\":\"node\"}}}\n");
-    expect(readFileSync(join(targetRoot, ".mcp.json"), "utf8")).toContain("\"kotikit\"");
+    expect(readFileSync(legacyPath, "utf8")).toBe('{"mcpServers":{"old":{"command":"node"}}}\n');
+    expect(readFileSync(join(targetRoot, ".mcp.json"), "utf8")).toContain('"kotikit"');
     expect(result.notes.join("\n")).toContain("legacy Claude config");
   });
 
@@ -168,7 +178,9 @@ describe("scaffoldAgents", () => {
 
     expect(readFileSync(skillPath, "utf8")).toBe(localSkill);
     expect(result.skipped).toContain(skillPath);
-    expect(result.notes.join("\n")).toContain("Skipped existing Claude Code skill with local changes");
+    expect(result.notes.join("\n")).toContain(
+      "Skipped existing Claude Code skill with local changes"
+    );
   });
 
   it("writes Codex config, installs the Codex skill, and creates a Figma token placeholder", async () => {
@@ -180,10 +192,15 @@ describe("scaffoldAgents", () => {
 
     const codexConfig = readFileSync(join(targetRoot, ".codex", "config.toml"), "utf8");
     expect(codexConfig).toContain("[mcp_servers.kotikit]");
-    expect(codexConfig).toContain(`args = ["run", "${join(kotikitRoot, "src", "mcp", "server.ts")}"]`);
+    expect(codexConfig).toContain(
+      `args = ["run", "${join(kotikitRoot, "src", "mcp", "server.ts")}"]`
+    );
     expect(codexConfig).toContain(`cwd = "${targetRoot}"`);
     expect(codexConfig).toContain("tool_timeout_sec = 900");
-    const installedSkill = readFileSync(join(targetRoot, ".agents", "skills", "kotikit-auto", "SKILL.md"), "utf8");
+    const installedSkill = readFileSync(
+      join(targetRoot, ".agents", "skills", "kotikit-auto", "SKILL.md"),
+      "utf8"
+    );
     const installedReviewSkill = readFileSync(
       join(targetRoot, ".agents", "skills", "kotikit-design-review", "SKILL.md"),
       "utf8"
@@ -198,7 +215,10 @@ describe("scaffoldAgents", () => {
   it("replaces an outdated scaffolded Codex skill that points at missing docs", async () => {
     const skillPath = join(targetRoot, ".agents", "skills", "kotikit-auto", "SKILL.md");
     mkdirSync(join(targetRoot, ".agents", "skills", "kotikit-auto"), { recursive: true });
-    writeFileSync(skillPath, "Before acting, read `../../../docs/agent_workflow.md` when available.\n");
+    writeFileSync(
+      skillPath,
+      "Before acting, read `../../../docs/agent_workflow.md` when available.\n"
+    );
 
     const result = await scaffoldAgents({
       targetRoot,
@@ -218,18 +238,18 @@ describe("scaffoldAgents", () => {
     writeFileSync(
       join(targetRoot, ".codex", "config.toml"),
       [
-        "model = \"gpt-5\"",
+        'model = "gpt-5"',
         "",
         "[mcp_servers.other]",
-        "command = \"node\"",
+        'command = "node"',
         "",
         "[mcp_servers.kotikit]",
-        "command = \"old\"",
-        "args = [\"old\"]",
+        'command = "old"',
+        'args = ["old"]',
         "tool_timeout_sec = 120",
         "",
         "[profiles.work]",
-        "model = \"gpt-5-codex\"",
+        'model = "gpt-5-codex"',
         "",
       ].join("\n")
     );
@@ -241,10 +261,10 @@ describe("scaffoldAgents", () => {
     });
 
     const codexConfig = readFileSync(join(targetRoot, ".codex", "config.toml"), "utf8");
-    expect(codexConfig).toContain("model = \"gpt-5\"");
+    expect(codexConfig).toContain('model = "gpt-5"');
     expect(codexConfig).toContain("[mcp_servers.other]");
     expect(codexConfig).toContain("[profiles.work]");
-    expect(codexConfig).not.toContain("command = \"old\"");
+    expect(codexConfig).not.toContain('command = "old"');
     expect(codexConfig).not.toContain("tool_timeout_sec = 120");
     expect(codexConfig).toContain("tool_timeout_sec = 900");
     expect(codexConfig).toContain(`cwd = "${targetRoot}"`);

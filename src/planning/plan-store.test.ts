@@ -1,13 +1,13 @@
-import { describe, it, expect, afterAll } from "bun:test";
+import { afterAll, describe, expect, it } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { writeCodePlan, readCodePlan, deleteCodePlan } from "./plan-store.js";
-import { codePlanPath } from "../util/paths.js";
-import { generateCodePlan } from "./code-planner.js";
 import { defaultConfig } from "../config/schema.js";
 import { newScreenSpec } from "../spec/schema.js";
+import { codePlanPath } from "../util/paths.js";
 import { KotikitError } from "../util/result.js";
+import { generateCodePlan } from "./code-planner.js";
+import { deleteCodePlan, readCodePlan, writeCodePlan } from "./plan-store.js";
 
 const tmpDirs: string[] = [];
 function mkTmp(): string {
@@ -52,9 +52,7 @@ describe("plan store", () => {
     await writeCodePlan(root, "checkout-flow", "cart", plan);
     const path = codePlanPath(root, "checkout-flow", "cart");
     writeFileSync(path, "not valid json{{{");
-    await expect(
-      readCodePlan(root, "checkout-flow", "cart")
-    ).rejects.toBeInstanceOf(KotikitError);
+    await expect(readCodePlan(root, "checkout-flow", "cart")).rejects.toBeInstanceOf(KotikitError);
   });
 
   it("readCodePlan throws KotikitError on schema mismatch", async () => {
@@ -63,9 +61,7 @@ describe("plan store", () => {
     await writeCodePlan(root, "checkout-flow", "cart", plan);
     const path = codePlanPath(root, "checkout-flow", "cart");
     writeFileSync(path, JSON.stringify({ version: 999, files: [] }));
-    await expect(
-      readCodePlan(root, "checkout-flow", "cart")
-    ).rejects.toBeInstanceOf(KotikitError);
+    await expect(readCodePlan(root, "checkout-flow", "cart")).rejects.toBeInstanceOf(KotikitError);
   });
 
   it("deleteCodePlan removes the file", async () => {

@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "fs";
-import { join } from "path";
 import { tmpdir } from "os";
+import { join } from "path";
 import { KotikitError } from "../../util/result.js";
 import {
+  type CommandResult,
   patchPluginManifestAllowedDomains,
   preparePluginBuild,
-  type CommandResult,
 } from "./plugin-preflight.js";
 
 const roots: string[] = [];
@@ -30,7 +30,7 @@ const seedPluginSources = (root: string): void => {
   writeText(join(root, "package.json"), JSON.stringify({ scripts: { build: "vite build" } }));
   writeText(join(root, "bun.lock"), "");
   writeText(join(root, "code.ts"), "figma.showUI(__html__);");
-  writeText(join(root, "ui/index.html"), "<div id=\"root\"></div>");
+  writeText(join(root, "ui/index.html"), '<div id="root"></div>');
   writeText(join(root, "ui/main.tsx"), "console.log('ui');");
 };
 
@@ -53,18 +53,22 @@ describe("patchPluginManifestAllowedDomains", () => {
     const root = makePluginRoot();
     writeText(
       join(root, "manifest.json"),
-      JSON.stringify({
-        name: "kotikit",
-        networkAccess: {
-          allowedDomains: [
-            "http://localhost:*",
-            "ws://localhost:*",
-            "https://localhost:*",
-            "https://api.example.com",
-          ],
-          reasoning: "Connects locally.",
+      JSON.stringify(
+        {
+          name: "kotikit",
+          networkAccess: {
+            allowedDomains: [
+              "http://localhost:*",
+              "ws://localhost:*",
+              "https://localhost:*",
+              "https://api.example.com",
+            ],
+            reasoning: "Connects locally.",
+          },
         },
-      }, null, 2)
+        null,
+        2
+      )
     );
 
     const domains = await patchPluginManifestAllowedDomains(root, 53125);
@@ -102,13 +106,8 @@ describe("preparePluginBuild", () => {
 
     const old = new Date("2026-01-01T00:00:00.000Z");
     const fresh = new Date("2026-01-02T00:00:00.000Z");
-    for (const path of [
-      "package.json",
-      "bun.lock",
-      "code.ts",
-      "ui/index.html",
-      "ui/main.tsx",
-    ]) touch(join(root, path), old);
+    for (const path of ["package.json", "bun.lock", "code.ts", "ui/index.html", "ui/main.tsx"])
+      touch(join(root, path), old);
     touch(join(root, "dist/code.js"), fresh);
     touch(join(root, "dist/ui.html"), fresh);
     touch(join(root, "node_modules"), fresh);

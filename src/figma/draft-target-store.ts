@@ -1,12 +1,14 @@
-import { readFlowManifest, readScreenSpec, writeFlowManifest, writeScreenSpec } from "../spec/engine.js";
+import {
+  readFlowManifest,
+  readScreenSpec,
+  writeFlowManifest,
+  writeScreenSpec,
+} from "../spec/engine.js";
 import type { FlowManifest, ScreenSpec } from "../spec/schema.js";
 import { nowIso } from "../util/ids.js";
 import type { FigmaDraftTarget } from "./draft-target.js";
 
-const tryReadFlowManifest = async (
-  root: string,
-  scope: string
-): Promise<FlowManifest | null> => {
+const tryReadFlowManifest = async (root: string, scope: string): Promise<FlowManifest | null> => {
   try {
     return await readFlowManifest(root, scope);
   } catch {

@@ -1,15 +1,15 @@
 import { existsSync } from "fs";
-import type { Config } from "../config/schema.js";
-import { loadConfig } from "../config/load.js";
-import { isGitRepo as defaultIsGitRepo } from "../git/auto-commit.js";
-import { verifyGateEnvironment } from "../codegen/environment.js";
 import type { EnvironmentReport } from "../codegen/environment.js";
+import { verifyGateEnvironment } from "../codegen/environment.js";
 import { reactAdapter } from "../codegen/react/adapter.js";
-import { resolveFigmaToken } from "../sync/figma-token.js";
-import { hasCheckpoint } from "../sync/checkpoint.js";
+import { loadConfig } from "../config/load.js";
+import type { Config } from "../config/schema.js";
+import { isGitRepo as defaultIsGitRepo } from "../git/auto-commit.js";
 import { readBridgeConfig } from "../mcp/bridge/token.js";
-import { inspectProjectSchemaVersions } from "../migrations/schema-inventory.js";
 import { formatSchemaInventoryDetails } from "../migrations/dry-run.js";
+import { inspectProjectSchemaVersions } from "../migrations/schema-inventory.js";
+import { hasCheckpoint } from "../sync/checkpoint.js";
+import { resolveFigmaToken } from "../sync/figma-token.js";
 import {
   bridgeConfigPath,
   componentsDbPath,
@@ -39,10 +39,7 @@ export interface DoctorReport {
 export interface DoctorDeps {
   loadConfig?: (root: string) => Promise<Config | null>;
   isGitRepo?: (root: string) => Promise<boolean>;
-  verifyGates?: (input: {
-    root: string;
-    config: Config | null;
-  }) => Promise<EnvironmentReport>;
+  verifyGates?: (input: { root: string; config: Config | null }) => Promise<EnvironmentReport>;
 }
 
 const check = (input: DoctorCheck): DoctorCheck => input;
@@ -92,9 +89,10 @@ const schemaVersionCheck = async (root: string): Promise<DoctorCheck> => {
     id: "schema-versions",
     label: "Schema versions",
     status: "ok",
-    message: inventory.checked === 0
-      ? "No versioned kotikit files found yet."
-      : "Versioned kotikit files are current.",
+    message:
+      inventory.checked === 0
+        ? "No versioned kotikit files found yet."
+        : "Versioned kotikit files are current.",
   });
 };
 
@@ -117,20 +115,19 @@ const bridgeMessage = async (root: string): Promise<DoctorCheck> => {
   });
 };
 
-export async function runKotikitDoctor(
-  root: string,
-  deps: DoctorDeps = {}
-): Promise<DoctorReport> {
+export async function runKotikitDoctor(root: string, deps: DoctorDeps = {}): Promise<DoctorReport> {
   const loadProjectConfig = deps.loadConfig ?? loadConfig;
   const checkGit = deps.isGitRepo ?? defaultIsGitRepo;
-  const checkGates = deps.verifyGates ?? ((input) =>
-    input.config === null
-      ? Promise.resolve({ ok: true, missing: [] })
-      : verifyGateEnvironment({
-          root: input.root,
-          adapter: reactAdapter,
-          testFramework: input.config.project.testFramework,
-        }));
+  const checkGates =
+    deps.verifyGates ??
+    ((input) =>
+      input.config === null
+        ? Promise.resolve({ ok: true, missing: [] })
+        : verifyGateEnvironment({
+            root: input.root,
+            adapter: reactAdapter,
+            testFramework: input.config.project.testFramework,
+          }));
 
   const checks: DoctorCheck[] = [
     check({
@@ -146,99 +143,119 @@ export async function runKotikitDoctor(
   try {
     config = await loadProjectConfig(root);
     if (config === null) {
-      checks.push(check({
+      checks.push(
+        check({
+          id: "config",
+          label: "Config",
+          status: "error",
+          message: "Kotikit is not initialized in this project.",
+          hint: `Missing ${configPath(root)}.`,
+        })
+      );
+      nextSteps.push("Run kotikit_config_init before syncing or generating designs.");
+    } else {
+      checks.push(
+        check({
+          id: "config",
+          label: "Config",
+          status: "ok",
+          message: `${config.figma.designSystemFiles.length} design-system file(s) configured.`,
+        })
+      );
+    }
+  } catch (err) {
+    checks.push(
+      check({
         id: "config",
         label: "Config",
         status: "error",
-        message: "Kotikit is not initialized in this project.",
-        hint: `Missing ${configPath(root)}.`,
-      }));
-      nextSteps.push("Run kotikit_config_init before syncing or generating designs.");
-    } else {
-      checks.push(check({
-        id: "config",
-        label: "Config",
-        status: "ok",
-        message: `${config.figma.designSystemFiles.length} design-system file(s) configured.`,
-      }));
-    }
-  } catch (err) {
-    checks.push(check({
-      id: "config",
-      label: "Config",
-      status: "error",
-      message: err instanceof Error ? err.message : "The kotikit config could not be parsed.",
-      hint: `Fix ${configPath(root)} or re-run kotikit_config_init.`,
-    }));
+        message: err instanceof Error ? err.message : "The kotikit config could not be parsed.",
+        hint: `Fix ${configPath(root)} or re-run kotikit_config_init.`,
+      })
+    );
     nextSteps.push("Fix the kotikit config before running other tools.");
   }
 
   const gitRepo = await checkGit(root);
-  checks.push(check({
-    id: "git",
-    label: "Git",
-    status: gitRepo ? "ok" : "warn",
-    message: gitRepo
-      ? "Project is inside a git repository."
-      : "Project is not inside a git repository; auto-commits will be skipped.",
-    hint: gitRepo ? undefined : "Run git init if you want kotikit auto-commit support.",
-  }));
+  checks.push(
+    check({
+      id: "git",
+      label: "Git",
+      status: gitRepo ? "ok" : "warn",
+      message: gitRepo
+        ? "Project is inside a git repository."
+        : "Project is not inside a git repository; auto-commits will be skipped.",
+      hint: gitRepo ? undefined : "Run git init if you want kotikit auto-commit support.",
+    })
+  );
 
   checks.push(await schemaVersionCheck(root));
 
   const token = await resolveFigmaToken(root, config);
   const figmaFiles = config?.figma.designSystemFiles.length ?? 0;
-  checks.push(check({
-    id: "figma-token",
-    label: "Figma token",
-    status: token && token.length > 0 ? "ok" : figmaFiles > 0 ? "error" : "warn",
-    message: token && token.length > 0
-      ? "Figma token resolved without exposing its value."
-      : figmaFiles > 0
-        ? "A design system is configured, but FIGMA_TOKEN could not be resolved."
-        : "No Figma token resolved yet.",
-    hint: token && token.length > 0
-      ? undefined
-      : "Set FIGMA_TOKEN in the project .env file or set figma.token in .kotikit/config.json.",
-  }));
+  checks.push(
+    check({
+      id: "figma-token",
+      label: "Figma token",
+      status: token && token.length > 0 ? "ok" : figmaFiles > 0 ? "error" : "warn",
+      message:
+        token && token.length > 0
+          ? "Figma token resolved without exposing its value."
+          : figmaFiles > 0
+            ? "A design system is configured, but FIGMA_TOKEN could not be resolved."
+            : "No Figma token resolved yet.",
+      hint:
+        token && token.length > 0
+          ? undefined
+          : "Set FIGMA_TOKEN in the project .env file or set figma.token in .kotikit/config.json.",
+    })
+  );
 
-  checks.push(check({
-    id: "design-system",
-    label: "Design system",
-    status: designSystemArtifactsPresent(root) ? "ok" : figmaFiles > 0 ? "warn" : "warn",
-    message: designSystemArtifactsPresent(root)
-      ? "Local design-system databases and manifest exist."
-      : figmaFiles > 0
-        ? "Design-system files are configured, but local DB/manifest artifacts are missing."
-        : "No design-system files are configured.",
-    hint: designSystemArtifactsPresent(root)
-      ? undefined
-      : figmaFiles > 0
-        ? "Run kotikit_sync_ds to build the local design-system index."
-        : "Connect a Figma design system with kotikit_config_init when design-system reuse is needed.",
-  }));
+  checks.push(
+    check({
+      id: "design-system",
+      label: "Design system",
+      status: designSystemArtifactsPresent(root) ? "ok" : figmaFiles > 0 ? "warn" : "warn",
+      message: designSystemArtifactsPresent(root)
+        ? "Local design-system databases and manifest exist."
+        : figmaFiles > 0
+          ? "Design-system files are configured, but local DB/manifest artifacts are missing."
+          : "No design-system files are configured.",
+      hint: designSystemArtifactsPresent(root)
+        ? undefined
+        : figmaFiles > 0
+          ? "Run kotikit_sync_ds to build the local design-system index."
+          : "Connect a Figma design system with kotikit_config_init when design-system reuse is needed.",
+    })
+  );
 
   const checkpointExists = await hasCheckpoint(root);
-  checks.push(check({
-    id: "sync-checkpoint",
-    label: "Sync checkpoint",
-    status: checkpointExists ? "warn" : "ok",
-    message: checkpointExists
-      ? "A resumable design-system sync checkpoint exists."
-      : "No resumable sync checkpoint is present.",
-    hint: checkpointExists ? "Run kotikit_sync_ds again to resume, or inspect design-system/.sync-checkpoint.json." : undefined,
-  }));
+  checks.push(
+    check({
+      id: "sync-checkpoint",
+      label: "Sync checkpoint",
+      status: checkpointExists ? "warn" : "ok",
+      message: checkpointExists
+        ? "A resumable design-system sync checkpoint exists."
+        : "No resumable sync checkpoint is present.",
+      hint: checkpointExists
+        ? "Run kotikit_sync_ds again to resume, or inspect design-system/.sync-checkpoint.json."
+        : undefined,
+    })
+  );
 
   const gateReport = await checkGates({ root, config });
-  checks.push(check({
-    id: "gates",
-    label: "Code gates",
-    status: gateReport.ok ? "ok" : "warn",
-    message: gateReport.ok
-      ? "Configured code gates are available."
-      : `${gateReport.missing.length} configured code gate(s) are missing.`,
-    hint: gateHint(gateReport),
-  }));
+  checks.push(
+    check({
+      id: "gates",
+      label: "Code gates",
+      status: gateReport.ok ? "ok" : "warn",
+      message: gateReport.ok
+        ? "Configured code gates are available."
+        : `${gateReport.missing.length} configured code gate(s) are missing.`,
+      hint: gateHint(gateReport),
+    })
+  );
 
   checks.push(await bridgeMessage(root));
 

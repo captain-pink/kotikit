@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { slugifyComponentName } from "../util/ids.js";
-import { nowIso } from "../util/ids.js";
+import { nowIso, slugifyComponentName } from "../util/ids.js";
 
 // ─── Output shape: ComponentJson (the on-disk per-component file) ────────────
 
@@ -11,14 +10,23 @@ export const ComponentJsonSchema = z.object({
   fileKey: z.string(),
   path: z.string(),
   description: z.string().optional(),
-  variants: z.array(z.object({
-    propertyName: z.string(),
-    values: z.array(z.string()),
-  })).default([]),
-  properties: z.record(z.string(), z.object({
-    type: z.enum(["BOOLEAN", "TEXT", "INSTANCE_SWAP", "VARIANT"]),
-    defaultValue: z.union([z.string(), z.boolean()]).optional(),
-  })).default({}),
+  variants: z
+    .array(
+      z.object({
+        propertyName: z.string(),
+        values: z.array(z.string()),
+      })
+    )
+    .default([]),
+  properties: z
+    .record(
+      z.string(),
+      z.object({
+        type: z.enum(["BOOLEAN", "TEXT", "INSTANCE_SWAP", "VARIANT"]),
+        defaultValue: z.union([z.string(), z.boolean()]).optional(),
+      })
+    )
+    .default({}),
   defaultKey: z.string().optional(),
   thumbnailUrl: z.string().optional(),
   updatedAt: z.string(),
@@ -89,9 +97,7 @@ export function buildComponentJson(input: {
 
   // Property definitions: prefer component set, then node details.
   const propDefs =
-    componentSet?.componentPropertyDefinitions ??
-    nodeDetails?.componentPropertyDefinitions ??
-    {};
+    componentSet?.componentPropertyDefinitions ?? nodeDetails?.componentPropertyDefinitions ?? {};
 
   // Split into variants (VARIANT type) and properties (everything else).
   const variants: ComponentJson["variants"] = [];

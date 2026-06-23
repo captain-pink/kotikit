@@ -1,9 +1,9 @@
-import { describe, expect, it, afterEach } from "bun:test";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from "fs";
+import { afterEach, describe, expect, it } from "bun:test";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { defaultConfig } from "../config/schema.js";
 import { writeConfig } from "../config/load.js";
+import { defaultConfig } from "../config/schema.js";
 import { newScreenSpec } from "../spec/schema.js";
 import { formatMigrationDryRunReport, runMigrationDryRun } from "./dry-run.js";
 

@@ -17,8 +17,7 @@ export function vitestScaffold(input: {
 }): string {
   const { componentName, acceptanceCriteria, importPath } = input;
 
-  const escapeStr = (s: string): string =>
-    s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  const escapeStr = (s: string): string => s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 
   const lines: string[] = [
     `import { describe, it, expect } from "vitest";`,

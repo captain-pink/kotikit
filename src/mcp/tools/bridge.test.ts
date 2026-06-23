@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import type { BridgeManager } from "../bridge/manager.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
-import type { BridgeManager } from "../bridge/manager.js";
 import { registerBridgeTools } from "./bridge.js";
 
 const makeRegistry = (): ToolRegistry => ({ tools: [] as Tool[], handlers: new Map() });
@@ -57,7 +57,11 @@ function makeBridgeManager(): BridgeManager {
 describe("bridge tools", () => {
   it("registers start, stop, and status tools", () => {
     const registry = makeRegistry();
-    const ctx: ToolContext = { root: "/tmp/project", loadConfig: async () => null, bridge: makeBridgeManager() };
+    const ctx: ToolContext = {
+      root: "/tmp/project",
+      loadConfig: async () => null,
+      bridge: makeBridgeManager(),
+    };
 
     registerBridgeTools(registry, ctx);
 
@@ -70,7 +74,11 @@ describe("bridge tools", () => {
 
   it("starts the bridge and returns the plugin URL", async () => {
     const registry = makeRegistry();
-    const ctx: ToolContext = { root: "/tmp/project", loadConfig: async () => null, bridge: makeBridgeManager() };
+    const ctx: ToolContext = {
+      root: "/tmp/project",
+      loadConfig: async () => null,
+      bridge: makeBridgeManager(),
+    };
     registerBridgeTools(registry, ctx);
 
     const result = await callTool(registry, "kotikit_bridge_start", {});

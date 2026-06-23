@@ -2,11 +2,11 @@ import type { Database } from "bun:sqlite";
 import { buildNameTokens } from "./camel-tokens.js";
 
 export interface ComponentRow {
-  name: string;         // "Button"
-  path: string;         // "components/button.json"  (relative to design-system/)
-  key: string;          // Figma component-set key
-  fileKey: string;      // source Figma file key
-  props: string;        // space-separated property names ("Variant State Size Icon")
+  name: string; // "Button"
+  path: string; // "components/button.json"  (relative to design-system/)
+  key: string; // Figma component-set key
+  fileKey: string; // source Figma file key
+  props: string; // space-separated property names ("Variant State Size Icon")
 }
 
 export interface ComponentSearchResult {
@@ -51,14 +51,7 @@ export function upsertComponent(db: Database, row: ComponentRow): void {
   db.prepare(`
     INSERT INTO components (name, name_tokens, path, key, file_key, props)
     VALUES (?, ?, ?, ?, ?, ?)
-  `).run(
-    row.name,
-    buildNameTokens(row.name),
-    row.path,
-    row.key,
-    row.fileKey,
-    row.props
-  );
+  `).run(row.name, buildNameTokens(row.name), row.path, row.key, row.fileKey, row.props);
 }
 
 /**
@@ -71,12 +64,14 @@ export function searchComponents(
   queryTerm: string,
   limit: number = 25
 ): ComponentSearchResult[] {
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(`
     SELECT name, path, key, file_key as fileKey
     FROM components
     WHERE components MATCH ?
     ORDER BY rank
     LIMIT ?
-  `).all(queryTerm, limit) as ComponentSearchResult[];
+  `)
+    .all(queryTerm, limit) as ComponentSearchResult[];
   return rows;
 }

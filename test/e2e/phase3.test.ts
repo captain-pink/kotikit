@@ -1,27 +1,24 @@
-import { describe, it, expect, afterAll } from "bun:test";
-import { rm, readFile } from "fs/promises";
+import { afterAll, describe, expect, it } from "bun:test";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { existsSync, mkdirSync, writeFileSync } from "fs";
+import { readFile, rm } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
 import simpleGit from "simple-git";
-
-import { registerSpecTools } from "../../src/mcp/tools/spec.js";
-import { registerConfigTools } from "../../src/mcp/tools/config.js";
-import { registerFlowTools } from "../../src/mcp/tools/flow.js";
-import { registerBrainstormTools } from "../../src/mcp/tools/brainstorm.js";
-import { registerPlanCodeTools } from "../../src/mcp/tools/plan-code.js";
-import { registerImplementCodeTools } from "../../src/mcp/tools/implement-code.js";
-import { registerRegistryTools } from "../../src/mcp/tools/registry.js";
-
+import type { GateRunReport } from "../../src/codegen/gate-output.js";
+import type { runGates as defaultRunGates } from "../../src/codegen/gate-runner.js";
 import { loadConfig } from "../../src/config/load.js";
 import type { ToolContext } from "../../src/mcp/context.js";
 import type { ToolRegistry } from "../../src/mcp/server.js";
-import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import type { GateRunReport } from "../../src/codegen/gate-output.js";
-import type { runGates as defaultRunGates } from "../../src/codegen/gate-runner.js";
-
-import { ScreenSpecSchema } from "../../src/spec/schema.js";
+import { registerBrainstormTools } from "../../src/mcp/tools/brainstorm.js";
+import { registerConfigTools } from "../../src/mcp/tools/config.js";
+import { registerFlowTools } from "../../src/mcp/tools/flow.js";
+import { registerImplementCodeTools } from "../../src/mcp/tools/implement-code.js";
+import { registerPlanCodeTools } from "../../src/mcp/tools/plan-code.js";
+import { registerRegistryTools } from "../../src/mcp/tools/registry.js";
+import { registerSpecTools } from "../../src/mcp/tools/spec.js";
 import { CodePlanSchema } from "../../src/planning/code-plan-schema.js";
+import { ScreenSpecSchema } from "../../src/spec/schema.js";
 import { codePlanPath, registryDbPath } from "../../src/util/paths.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -41,10 +38,7 @@ afterAll(async () => {
 type McpContent = { type: "text"; text: string };
 type ToolResult = { content: McpContent[]; isError?: boolean };
 
-function buildPhase3Registry(
-  root: string,
-  gateRunner?: typeof defaultRunGates
-): ToolRegistry {
+function buildPhase3Registry(root: string, gateRunner?: typeof defaultRunGates): ToolRegistry {
   const tools: Tool[] = [];
   const handlers = new Map<string, (args: unknown) => Promise<ToolResult>>();
   const registry: ToolRegistry = { tools, handlers };
@@ -117,9 +111,7 @@ function makeFailReport(
       exitCode: g === failingGate ? 1 : 0,
       durationMs: 25,
       failures:
-        g === failingGate
-          ? [{ file: "x.tsx", line: 1, column: 1, message: "stub fail" }]
-          : [],
+        g === failingGate ? [{ file: "x.tsx", line: 1, column: 1, message: "stub fail" }] : [],
       raw: "",
     })),
   };
@@ -155,9 +147,7 @@ describe("Phase 3 E2E — happy path", () => {
     const planResult = await callTool(registry, "kotikit_plan_code", { scope: "profile-page" });
     expect(planResult.isError).toBeFalsy();
     expect(existsSync(codePlanPath(root, "profile-page", null))).toBe(true);
-    const planJson = JSON.parse(
-      await readFile(codePlanPath(root, "profile-page", null), "utf-8")
-    );
+    const planJson = JSON.parse(await readFile(codePlanPath(root, "profile-page", null), "utf-8"));
     const plan = CodePlanSchema.parse(planJson);
     expect(plan.componentName).toBe("ProfilePage");
     expect(plan.targetPath).toBe("src/components/profile-page/ProfilePage.tsx");
@@ -308,7 +298,7 @@ describe("Phase 3 E2E — missing gates", () => {
     await git.addConfig("user.name", "Test Runner");
     // INTENTIONALLY do not seed binaries.
 
-    let registry = buildPhase3Registry(tmp);
+    const registry = buildPhase3Registry(tmp);
     await callTool(registry, "kotikit_config_init", { tests: true, autoCommit: true });
     const draft = {
       scope: "profile-page",

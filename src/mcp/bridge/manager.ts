@@ -1,20 +1,20 @@
 import { basename } from "path";
-import type { ToolRegistry } from "../server.js";
 import { nowIso } from "../../util/ids.js";
+import type { ToolRegistry } from "../server.js";
 import {
+  defaultPluginRoot,
+  type PreparePluginBuildResult,
+  patchPluginManifestAllowedDomains,
+  preparePluginBuild,
+} from "./plugin-preflight.js";
+import { type BridgeOpts, type BridgeServer, startBridgeServer } from "./server.js";
+import {
+  type BridgeConfig,
   clearBridgeConfig,
   generateBridgeToken,
   readBridgeConfig,
   writeBridgeConfig,
-  type BridgeConfig,
 } from "./token.js";
-import { startBridgeServer, type BridgeServer, type BridgeOpts } from "./server.js";
-import {
-  defaultPluginRoot,
-  patchPluginManifestAllowedDomains,
-  preparePluginBuild,
-  type PreparePluginBuildResult,
-} from "./plugin-preflight.js";
 
 export interface BridgeStatus {
   running: boolean;
@@ -140,7 +140,9 @@ export function createBridgeManager(input: CreateBridgeManagerInput): BridgeMana
         return statusForActive(active);
       }
 
-      throw new Error(`Could not bind bridge: ports ${preferredPort}-${preferredPort + portRange - 1} all in use.`);
+      throw new Error(
+        `Could not bind bridge: ports ${preferredPort}-${preferredPort + portRange - 1} all in use.`
+      );
     },
 
     async stop(): Promise<BridgeStopResult> {

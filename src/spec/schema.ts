@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { uuid, nowIso } from "../util/ids";
 import { FigmaDraftTargetSchema } from "../figma/draft-target.js";
+import { nowIso, uuid } from "../util/ids";
 
 export const SCREEN_SPEC_SCHEMA_VERSION = 3;
 export const FLOW_MANIFEST_SCHEMA_VERSION = 3;
@@ -85,14 +85,10 @@ export const ScreenSpecSchema = z.object({
   requirements: z.object({
     functional: z.array(z.string()).default([]),
     states: z.record(z.string(), z.string()),
-    responsive: InheritOr(
-      z.object({ breakpoints: z.array(z.number().int().positive()) })
-    ),
+    responsive: InheritOr(z.object({ breakpoints: z.array(z.number().int().positive()) })),
     themes: InheritOr(z.object({ themes: z.array(z.string()) })),
   }),
-  components: z
-    .array(ScreenComponentSchema)
-    .default([]),
+  components: z.array(ScreenComponentSchema).default([]),
   acceptanceCriteria: z.array(z.string()).default([]),
   metadata: z.object({
     createdAt: z.string(),
@@ -204,9 +200,7 @@ export function newFlowManifest(input: {
 export function parseScreenSpec(raw: unknown): ScreenSpec {
   const result = ScreenSpecSchema.safeParse(raw);
   if (!result.success) {
-    const fields = result.error.issues
-      .map((i) => i.path.join(".") || "root")
-      .join(", ");
+    const fields = result.error.issues.map((i) => i.path.join(".") || "root").join(", ");
     throw new Error(
       `This spec file has an invalid format. Problem with: ${fields}. ` +
         `The file may have been edited manually and become malformed.`
@@ -218,9 +212,7 @@ export function parseScreenSpec(raw: unknown): ScreenSpec {
 export function parseFlowManifest(raw: unknown): FlowManifest {
   const result = FlowManifestSchema.safeParse(raw);
   if (!result.success) {
-    const fields = result.error.issues
-      .map((i) => i.path.join(".") || "root")
-      .join(", ");
+    const fields = result.error.issues.map((i) => i.path.join(".") || "root").join(", ");
     throw new Error(
       `This flow manifest has an invalid format. Problem with: ${fields}. ` +
         `The file may have been edited manually and become malformed.`

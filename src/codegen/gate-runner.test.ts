@@ -1,9 +1,9 @@
-import { describe, it, expect } from "bun:test";
-import { runGates, type SpawnFn } from "./gate-runner.js";
-import { reactAdapter } from "./react/adapter.js";
+import { describe, expect, it } from "bun:test";
 import { defaultConfig } from "../config/schema.js";
 import { newScreenSpec } from "../spec/schema.js";
 import type { AdapterContext } from "./adapter.js";
+import { runGates, type SpawnFn } from "./gate-runner.js";
+import { reactAdapter } from "./react/adapter.js";
 
 function makeCtx(): AdapterContext {
   return {
@@ -20,8 +20,7 @@ function makeStub(
 ): SpawnFn {
   return async (cmd) => {
     // Match by the tool name ("tsc", "eslint", "prettier", "vitest") — bunx --no-install <tool> ...
-    const tool =
-      cmd.find((c) => ["tsc", "eslint", "prettier", "vitest"].includes(c)) ?? cmd[0]!;
+    const tool = cmd.find((c) => ["tsc", "eslint", "prettier", "vitest"].includes(c)) ?? cmd[0]!;
     const r = responses[tool] ?? { exitCode: 1, stderr: "no fixture" };
     return {
       stdout: r.stdout ?? "",
@@ -99,8 +98,7 @@ describe("runGates", () => {
   it("tsc is invoked without file arguments; other gates receive the file list", async () => {
     const seen: Record<string, string[]> = {};
     const spawn: SpawnFn = async (cmd) => {
-      const tool =
-        cmd.find((c) => ["tsc", "eslint", "prettier", "vitest"].includes(c)) ?? "?";
+      const tool = cmd.find((c) => ["tsc", "eslint", "prettier", "vitest"].includes(c)) ?? "?";
       seen[tool] = cmd;
       return { stdout: "", stderr: "", exitCode: 0, timedOut: false };
     };
@@ -119,7 +117,10 @@ describe("runGates", () => {
 
   it("timeout: result has the timeout failure recorded", async () => {
     // A spawn that never resolves: races against the very short timeout
-    const spawn: SpawnFn = () => new Promise(() => { /* never resolves */ });
+    const spawn: SpawnFn = () =>
+      new Promise(() => {
+        /* never resolves */
+      });
     const report = await runGates({
       root: "/tmp/proj",
       adapter: reactAdapter,

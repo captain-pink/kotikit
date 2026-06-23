@@ -1,7 +1,11 @@
 #!/usr/bin/env bun
 
 import { resolve } from "path";
-import { parseAgentSelection, scaffoldAgents, type CoAuthorMode } from "../src/setup/scaffold-agents.js";
+import {
+  type CoAuthorMode,
+  parseAgentSelection,
+  scaffoldAgents,
+} from "../src/setup/scaffold-agents.js";
 
 interface CliOptions {
   targetRoot: string;
@@ -39,7 +43,12 @@ function parseArgs(argv: string[], defaults: { cwd: string; kotikitRoot: string 
   };
 
   return argv.reduce<CliOptions>((opts, arg, index) => {
-    if (argv[index - 1] === "--target" || argv[index - 1] === "--kotikit-root" || argv[index - 1] === "--agents" || argv[index - 1] === "--co-author") {
+    if (
+      argv[index - 1] === "--target" ||
+      argv[index - 1] === "--kotikit-root" ||
+      argv[index - 1] === "--agents" ||
+      argv[index - 1] === "--co-author"
+    ) {
       return opts;
     }
     if (arg === "--help" || arg === "-h") return { ...opts, help: true };
@@ -47,12 +56,21 @@ function parseArgs(argv: string[], defaults: { cwd: string; kotikitRoot: string 
     if (arg === "--no-skill") return { ...opts, installSkills: false };
     if (arg === "--target") return { ...opts, targetRoot: readFlagValue(argv, index, "--target") };
     if (arg.startsWith("--target=")) return { ...opts, targetRoot: arg.slice("--target=".length) };
-    if (arg === "--kotikit-root") return { ...opts, kotikitRoot: readFlagValue(argv, index, "--kotikit-root") };
-    if (arg.startsWith("--kotikit-root=")) return { ...opts, kotikitRoot: arg.slice("--kotikit-root=".length) };
-    if (arg === "--agents") return { ...opts, agents: parseAgentSelection(readFlagValue(argv, index, "--agents")) };
-    if (arg.startsWith("--agents=")) return { ...opts, agents: parseAgentSelection(arg.slice("--agents=".length)) };
-    if (arg === "--co-author") return { ...opts, coAuthorMode: parseCoAuthorMode(readFlagValue(argv, index, "--co-author")) };
-    if (arg.startsWith("--co-author=")) return { ...opts, coAuthorMode: parseCoAuthorMode(arg.slice("--co-author=".length)) };
+    if (arg === "--kotikit-root")
+      return { ...opts, kotikitRoot: readFlagValue(argv, index, "--kotikit-root") };
+    if (arg.startsWith("--kotikit-root="))
+      return { ...opts, kotikitRoot: arg.slice("--kotikit-root=".length) };
+    if (arg === "--agents")
+      return { ...opts, agents: parseAgentSelection(readFlagValue(argv, index, "--agents")) };
+    if (arg.startsWith("--agents="))
+      return { ...opts, agents: parseAgentSelection(arg.slice("--agents=".length)) };
+    if (arg === "--co-author")
+      return {
+        ...opts,
+        coAuthorMode: parseCoAuthorMode(readFlagValue(argv, index, "--co-author")),
+      };
+    if (arg.startsWith("--co-author="))
+      return { ...opts, coAuthorMode: parseCoAuthorMode(arg.slice("--co-author=".length)) };
     throw new Error(`Unknown option: ${arg}`);
   }, seed);
 }
@@ -104,11 +122,15 @@ async function main(): Promise<void> {
   console.log("");
   console.log("Next: restart your assistant and confirm the kotikit_* MCP tools are listed.");
   if (opts.agents.includes("claude")) {
-    console.log(`For Claude Code, open the target project (${opts.targetRoot}), approve the project MCP server if prompted, then run /mcp and /kotikit-auto.`);
+    console.log(
+      `For Claude Code, open the target project (${opts.targetRoot}), approve the project MCP server if prompted, then run /mcp and /kotikit-auto.`
+    );
     console.log("For design review, run /kotikit-design-review.");
   }
   if (opts.agents.includes("codex")) {
-    console.log("For Codex, start a new session in the target project and run /mcp, kotikit:auto, or kotikit:design-review.");
+    console.log(
+      "For Codex, start a new session in the target project and run /mcp, kotikit:auto, or kotikit:design-review."
+    );
   }
 }
 

@@ -1,9 +1,9 @@
-import { describe, it, expect, afterAll } from "bun:test";
-import { mkdtempSync, rmSync, readFileSync } from "fs";
+import { afterAll, describe, expect, it } from "bun:test";
+import { mkdtempSync, readFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { mergeVariables, writeVariablesJson, VariablesJsonSchema } from "./variables.js";
 import { variablesJsonPath } from "../util/paths.js";
+import { mergeVariables, VariablesJsonSchema, writeVariablesJson } from "./variables.js";
 
 const tmpDirs: string[] = [];
 function mkTmp(): string {
@@ -11,7 +11,9 @@ function mkTmp(): string {
   tmpDirs.push(d);
   return d;
 }
-afterAll(() => { for (const d of tmpDirs) rmSync(d, { recursive: true, force: true }); });
+afterAll(() => {
+  for (const d of tmpDirs) rmSync(d, { recursive: true, force: true });
+});
 
 describe("mergeVariables", () => {
   it("converts a color style into an entry", () => {
@@ -68,7 +70,12 @@ describe("mergeVariables", () => {
           },
         },
         variableCollections: {
-          c1: { id: "c1", key: "collection-key-1", name: "Brand", modes: [{ modeId: "m1", name: "default" }] },
+          c1: {
+            id: "c1",
+            key: "collection-key-1",
+            name: "Brand",
+            modes: [{ modeId: "m1", name: "default" }],
+          },
         },
       },
       styles: [],
@@ -92,15 +99,21 @@ describe("mergeVariables", () => {
       variables: {
         variables: {
           v1: {
-            id: "v1", name: "bg", resolvedType: "COLOR",
+            id: "v1",
+            name: "bg",
+            resolvedType: "COLOR",
             valuesByMode: { m1: "#fff", m2: "#000" },
           },
         },
         variableCollections: {
-          c1: { id: "c1", name: "Brand", modes: [
-            { modeId: "m1", name: "light" },
-            { modeId: "m2", name: "dark" },
-          ]},
+          c1: {
+            id: "c1",
+            name: "Brand",
+            modes: [
+              { modeId: "m1", name: "light" },
+              { modeId: "m2", name: "dark" },
+            ],
+          },
         },
       },
       styles: [],
@@ -112,8 +125,12 @@ describe("mergeVariables", () => {
   it("on name collision, the variable wins and the collision is recorded", () => {
     const out = mergeVariables({
       variables: {
-        variables: { v1: { id: "v1", name: "primary", resolvedType: "COLOR", valuesByMode: { m1: "#ff0000" } } },
-        variableCollections: { c1: { id: "c1", name: "x", modes: [{ modeId: "m1", name: "default" }] } },
+        variables: {
+          v1: { id: "v1", name: "primary", resolvedType: "COLOR", valuesByMode: { m1: "#ff0000" } },
+        },
+        variableCollections: {
+          c1: { id: "c1", name: "x", modes: [{ modeId: "m1", name: "default" }] },
+        },
       },
       styles: [{ key: "k", name: "primary", style_type: "FILL" }],
       styleDetailsByNodeId: {},
@@ -133,14 +150,16 @@ describe("mergeVariables", () => {
       styleDetailsByNodeId: {},
     });
     expect(out.entries).toHaveLength(2);
-    expect(out.entries.every(e => e.source === "style")).toBe(true);
+    expect(out.entries.every((e) => e.source === "style")).toBe(true);
     expect(out.collisions).toEqual([]);
   });
 
   it("skips BOOLEAN variables (not modelled)", () => {
     const out = mergeVariables({
       variables: {
-        variables: { v1: { id: "v1", name: "flag", resolvedType: "BOOLEAN", valuesByMode: { m: true } } },
+        variables: {
+          v1: { id: "v1", name: "flag", resolvedType: "BOOLEAN", valuesByMode: { m: true } },
+        },
       },
       styles: [],
       styleDetailsByNodeId: {},

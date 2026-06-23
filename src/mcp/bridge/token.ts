@@ -1,7 +1,7 @@
-import { z } from "zod";
-import { readFile, writeFile, rename, unlink, mkdir } from "fs/promises";
 import { existsSync } from "fs";
+import { mkdir, readFile, rename, unlink, writeFile } from "fs/promises";
 import { dirname } from "path";
+import { z } from "zod";
 
 export const BridgeConfigSchema = z.object({
   version: z.literal(1),
@@ -27,10 +27,7 @@ export function generateBridgeToken(): string {
 }
 
 /** Atomic write: writeFile to <path>.tmp + rename, so a kill mid-write cannot corrupt. */
-export async function writeBridgeConfig(
-  root: string,
-  cfg: BridgeConfig
-): Promise<void> {
+export async function writeBridgeConfig(root: string, cfg: BridgeConfig): Promise<void> {
   BridgeConfigSchema.parse(cfg); // validate before writing
   const path = bridgePath(root);
   await mkdir(dirname(path), { recursive: true });
@@ -40,9 +37,7 @@ export async function writeBridgeConfig(
 }
 
 /** Read + parse. Returns null on missing or malformed (no throw). */
-export async function readBridgeConfig(
-  root: string
-): Promise<BridgeConfig | null> {
+export async function readBridgeConfig(root: string): Promise<BridgeConfig | null> {
   const path = bridgePath(root);
   if (!existsSync(path)) return null;
   try {

@@ -1,7 +1,7 @@
-import { z } from "zod";
-import { readFile, writeFile, rename, unlink, mkdir } from "fs/promises";
 import { existsSync } from "fs";
+import { mkdir, readFile, rename, unlink, writeFile } from "fs/promises";
 import { dirname } from "path";
+import { z } from "zod";
 import { checkpointPath } from "../util/paths.js";
 
 const DEFAULT_CHECKPOINT_MAX_AGE_MS = 6 * 60 * 60 * 1_000;
@@ -92,10 +92,7 @@ export async function readCheckpoint(
  *   rename(path + ".tmp", path)
  * so a process kill mid-write cannot corrupt the real file.
  */
-export async function writeCheckpoint(
-  root: string,
-  cp: Checkpoint
-): Promise<void> {
+export async function writeCheckpoint(root: string, cp: Checkpoint): Promise<void> {
   const path = checkpointPath(root);
   // Validate before writing
   CheckpointSchema.parse(cp);

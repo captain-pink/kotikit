@@ -1,24 +1,19 @@
 import { existsSync } from "fs";
-import { resolve, dirname } from "path";
+import { dirname, resolve } from "path";
 
 export const KOTIKIT_DIR = ".kotikit";
 
 export const DESIGN_SYSTEM_DIR = "design-system";
 
-export const designSystemDir = (root: string): string =>
-  `${root}/design-system`;
+export const designSystemDir = (root: string): string => `${root}/design-system`;
 
-export const componentsDbPath = (root: string): string =>
-  `${root}/design-system/components.db`;
+export const componentsDbPath = (root: string): string => `${root}/design-system/components.db`;
 
-export const iconsDbPath = (root: string): string =>
-  `${root}/design-system/icons.db`;
+export const iconsDbPath = (root: string): string => `${root}/design-system/icons.db`;
 
-export const variablesJsonPath = (root: string): string =>
-  `${root}/design-system/variables.json`;
+export const variablesJsonPath = (root: string): string => `${root}/design-system/variables.json`;
 
-export const manifestPath = (root: string): string =>
-  `${root}/design-system/manifest.json`;
+export const manifestPath = (root: string): string => `${root}/design-system/manifest.json`;
 
 export const componentJsonPath = (root: string, slug: string): string =>
   `${root}/design-system/components/${slug}.json`;
@@ -26,23 +21,16 @@ export const componentJsonPath = (root: string, slug: string): string =>
 export const checkpointPath = (root: string): string =>
   `${root}/design-system/.sync-checkpoint.json`;
 
-export const syncReportPath = (root: string): string =>
-  `${root}/design-system/.sync-report.json`;
+export const syncReportPath = (root: string): string => `${root}/design-system/.sync-report.json`;
 
-export const configPath = (root: string): string =>
-  `${root}/.kotikit/config.json`;
+export const configPath = (root: string): string => `${root}/.kotikit/config.json`;
 
-export const indexPath = (root: string): string =>
-  `${root}/.kotikit/index.json`;
+export const indexPath = (root: string): string => `${root}/.kotikit/index.json`;
 
-export const scopeDir = (root: string, scope: string): string =>
-  `${root}/.kotikit/specs/${scope}`;
+export const scopeDir = (root: string, scope: string): string => `${root}/.kotikit/specs/${scope}`;
 
-export const screenSpecPath = (
-  root: string,
-  scope: string,
-  screenSlug: string
-): string => `${root}/.kotikit/specs/${scope}/${screenSlug}.spec.json`;
+export const screenSpecPath = (root: string, scope: string, screenSlug: string): string =>
+  `${root}/.kotikit/specs/${scope}/${screenSlug}.spec.json`;
 
 export const singleSpecPath = (root: string, scope: string): string =>
   `${root}/.kotikit/specs/${scope}/spec.json`;
@@ -51,11 +39,7 @@ export const flowManifestPath = (root: string, scope: string): string =>
   `${root}/.kotikit/specs/${scope}/flow.json`;
 
 /** Path to a screen's ephemeral code plan inside .kotikit/specs/<scope>/. */
-export const codePlanPath = (
-  root: string,
-  scope: string,
-  screenSlug: string | null
-): string => {
+export const codePlanPath = (root: string, scope: string, screenSlug: string | null): string => {
   const name = screenSlug ? `${screenSlug}.code.plan.json` : "code.plan.json";
   return `${root}/.kotikit/specs/${scope}/${name}`;
 };
@@ -63,63 +47,41 @@ export const codePlanPath = (
 /** Path to <screen>.design.plan.json next to the spec.
  *  Single-screen scope (screen === null) → design.plan.json.
  *  Multi-screen → <screen>.design.plan.json. */
-export const designPlanPath = (
-  root: string,
-  scope: string,
-  screen: string | null
-): string => {
+export const designPlanPath = (root: string, scope: string, screen: string | null): string => {
   const name = screen ? `${screen}.design.plan.json` : "design.plan.json";
   return `${root}/.kotikit/specs/${scope}/${name}`;
 };
 
 /** Path to the component-creation plan that must be completed before a screen can proceed. */
-export const componentPlanPath = (
-  root: string,
-  scope: string,
-  screen: string | null
-): string => {
+export const componentPlanPath = (root: string, scope: string, screen: string | null): string => {
   const name = screen ? `${screen}.component.plan.json` : "component.plan.json";
   return `${root}/.kotikit/specs/${scope}/${name}`;
 };
 
 /** Path to the per-screen apply log (JSONL). */
-export const designApplyLogPath = (
-  root: string,
-  scope: string,
-  screen: string | null
-): string => {
+export const designApplyLogPath = (root: string, scope: string, screen: string | null): string => {
   const name = screen ? `${screen}.design.apply.log` : "design.apply.log";
   return `${root}/.kotikit/specs/${scope}/${name}`;
 };
 
 /** Path to the per-screen Figma node map used to match review comments. */
-export const designNodeMapPath = (
-  root: string,
-  scope: string,
-  screen: string | null
-): string => {
+export const designNodeMapPath = (root: string, scope: string, screen: string | null): string => {
   const name = screen ? `${screen}.design.node-map.json` : "design.node-map.json";
   return `${root}/.kotikit/specs/${scope}/${name}`;
 };
 
 /** Path to the bridge config file written when the bridge starts. */
-export const bridgeConfigPath = (root: string): string =>
-  `${root}/.kotikit/bridge.json`;
+export const bridgeConfigPath = (root: string): string => `${root}/.kotikit/bridge.json`;
 
 /** Path to the Phase 3 minimal registry DB. */
-export const registryDbPath = (root: string): string =>
-  `${root}/.kotikit/registry.db`;
+export const registryDbPath = (root: string): string => `${root}/.kotikit/registry.db`;
 
 /** Path to the local design review ledger and project design preferences DB. */
-export const designReviewDbPath = (root: string): string =>
-  `${root}/.kotikit/design-review.db`;
+export const designReviewDbPath = (root: string): string => `${root}/.kotikit/design-review.db`;
 
 /** Directory under the user's project that holds generated screen components for a scope. */
-export const codeComponentDir = (
-  root: string,
-  codeComponentsDir: string,
-  scope: string
-): string => `${root}/${codeComponentsDir}/${scope}`;
+export const codeComponentDir = (root: string, codeComponentsDir: string, scope: string): string =>
+  `${root}/${codeComponentsDir}/${scope}`;
 
 /** Full path to a generated component file. */
 export const codeComponentFile = (
@@ -141,11 +103,8 @@ export const uiComponentFile = (
 ): string => `${root}/${codeComponentsDir}/ui/${kebabName}.tsx`;
 
 /** Full path to a colocated Storybook story: <codeComponentsDir>/ui/<kebab-name>.stories.tsx. */
-export const uiStoryFile = (
-  root: string,
-  codeComponentsDir: string,
-  kebabName: string
-): string => `${root}/${codeComponentsDir}/ui/${kebabName}.stories.tsx`;
+export const uiStoryFile = (root: string, codeComponentsDir: string, kebabName: string): string =>
+  `${root}/${codeComponentsDir}/ui/${kebabName}.stories.tsx`;
 
 /**
  * Walk up from `start` (default: process.cwd()) looking for a directory

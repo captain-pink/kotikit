@@ -1,4 +1,5 @@
-import React, { useMemo, useRef, useState } from "react";
+import type React from "react";
+import { useMemo, useRef, useState } from "react";
 import { buildDashboardModel, type ToolResult } from "./view-model.js";
 
 interface BridgeTool {
@@ -76,7 +77,10 @@ export function App(): React.ReactElement {
       ws.send(JSON.stringify({ jsonrpc: "2.0", id, method, params }));
     });
 
-  const callTool = async (name: string, args: Record<string, unknown> = {}): Promise<ToolResult> => {
+  const callTool = async (
+    name: string,
+    args: Record<string, unknown> = {}
+  ): Promise<ToolResult> => {
     const result = await callRpc("tools/call", { name, arguments: args });
     return result as ToolResult;
   };
@@ -105,7 +109,9 @@ export function App(): React.ReactElement {
       window.addEventListener("message", onMessage);
       timeout = window.setTimeout(() => {
         cleanup(onMessage);
-        reject(new Error("Figma did not return variables. Reopen the kotikit plugin and try again."));
+        reject(
+          new Error("Figma did not return variables. Reopen the kotikit plugin and try again.")
+        );
       }, 30_000);
       parent.postMessage({ pluginMessage: { type: "export-local-variables" } }, "*");
     });
@@ -198,15 +204,23 @@ export function App(): React.ReactElement {
 
   return (
     <div style={{ fontFamily: "Inter, sans-serif", padding: 16, color: "#222" }}>
-      <header style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+      <header
+        style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}
+      >
         <div>
           <h2 style={{ margin: 0, fontSize: 18 }}>kotikit</h2>
-          <div style={{ color: connected ? "#17803b" : "#777", fontSize: 12 }}>{model.statusText}</div>
+          <div style={{ color: connected ? "#17803b" : "#777", fontSize: 12 }}>
+            {model.statusText}
+          </div>
         </div>
         <button
           onClick={runDoctor}
           disabled={!connected || busy !== null}
-          style={connected ? secondaryButtonStyle : { ...secondaryButtonStyle, opacity: 0.45, cursor: "default" }}
+          style={
+            connected
+              ? secondaryButtonStyle
+              : { ...secondaryButtonStyle, opacity: 0.45, cursor: "default" }
+          }
         >
           Doctor
         </button>
@@ -220,7 +234,13 @@ export function App(): React.ReactElement {
             value={connectUrl}
             onChange={(event) => setConnectUrl(event.target.value)}
             placeholder="ws://localhost:53124?token=..."
-            style={{ boxSizing: "border-box", width: "100%", padding: 8, border: "1px solid #ccc", borderRadius: 6 }}
+            style={{
+              boxSizing: "border-box",
+              width: "100%",
+              padding: 8,
+              border: "1px solid #ccc",
+              borderRadius: 6,
+            }}
           />
           <button
             onClick={handleConnect}
@@ -247,7 +267,9 @@ export function App(): React.ReactElement {
                     borderRadius: 8,
                   }}
                 >
-                  <strong style={{ color: statusColor[item.status], fontSize: 12 }}>{item.status}</strong>
+                  <strong style={{ color: statusColor[item.status], fontSize: 12 }}>
+                    {item.status}
+                  </strong>
                   <div>
                     <div style={{ fontSize: 12, fontWeight: 600 }}>{item.label}</div>
                     <div style={{ color: "#666", fontSize: 12 }}>{item.detail}</div>
@@ -284,7 +306,14 @@ export function App(): React.ReactElement {
             </button>
 
             {model.reviewSummary !== null ? (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8, marginTop: 12 }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(5, 1fr)",
+                  gap: 8,
+                  marginTop: 12,
+                }}
+              >
                 {Object.entries(model.reviewSummary).map(([key, value]) => (
                   <div key={key} style={{ borderTop: "1px solid #ddd", paddingTop: 8 }}>
                     <div style={{ fontSize: 16, fontWeight: 700 }}>{value}</div>
@@ -305,7 +334,13 @@ export function App(): React.ReactElement {
               {busy === "variables" ? "Syncing..." : "Sync Variables From Open File"}
             </button>
             {variablesResult !== null ? (
-              <p style={{ color: variablesResult.isError ? "#b00020" : "#17803b", fontSize: 12, margin: "8px 0 0" }}>
+              <p
+                style={{
+                  color: variablesResult.isError ? "#b00020" : "#17803b",
+                  fontSize: 12,
+                  margin: "8px 0 0",
+                }}
+              >
                 {variablesResult.content[0]?.text.split("\n\n")[0] ?? "Variables synced."}
               </p>
             ) : null}

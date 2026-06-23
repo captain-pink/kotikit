@@ -29,7 +29,9 @@ interface FigmaVariableLike {
 
 figma.showUI(__html__, { width: 400, height: 600, title: "kotikit" });
 
-const compactCollection = (collection: FigmaVariableCollectionLike): PluginVariableCollectionInput => ({
+const compactCollection = (
+  collection: FigmaVariableCollectionLike
+): PluginVariableCollectionInput => ({
   id: collection.id,
   name: collection.name,
   modes: collection.modes.map((mode) => ({ modeId: mode.modeId, name: mode.name })),

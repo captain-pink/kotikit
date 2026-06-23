@@ -38,10 +38,7 @@ const nodeIdFromComment = (comment: FigmaComment): string | undefined =>
 const authorFromComment = (comment: FigmaComment): string | undefined =>
   comment.user?.handle ?? comment.user?.email ?? comment.user?.id;
 
-const toReviewComment = (
-  comment: FigmaComment,
-  target?: ReviewCommentTarget
-): ReviewComment => {
+const toReviewComment = (comment: FigmaComment, target?: ReviewCommentTarget): ReviewComment => {
   const nodeId = nodeIdFromComment(comment) ?? target?.nodeId;
   return {
     id: comment.id,

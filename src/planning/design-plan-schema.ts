@@ -1,11 +1,7 @@
 import { z } from "zod";
-import { KotikitError } from "../util/result.js";
-import {
-  COMPONENT_ROLES,
-  EMPTY_LAYOUT_CONTRACT,
-  LAYOUT_ZONE_IDS,
-} from "./layout-contract.js";
 import { FigmaDraftTargetSchema } from "../figma/draft-target.js";
+import { KotikitError } from "../util/result.js";
+import { COMPONENT_ROLES, EMPTY_LAYOUT_CONTRACT, LAYOUT_ZONE_IDS } from "./layout-contract.js";
 
 // ─── Step kinds ──────────────────────────────────────────────────────────────
 
@@ -82,19 +78,23 @@ export type DesignPlanStep = z.infer<typeof DesignPlanStepSchema>;
 const LayoutContractSchema = z.object({
   version: z.literal(1),
   strategy: z.literal("semantic-zones"),
-  zones: z.array(z.object({
-    id: LayoutZoneIdSchema,
-    parent: LayoutZoneIdSchema,
-    direction: z.enum(["VERTICAL", "HORIZONTAL"]),
-    padding: z.number().int().nonnegative(),
-    itemSpacing: z.number().int().nonnegative(),
-    minTargetSize: z.number().int().positive(),
-  })),
-  placements: z.array(z.object({
-    componentName: z.string(),
-    role: ComponentRoleSchema,
-    zone: LayoutZoneIdSchema,
-  })),
+  zones: z.array(
+    z.object({
+      id: LayoutZoneIdSchema,
+      parent: LayoutZoneIdSchema,
+      direction: z.enum(["VERTICAL", "HORIZONTAL"]),
+      padding: z.number().int().nonnegative(),
+      itemSpacing: z.number().int().nonnegative(),
+      minTargetSize: z.number().int().positive(),
+    })
+  ),
+  placements: z.array(
+    z.object({
+      componentName: z.string(),
+      role: ComponentRoleSchema,
+      zone: LayoutZoneIdSchema,
+    })
+  ),
 });
 export type DesignLayoutContract = z.infer<typeof LayoutContractSchema>;
 
@@ -115,7 +115,7 @@ export type DesignPlan = z.infer<typeof DesignPlanSchema>;
 export function parseDesignPlan(raw: unknown): DesignPlan {
   const result = DesignPlanSchema.safeParse(raw);
   if (!result.success) {
-    const fields = result.error.issues.map(i => i.path.join(".") || "root").join(", ");
+    const fields = result.error.issues.map((i) => i.path.join(".") || "root").join(", ");
     throw new KotikitError(
       "This design plan has an invalid format.",
       `Problem with: ${fields}. The file may have been edited manually and become malformed.`

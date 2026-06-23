@@ -1,16 +1,18 @@
-import { describe, it, expect } from "bun:test";
-import { generateDesignPlan } from "./design-planner.js";
-import { DesignPlanSchema } from "./design-plan-schema.js";
+import { describe, expect, it } from "bun:test";
 import { defaultConfig } from "../config/schema.js";
 import { newScreenSpec } from "../spec/schema.js";
+import { DesignPlanSchema } from "./design-plan-schema.js";
+import { generateDesignPlan } from "./design-planner.js";
 
 describe("generateDesignPlan", () => {
   it("single-screen plan: pageName = PascalCase(scope), no `screen` field", () => {
     const spec = newScreenSpec({ title: "Profile Page", description: "User profile." });
     spec.requirements.states = { loading: "x", empty: "x", error: "x", filled: "x" };
     const plan = generateDesignPlan({
-      scope: "profile-page", screen: null,
-      spec, config: defaultConfig(),
+      scope: "profile-page",
+      screen: null,
+      spec,
+      config: defaultConfig(),
     });
     expect(plan.pageName).toBe("ProfilePage");
     expect(plan.screen).toBeUndefined();
@@ -18,11 +20,17 @@ describe("generateDesignPlan", () => {
   });
 
   it("multi-screen plan: pageName = PascalCase(screen)", () => {
-    const spec = newScreenSpec({ title: "Cart", description: "x", flowRef: "checkout-flow/flow.json" });
+    const spec = newScreenSpec({
+      title: "Cart",
+      description: "x",
+      flowRef: "checkout-flow/flow.json",
+    });
     spec.requirements.states = { loading: "x" };
     const plan = generateDesignPlan({
-      scope: "checkout-flow", screen: "cart",
-      spec, config: defaultConfig(),
+      scope: "checkout-flow",
+      screen: "cart",
+      spec,
+      config: defaultConfig(),
     });
     expect(plan.pageName).toBe("Cart");
     expect(plan.screen).toBe("cart");
@@ -37,14 +45,17 @@ describe("generateDesignPlan", () => {
       { name: "ItemList", usage: "Data list" },
     ];
     const plan = generateDesignPlan({
-      scope: "cart", screen: null, spec, config: defaultConfig(),
+      scope: "cart",
+      screen: null,
+      spec,
+      config: defaultConfig(),
     });
 
-    const kinds = plan.steps.map(s => s.kind);
-    expect(kinds.filter(k => k === "define-state-frame")).toHaveLength(4);
-    expect(kinds.filter(k => k === "apply-auto-layout")).toHaveLength(4);
-    expect(kinds.filter(k => k === "define-layout-zone")).toHaveLength(16);
-    expect(kinds.filter(k => k === "place-component")).toHaveLength(12);
+    const kinds = plan.steps.map((s) => s.kind);
+    expect(kinds.filter((k) => k === "define-state-frame")).toHaveLength(4);
+    expect(kinds.filter((k) => k === "apply-auto-layout")).toHaveLength(4);
+    expect(kinds.filter((k) => k === "define-layout-zone")).toHaveLength(16);
+    expect(kinds.filter((k) => k === "place-component")).toHaveLength(12);
     expect(plan.steps).toHaveLength(36);
   });
 
@@ -53,7 +64,9 @@ describe("generateDesignPlan", () => {
     spec.requirements.states = {};
     const plan = generateDesignPlan({ scope: "x", screen: null, spec, config: defaultConfig() });
     expect(plan.states).toEqual(["default"]);
-    expect(plan.steps.some(s => s.kind === "define-state-frame" && s.state === "default")).toBe(true);
+    expect(plan.steps.some((s) => s.kind === "define-state-frame" && s.state === "default")).toBe(
+      true
+    );
   });
 
   it("dsKey copied from spec.components[].dsKey when present", () => {
@@ -61,7 +74,7 @@ describe("generateDesignPlan", () => {
     spec.requirements.states = { default: "x" };
     spec.components = [{ name: "Button", dsKey: "k123" }, { name: "Input" }];
     const plan = generateDesignPlan({ scope: "x", screen: null, spec, config: defaultConfig() });
-    const placeSteps = plan.steps.filter(s => s.kind === "place-component");
+    const placeSteps = plan.steps.filter((s) => s.kind === "place-component");
     expect(placeSteps).toHaveLength(2);
     const btn = placeSteps.find((s: { componentName?: string }) => s.componentName === "Button");
     const inp = placeSteps.find((s: { componentName?: string }) => s.componentName === "Input");
@@ -80,7 +93,12 @@ describe("generateDesignPlan", () => {
       { name: "Status switch", usage: "Activate or deactivate", dsKey: "switch-key" },
       { name: "Remove action", usage: "Delete member", dsKey: "remove-key" },
     ];
-    const plan = generateDesignPlan({ scope: "members", screen: null, spec, config: defaultConfig() });
+    const plan = generateDesignPlan({
+      scope: "members",
+      screen: null,
+      spec,
+      config: defaultConfig(),
+    });
 
     expect(plan.layout.placements.map((placement) => [placement.role, placement.zone])).toEqual([
       ["primary-action", "header-actions"],

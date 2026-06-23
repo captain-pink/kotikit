@@ -1,6 +1,6 @@
+import { nowIso } from "../util/ids.js";
 import type { Adapter, AdapterContext, GateKind } from "./adapter.js";
 import type { GateResult, GateRunReport } from "./gate-output.js";
-import { nowIso } from "../util/ids.js";
 
 /** Sub-interface used by the gate runner; allows injecting a stub spawn in tests. */
 export type SpawnFn = (
@@ -54,7 +54,12 @@ async function spawnWithTimeout(
     timedOut: boolean;
   }>((resolve) => {
     timer = setTimeout(() => {
-      resolve({ stdout: "", stderr: `Timed out after ${timeoutMs}ms`, exitCode: -1, timedOut: true });
+      resolve({
+        stdout: "",
+        stderr: `Timed out after ${timeoutMs}ms`,
+        exitCode: -1,
+        timedOut: true,
+      });
     }, timeoutMs);
   });
 
@@ -89,10 +94,7 @@ export async function runGates(opts: RunGatesOpts): Promise<GateRunReport> {
 
   for (const gate of filtered) {
     // tsc never gets file args; all other gates receive the full file list
-    const fullCmd =
-      gate.gate === "tsc"
-        ? [...gate.cmd]
-        : [...gate.cmd, ...opts.files];
+    const fullCmd = gate.gate === "tsc" ? [...gate.cmd] : [...gate.cmd, ...opts.files];
 
     const t0 = performance.now();
     const spawnResult = await spawnWithTimeout(spawn, fullCmd, opts.root, timeout);

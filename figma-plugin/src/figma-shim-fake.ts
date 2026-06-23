@@ -18,7 +18,7 @@ interface FakeNode {
 
 export class FakeFigmaShim implements FigmaShim {
   nodes: Map<string, FakeNode> = new Map();
-  variables: Map<string, string> = new Map();   // name -> id
+  variables: Map<string, string> = new Map(); // name -> id
   bindings: { nodeId: string; property: string; variableId: string }[] = [];
   notifications: { message: string; error?: boolean }[] = [];
   currentPageId: string | null = null;
@@ -27,7 +27,9 @@ export class FakeFigmaShim implements FigmaShim {
   /** Toggled in tests to make a specific call throw. */
   throwOn: { method?: keyof FigmaShim } = {};
 
-  private mkId(): string { return `node-${this.nextId++}`; }
+  private mkId(): string {
+    return `node-${this.nextId++}`;
+  }
 
   private check(method: keyof FigmaShim): void {
     if (this.throwOn.method === method) {
@@ -60,12 +62,16 @@ export class FakeFigmaShim implements FigmaShim {
 
   async getCurrentPageInfo(): Promise<{ id: string; name: string } | null> {
     const page = this.currentPageId === null ? null : this.nodes.get(this.currentPageId);
-    return page?.type === "PAGE" && page.name !== undefined ? { id: page.id, name: page.name } : null;
+    return page?.type === "PAGE" && page.name !== undefined
+      ? { id: page.id, name: page.name }
+      : null;
   }
 
   async getPageById(pageId: string): Promise<{ id: string; name: string } | null> {
     const page = this.nodes.get(pageId);
-    return page?.type === "PAGE" && page.name !== undefined ? { id: page.id, name: page.name } : null;
+    return page?.type === "PAGE" && page.name !== undefined
+      ? { id: page.id, name: page.name }
+      : null;
   }
 
   async setCurrentPage(pageId: string): Promise<void> {
@@ -99,14 +105,24 @@ export class FakeFigmaShim implements FigmaShim {
     return { id, name: input.name };
   }
 
-  async createFrame(input: { name: string; parentId: string; width: number; height: number | "auto" }): Promise<{ id: string }> {
+  async createFrame(input: {
+    name: string;
+    parentId: string;
+    width: number;
+    height: number | "auto";
+  }): Promise<{ id: string }> {
     this.check("createFrame");
     const parent = this.nodes.get(input.parentId);
     if (!parent) throw new Error(`Parent not found: ${input.parentId}`);
     const id = this.mkId();
     this.nodes.set(id, {
-      id, type: "FRAME", name: input.name, parentId: input.parentId,
-      children: [], width: input.width, height: input.height,
+      id,
+      type: "FRAME",
+      name: input.name,
+      parentId: input.parentId,
+      children: [],
+      width: input.width,
+      height: input.height,
     });
     parent.children.push(id);
     return { id };
@@ -119,7 +135,10 @@ export class FakeFigmaShim implements FigmaShim {
     return { width: node.width, height: node.height };
   }
 
-  async setAutoLayout(frameId: string, opts: { direction: "VERTICAL" | "HORIZONTAL"; padding: number; itemSpacing: number }): Promise<void> {
+  async setAutoLayout(
+    frameId: string,
+    opts: { direction: "VERTICAL" | "HORIZONTAL"; padding: number; itemSpacing: number }
+  ): Promise<void> {
     this.check("setAutoLayout");
     const frame = this.nodes.get(frameId);
     if (!frame || frame.type !== "FRAME") throw new Error(`Frame not found: ${frameId}`);
@@ -143,7 +162,13 @@ export class FakeFigmaShim implements FigmaShim {
     const parent = this.nodes.get(parentId);
     if (!parent) throw new Error(`Parent not found: ${parentId}`);
     const instanceId = this.mkId();
-    this.nodes.set(instanceId, { id: instanceId, type: "INSTANCE", parentId, children: [], componentKey: componentId });
+    this.nodes.set(instanceId, {
+      id: instanceId,
+      type: "INSTANCE",
+      parentId,
+      children: [],
+      componentKey: componentId,
+    });
     parent.children.push(instanceId);
     return { instanceId };
   }
@@ -161,7 +186,11 @@ export class FakeFigmaShim implements FigmaShim {
     return id ? { id } : null;
   }
 
-  async setBoundVariable(nodeId: string, property: "fill" | "text" | "effect", variableId: string): Promise<void> {
+  async setBoundVariable(
+    nodeId: string,
+    property: "fill" | "text" | "effect",
+    variableId: string
+  ): Promise<void> {
     this.check("setBoundVariable");
     if (!this.nodes.has(nodeId)) throw new Error(`Node not found: ${nodeId}`);
     this.bindings.push({ nodeId, property, variableId });

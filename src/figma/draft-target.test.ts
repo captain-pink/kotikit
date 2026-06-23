@@ -29,15 +29,15 @@ describe("parseFigmaDesignUrl", () => {
   });
 
   it("rejects URLs without node-id", () => {
-    expect(() =>
-      parseFigmaDesignUrl("https://www.figma.com/design/FILE123/Product-App")
-    ).toThrow(/page URL/);
+    expect(() => parseFigmaDesignUrl("https://www.figma.com/design/FILE123/Product-App")).toThrow(
+      /page URL/
+    );
   });
 
   it("rejects non-Figma design URLs", () => {
-    expect(() =>
-      parseFigmaDesignUrl("https://example.com/design/FILE123/App?node-id=1-2")
-    ).toThrow(/Figma design URL/);
+    expect(() => parseFigmaDesignUrl("https://example.com/design/FILE123/App?node-id=1-2")).toThrow(
+      /Figma design URL/
+    );
   });
 });
 
@@ -77,16 +77,20 @@ describe("FigmaDraftTargetSchema", () => {
 
 describe("buildKotikitSectionName", () => {
   it("builds stable section names for single screens and flow screens", () => {
-    expect(buildKotikitSectionName({
-      scope: "members",
-      screen: null,
-      date: "2026-06-22",
-    })).toBe("kotikit / members / 2026-06-22");
+    expect(
+      buildKotikitSectionName({
+        scope: "members",
+        screen: null,
+        date: "2026-06-22",
+      })
+    ).toBe("kotikit / members / 2026-06-22");
 
-    expect(buildKotikitSectionName({
-      scope: "checkout-flow",
-      screen: "cart",
-      date: "2026-06-22",
-    })).toBe("kotikit / checkout-flow / cart / 2026-06-22");
+    expect(
+      buildKotikitSectionName({
+        scope: "checkout-flow",
+        screen: "cart",
+        date: "2026-06-22",
+      })
+    ).toBe("kotikit / checkout-flow / cart / 2026-06-22");
   });
 });

@@ -1,14 +1,14 @@
-import { describe, it, expect, afterEach } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import type { ToolContext } from "../context.js";
-import type { ToolRegistry } from "../server.js";
 import { writeConfig } from "../../config/load.js";
 import { defaultConfig } from "../../config/schema.js";
 import { upsertDesignNodeMapEntry } from "../../planning/design-node-map.js";
 import type { FigmaComment } from "../../sync/figma-types.js";
+import type { ToolContext } from "../context.js";
+import type { ToolRegistry } from "../server.js";
 import { registerDesignCommentTools } from "./design-comments.js";
 
 const tmpDirs: string[] = [];
@@ -25,7 +25,10 @@ afterEach(() => {
 
 const makeRegistry = (): ToolRegistry => ({ tools: [] as Tool[], handlers: new Map() });
 
-const makeCtx = (root: string, config: Awaited<ReturnType<typeof defaultConfig>> | null): ToolContext => ({
+const makeCtx = (
+  root: string,
+  config: Awaited<ReturnType<typeof defaultConfig>> | null
+): ToolContext => ({
   root,
   loadConfig: async () => config,
 });
@@ -224,9 +227,9 @@ describe("kotikit_design_review_comments", () => {
 
     expect(adjustment.isError).toBeFalsy();
     expect((detailFrom(report) as { summary: { fixed: number } }).summary.fixed).toBe(1);
-    expect(
-      (detailFrom(candidates) as { candidates: { key: string }[] }).candidates[0]?.key
-    ).toBe("tables.density.compact_rows");
+    expect((detailFrom(candidates) as { candidates: { key: string }[] }).candidates[0]?.key).toBe(
+      "tables.density.compact_rows"
+    );
   });
 
   it("clusters repeated adjustments into candidates without explicit preference keys", async () => {
@@ -254,9 +257,11 @@ describe("kotikit_design_review_comments", () => {
     });
 
     const candidates = await callTool(registry, "kotikit_design_memory_candidates", {});
-    const first = (detailFrom(candidates) as {
-      candidates: { key: string; evidenceCount: number; distinctScreens: number }[];
-    }).candidates[0];
+    const first = (
+      detailFrom(candidates) as {
+        candidates: { key: string; evidenceCount: number; distinctScreens: number }[];
+      }
+    ).candidates[0];
 
     expect(first?.key).toBe("density.row_height_cell_padding");
     expect(first?.evidenceCount).toBe(2);
@@ -288,10 +293,12 @@ describe("kotikit_design_review_comments", () => {
       status: "dismissed",
     });
 
-    expect((detailFrom(dismissed) as { candidate: { status: string } }).candidate.status).toBe("dismissed");
-    expect((detailFrom(dismissedCandidates) as { candidates: { key: string }[] }).candidates[0]?.key).toBe(
-      "layout.spacing.roomy_sections"
+    expect((detailFrom(dismissed) as { candidate: { status: string } }).candidate.status).toBe(
+      "dismissed"
     );
+    expect(
+      (detailFrom(dismissedCandidates) as { candidates: { key: string }[] }).candidates[0]?.key
+    ).toBe("layout.spacing.roomy_sections");
 
     await callTool(registry, "kotikit_design_adjustment_record", {
       scope: "members",
@@ -314,10 +321,12 @@ describe("kotikit_design_review_comments", () => {
       query: "compact",
     });
 
-    expect((detailFrom(updated) as { preference: { rule: string; status: string } }).preference.rule).toContain(
-      "dense admin data tables"
+    expect(
+      (detailFrom(updated) as { preference: { rule: string; status: string } }).preference.rule
+    ).toContain("dense admin data tables");
+    expect((detailFrom(updated) as { preference: { status: string } }).preference.status).toBe(
+      "inactive"
     );
-    expect((detailFrom(updated) as { preference: { status: string } }).preference.status).toBe("inactive");
     expect((detailFrom(search) as { preferences: unknown[] }).preferences).toHaveLength(0);
   });
 
@@ -405,7 +414,9 @@ describe("kotikit_design_review_comments", () => {
       query: "compact",
     });
 
-    expect((detailFrom(promoted) as { preference: { status: string } }).preference.status).toBe("active");
+    expect((detailFrom(promoted) as { preference: { status: string } }).preference.status).toBe(
+      "active"
+    );
     expect((detailFrom(search) as { preferences: { key: string }[] }).preferences[0]?.key).toBe(
       "tables.density.compact_rows"
     );

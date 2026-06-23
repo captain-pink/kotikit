@@ -19,11 +19,11 @@
  */
 export function buildNameTokens(name: string): string {
   const split = name
-    .replace(/([a-z\d])([A-Z])/g, "$1 $2")         // camelCase: aB or 3B → a B / 3 B
-    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")      // acronym end: HTTPSConfig → HTTPS Config
-    .replace(/([a-zA-Z])(\d)/g, "$1 $2")             // letter→digit boundary
-    .replace(/(\d)([A-Z])/g, "$1 $2")               // digit→uppercase boundary (e.g. 3D)
-    .replace(/[_/\-\s]+/g, " ")                      // separators → space
+    .replace(/([a-z\d])([A-Z])/g, "$1 $2") // camelCase: aB or 3B → a B / 3 B
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2") // acronym end: HTTPSConfig → HTTPS Config
+    .replace(/([a-zA-Z])(\d)/g, "$1 $2") // letter→digit boundary
+    .replace(/(\d)([A-Z])/g, "$1 $2") // digit→uppercase boundary (e.g. 3D)
+    .replace(/[_/\-\s]+/g, " ") // separators → space
     .trim()
     .split(/\s+/);
 
@@ -36,7 +36,7 @@ export function buildNameTokens(name: string): string {
   // a compound such as "PieChart 3D" is preserved because "PieChart" (the
   // un-split form) is not present in the token set.
   const originalWords = name.split(/\s+/).filter(Boolean);
-  const originalAddsValue = originalWords.some(w => !tokenSet.has(w));
+  const originalAddsValue = originalWords.some((w) => !tokenSet.has(w));
   const combined = originalAddsValue ? [name, ...tokens] : tokens;
   const out = combined.filter((t, i, arr) => arr.indexOf(t) === i);
   return out.join(" ");

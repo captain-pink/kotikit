@@ -1,15 +1,15 @@
-import { describe, it, expect, afterAll } from "bun:test";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync, readFileSync } from "fs";
+import { afterAll, describe, expect, it } from "bun:test";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
-import { join, dirname } from "path";
+import { dirname, join } from "path";
+import { checkpointPath } from "../util/paths.js";
 import {
-  readCheckpoint,
-  writeCheckpoint,
+  type Checkpoint,
   clearCheckpoint,
   hasCheckpoint,
-  type Checkpoint,
+  readCheckpoint,
+  writeCheckpoint,
 } from "./checkpoint.js";
-import { checkpointPath } from "../util/paths.js";
 
 const tmpDirs: string[] = [];
 
@@ -57,7 +57,7 @@ describe("checkpoint", () => {
     const path = checkpointPath(root);
     // Create parent dir manually before writing
     mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, "{}");  // garbage to be overwritten
+    writeFileSync(path, "{}"); // garbage to be overwritten
     await writeCheckpoint(root, checkpoint);
     // No leftover .tmp
     expect(existsSync(path + ".tmp")).toBe(false);
@@ -106,7 +106,7 @@ describe("checkpoint", () => {
 
   it("clearCheckpoint is a no-op when no file exists", async () => {
     const root = mkTmp();
-    await clearCheckpoint(root);  // should not throw
+    await clearCheckpoint(root); // should not throw
     expect(await hasCheckpoint(root)).toBe(false);
   });
 

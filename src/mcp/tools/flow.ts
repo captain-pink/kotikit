@@ -1,26 +1,21 @@
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { defaultConfig } from "../../config/schema.js";
+import { autoCommitSpec } from "../../git/auto-commit.js";
+import { type FlowDraft, materializeFlow } from "../../spec/decompose.js";
+import { writeFlowManifest, writeScreenSpec } from "../../spec/engine.js";
+import { indexPath } from "../../util/paths.js";
+import { toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
-import { writeScreenSpec, writeFlowManifest } from "../../spec/engine.js";
-import { materializeFlow, type FlowDraft } from "../../spec/decompose.js";
-import { autoCommitSpec } from "../../git/auto-commit.js";
-import { defaultConfig } from "../../config/schema.js";
-import { toolText, toolError } from "../../util/result.js";
-import { indexPath } from "../../util/paths.js";
 
 // ─── Registry shape (mirrors server.ts) ──────────────────────────────────────
 
 type McpContent = { type: "text"; text: string };
-type Handler = (
-  args: unknown
-) => Promise<{ content: McpContent[]; isError?: boolean }>;
+type Handler = (args: unknown) => Promise<{ content: McpContent[]; isError?: boolean }>;
 
 // ─── Register all flow tools ──────────────────────────────────────────────────
 
-export function registerFlowTools(
-  registry: ToolRegistry,
-  ctx: ToolContext
-): void {
+export function registerFlowTools(registry: ToolRegistry, ctx: ToolContext): void {
   registerFlowCreate(registry, ctx);
 }
 

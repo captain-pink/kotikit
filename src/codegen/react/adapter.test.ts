@@ -1,11 +1,11 @@
-import { describe, it, expect, afterAll } from "bun:test";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "fs";
+import { afterAll, describe, expect, it } from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { reactAdapter, REACT_SYSTEM_PROMPT } from "./adapter.js";
 import { defaultConfig } from "../../config/schema.js";
 import { newScreenSpec } from "../../spec/schema.js";
 import type { AdapterContext } from "../adapter.js";
+import { REACT_SYSTEM_PROMPT, reactAdapter } from "./adapter.js";
 
 const tmpDirs: string[] = [];
 function mkTmp(): string {

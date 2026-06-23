@@ -1,14 +1,16 @@
-import { describe, expect, it, afterEach } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { newFlowManifest, newScreenSpec } from "../spec/schema.js";
-import { readFlowManifest, readScreenSpec, writeFlowManifest, writeScreenSpec } from "../spec/engine.js";
 import {
-  readFigmaDraftTarget,
-  writeFigmaDraftTarget,
-} from "./draft-target-store.js";
+  readFlowManifest,
+  readScreenSpec,
+  writeFlowManifest,
+  writeScreenSpec,
+} from "../spec/engine.js";
+import { newFlowManifest, newScreenSpec } from "../spec/schema.js";
 import type { FigmaDraftTarget } from "./draft-target.js";
+import { readFigmaDraftTarget, writeFigmaDraftTarget } from "./draft-target-store.js";
 
 const tmpDirs: string[] = [];
 
@@ -40,10 +42,15 @@ const target = (pageName = "Draft - Members"): FigmaDraftTarget => ({
 describe("Figma draft target store", () => {
   it("writes and reads a single-screen target", async () => {
     const root = mkTmp();
-    await writeScreenSpec(root, "members", null, newScreenSpec({
-      title: "Members",
-      description: "Manage members",
-    }));
+    await writeScreenSpec(
+      root,
+      "members",
+      null,
+      newScreenSpec({
+        title: "Members",
+        description: "Manage members",
+      })
+    );
 
     const paths = await writeFigmaDraftTarget(root, "members", null, target());
     const updated = await readScreenSpec(root, "members", null);
@@ -55,33 +62,55 @@ describe("Figma draft target store", () => {
 
   it("writes a flow-level target and uses it as a screen default", async () => {
     const root = mkTmp();
-    await writeFlowManifest(root, "checkout", newFlowManifest({
-      title: "Checkout",
-      description: "Checkout flow",
-      screens: [{ id: "cart", path: "cart.spec.json", title: "Cart" }],
-    }));
-    await writeScreenSpec(root, "checkout", "cart", newScreenSpec({
-      title: "Cart",
-      description: "Cart screen",
-    }));
+    await writeFlowManifest(
+      root,
+      "checkout",
+      newFlowManifest({
+        title: "Checkout",
+        description: "Checkout flow",
+        screens: [{ id: "cart", path: "cart.spec.json", title: "Cart" }],
+      })
+    );
+    await writeScreenSpec(
+      root,
+      "checkout",
+      "cart",
+      newScreenSpec({
+        title: "Cart",
+        description: "Cart screen",
+      })
+    );
 
     await writeFigmaDraftTarget(root, "checkout", null, target("Checkout Drafts"));
 
-    expect((await readFlowManifest(root, "checkout")).figmaTarget?.pageName).toBe("Checkout Drafts");
-    expect((await readFigmaDraftTarget(root, "checkout", "cart"))?.pageName).toBe("Checkout Drafts");
+    expect((await readFlowManifest(root, "checkout")).figmaTarget?.pageName).toBe(
+      "Checkout Drafts"
+    );
+    expect((await readFigmaDraftTarget(root, "checkout", "cart"))?.pageName).toBe(
+      "Checkout Drafts"
+    );
   });
 
   it("uses a screen target before a flow default", async () => {
     const root = mkTmp();
-    await writeFlowManifest(root, "checkout", newFlowManifest({
-      title: "Checkout",
-      description: "Checkout flow",
-      screens: [{ id: "cart", path: "cart.spec.json", title: "Cart" }],
-    }));
-    await writeScreenSpec(root, "checkout", "cart", newScreenSpec({
-      title: "Cart",
-      description: "Cart screen",
-    }));
+    await writeFlowManifest(
+      root,
+      "checkout",
+      newFlowManifest({
+        title: "Checkout",
+        description: "Checkout flow",
+        screens: [{ id: "cart", path: "cart.spec.json", title: "Cart" }],
+      })
+    );
+    await writeScreenSpec(
+      root,
+      "checkout",
+      "cart",
+      newScreenSpec({
+        title: "Cart",
+        description: "Cart screen",
+      })
+    );
 
     await writeFigmaDraftTarget(root, "checkout", null, target("Flow Drafts"));
     await writeFigmaDraftTarget(root, "checkout", "cart", target("Cart Draft"));

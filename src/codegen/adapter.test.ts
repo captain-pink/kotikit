@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import type { Adapter } from "./adapter.js";
 
 describe("Adapter interface", () => {
@@ -7,7 +7,7 @@ describe("Adapter interface", () => {
       name: "stub",
       systemPrompt: () => "",
       importStatement: (name) => `import { ${name} } from "stub";`,
-      fileNameFor: (name, kind) => kind === "component" ? `${name}.tsx` : `${name}.test.tsx`,
+      fileNameFor: (name, kind) => (kind === "component" ? `${name}.tsx` : `${name}.test.tsx`),
       testScaffold: () => "",
       qualityGates: () => [],
       verifyEnvironment: async () => ({ ok: true }),

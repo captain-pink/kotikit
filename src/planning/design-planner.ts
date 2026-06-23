@@ -1,16 +1,9 @@
-import { nowIso, componentNameFor } from "../util/ids.js";
-import type { ScreenSpec, FlowManifest } from "../spec/schema.js";
 import type { Config } from "../config/schema.js";
 import type { FigmaDraftTarget } from "../figma/draft-target.js";
-import {
-  DesignPlanSchema,
-  type DesignPlan,
-  type DesignPlanStep,
-} from "./design-plan-schema.js";
-import {
-  buildLayoutContract,
-  type LayoutZoneId,
-} from "./layout-contract.js";
+import type { FlowManifest, ScreenSpec } from "../spec/schema.js";
+import { componentNameFor, nowIso } from "../util/ids.js";
+import { type DesignPlan, DesignPlanSchema, type DesignPlanStep } from "./design-plan-schema.js";
+import { buildLayoutContract, type LayoutZoneId } from "./layout-contract.js";
 
 export interface GenerateDesignPlanInput {
   scope: string;

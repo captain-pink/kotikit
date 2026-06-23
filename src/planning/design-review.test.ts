@@ -28,9 +28,24 @@ describe("design review evidence", () => {
             type: "FRAME",
             absoluteBoundingBox: { x: 10, y: 20, width: 1440, height: 900 },
             children: [
-              { id: "1:1", name: "Header", type: "FRAME", absoluteBoundingBox: { x: 10, y: 20, width: 1440, height: 80 } },
-              { id: "1:2", name: "Table", type: "FRAME", absoluteBoundingBox: { x: 10, y: 120, width: 1440, height: 600 } },
-              { id: "1:3", name: "Footer", type: "FRAME", absoluteBoundingBox: { x: 10, y: 760, width: 1440, height: 160 } },
+              {
+                id: "1:1",
+                name: "Header",
+                type: "FRAME",
+                absoluteBoundingBox: { x: 10, y: 20, width: 1440, height: 80 },
+              },
+              {
+                id: "1:2",
+                name: "Table",
+                type: "FRAME",
+                absoluteBoundingBox: { x: 10, y: 120, width: 1440, height: 600 },
+              },
+              {
+                id: "1:3",
+                name: "Footer",
+                type: "FRAME",
+                absoluteBoundingBox: { x: 10, y: 760, width: 1440, height: 160 },
+              },
             ],
           }),
         }),

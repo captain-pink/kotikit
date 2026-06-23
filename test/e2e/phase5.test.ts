@@ -1,26 +1,25 @@
-import { describe, it, expect, afterAll, afterEach } from "bun:test";
-import { rm } from "fs/promises";
+import { afterAll, afterEach, describe, expect, it } from "bun:test";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "fs";
+import { rm } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
 import simpleGit from "simple-git";
-
-import { registerSpecTools } from "../../src/mcp/tools/spec.js";
-import { registerConfigTools } from "../../src/mcp/tools/config.js";
-import { registerFlowTools } from "../../src/mcp/tools/flow.js";
-import { registerBrainstormTools } from "../../src/mcp/tools/brainstorm.js";
-import { registerPlanDesignTools } from "../../src/mcp/tools/plan-design.js";
-import { registerDesignScreenTools } from "../../src/mcp/tools/design-screen.js";
-import { registerDesignApplyTools } from "../../src/mcp/tools/design-apply.js";
-import { registerFigmaTargetTools } from "../../src/mcp/tools/figma-target.js";
 import { loadConfig, writeConfig } from "../../src/config/load.js";
 import { defaultConfig } from "../../src/config/schema.js";
+import { type BridgeServer, startBridgeServer } from "../../src/mcp/bridge/server.js";
 import type { ToolContext } from "../../src/mcp/context.js";
 import type { ToolRegistry } from "../../src/mcp/server.js";
-import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { registerBrainstormTools } from "../../src/mcp/tools/brainstorm.js";
+import { registerConfigTools } from "../../src/mcp/tools/config.js";
+import { registerDesignApplyTools } from "../../src/mcp/tools/design-apply.js";
+import { registerDesignScreenTools } from "../../src/mcp/tools/design-screen.js";
+import { registerFigmaTargetTools } from "../../src/mcp/tools/figma-target.js";
+import { registerFlowTools } from "../../src/mcp/tools/flow.js";
+import { registerPlanDesignTools } from "../../src/mcp/tools/plan-design.js";
+import { registerSpecTools } from "../../src/mcp/tools/spec.js";
 import { DesignPlanSchema } from "../../src/planning/design-plan-schema.js";
-import { designPlanPath, designApplyLogPath } from "../../src/util/paths.js";
-import { startBridgeServer, type BridgeServer } from "../../src/mcp/bridge/server.js";
+import { designApplyLogPath, designPlanPath } from "../../src/util/paths.js";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -33,8 +32,7 @@ function mkTmp(): string {
 }
 
 afterAll(async () => {
-  for (const d of tmpDirs)
-    await rm(d, { recursive: true, force: true }).catch(() => {});
+  for (const d of tmpDirs) await rm(d, { recursive: true, force: true }).catch(() => {});
 });
 
 type McpContent = { type: "text"; text: string };
@@ -51,12 +49,10 @@ function buildPhase5Registry(root: string): ToolRegistry {
   registerBrainstormTools(registry, ctx);
   registerFigmaTargetTools(registry, ctx, {
     figmaClientFactory: () => ({
-      getNodes: async (_fileKey, ids) => Object.fromEntries(
-        ids.map((id) => [
-          id,
-          { document: { id, name: "Drafts", type: "CANVAS" } },
-        ])
-      ),
+      getNodes: async (_fileKey, ids) =>
+        Object.fromEntries(
+          ids.map((id) => [id, { document: { id, name: "Drafts", type: "CANVAS" } }])
+        ),
     }),
     now: () => "2026-06-22T00:00:00.000Z",
   });
@@ -66,11 +62,7 @@ function buildPhase5Registry(root: string): ToolRegistry {
   return registry;
 }
 
-async function callTool(
-  registry: ToolRegistry,
-  name: string,
-  args: unknown
-): Promise<ToolResult> {
+async function callTool(registry: ToolRegistry, name: string, args: unknown): Promise<ToolResult> {
   const handler = registry.handlers.get(name);
   if (!handler) throw new Error(`Tool not found: ${name}`);
   return handler(args);
@@ -86,15 +78,22 @@ function seedDsComponentJson(root: string, name: string): void {
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
   const dir = `${root}/design-system/components`;
   mkdirSync(dir, { recursive: true });
-  writeFileSync(`${dir}/${slug}.json`, JSON.stringify({
-    name,
-    key: `k-${slug}`,
-    fileKey: "f",
-    path: `components/${slug}.json`,
-    variants: [],
-    properties: {},
-    updatedAt: "2026-05-29T00:00:00.000Z",
-  }, null, 2));
+  writeFileSync(
+    `${dir}/${slug}.json`,
+    JSON.stringify(
+      {
+        name,
+        key: `k-${slug}`,
+        fileKey: "f",
+        path: `components/${slug}.json`,
+        variants: [],
+        properties: {},
+        updatedAt: "2026-05-29T00:00:00.000Z",
+      },
+      null,
+      2
+    )
+  );
 }
 
 async function setupRepoWithConfig(): Promise<string> {
@@ -112,8 +111,7 @@ async function setupRepoWithConfig(): Promise<string> {
 
 let nextBridgePort = 58000 + Math.floor(Math.random() * 4000);
 
-const isPortInUse = (err: unknown): boolean =>
-  (err as { code?: string }).code === "EADDRINUSE";
+const isPortInUse = (err: unknown): boolean => (err as { code?: string }).code === "EADDRINUSE";
 
 type StartedBridge = {
   bridge: BridgeServer;
@@ -208,7 +206,9 @@ describe("Phase 5 E2E — design plan happy path", () => {
     expect(plan.steps.length).toBeGreaterThan(0);
 
     // 3. design_get_screen — returns plan + spec + synced DS components
-    const getResult = await callTool(registry, "kotikit_design_get_screen", { scope: "profile-page" });
+    const getResult = await callTool(registry, "kotikit_design_get_screen", {
+      scope: "profile-page",
+    });
     expect(getResult.isError).toBeFalsy();
     const getDetail = parseDetail(getResult.content[0]!.text) as {
       plan: { pageName: string };
@@ -251,9 +251,9 @@ describe("Phase 5 E2E — design plan happy path", () => {
     const git = simpleGit(root);
     const log = await git.log();
     const subjects = log.all.map((c) => c.message);
-    expect(
-      subjects.some((s) => s.includes("feat(spec): create design plan profile-page"))
-    ).toBe(true);
+    expect(subjects.some((s) => s.includes("feat(spec): create design plan profile-page"))).toBe(
+      true
+    );
   });
 });
 
@@ -334,8 +334,7 @@ describe("Phase 5 E2E — bridge", () => {
         ws.close();
         reject(new Error("timeout"));
       }, 3000);
-      ws.onopen = () =>
-        ws.send(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }));
+      ws.onopen = () => ws.send(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }));
       ws.onmessage = (evt) => {
         clearTimeout(timer);
         ws.close();

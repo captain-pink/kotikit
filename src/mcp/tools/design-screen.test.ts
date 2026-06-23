@@ -1,18 +1,18 @@
-import { describe, it, expect, afterAll } from "bun:test";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "fs";
+import { afterAll, describe, expect, it } from "bun:test";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import type { ToolContext } from "../context.js";
-import type { ToolRegistry } from "../server.js";
-import { registerDesignScreenTools } from "./design-screen.js";
-import { newScreenSpec, newFlowManifest } from "../../spec/schema.js";
-import { writeScreenSpec, writeFlowManifest } from "../../spec/engine.js";
-import { writeDesignPlan } from "../../planning/design-plan-store.js";
-import { generateDesignPlan } from "../../planning/design-planner.js";
 import { defaultConfig } from "../../config/schema.js";
 import { openDesignReviewDb } from "../../db/design-review-db.js";
 import type { FigmaDraftTarget } from "../../figma/draft-target.js";
+import { writeDesignPlan } from "../../planning/design-plan-store.js";
+import { generateDesignPlan } from "../../planning/design-planner.js";
+import { writeFlowManifest, writeScreenSpec } from "../../spec/engine.js";
+import { newFlowManifest, newScreenSpec } from "../../spec/schema.js";
+import type { ToolContext } from "../context.js";
+import type { ToolRegistry } from "../server.js";
+import { registerDesignScreenTools } from "./design-screen.js";
 
 const tmpDirs: string[] = [];
 function mkTmp(): string {
@@ -83,7 +83,13 @@ describe("kotikit_design_get_screen", () => {
     seedDsComponentJson(root, "Button");
     seedDsComponentJson(root, "Input");
 
-    const plan = generateDesignPlan({ scope: "cart", screen: null, spec, config: defaultConfig(), target: target() });
+    const plan = generateDesignPlan({
+      scope: "cart",
+      screen: null,
+      spec,
+      config: defaultConfig(),
+      target: target(),
+    });
     await writeDesignPlan(root, "cart", null, plan);
 
     const registry = makeRegistry();
@@ -137,7 +143,9 @@ describe("kotikit_design_get_screen", () => {
     const root = mkTmp();
     const registry = makeRegistry();
     registerDesignScreenTools(registry, makeCtx(root));
-    const result = await callTool(registry, "kotikit_design_get_screen", { scope: "does-not-exist" });
+    const result = await callTool(registry, "kotikit_design_get_screen", {
+      scope: "does-not-exist",
+    });
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("couldn't find");
   });
@@ -151,7 +159,13 @@ describe("kotikit_design_get_screen", () => {
     seedDsComponentJson(root, "Button");
     // Note: "Missing" JSON intentionally not seeded
 
-    const plan = generateDesignPlan({ scope: "cart", screen: null, spec, config: defaultConfig(), target: target() });
+    const plan = generateDesignPlan({
+      scope: "cart",
+      screen: null,
+      spec,
+      config: defaultConfig(),
+      target: target(),
+    });
     await writeDesignPlan(root, "cart", null, plan);
 
     const registry = makeRegistry();
@@ -183,7 +197,13 @@ describe("kotikit_design_get_screen", () => {
     await writeScreenSpec(root, "cart", null, spec);
     seedDsComponentJson(root, "Button");
 
-    const plan = generateDesignPlan({ scope: "cart", screen: null, spec, config: defaultConfig(), target: target() });
+    const plan = generateDesignPlan({
+      scope: "cart",
+      screen: null,
+      spec,
+      config: defaultConfig(),
+      target: target(),
+    });
     await writeDesignPlan(root, "cart", null, plan);
 
     const registry = makeRegistry();
@@ -197,18 +217,25 @@ describe("kotikit_design_get_screen", () => {
     expect(detail.dsComponents.Button).toBeDefined();
     expect(detail.componentCreationRequired).toHaveLength(1);
     expect(detail.componentCreationRequired[0]?.name).toBe("Missing");
-    expect(detail.componentCreationRequired[0]?.componentSpecRef).toBe("components/missing.component.json");
+    expect(detail.componentCreationRequired[0]?.componentSpecRef).toBe(
+      "components/missing.component.json"
+    );
   });
 
   it("with a flow manifest: flow field is populated", async () => {
     const root = mkTmp();
     const manifest = newFlowManifest({
-      title: "Checkout", description: "x",
+      title: "Checkout",
+      description: "x",
       screens: [{ id: "cart", path: "cart.spec.json", title: "Cart" }],
     });
     await writeFlowManifest(root, "checkout-flow", manifest);
 
-    const spec = newScreenSpec({ title: "Cart", description: "x", flowRef: "checkout-flow/flow.json" });
+    const spec = newScreenSpec({
+      title: "Cart",
+      description: "x",
+      flowRef: "checkout-flow/flow.json",
+    });
     spec.requirements.states = { default: "x" };
     await writeScreenSpec(root, "checkout-flow", "cart", spec);
 
@@ -223,7 +250,10 @@ describe("kotikit_design_get_screen", () => {
 
     const registry = makeRegistry();
     registerDesignScreenTools(registry, makeCtx(root));
-    const result = await callTool(registry, "kotikit_design_get_screen", { scope: "checkout-flow", screen: "cart" });
+    const result = await callTool(registry, "kotikit_design_get_screen", {
+      scope: "checkout-flow",
+      screen: "cart",
+    });
     expect(result.isError).toBeFalsy();
     const detail = parseDetail(result.content[0]!.text) as { flow?: { title: string } };
     expect(detail.flow?.title).toBe("Checkout");

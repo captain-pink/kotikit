@@ -1,6 +1,6 @@
-import { describe, it, expect } from "bun:test";
-import { FigmaClient, figmaRateLimitFromEnv } from "./figma-client.js";
+import { describe, expect, it } from "bun:test";
 import { KotikitError } from "../util/result.js";
+import { FigmaClient, figmaRateLimitFromEnv } from "./figma-client.js";
 import { createAdaptiveLimiter, createLimiter } from "./rate-limit.js";
 
 function jsonResponse(body: unknown, init?: ResponseInit): Response {
@@ -102,8 +102,10 @@ describe("FigmaClient", () => {
   it("getFile returns parsed file data", async () => {
     const fetch = async () => jsonResponse({ name: "MyFile", document: { children: [] } });
     const client = new FigmaClient({
-      token: "tkn", fetch: fetch as unknown as typeof globalThis.fetch,
-      limiter: FAST_LIMITER, backoffOpts: FAST_BACKOFF,
+      token: "tkn",
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      limiter: FAST_LIMITER,
+      backoffOpts: FAST_BACKOFF,
     });
     const f = await client.getFile("k1");
     expect(f.name).toBe("MyFile");
@@ -117,8 +119,10 @@ describe("FigmaClient", () => {
       return jsonResponse({ meta: { components: [] } });
     };
     const client = new FigmaClient({
-      token: "tkn", fetch: fetch as unknown as typeof globalThis.fetch,
-      limiter: FAST_LIMITER, backoffOpts: FAST_BACKOFF,
+      token: "tkn",
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      limiter: FAST_LIMITER,
+      backoffOpts: FAST_BACKOFF,
     });
     const result = await client.getComponents("k1");
     expect(result).toEqual([]);
@@ -214,8 +218,10 @@ describe("FigmaClient", () => {
       return jsonResponse({ meta: { component_sets: [] } });
     };
     const client = new FigmaClient({
-      token: "tkn", fetch: fetch as unknown as typeof globalThis.fetch,
-      limiter: FAST_LIMITER, backoffOpts: FAST_BACKOFF,
+      token: "tkn",
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      limiter: FAST_LIMITER,
+      backoffOpts: FAST_BACKOFF,
     });
     const result = await client.getComponentSets("k1");
     expect(result).toEqual([]);
@@ -225,8 +231,10 @@ describe("FigmaClient", () => {
   it("getLocalVariables returns null on 403, no throw", async () => {
     const fetch = async () => errorResponse(403);
     const client = new FigmaClient({
-      token: "tkn", fetch: fetch as unknown as typeof globalThis.fetch,
-      limiter: FAST_LIMITER, backoffOpts: FAST_BACKOFF,
+      token: "tkn",
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      limiter: FAST_LIMITER,
+      backoffOpts: FAST_BACKOFF,
     });
     const v = await client.getLocalVariables("k1");
     expect(v).toBeNull();
@@ -235,8 +243,10 @@ describe("FigmaClient", () => {
   it("getFile maps 403 to KotikitError with access remediation", async () => {
     const fetch = async () => errorResponse(403);
     const client = new FigmaClient({
-      token: "tkn", fetch: fetch as unknown as typeof globalThis.fetch,
-      limiter: FAST_LIMITER, backoffOpts: FAST_BACKOFF,
+      token: "tkn",
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      limiter: FAST_LIMITER,
+      backoffOpts: FAST_BACKOFF,
     });
     await expect(client.getFile("k1")).rejects.toMatchObject({
       userMessage: expect.stringContaining("doesn't have access"),
@@ -246,8 +256,10 @@ describe("FigmaClient", () => {
   it("getFile maps 401 to KotikitError with token-invalid message", async () => {
     const fetch = async () => errorResponse(401);
     const client = new FigmaClient({
-      token: "tkn", fetch: fetch as unknown as typeof globalThis.fetch,
-      limiter: FAST_LIMITER, backoffOpts: FAST_BACKOFF,
+      token: "tkn",
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      limiter: FAST_LIMITER,
+      backoffOpts: FAST_BACKOFF,
     });
     await expect(client.getFile("k1")).rejects.toBeInstanceOf(KotikitError);
   });
@@ -255,8 +267,10 @@ describe("FigmaClient", () => {
   it("getFile maps 404 to KotikitError with file-not-found message", async () => {
     const fetch = async () => errorResponse(404);
     const client = new FigmaClient({
-      token: "tkn", fetch: fetch as unknown as typeof globalThis.fetch,
-      limiter: FAST_LIMITER, backoffOpts: FAST_BACKOFF,
+      token: "tkn",
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      limiter: FAST_LIMITER,
+      backoffOpts: FAST_BACKOFF,
     });
     await expect(client.getFile("k1")).rejects.toMatchObject({
       userMessage: expect.stringContaining("can't find file"),
@@ -277,8 +291,10 @@ describe("FigmaClient", () => {
       return jsonResponse({ nodes });
     };
     const client = new FigmaClient({
-      token: "tkn", fetch: fetch as unknown as typeof globalThis.fetch,
-      limiter: FAST_LIMITER, backoffOpts: FAST_BACKOFF,
+      token: "tkn",
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      limiter: FAST_LIMITER,
+      backoffOpts: FAST_BACKOFF,
     });
     const ids = Array.from({ length: 250 }, (_, i) => `n${i}`);
     const got = await client.getNodes("k1", ids);
@@ -309,7 +325,10 @@ describe("FigmaClient", () => {
       backoffOpts: FAST_BACKOFF,
     });
 
-    const got = client.getNodes("k1", Array.from({ length: 250 }, (_, i) => `n${i}`));
+    const got = client.getNodes(
+      "k1",
+      Array.from({ length: 250 }, (_, i) => `n${i}`)
+    );
 
     await expect(Promise.race([allBatchesStarted.promise, timeout(50)])).resolves.toBeUndefined();
     expect(callCount).toBe(3);
@@ -324,7 +343,7 @@ describe("FigmaClient", () => {
       seenUrl = url.toString();
       return jsonResponse({
         nodes: {
-          "p1": {
+          p1: {
             document: {
               id: "p1",
               name: "Icons",
@@ -356,7 +375,7 @@ describe("FigmaClient", () => {
   });
 
   it("getPageTree returns null when the node entry is null", async () => {
-    const fetch = async () => jsonResponse({ nodes: { "p1": null } });
+    const fetch = async () => jsonResponse({ nodes: { p1: null } });
     const client = new FigmaClient({
       token: "tkn",
       fetch: fetch as unknown as typeof globalThis.fetch,
@@ -368,7 +387,7 @@ describe("FigmaClient", () => {
   });
 
   it("getPageTree returns null when document is absent", async () => {
-    const fetch = async () => jsonResponse({ nodes: { "p1": {} } });
+    const fetch = async () => jsonResponse({ nodes: { p1: {} } });
     const client = new FigmaClient({
       token: "tkn",
       fetch: fetch as unknown as typeof globalThis.fetch,
@@ -500,9 +519,7 @@ describe("FigmaClient", () => {
               id: "p1",
               name: "Components",
               type: "CANVAS",
-              children: [
-                { id: "c1", name: "Button", type: "COMPONENT" },
-              ],
+              children: [{ id: "c1", name: "Button", type: "COMPONENT" }],
             },
           ],
         },

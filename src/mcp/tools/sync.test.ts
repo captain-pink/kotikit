@@ -1,17 +1,17 @@
-import { describe, it, expect, afterAll } from "bun:test";
-import { mkdtempSync, rmSync, existsSync, writeFileSync } from "fs";
+import { afterAll, describe, expect, it } from "bun:test";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { writeConfig } from "../../config/load.js";
+import { defaultConfig } from "../../config/schema.js";
+import { FigmaClient } from "../../sync/figma-client.js";
+import { nullProgressEmitter } from "../../sync/progress.js";
+import { createLimiter } from "../../sync/rate-limit.js";
+import { checkpointPath, manifestPath } from "../../util/paths.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
 import { registerSyncTools } from "./sync.js";
-import { FigmaClient } from "../../sync/figma-client.js";
-import { createLimiter } from "../../sync/rate-limit.js";
-import { writeConfig } from "../../config/load.js";
-import { defaultConfig } from "../../config/schema.js";
-import { checkpointPath, manifestPath } from "../../util/paths.js";
-import { nullProgressEmitter } from "../../sync/progress.js";
 
 const tmpDirs: string[] = [];
 function mkTmp(): string {
@@ -19,7 +19,9 @@ function mkTmp(): string {
   tmpDirs.push(d);
   return d;
 }
-afterAll(() => { for (const d of tmpDirs) rmSync(d, { recursive: true, force: true }); });
+afterAll(() => {
+  for (const d of tmpDirs) rmSync(d, { recursive: true, force: true });
+});
 
 const FAST = { initialMs: 1, maxMs: 5, jitterMs: 0, maxAttempts: 3 };
 
@@ -52,7 +54,9 @@ function makeSingleFileFetch(fileKey: string): typeof globalThis.fetch {
     }),
     [`/v1/files/${fileKey}/component_sets`]: () => ({ meta: { component_sets: [] } }),
     [`/v1/files/${fileKey}/styles`]: () => ({ meta: { styles: [] } }),
-    [`/v1/files/${fileKey}/variables/local`]: () => ({ meta: { variables: {}, variableCollections: {} } }),
+    [`/v1/files/${fileKey}/variables/local`]: () => ({
+      meta: { variables: {}, variableCollections: {} },
+    }),
     [`/v1/files/${fileKey}/nodes`]: () => ({ nodes: {} }),
     [`/v1/files/${fileKey}`]: () => ({
       name: "FileA",
@@ -79,7 +83,7 @@ describe("kotikit_sync_ds", () => {
   it("happy path: two files, both with components, one conflict", async () => {
     const root = mkTmp();
     const cfg = defaultConfig();
-    cfg.figma.token = "plain-token-value";  // resolveSecret returns plain string as-is
+    cfg.figma.token = "plain-token-value"; // resolveSecret returns plain string as-is
     cfg.figma.designSystemFiles = [
       { key: "FA", name: "FileA" },
       { key: "FB", name: "FileB" },
@@ -87,18 +91,32 @@ describe("kotikit_sync_ds", () => {
     await writeConfig(root, cfg);
 
     const fetch = makeFetch({
-      "/v1/files/FA/components": () => ({ meta: { components: [{ key: "ckA", node_id: "btnA", name: "Button" }] } }),
+      "/v1/files/FA/components": () => ({
+        meta: { components: [{ key: "ckA", node_id: "btnA", name: "Button" }] },
+      }),
       "/v1/files/FA/component_sets": () => ({ meta: { component_sets: [] } }),
       "/v1/files/FA/styles": () => ({ meta: { styles: [] } }),
       "/v1/files/FA/variables/local": () => ({ meta: { variables: {}, variableCollections: {} } }),
       "/v1/files/FA/nodes": () => ({ nodes: {} }),
-      "/v1/files/FA": () => ({ name: "FileA", document: { children: [{ id: "p1", name: "Components", children: [{ id: "btnA", name: "Button" }] }] } }),
-      "/v1/files/FB/components": () => ({ meta: { components: [{ key: "ckB", node_id: "btnB", name: "Button" }] } }),
+      "/v1/files/FA": () => ({
+        name: "FileA",
+        document: {
+          children: [{ id: "p1", name: "Components", children: [{ id: "btnA", name: "Button" }] }],
+        },
+      }),
+      "/v1/files/FB/components": () => ({
+        meta: { components: [{ key: "ckB", node_id: "btnB", name: "Button" }] },
+      }),
       "/v1/files/FB/component_sets": () => ({ meta: { component_sets: [] } }),
       "/v1/files/FB/styles": () => ({ meta: { styles: [] } }),
       "/v1/files/FB/variables/local": () => ({ meta: { variables: {}, variableCollections: {} } }),
       "/v1/files/FB/nodes": () => ({ nodes: {} }),
-      "/v1/files/FB": () => ({ name: "FileB", document: { children: [{ id: "p1", name: "Components", children: [{ id: "btnB", name: "Button" }] }] } }),
+      "/v1/files/FB": () => ({
+        name: "FileB",
+        document: {
+          children: [{ id: "p1", name: "Components", children: [{ id: "btnB", name: "Button" }] }],
+        },
+      }),
     });
 
     const registry = makeRegistry();
@@ -108,12 +126,13 @@ describe("kotikit_sync_ds", () => {
     };
 
     registerSyncTools(registry, ctx, {
-      figmaClientFactory: (token: string) => new FigmaClient({
-        token,
-        fetch,
-        limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
-        backoffOpts: FAST,
-      }),
+      figmaClientFactory: (token: string) =>
+        new FigmaClient({
+          token,
+          fetch,
+          limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+          backoffOpts: FAST,
+        }),
       progress: nullProgressEmitter(),
     });
 
@@ -302,12 +321,13 @@ describe("kotikit_sync_ds", () => {
     };
 
     registerSyncTools(registry, ctx, {
-      figmaClientFactory: (token: string) => new FigmaClient({
-        token,
-        fetch,
-        limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
-        backoffOpts: FAST,
-      }),
+      figmaClientFactory: (token: string) =>
+        new FigmaClient({
+          token,
+          fetch,
+          limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+          backoffOpts: FAST,
+        }),
       progress: nullProgressEmitter(),
       softDeadlineMs: 0,
     });
@@ -336,11 +356,18 @@ describe("kotikit_sync_ds", () => {
           headers: { "Content-Type": "application/json" },
         });
       }
-      if (u.includes("/v1/files/FX/components")) return jsonRes({ meta: { components: [{ key: "ckX", node_id: "btnX", name: "Button" }] } });
-      if (u.includes("/v1/files/FX/component_sets")) return jsonRes({ meta: { component_sets: [] } });
+      if (u.includes("/v1/files/FX/components"))
+        return jsonRes({ meta: { components: [{ key: "ckX", node_id: "btnX", name: "Button" }] } });
+      if (u.includes("/v1/files/FX/component_sets"))
+        return jsonRes({ meta: { component_sets: [] } });
       if (u.includes("/v1/files/FX/styles")) return jsonRes({ meta: { styles: [] } });
       if (u.includes("/v1/files/FX/nodes")) return jsonRes({ nodes: {} });
-      return jsonRes({ name: "FileX", document: { children: [{ id: "p1", name: "Components", children: [{ id: "btnX", name: "Button" }] }] } });
+      return jsonRes({
+        name: "FileX",
+        document: {
+          children: [{ id: "p1", name: "Components", children: [{ id: "btnX", name: "Button" }] }],
+        },
+      });
     }) as unknown as typeof globalThis.fetch;
 
     const registry = makeRegistry();
@@ -350,12 +377,13 @@ describe("kotikit_sync_ds", () => {
     };
 
     registerSyncTools(registry, ctx, {
-      figmaClientFactory: (token: string) => new FigmaClient({
-        token,
-        fetch: fetch403,
-        limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
-        backoffOpts: FAST,
-      }),
+      figmaClientFactory: (token: string) =>
+        new FigmaClient({
+          token,
+          fetch: fetch403,
+          limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+          backoffOpts: FAST,
+        }),
       progress: nullProgressEmitter(),
     });
 
@@ -380,19 +408,22 @@ describe("kotikit_sync_ds", () => {
     };
 
     registerSyncTools(registry, ctx, {
-      figmaClientFactory: (token: string) => new FigmaClient({
-        token,
-        fetch: makeFetch({
-          "/v1/files/FX/components": () => ({ meta: { components: [] } }),
-          "/v1/files/FX/component_sets": () => ({ meta: { component_sets: [] } }),
-          "/v1/files/FX/styles": () => ({ meta: { styles: [] } }),
-          "/v1/files/FX/variables/local": () => ({ meta: { variables: {}, variableCollections: {} } }),
-          "/v1/files/FX/nodes": () => ({ nodes: {} }),
-          "/v1/files/FX": () => ({ name: "EmptyLibrary", document: { children: [] } }),
+      figmaClientFactory: (token: string) =>
+        new FigmaClient({
+          token,
+          fetch: makeFetch({
+            "/v1/files/FX/components": () => ({ meta: { components: [] } }),
+            "/v1/files/FX/component_sets": () => ({ meta: { component_sets: [] } }),
+            "/v1/files/FX/styles": () => ({ meta: { styles: [] } }),
+            "/v1/files/FX/variables/local": () => ({
+              meta: { variables: {}, variableCollections: {} },
+            }),
+            "/v1/files/FX/nodes": () => ({ nodes: {} }),
+            "/v1/files/FX": () => ({ name: "EmptyLibrary", document: { children: [] } }),
+          }),
+          limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+          backoffOpts: FAST,
         }),
-        limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
-        backoffOpts: FAST,
-      }),
       progress: nullProgressEmitter(),
     });
 

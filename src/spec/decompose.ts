@@ -1,9 +1,9 @@
 import {
-  newScreenSpec,
-  newFlowManifest,
-  ScreenSpecSchema,
-  type ScreenSpec,
   type FlowManifest,
+  newFlowManifest,
+  newScreenSpec,
+  type ScreenSpec,
+  ScreenSpecSchema,
 } from "./schema.js";
 
 // ─── Draft shapes ─────────────────────────────────────────────────────────────

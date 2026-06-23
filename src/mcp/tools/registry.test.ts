@@ -1,14 +1,14 @@
-import { describe, it, expect, afterAll } from "bun:test";
+import { afterAll, describe, expect, it } from "bun:test";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { initRegistryDb, upsertRegistry } from "../../db/registry-db.js";
+import { openDb } from "../../db/sqlite.js";
+import { registryDbPath } from "../../util/paths.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
 import { registerRegistryTools } from "./registry.js";
-import { openDb } from "../../db/sqlite.js";
-import { initRegistryDb, upsertRegistry } from "../../db/registry-db.js";
-import { registryDbPath } from "../../util/paths.js";
 
 const tmpDirs: string[] = [];
 function mkTmp(): string {
@@ -90,7 +90,13 @@ describe("kotikit_registry_search", () => {
     const db = openDb(registryDbPath(root));
     initRegistryDb(db);
     for (let i = 0; i < 10; i++)
-      upsertRegistry(db, { kind: "screen", name: `Comp${i}`, dsPath: null, codePath: "p", status: "code-only" });
+      upsertRegistry(db, {
+        kind: "screen",
+        name: `Comp${i}`,
+        dsPath: null,
+        codePath: "p",
+        status: "code-only",
+      });
     db.close();
 
     const registry = makeRegistry();
@@ -109,9 +115,27 @@ describe("kotikit_registry_search", () => {
     const root = mkTmp();
     const db = openDb(registryDbPath(root));
     initRegistryDb(db);
-    upsertRegistry(db, { kind: "component", name: "Button", dsPath: "components/button.json", codePath: null, status: "design-only" });
-    upsertRegistry(db, { kind: "screen", name: "Cart", dsPath: null, codePath: "src/x/Cart.tsx", status: "code-only" });
-    upsertRegistry(db, { kind: "component", name: "Card", dsPath: "components/card.json", codePath: "src/components/ui/card.tsx", status: "synced" });
+    upsertRegistry(db, {
+      kind: "component",
+      name: "Button",
+      dsPath: "components/button.json",
+      codePath: null,
+      status: "design-only",
+    });
+    upsertRegistry(db, {
+      kind: "screen",
+      name: "Cart",
+      dsPath: null,
+      codePath: "src/x/Cart.tsx",
+      status: "code-only",
+    });
+    upsertRegistry(db, {
+      kind: "component",
+      name: "Card",
+      dsPath: "components/card.json",
+      codePath: "src/components/ui/card.tsx",
+      status: "synced",
+    });
     db.close();
 
     const registry = makeRegistry();
@@ -119,59 +143,106 @@ describe("kotikit_registry_search", () => {
     const result = await callTool(registry, "kotikit_registry_search", { status: "design-only" });
     expect(result.isError).toBeFalsy();
     const detail = parseDetail(result.content[0]!.text) as { results: { name: string }[] };
-    expect(detail.results.map(r => r.name)).toEqual(["Button"]);
+    expect(detail.results.map((r) => r.name)).toEqual(["Button"]);
   });
 
   it("kind filter: only components", async () => {
     const root = mkTmp();
     const db = openDb(registryDbPath(root));
     initRegistryDb(db);
-    upsertRegistry(db, { kind: "component", name: "Button", dsPath: "p", codePath: null, status: "design-only" });
-    upsertRegistry(db, { kind: "screen", name: "Cart", dsPath: null, codePath: "p", status: "code-only" });
+    upsertRegistry(db, {
+      kind: "component",
+      name: "Button",
+      dsPath: "p",
+      codePath: null,
+      status: "design-only",
+    });
+    upsertRegistry(db, {
+      kind: "screen",
+      name: "Cart",
+      dsPath: null,
+      codePath: "p",
+      status: "code-only",
+    });
     db.close();
 
     const registry = makeRegistry();
     registerRegistryTools(registry, makeCtx(root));
     const result = await callTool(registry, "kotikit_registry_search", { kind: "component" });
-    const detail = parseDetail(result.content[0]!.text) as { results: { name: string; kind: string }[] };
-    expect(detail.results.every(r => r.kind === "component")).toBe(true);
+    const detail = parseDetail(result.content[0]!.text) as {
+      results: { name: string; kind: string }[];
+    };
+    expect(detail.results.every((r) => r.kind === "component")).toBe(true);
   });
 
   it("query is no longer required: {} returns all rows", async () => {
     const root = mkTmp();
     const db = openDb(registryDbPath(root));
     initRegistryDb(db);
-    upsertRegistry(db, { kind: "component", name: "Button", dsPath: "p", codePath: null, status: "design-only" });
-    upsertRegistry(db, { kind: "screen", name: "Cart", dsPath: null, codePath: "p", status: "code-only" });
+    upsertRegistry(db, {
+      kind: "component",
+      name: "Button",
+      dsPath: "p",
+      codePath: null,
+      status: "design-only",
+    });
+    upsertRegistry(db, {
+      kind: "screen",
+      name: "Cart",
+      dsPath: null,
+      codePath: "p",
+      status: "code-only",
+    });
     db.close();
 
     const registry = makeRegistry();
     registerRegistryTools(registry, makeCtx(root));
     const result = await callTool(registry, "kotikit_registry_search", {});
     const detail = parseDetail(result.content[0]!.text) as { results: { name: string }[] };
-    expect(detail.results.map(r => r.name).sort()).toEqual(["Button", "Cart"]);
+    expect(detail.results.map((r) => r.name).sort()).toEqual(["Button", "Cart"]);
   });
 
   it("query prefix match still works alongside other filters", async () => {
     const root = mkTmp();
     const db = openDb(registryDbPath(root));
     initRegistryDb(db);
-    upsertRegistry(db, { kind: "component", name: "Button", dsPath: "p", codePath: null, status: "design-only" });
-    upsertRegistry(db, { kind: "component", name: "ButtonGroup", dsPath: "p", codePath: null, status: "synced" });
+    upsertRegistry(db, {
+      kind: "component",
+      name: "Button",
+      dsPath: "p",
+      codePath: null,
+      status: "design-only",
+    });
+    upsertRegistry(db, {
+      kind: "component",
+      name: "ButtonGroup",
+      dsPath: "p",
+      codePath: null,
+      status: "synced",
+    });
     db.close();
 
     const registry = makeRegistry();
     registerRegistryTools(registry, makeCtx(root));
-    const result = await callTool(registry, "kotikit_registry_search", { query: "Button", status: "synced" });
+    const result = await callTool(registry, "kotikit_registry_search", {
+      query: "Button",
+      status: "synced",
+    });
     const detail = parseDetail(result.content[0]!.text) as { results: { name: string }[] };
-    expect(detail.results.map(r => r.name)).toEqual(["ButtonGroup"]);
+    expect(detail.results.map((r) => r.name)).toEqual(["ButtonGroup"]);
   });
 
   it("summary mentions the filters", async () => {
     const root = mkTmp();
     const db = openDb(registryDbPath(root));
     initRegistryDb(db);
-    upsertRegistry(db, { kind: "component", name: "Button", dsPath: "p", codePath: null, status: "design-only" });
+    upsertRegistry(db, {
+      kind: "component",
+      name: "Button",
+      dsPath: "p",
+      codePath: null,
+      status: "design-only",
+    });
     db.close();
 
     const registry = makeRegistry();

@@ -119,13 +119,20 @@ export function intrinsicElementFor(componentName: string): string {
 /** Map an HTML element tag to the React attributes interface it should extend. */
 function intrinsicAttrsFor(element: string): string {
   switch (element) {
-    case "button":   return "React.ButtonHTMLAttributes<HTMLButtonElement>";
-    case "input":    return "React.InputHTMLAttributes<HTMLInputElement>";
-    case "select":   return "React.SelectHTMLAttributes<HTMLSelectElement>";
-    case "textarea": return "React.TextareaHTMLAttributes<HTMLTextAreaElement>";
-    case "label":    return "React.LabelHTMLAttributes<HTMLLabelElement>";
-    case "a":        return "React.AnchorHTMLAttributes<HTMLAnchorElement>";
-    default:         return "React.HTMLAttributes<HTMLDivElement>";
+    case "button":
+      return "React.ButtonHTMLAttributes<HTMLButtonElement>";
+    case "input":
+      return "React.InputHTMLAttributes<HTMLInputElement>";
+    case "select":
+      return "React.SelectHTMLAttributes<HTMLSelectElement>";
+    case "textarea":
+      return "React.TextareaHTMLAttributes<HTMLTextAreaElement>";
+    case "label":
+      return "React.LabelHTMLAttributes<HTMLLabelElement>";
+    case "a":
+      return "React.AnchorHTMLAttributes<HTMLAnchorElement>";
+    default:
+      return "React.HTMLAttributes<HTMLDivElement>";
   }
 }
 
@@ -157,9 +164,7 @@ export function emitCvaVariantsBlock(json: ComponentJson): string {
 
   const variantLines = json.variants.map((axis) => {
     const key = variantPropKey(axis.propertyName);
-    const valuePairs = axis.values
-      .map((v) => `${slugifyVariantValue(v)}: ""`)
-      .join(", ");
+    const valuePairs = axis.values.map((v) => `${slugifyVariantValue(v)}: ""`).join(", ");
     return `      ${key}: { ${valuePairs} },`;
   });
 
@@ -213,10 +218,18 @@ export function emitPropsInterface(json: ComponentJson, intrinsicElement: string
     const propName = figmaPropName.toLowerCase();
     let tsType: string;
     switch (def.type) {
-      case "BOOLEAN":       tsType = "boolean"; break;
-      case "TEXT":          tsType = "string"; break;
-      case "INSTANCE_SWAP": tsType = "React.ReactNode"; break;
-      default:              tsType = "unknown"; break;
+      case "BOOLEAN":
+        tsType = "boolean";
+        break;
+      case "TEXT":
+        tsType = "string";
+        break;
+      case "INSTANCE_SWAP":
+        tsType = "React.ReactNode";
+        break;
+      default:
+        tsType = "unknown";
+        break;
     }
     propLines.push(`  ${propName}?: ${tsType};`);
   }

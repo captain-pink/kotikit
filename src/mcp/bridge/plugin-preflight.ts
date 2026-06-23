@@ -38,8 +38,7 @@ const TOP_LEVEL_BUILD_INPUTS = [
   "code.ts",
 ];
 const BUILD_INPUT_DIRS = ["src", "ui"];
-const LOCALHOST_BRIDGE_DOMAIN =
-  /^(?:https?|ws):\/\/localhost(?::(?:\d+|\*))?$/;
+const LOCALHOST_BRIDGE_DOMAIN = /^(?:https?|ws):\/\/localhost(?::(?:\d+|\*))?$/;
 
 export const defaultPluginRoot = (): string =>
   fileURLToPath(new URL("../../../figma-plugin", import.meta.url));
@@ -57,8 +56,9 @@ export async function patchPluginManifestAllowedDomains(
   }
 
   const manifest = parseManifest(await readFile(manifestPath, "utf-8"), manifestPath);
-  const existingDomains = manifest.networkAccess.allowedDomains
-    .filter((domain) => !LOCALHOST_BRIDGE_DOMAIN.test(domain));
+  const existingDomains = manifest.networkAccess.allowedDomains.filter(
+    (domain) => !LOCALHOST_BRIDGE_DOMAIN.test(domain)
+  );
   const allowedDomains = [
     `http://localhost:${port}`,
     `ws://localhost:${port}`,
@@ -134,7 +134,10 @@ const parseManifest = (text: string, manifestPath: string): ParsedManifest => {
     const networkAccess = raw.networkAccess;
     if (!isRecord(networkAccess)) throw new Error("networkAccess must be an object");
     const allowedDomains = networkAccess.allowedDomains;
-    if (!Array.isArray(allowedDomains) || !allowedDomains.every((domain) => typeof domain === "string")) {
+    if (
+      !Array.isArray(allowedDomains) ||
+      !allowedDomains.every((domain) => typeof domain === "string")
+    ) {
       throw new Error("networkAccess.allowedDomains must be an array of strings");
     }
     return {
@@ -161,7 +164,11 @@ const writeJsonAtomic = async (path: string, value: unknown): Promise<void> => {
 
 const hasRequiredDistFiles = async (pluginRoot: string): Promise<boolean> => {
   const results = await Promise.all(
-    REQUIRED_DIST_FILES.map((path) => stat(join(pluginRoot, path)).then(() => true).catch(() => false))
+    REQUIRED_DIST_FILES.map((path) =>
+      stat(join(pluginRoot, path))
+        .then(() => true)
+        .catch(() => false)
+    )
   );
   return results.every(Boolean);
 };
@@ -174,7 +181,11 @@ const isDistFresh = async (pluginRoot: string): Promise<boolean> => {
 
   const sourceFiles = await buildInputFiles(pluginRoot);
   const sourceStats = await Promise.all(
-    sourceFiles.map((path) => stat(path).then((entry) => entry.mtimeMs).catch(() => 0))
+    sourceFiles.map((path) =>
+      stat(path)
+        .then((entry) => entry.mtimeMs)
+        .catch(() => 0)
+    )
   );
   const newestSource = Math.max(0, ...sourceStats);
   const oldestDist = Math.min(...distStats.map((entry) => entry?.mtimeMs ?? 0));
@@ -186,15 +197,19 @@ const needsInstall = async (pluginRoot: string): Promise<boolean> => {
   if (nodeModulesStat === null) return true;
 
   const dependencyFiles = await Promise.all(
-    ["package.json", "bun.lock", "package-lock.json"]
-      .map((path) => stat(join(pluginRoot, path)).then((entry) => entry.mtimeMs).catch(() => 0))
+    ["package.json", "bun.lock", "package-lock.json"].map((path) =>
+      stat(join(pluginRoot, path))
+        .then((entry) => entry.mtimeMs)
+        .catch(() => 0)
+    )
   );
   return nodeModulesStat.mtimeMs < Math.max(0, ...dependencyFiles);
 };
 
 const buildInputFiles = async (pluginRoot: string): Promise<string[]> => {
-  const topLevel = TOP_LEVEL_BUILD_INPUTS.map((path) => join(pluginRoot, path))
-    .filter((path) => existsSync(path));
+  const topLevel = TOP_LEVEL_BUILD_INPUTS.map((path) => join(pluginRoot, path)).filter((path) =>
+    existsSync(path)
+  );
   const nested = await Promise.all(
     BUILD_INPUT_DIRS.map((path) => collectFiles(join(pluginRoot, path)))
   );
@@ -249,7 +264,8 @@ const resolvePackageManager = async (
     command: "npm",
     installArgs: ["install"],
     buildArgs: ["run", "build"],
-    warning: "Bun was not available, so kotikit used npm. Installing Bun is recommended for this project.",
+    warning:
+      "Bun was not available, so kotikit used npm. Installing Bun is recommended for this project.",
   };
 };
 
@@ -262,10 +278,7 @@ const runRequiredCommand = async (
 ): Promise<CommandResult> => {
   const result = await runCommand(command, args, cwd);
   if (result.code === 0) return result;
-  throw new KotikitError(
-    `I couldn't ${action}.`,
-    `Raw output:\n${formatOutput(result)}`
-  );
+  throw new KotikitError(`I couldn't ${action}.`, `Raw output:\n${formatOutput(result)}`);
 };
 
 const formatOutput = (result: CommandResult): string => {

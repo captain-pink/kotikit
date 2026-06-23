@@ -13,16 +13,18 @@ describe("Figma plugin build config", () => {
 
     expect(pkg.scripts.build).toContain("tsc -p tsconfig.code.json --noEmit");
     expect(pkg.scripts.build).toContain("vite build --config vite.sandbox.config.ts");
-    expect(pkg.scripts.build).toMatch(/vite build --config vite\.sandbox\.config\.ts && vite build/);
+    expect(pkg.scripts.build).toMatch(
+      /vite build --config vite\.sandbox\.config\.ts && vite build/
+    );
   });
 
   it("configures the sandbox entry as an IIFE bundle", () => {
     const config = readFileSync(pluginPath("vite.sandbox.config.ts"), "utf-8");
 
-    expect(config).toContain("target: \"es6\"");
-    expect(config).toContain("entry: fileURLToPath(new URL(\"code.ts\", import.meta.url))");
-    expect(config).toContain("formats: [\"iife\"]");
-    expect(config).toContain("fileName: () => \"code.js\"");
+    expect(config).toContain('target: "es6"');
+    expect(config).toContain('entry: fileURLToPath(new URL("code.ts", import.meta.url))');
+    expect(config).toContain('formats: ["iife"]');
+    expect(config).toContain('fileName: () => "code.js"');
     expect(config).toContain("sandboxSyntaxGuard");
     expect(config).toContain("Object or array spread");
   });

@@ -1,12 +1,8 @@
-import { z } from "zod";
 import { mkdir, writeFile } from "fs/promises";
 import { dirname } from "path";
+import { z } from "zod";
 import { variablesJsonPath } from "../util/paths.js";
-import type {
-  FigmaLocalVariables,
-  FigmaStyle,
-  FigmaNode,
-} from "./figma-types.js";
+import type { FigmaLocalVariables, FigmaNode, FigmaStyle } from "./figma-types.js";
 
 // ─── Output schema ───────────────────────────────────────────────────────────
 
@@ -28,10 +24,14 @@ export type VariableEntry = z.infer<typeof VariableEntrySchema>;
 export const VariablesJsonSchema = z.object({
   version: z.literal(1),
   entries: z.array(VariableEntrySchema),
-  collisions: z.array(z.object({
-    name: z.string(),
-    keptSource: z.enum(["variable", "style"]),
-  })).default([]),
+  collisions: z
+    .array(
+      z.object({
+        name: z.string(),
+        keptSource: z.enum(["variable", "style"]),
+      })
+    )
+    .default([]),
 });
 export type VariablesJson = z.infer<typeof VariablesJsonSchema>;
 
@@ -39,10 +39,14 @@ export type VariablesJson = z.infer<typeof VariablesJsonSchema>;
 
 function styleTypeToKind(styleType: FigmaStyle["style_type"]): VariableEntry["kind"] | null {
   switch (styleType) {
-    case "FILL":   return "color";
-    case "TEXT":   return "text";
-    case "EFFECT": return "effect";
-    case "GRID":   return null; // skipped — not modelled
+    case "FILL":
+      return "color";
+    case "TEXT":
+      return "text";
+    case "EFFECT":
+      return "effect";
+    case "GRID":
+      return null; // skipped — not modelled
   }
 }
 
@@ -53,10 +57,14 @@ function variableTypeToKind(
   name = ""
 ): VariableEntry["kind"] | null {
   switch (resolved) {
-    case "COLOR":   return "color";
-    case "FLOAT":   return SPACING_NAME_PATTERN.test(name) ? "spacing" : "number";
-    case "STRING":  return "text";
-    case "BOOLEAN": return null; // skipped — not modelled
+    case "COLOR":
+      return "color";
+    case "FLOAT":
+      return SPACING_NAME_PATTERN.test(name) ? "spacing" : "number";
+    case "STRING":
+      return "text";
+    case "BOOLEAN":
+      return null; // skipped — not modelled
   }
 }
 
@@ -124,8 +132,11 @@ export function mergeVariables(input: {
         // value defaults to the first mode's value for the single-mode case
         value: modeIds.length > 0 ? valuesByMode[modeIds[0] as string] : null,
         ...(v.description !== undefined ? { description: v.description } : {}),
-        ...(v.variableCollectionId !== undefined ? { variableCollectionId: v.variableCollectionId } : {}),
-        ...(v.variableCollectionId !== undefined && collectionKeyById[v.variableCollectionId] !== undefined
+        ...(v.variableCollectionId !== undefined
+          ? { variableCollectionId: v.variableCollectionId }
+          : {}),
+        ...(v.variableCollectionId !== undefined &&
+        collectionKeyById[v.variableCollectionId] !== undefined
           ? { variableCollectionKey: collectionKeyById[v.variableCollectionId] }
           : {}),
         ...(v.scopes !== undefined ? { scopes: v.scopes } : {}),

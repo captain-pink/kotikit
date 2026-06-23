@@ -1,11 +1,14 @@
-import { describe, it, expect } from "bun:test";
-import { withBackoff, type RetryableError } from "./backoff.js";
+import { describe, expect, it } from "bun:test";
+import { type RetryableError, withBackoff } from "./backoff.js";
 
 describe("withBackoff", () => {
   it("returns immediately on success", async () => {
     let calls = 0;
     const result = await withBackoff(
-      async () => { calls++; return "ok"; },
+      async () => {
+        calls++;
+        return "ok";
+      },
       () => null
     );
     expect(result).toBe("ok");
@@ -34,7 +37,10 @@ describe("withBackoff", () => {
     let calls = 0;
     await expect(
       withBackoff(
-        async () => { calls++; throw { status: 500, n: calls }; },
+        async () => {
+          calls++;
+          throw { status: 500, n: calls };
+        },
         (err) => {
           const e = err as { status?: number };
           return e.status === 500 ? { status: 500 } : null;
@@ -49,7 +55,10 @@ describe("withBackoff", () => {
     let calls = 0;
     await expect(
       withBackoff(
-        async () => { calls++; throw new Error("bad"); },
+        async () => {
+          calls++;
+          throw new Error("bad");
+        },
         () => null
       )
     ).rejects.toThrow("bad");
@@ -67,7 +76,9 @@ describe("withBackoff", () => {
       },
       (err) => {
         const e = err as { status?: number };
-        return e.status === 429 ? ({ status: 429, retryAfterMs: 100 } satisfies RetryableError) : null;
+        return e.status === 429
+          ? ({ status: 429, retryAfterMs: 100 } satisfies RetryableError)
+          : null;
       },
       { initialMs: 1, maxMs: 5, jitterMs: 0 }
     );
@@ -95,7 +106,7 @@ describe("withBackoff", () => {
       const b = startsAt[i] ?? 0;
       deltas.push(b - a);
     }
-    const allEqual = deltas.every(d => d === deltas[0]);
+    const allEqual = deltas.every((d) => d === deltas[0]);
     expect(allEqual).toBe(false);
   });
 });

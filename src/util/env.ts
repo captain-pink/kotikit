@@ -1,5 +1,5 @@
-import { readFile } from "fs/promises";
 import { existsSync } from "fs";
+import { readFile } from "fs/promises";
 
 export interface LoadDotEnvOptions {
   /** Replace existing process.env keys only when their current value is empty. */

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import type { GateResult, GateRunReport } from "./gate-output.js";
 
 describe("gate-output types", () => {
@@ -42,10 +42,10 @@ describe("gate-output types", () => {
       totalDurationMs: 1234,
       passed: true,
       results: [
-        { gate: "tsc",      passed: true, exitCode: 0, durationMs: 500, failures: [], raw: "" },
-        { gate: "eslint",   passed: true, exitCode: 0, durationMs: 400, failures: [], raw: "" },
+        { gate: "tsc", passed: true, exitCode: 0, durationMs: 500, failures: [], raw: "" },
+        { gate: "eslint", passed: true, exitCode: 0, durationMs: 400, failures: [], raw: "" },
         { gate: "prettier", passed: true, exitCode: 0, durationMs: 200, failures: [], raw: "" },
-        { gate: "vitest",   passed: true, exitCode: 0, durationMs: 134, failures: [], raw: "" },
+        { gate: "vitest", passed: true, exitCode: 0, durationMs: 134, failures: [], raw: "" },
       ],
     };
     expect(report.results).toHaveLength(4);

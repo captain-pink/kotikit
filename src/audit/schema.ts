@@ -13,10 +13,12 @@ export const AuditEntrySchema = z.object({
   outcome: AuditOutcomeSchema,
   dsPath: z.string().nullable(),
   codePath: z.string().nullable(),
-  variantDelta: z.object({
-    dsOnly: z.array(z.string()),
-    codeOnly: z.array(z.string()),
-  }).optional(),
+  variantDelta: z
+    .object({
+      dsOnly: z.array(z.string()),
+      codeOnly: z.array(z.string()),
+    })
+    .optional(),
 });
 export type AuditEntry = z.infer<typeof AuditEntrySchema>;
 

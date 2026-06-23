@@ -1,11 +1,18 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { writeScreenSpec, readScreenSpec, writeFlowManifest, readFlowManifest, listScopes, scopeExists } from "./engine";
-import { readIndex } from "./index-store";
-import { SCREEN_SPEC_SCHEMA_VERSION, newScreenSpec, newFlowManifest } from "./schema";
 import { KotikitError } from "../util/result";
+import {
+  listScopes,
+  readFlowManifest,
+  readScreenSpec,
+  scopeExists,
+  writeFlowManifest,
+  writeScreenSpec,
+} from "./engine";
+import { readIndex } from "./index-store";
+import { newFlowManifest, newScreenSpec, SCREEN_SPEC_SCHEMA_VERSION } from "./schema";
 
 let tmp: string;
 
@@ -58,7 +65,10 @@ describe("single-screen spec (spec.json)", () => {
     loaded.title = "Legacy Updated";
     await writeScreenSpec(tmp, "legacy", null, loaded);
 
-    const written = JSON.parse(readFileSync(path, "utf-8")) as { schemaVersion?: number; title?: string };
+    const written = JSON.parse(readFileSync(path, "utf-8")) as {
+      schemaVersion?: number;
+      title?: string;
+    };
     expect(written.schemaVersion).toBe(SCREEN_SPEC_SCHEMA_VERSION);
     expect(written.title).toBe("Legacy Updated");
   });
@@ -84,8 +94,16 @@ describe("multi-screen flow", () => {
   });
 
   it("writes and reads back individual screen specs", async () => {
-    const cart = newScreenSpec({ title: "Cart", description: "Shows cart", flowRef: "checkout-flow/flow.json" });
-    const shipping = newScreenSpec({ title: "Shipping", description: "Shipping form", flowRef: "checkout-flow/flow.json" });
+    const cart = newScreenSpec({
+      title: "Cart",
+      description: "Shows cart",
+      flowRef: "checkout-flow/flow.json",
+    });
+    const shipping = newScreenSpec({
+      title: "Shipping",
+      description: "Shipping form",
+      flowRef: "checkout-flow/flow.json",
+    });
 
     await writeScreenSpec(tmp, "checkout-flow", "cart", cart);
     await writeScreenSpec(tmp, "checkout-flow", "shipping", shipping);

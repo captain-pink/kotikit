@@ -1,21 +1,21 @@
 import type { Database } from "bun:sqlite";
-import type { FigmaClient } from "./figma-client.js";
-import type { FileCheckpoint } from "./checkpoint.js";
-import type { ComponentJson } from "./component-shape.js";
-import type { VariablesJson } from "./variables.js";
-import { buildPropsString } from "./component-shape.js";
-import {
-  buildNormalizationDiagnostics,
-  normalizePublishedDesignSystem,
-  type NormalizationDiagnostics,
-} from "./normalize-design-system.js";
 import { deleteComponentsByFileKey, upsertComponent } from "../db/components-db.js";
 import { deleteIconsByFileKey, upsertIcon } from "../db/icons-db.js";
 import { withTransaction } from "../db/sqlite.js";
-import { mergeVariables } from "./variables.js";
-import type { ProgressEmitter, FileContext } from "./progress.js";
-import { formatMs } from "./progress.js";
+import type { FileCheckpoint } from "./checkpoint.js";
+import type { ComponentJson } from "./component-shape.js";
+import { buildPropsString } from "./component-shape.js";
 import { SyncPausedError } from "./errors.js";
+import type { FigmaClient } from "./figma-client.js";
+import {
+  buildNormalizationDiagnostics,
+  type NormalizationDiagnostics,
+  normalizePublishedDesignSystem,
+} from "./normalize-design-system.js";
+import type { FileContext, ProgressEmitter } from "./progress.js";
+import { formatMs } from "./progress.js";
+import type { VariablesJson } from "./variables.js";
+import { mergeVariables } from "./variables.js";
 
 export interface SyncOneFileOpts {
   root: string;
@@ -26,7 +26,10 @@ export interface SyncOneFileOpts {
   iconsDb: Database;
   resumeFrom?: FileCheckpoint;
   /** Optional progress reporter — called after each stage completes. */
-  onStage?: (stage: FileCheckpoint["stage"], cursor?: FileCheckpoint["cursor"]) => void | Promise<void>;
+  onStage?: (
+    stage: FileCheckpoint["stage"],
+    cursor?: FileCheckpoint["cursor"]
+  ) => void | Promise<void>;
   /** Optional live progress emitter — writes to stderr, zero token cost. */
   progress?: ProgressEmitter;
   /** File context for progress emitter (index, total, display name). */
@@ -85,7 +88,7 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
   let componentSets: Awaited<ReturnType<FigmaClient["getComponentSets"]>> = [];
   let styles: Awaited<ReturnType<FigmaClient["getStyles"]>> = [];
   let localVariables: Awaited<ReturnType<FigmaClient["getLocalVariables"]>> = null;
-  let nodeDetailsById: Record<string, Awaited<ReturnType<FigmaClient["getNodes"]>>[string]> = {};
+  const nodeDetailsById: Record<string, Awaited<ReturnType<FigmaClient["getNodes"]>>[string]> = {};
 
   deleteComponentsByFileKey(componentsDb, fileKey);
   deleteIconsByFileKey(iconsDb, fileKey);
@@ -107,7 +110,8 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
     } catch {
       pageNameByNodeId = {};
     }
-    if (progress && fileCtx) progress.stageDone(fileCtx, "metadata", formatMs(Date.now() - metadataStart));
+    if (progress && fileCtx)
+      progress.stageDone(fileCtx, "metadata", formatMs(Date.now() - metadataStart));
     await onStage?.("metadata");
     if (shouldPause?.()) {
       throw new SyncPausedError(
@@ -117,22 +121,16 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
       );
     }
   }
-
-  // ── Stage 2: components ─────────────────────────────────────────────────
-  {
-    if (progress && fileCtx) progress.stage(fileCtx, "components");
-    publishedComponents = await client.getComponents(fileKey);
-    if (progress && fileCtx) progress.stageDone(fileCtx, "components", `${publishedComponents.length} returned`);
-    await onStage?.("components");
-  }
-
-  // ── Stage 3: component_sets ─────────────────────────────────────────────
-  {
-    if (progress && fileCtx) progress.stage(fileCtx, "component_sets");
-    componentSets = await client.getComponentSets(fileKey);
-    if (progress && fileCtx) progress.stageDone(fileCtx, "component_sets", `${componentSets.length} returned`);
-    await onStage?.("component_sets");
-  }
+  if (progress && fileCtx) progress.stage(fileCtx, "components");
+  publishedComponents = await client.getComponents(fileKey);
+  if (progress && fileCtx)
+    progress.stageDone(fileCtx, "components", `${publishedComponents.length} returned`);
+  await onStage?.("components");
+  if (progress && fileCtx) progress.stage(fileCtx, "component_sets");
+  componentSets = await client.getComponentSets(fileKey);
+  if (progress && fileCtx)
+    progress.stageDone(fileCtx, "component_sets", `${componentSets.length} returned`);
+  await onStage?.("component_sets");
 
   // ── Diagnostic: unpublished libraries ──────────────────────────────────
   // Figma draft generation needs published/importable component keys. If a
@@ -141,7 +139,8 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
   if (publishedComponents.length === 0 && componentSets.length === 0) {
     skipped.push({
       stage: "components",
-      reason: "This Figma file is not published as a library, so its components cannot be used in generated Figma drafts.",
+      reason:
+        "This Figma file is not published as a library, so its components cannot be used in generated Figma drafts.",
     });
   }
 
@@ -170,27 +169,20 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
       }
     });
   }
-
-  // ── Stage 4: styles ─────────────────────────────────────────────────────
-  {
-    if (progress && fileCtx) progress.stage(fileCtx, "styles");
-    styles = await client.getStyles(fileKey);
-    if (progress && fileCtx) progress.stageDone(fileCtx, "styles", `${styles.length}`);
-    await onStage?.("styles");
+  if (progress && fileCtx) progress.stage(fileCtx, "styles");
+  styles = await client.getStyles(fileKey);
+  if (progress && fileCtx) progress.stageDone(fileCtx, "styles", `${styles.length}`);
+  await onStage?.("styles");
+  if (progress && fileCtx) progress.stage(fileCtx, "variables");
+  localVariables = await client.getLocalVariables(fileKey);
+  if (localVariables === null) {
+    skipped.push({ stage: "variables", reason: "Enterprise-gated (403)" });
+    if (progress && fileCtx)
+      progress.stageDone(fileCtx, "variables", "skipped (Enterprise-gated 403)");
+  } else {
+    if (progress && fileCtx) progress.stageDone(fileCtx, "variables");
   }
-
-  // ── Stage 5: variables ──────────────────────────────────────────────────
-  {
-    if (progress && fileCtx) progress.stage(fileCtx, "variables");
-    localVariables = await client.getLocalVariables(fileKey);
-    if (localVariables === null) {
-      skipped.push({ stage: "variables", reason: "Enterprise-gated (403)" });
-      if (progress && fileCtx) progress.stageDone(fileCtx, "variables", "skipped (Enterprise-gated 403)");
-    } else {
-      if (progress && fileCtx) progress.stageDone(fileCtx, "variables");
-    }
-    await onStage?.("variables");
-  }
+  await onStage?.("variables");
 
   // ── Stage 6: node_details ───────────────────────────────────────────────
   {
@@ -207,9 +199,8 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
 
     const BATCH = 100;
     const WAVE = 3;
-    const batches = Array.from(
-      { length: Math.ceil(allIds.length / BATCH) },
-      (_, index) => allIds.slice(index * BATCH, index * BATCH + BATCH)
+    const batches = Array.from({ length: Math.ceil(allIds.length / BATCH) }, (_, index) =>
+      allIds.slice(index * BATCH, index * BATCH + BATCH)
     );
     const nodeDetailsStart = Date.now();
     let processed = 0;
@@ -281,7 +272,11 @@ export async function syncOneFile(opts: SyncOneFileOpts): Promise<SyncOneFileRes
     }
 
     if (progress && fileCtx) {
-      progress.stageDone(fileCtx, "icons", `${iconCount} icons, ${componentJsons.length} non-icons`);
+      progress.stageDone(
+        fileCtx,
+        "icons",
+        `${iconCount} icons, ${componentJsons.length} non-icons`
+      );
     }
     await onStage?.("icons");
   }

@@ -1,16 +1,15 @@
-import { describe, it, expect, afterAll } from "bun:test";
-import { mkdtempSync, rmSync, existsSync } from "fs";
+import { afterAll, describe, expect, it } from "bun:test";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { AuditReportSchema } from "../../audit/schema.js";
+import { initRegistryDb, upsertRegistry } from "../../db/registry-db.js";
+import { openDb } from "../../db/sqlite.js";
+import { registryDbPath } from "../../util/paths.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
 import { registerAuditTools } from "./audit.js";
-import { openDb } from "../../db/sqlite.js";
-import { initRegistryDb, upsertRegistry } from "../../db/registry-db.js";
-import { registryDbPath } from "../../util/paths.js";
-import { AuditReportSchema } from "../../audit/schema.js";
-import { readFileSync } from "fs";
 
 const tmpDirs: string[] = [];
 function mkTmp(): string {

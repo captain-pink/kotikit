@@ -1,6 +1,6 @@
-import { describe, it, expect } from "bun:test";
-import { formatGateReport } from "./gate-report.js";
+import { describe, expect, it } from "bun:test";
 import type { GateRunReport } from "./gate-output.js";
+import { formatGateReport } from "./gate-report.js";
 
 function passReport(): GateRunReport {
   return {

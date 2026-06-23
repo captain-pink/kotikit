@@ -18,9 +18,7 @@ type ToolErrorResult = { content: McpContent[]; isError: true };
  * starts with `summary`, followed by a blank line + pretty-printed `detail` JSON if provided.
  */
 export function toolText(summary: string, detail?: unknown): ToolResult {
-  const text = detail !== undefined
-    ? `${summary}\n\n${JSON.stringify(detail, null, 2)}`
-    : summary;
+  const text = detail !== undefined ? `${summary}\n\n${JSON.stringify(detail, null, 2)}` : summary;
   return { content: [{ type: "text", text }] };
 }
 
@@ -34,7 +32,8 @@ export function toolError(err: unknown): ToolErrorResult {
   if (err instanceof KotikitError) {
     text = err.hint ? `${err.userMessage}\n${err.hint}` : err.userMessage;
   } else {
-    text = "Something went wrong. The operation did not complete. Please try again, or check that the project is set up correctly.";
+    text =
+      "Something went wrong. The operation did not complete. Please try again, or check that the project is set up correctly.";
   }
   return { content: [{ type: "text", text }], isError: true };
 }

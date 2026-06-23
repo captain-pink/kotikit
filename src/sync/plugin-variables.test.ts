@@ -1,12 +1,9 @@
-import { describe, expect, it, afterEach } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import {
-  importPluginVariables,
-  PluginVariablesPayloadSchema,
-} from "./plugin-variables.js";
 import { variablesJsonPath } from "../util/paths.js";
+import { importPluginVariables, PluginVariablesPayloadSchema } from "./plugin-variables.js";
 
 const roots: string[] = [];
 
@@ -83,7 +80,9 @@ describe("plugin variable import", () => {
 
     const payload = PluginVariablesPayloadSchema.parse({
       version: 1,
-      collections: [{ id: "collection-1", name: "Theme", modes: [{ modeId: "m1", name: "Default" }] }],
+      collections: [
+        { id: "collection-1", name: "Theme", modes: [{ modeId: "m1", name: "Default" }] },
+      ],
       variables: [
         {
           id: "variable-1",
@@ -109,7 +108,11 @@ describe("plugin variable import", () => {
     };
 
     expect(result.imported).toBe(2);
-    expect(file.entries.map((entry) => entry.name)).toEqual(["color/brand", "space/4", "effect/focus"]);
+    expect(file.entries.map((entry) => entry.name)).toEqual([
+      "color/brand",
+      "space/4",
+      "effect/focus",
+    ]);
     expect(file.entries.find((entry) => entry.name === "color/brand")?.source).toBe("variable");
     expect(file.collisions).toContainEqual({ name: "color/brand", keptSource: "variable" });
     expect(existsSync(variablesJsonPath(root))).toBe(true);
