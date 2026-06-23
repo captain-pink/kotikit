@@ -152,7 +152,7 @@ describe("decideWorkflowNext", () => {
     expect(result.forbiddenTools).toContain("kotikit_design_apply_step");
   });
 
-  it("starts the bridge only after design prerequisites are ready", () => {
+  it("uses the official Figma apply path when design prerequisites are ready", () => {
     const result = decideWorkflowNext({
       session: session({ intent: "create-design", scope: "members" }),
       snapshot: snapshot({
@@ -160,20 +160,63 @@ describe("decideWorkflowNext", () => {
       }),
     });
 
-    expect(result.phase).toBe("bridge");
+    expect(result.phase).toBe("official-figma-apply");
     expect(result.nextAction).toBe("call-tool");
-    expect(result.allowedTools).toEqual(["kotikit_bridge_start"]);
+    expect(result.allowedTools).toEqual([
+      "kotikit_design_get_screen",
+      "official_figma_use",
+      "official_figma_generate_design",
+      "kotikit_design_apply_step",
+    ]);
+    expect(result.forbiddenTools).toContain("kotikit_bridge_start");
   });
 
-  it("reports a compact ready-to-apply action when design context is ready", () => {
+  it("reports a compact ready-to-apply action for official Figma MCP", () => {
     const result = decideWorkflowNext({
       session: session({ intent: "create-design", scope: "members" }),
       snapshot: snapshot(),
     });
 
-    expect(result.phase).toBe("plugin-apply");
+    expect(result.phase).toBe("official-figma-apply");
     expect(result.nextAction).toBe("call-tool");
-    expect(result.allowedTools).toEqual(["kotikit_design_get_screen", "kotikit_design_apply_step"]);
+    expect(result.allowedTools).toEqual([
+      "kotikit_design_get_screen",
+      "official_figma_use",
+      "official_figma_generate_design",
+      "kotikit_design_apply_step",
+    ]);
     expect(result.refs).toEqual({ scope: "members" });
+  });
+
+  it("keeps the bridge scoped to variable fallback when Figma API variables are unavailable", () => {
+    const result = decideWorkflowNext({
+      session: session({ intent: "sync-design-system" }),
+      snapshot: snapshot({
+        designSystem: {
+          configured: true,
+          synced: true,
+          hasVariables: false,
+          variablesSkipped: true,
+          hasSyncCheckpoint: false,
+        },
+      }),
+    });
+
+    expect(result.phase).toBe("variables");
+    expect(result.allowedTools).toEqual(["kotikit_bridge_start", "kotikit_sync_plugin_variables"]);
+  });
+
+  it("reviews comments without requiring the kotikit Figma plugin bridge", () => {
+    const result = decideWorkflowNext({
+      session: session({ intent: "review-comments", scope: "members" }),
+      snapshot: snapshot({
+        bridge: { running: false, staleConfig: false },
+      }),
+    });
+
+    expect(result.phase).toBe("review-comments");
+    expect(result.nextAction).toBe("call-tool");
+    expect(result.allowedTools).not.toContain("kotikit_bridge_start");
+    expect(result.allowedTools).toContain("kotikit_design_review_comments");
   });
 });

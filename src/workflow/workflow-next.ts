@@ -14,7 +14,12 @@ const CODE_TOOLS = [
 ];
 
 const DESIGN_PLANNING_TOOLS = ["kotikit_plan_design"];
-const DESIGN_APPLY_TOOLS = ["kotikit_design_get_screen", "kotikit_design_apply_step"];
+const OFFICIAL_FIGMA_APPLY_TOOLS = ["official_figma_use", "official_figma_generate_design"];
+const DESIGN_APPLY_TOOLS = [
+  "kotikit_design_get_screen",
+  ...OFFICIAL_FIGMA_APPLY_TOOLS,
+  "kotikit_design_apply_step",
+];
 const DRAFT_TARGET_TOOLS = ["kotikit_figma_target_bind"];
 const COMPONENT_DECISION_TOOLS = ["kotikit_component_plan_create"];
 const BRIDGE_TOOLS = ["kotikit_bridge_start"];
@@ -194,17 +199,6 @@ const createDesignResultFor = (
     });
   }
 
-  if (!snapshot.bridge.running) {
-    return nextResult(session, snapshot, {
-      status: "blocked",
-      phase: "bridge",
-      nextAction: "call-tool",
-      instruction: "Start the Figma plugin bridge before applying design-plan steps.",
-      allowedTools: BRIDGE_TOOLS,
-      forbiddenTools: [...DESIGN_APPLY_TOOLS, ...CODE_TOOLS],
-    });
-  }
-
   if (target.applyProgress.complete) {
     return nextResult(session, snapshot, {
       status: "completed",
@@ -218,11 +212,12 @@ const createDesignResultFor = (
 
   return nextResult(session, snapshot, {
     status: "blocked",
-    phase: "plugin-apply",
+    phase: "official-figma-apply",
     nextAction: "call-tool",
-    instruction: "Apply the next design-plan step through the Figma plugin bridge.",
+    instruction:
+      "Fetch the kotikit apply packet, use the official Figma MCP integration to create or refine the design, then record applied node metadata in kotikit.",
     allowedTools: DESIGN_APPLY_TOOLS,
-    forbiddenTools: CODE_TOOLS,
+    forbiddenTools: [...BRIDGE_TOOLS, ...CODE_TOOLS],
   });
 };
 
@@ -232,15 +227,17 @@ const reviewResultFor = (
   phase: WorkflowPhase
 ): WorkflowNextResult =>
   nextResult(session, snapshot, {
-    status: snapshot.bridge.running ? "blocked" : "waiting-for-user",
+    status: "blocked",
     phase,
-    nextAction: snapshot.bridge.running ? "call-tool" : "ask-user",
-    instruction: snapshot.bridge.running
-      ? "Run the focused Figma review tool and keep evidence bounded to the requested target."
-      : "Start the Figma plugin bridge before reading or posting review evidence.",
-    allowedTools: snapshot.bridge.running
-      ? ["kotikit_design_review_start", "kotikit_design_review_record"]
-      : BRIDGE_TOOLS,
+    nextAction: "call-tool",
+    instruction:
+      phase === "review-comments"
+        ? "Read Figma comments through the REST API and map them with kotikit node metadata."
+        : "Run the focused Figma review tool and keep evidence bounded to the requested target.",
+    allowedTools:
+      phase === "review-comments"
+        ? ["kotikit_design_review_comments"]
+        : ["kotikit_design_review_start", "kotikit_design_review_record"],
     forbiddenTools: CODE_TOOLS,
   });
 

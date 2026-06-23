@@ -34,6 +34,7 @@ export const WorkflowPhaseSchema = z.enum([
   "component-review",
   "bridge",
   "plugin-apply",
+  "official-figma-apply",
   "review-comments",
   "design-quality-review",
   "done",
