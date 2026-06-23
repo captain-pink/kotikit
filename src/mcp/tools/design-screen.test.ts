@@ -97,7 +97,7 @@ describe("kotikit_design_get_screen", () => {
     const result = await callTool(registry, "kotikit_design_get_screen", { scope: "cart" });
     expect(result.isError).toBeFalsy();
     const detail = parseDetail(result.content[0]!.text) as {
-      plan: { pageName: string };
+      plan: { pageName: string; target?: { pageName?: string } };
       spec: { title: string };
       dsComponents: Record<string, unknown>;
       skipped: { name: string }[];

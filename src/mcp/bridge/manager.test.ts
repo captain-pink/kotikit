@@ -182,12 +182,8 @@ describe("bridge manager", () => {
   it("builds bridge URLs from config", () => {
     expect(
       bridgeUrlForConfig({
-        version: 1,
         port: 53124,
         token: "tok123456789",
-        projectRoot: root,
-        projectName: "Project",
-        startedAt: "2026-06-20T00:00:00.000Z",
       })
     ).toBe("ws://localhost:53124?token=tok123456789");
   });

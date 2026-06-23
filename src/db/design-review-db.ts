@@ -4,6 +4,10 @@ import { designReviewDbPath } from "../util/paths.js";
 import { KotikitError } from "../util/result.js";
 import { openDb, withTransaction } from "./sqlite.js";
 
+type SqlRow = Record<string, unknown>;
+
+const asSqlRows = (rows: unknown[]): SqlRow[] => rows as SqlRow[];
+
 export type ReviewCommentStatus =
   | "open"
   | "fixed"
@@ -906,7 +910,7 @@ class SqliteDesignReviewStore implements DesignReviewStore {
       SET last_used_at = ?
       WHERE cache_key = ?
     `)
-      .run(usedAt, row.cacheKey);
+      .run(usedAt, String(row.cacheKey));
     return rowToReviewTargetCache({ ...row, lastUsedAt: usedAt });
   }
 
@@ -990,8 +994,9 @@ class SqliteDesignReviewStore implements DesignReviewStore {
     if (!session) return emptyDesignAuditReport();
 
     const limit = input.limit ?? 25;
-    const findings = this.db
-      .prepare(`
+    const findings = asSqlRows(
+      this.db
+        .prepare(`
       SELECT
         finding_id as findingId, session_id as sessionId, category, severity,
         confidence, title, observation, rationale, recommendation,
@@ -1010,8 +1015,8 @@ class SqliteDesignReviewStore implements DesignReviewStore {
         created_at
       LIMIT ?
     `)
-      .all(session.sessionId, limit)
-      .map(rowToDesignAuditFinding);
+        .all(session.sessionId, limit)
+    ).map(rowToDesignAuditFinding);
     const pendingComments = this.listPendingDesignAuditComments({
       sessionId: session.sessionId,
       limit,
@@ -1121,8 +1126,9 @@ class SqliteDesignReviewStore implements DesignReviewStore {
       bindings.push(...input.outboxIds);
     }
     bindings.push(input.limit ?? 25);
-    return this.db
-      .prepare(`
+    return asSqlRows(
+      this.db
+        .prepare(`
       SELECT
         outbox_id as outboxId, session_id as sessionId, finding_id as findingId,
         file_key as fileKey, message, client_meta_json as clientMetaJson,
@@ -1133,8 +1139,8 @@ class SqliteDesignReviewStore implements DesignReviewStore {
       ORDER BY created_at
       LIMIT ?
     `)
-      .all(...bindings)
-      .map(rowToDesignAuditComment);
+        .all(...bindings)
+    ).map(rowToDesignAuditComment);
   }
 
   markDesignAuditCommentPosted(input: { outboxId: string; postedCommentId: string }): void {
@@ -1259,8 +1265,9 @@ class SqliteDesignReviewStore implements DesignReviewStore {
         pendingReplies: [],
       };
     }
-    const comments = this.db
-      .prepare(`
+    const comments = asSqlRows(
+      this.db
+        .prepare(`
       SELECT
         comment_id as commentId, session_id as sessionId, scope, screen,
         file_key as fileKey, parent_id as parentId, node_id as nodeId,
@@ -1271,10 +1278,11 @@ class SqliteDesignReviewStore implements DesignReviewStore {
       ORDER BY updated_at DESC
       LIMIT ?
     `)
-      .all(session.sessionId, limit)
-      .map(rowToComment);
-    const adjustments = this.db
-      .prepare(`
+        .all(session.sessionId, limit)
+    ).map(rowToComment);
+    const adjustments = asSqlRows(
+      this.db
+        .prepare(`
       SELECT
         adjustment_id as adjustmentId, session_id as sessionId, scope, screen,
         file_key as fileKey, comment_id as commentId, node_id as nodeId,
@@ -1284,8 +1292,8 @@ class SqliteDesignReviewStore implements DesignReviewStore {
       ORDER BY created_at DESC
       LIMIT ?
     `)
-      .all(session.sessionId, limit)
-      .map(rowToAdjustment);
+        .all(session.sessionId, limit)
+    ).map(rowToAdjustment);
     const pendingReplies = this.listPendingReplies({ sessionId: session.sessionId, limit });
     return {
       session,
@@ -1423,8 +1431,9 @@ class SqliteDesignReviewStore implements DesignReviewStore {
       bindings.push(input.fileKey);
     }
     bindings.push(input.limit ?? 25);
-    return this.db
-      .prepare(`
+    return asSqlRows(
+      this.db
+        .prepare(`
       SELECT
         outbox_id as outboxId, session_id as sessionId, file_key as fileKey,
         comment_id as commentId, message, status, posted_comment_id as postedCommentId,
@@ -1434,8 +1443,8 @@ class SqliteDesignReviewStore implements DesignReviewStore {
       ORDER BY created_at
       LIMIT ?
     `)
-      .all(...bindings)
-      .map(rowToReply);
+        .all(...bindings)
+    ).map(rowToReply);
   }
 
   markReplyPosted(input: { outboxId: string; postedCommentId: string }): void {
@@ -1475,8 +1484,9 @@ class SqliteDesignReviewStore implements DesignReviewStore {
   ): PreferenceCandidateRow[] {
     const conditions = input.status ? "WHERE status = ?" : "";
     const bindings = input.status ? [input.status, input.limit ?? 25] : [input.limit ?? 25];
-    return this.db
-      .prepare(`
+    return asSqlRows(
+      this.db
+        .prepare(`
       SELECT
         key, category, summary, rule, evidence_count as evidenceCount,
         distinct_screens as distinctScreens, confidence, status, updated_at as updatedAt
@@ -1485,8 +1495,8 @@ class SqliteDesignReviewStore implements DesignReviewStore {
       ORDER BY evidence_count DESC, updated_at DESC
       LIMIT ?
     `)
-      .all(...bindings)
-      .map(rowToCandidate);
+        .all(...bindings)
+    ).map(rowToCandidate);
   }
 
   dismissPreferenceCandidate(input: { key: string }): PreferenceCandidateRow {
@@ -1649,8 +1659,9 @@ class SqliteDesignReviewStore implements DesignReviewStore {
       bindings.push(`%${input.query}%`, `%${input.query}%`);
     }
     bindings.push(input.limit ?? 25);
-    return this.db
-      .prepare(`
+    return asSqlRows(
+      this.db
+        .prepare(`
       SELECT
         key, category, rule, scope, status, evidence_count as evidenceCount,
         created_at as createdAt, updated_at as updatedAt
@@ -1659,8 +1670,8 @@ class SqliteDesignReviewStore implements DesignReviewStore {
       ORDER BY updated_at DESC
       LIMIT ?
     `)
-      .all(...bindings)
-      .map(rowToPreference);
+        .all(...bindings)
+    ).map(rowToPreference);
   }
 
   private findSession(input: {
@@ -1762,8 +1773,9 @@ class SqliteDesignReviewStore implements DesignReviewStore {
       bindings.push(...input.findingIds);
     }
     bindings.push(input.limit ?? 12);
-    return this.db
-      .prepare(`
+    return asSqlRows(
+      this.db
+        .prepare(`
       SELECT
         finding_id as findingId, session_id as sessionId, category, severity,
         confidence, title, observation, rationale, recommendation,
@@ -1782,8 +1794,8 @@ class SqliteDesignReviewStore implements DesignReviewStore {
         created_at
       LIMIT ?
     `)
-      .all(...bindings)
-      .map(rowToDesignAuditFinding);
+        .all(...bindings)
+    ).map(rowToDesignAuditFinding);
   }
 
   private commentsForReplyPreparation(input: {
@@ -1805,8 +1817,9 @@ class SqliteDesignReviewStore implements DesignReviewStore {
       baseConditions.push(`comment_id IN (${input.commentIds.map(() => "?").join(",")})`);
       bindings.push(...input.commentIds);
     }
-    return this.db
-      .prepare(`
+    return asSqlRows(
+      this.db
+        .prepare(`
       SELECT
         comment_id as commentId, session_id as sessionId, scope, screen,
         file_key as fileKey, parent_id as parentId, node_id as nodeId,
@@ -1816,8 +1829,8 @@ class SqliteDesignReviewStore implements DesignReviewStore {
       WHERE ${baseConditions.join(" AND ")}
       ORDER BY updated_at DESC
     `)
-      .all(...bindings)
-      .map(rowToComment);
+        .all(...bindings)
+    ).map(rowToComment);
   }
 
   private upsertPreferenceCandidate(input: {

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "bun:test";
+import type { IconRow } from "../db/icons-db.js";
 import type { ComponentJson } from "./component-shape.js";
 import type { FigmaComponentSet, FigmaNode, FigmaPublishedComponent } from "./figma-types.js";
 import {
   buildNormalizationDiagnostics,
+  type NormalizeWarning,
   normalizePublishedDesignSystem,
 } from "./normalize-design-system.js";
 
@@ -43,8 +45,8 @@ interface NormalizerFixture {
   };
   expected: {
     components: Array<Omit<ComponentJson, "updatedAt">>;
-    icons: unknown[];
-    warningCodes: string[];
+    icons: IconRow[];
+    warningCodes: Array<NormalizeWarning["code"]>;
   };
 }
 

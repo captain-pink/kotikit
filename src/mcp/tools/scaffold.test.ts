@@ -516,7 +516,10 @@ describe("kotikit_scaffold_save", () => {
     const reg = makeRegistry();
     const ctx: ToolContext = {
       root,
-      loadConfig: async () => ({ ...defaultConfig(), git: { autoCommit: false } }),
+      loadConfig: async () => {
+        const config = defaultConfig();
+        return { ...config, git: { ...config.git, autoCommit: false } };
+      },
     };
     registerScaffoldTools(reg, ctx, { gateRunner: makeGateRunner(makePassReport()) });
 

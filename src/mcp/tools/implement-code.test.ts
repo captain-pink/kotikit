@@ -724,7 +724,10 @@ describe("kotikit_implement_code_save", () => {
       const reg = makeRegistry();
       const c: ToolContext = {
         root,
-        loadConfig: async () => ({ ...defaultConfig(), git: { autoCommit: false } }),
+        loadConfig: async () => {
+          const config = defaultConfig();
+          return { ...config, git: { ...config.git, autoCommit: false } };
+        },
       };
       registerImplementCodeTools(reg, c, {
         gateRunner: makeGateRunner(makePassReport()),

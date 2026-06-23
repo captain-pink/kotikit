@@ -1,6 +1,6 @@
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import type { DesignAdjustmentCategory } from "../../db/design-review-db.js";
+import type { DesignAdjustmentCategory, ReviewCommentInput } from "../../db/design-review-db.js";
 import { openDesignReviewDb } from "../../db/design-review-db.js";
 import { mapCommentsToDesignNodes } from "../../planning/design-comments.js";
 import { readDesignNodeMap } from "../../planning/design-node-map.js";
@@ -122,16 +122,16 @@ const authorFromComment = (comment: FigmaComment): string | undefined =>
 
 const commentTargetById = (comments: ReturnType<typeof mapCommentsToDesignNodes>) =>
   new Map(
-    comments.mapped
-      .filter((comment) => comment.target !== undefined)
-      .map((comment) => [comment.id, comment.target!])
+    comments.mapped.flatMap((comment) =>
+      comment.target === undefined ? [] : ([[comment.id, comment.target]] as const)
+    )
   );
 
 const reviewCommentInputs = (
   comments: FigmaComment[],
   mappedAll: ReturnType<typeof mapCommentsToDesignNodes>,
   input: { fileKey: string }
-) => {
+): ReviewCommentInput[] => {
   const targets = commentTargetById(mappedAll);
   return comments.map((comment) => {
     const target = targets.get(comment.id);
