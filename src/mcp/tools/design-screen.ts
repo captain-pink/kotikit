@@ -48,7 +48,7 @@ function registerDesignGetScreen(registry: ToolRegistry, ctx: ToolContext): void
       const spec = await readScreenSpec(root, scope, screenSlug);
 
       // 3. Optional flow manifest — silently skip if absent or not a flow scope
-      let flow;
+      let flow: Awaited<ReturnType<typeof readFlowManifest>> | undefined;
       try {
         flow = await readFlowManifest(root, scope);
       } catch {

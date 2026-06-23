@@ -92,7 +92,7 @@ function helpText(): string {
 function printList(label: string, values: string[]): void {
   if (values.length === 0) return;
   console.log(`${label}:`);
-  values.map((value) => `  - ${value}`).forEach((line) => console.log(line));
+  console.log(values.map((value) => `  - ${value}`).join("\n"));
 }
 
 async function main(): Promise<void> {

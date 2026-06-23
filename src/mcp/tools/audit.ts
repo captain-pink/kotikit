@@ -30,7 +30,7 @@ export function registerAuditTools(registry: ToolRegistry, ctx: ToolContext): vo
       }
 
       const db = new Database(regPath, { readonly: true });
-      let report;
+      let report: Awaited<ReturnType<typeof runAudit>>;
       try {
         report = await runAudit({ root, registryDb: db });
       } finally {

@@ -1,4 +1,4 @@
-declare const figma: any;
+declare const figma: PluginAPI;
 
 import type { FigmaShim } from "./figma-shim.js";
 
@@ -34,7 +34,7 @@ export const realFigmaShim: FigmaShim = {
   },
   async findOrCreateSection({ pageId, name, metadata }) {
     const page = await figma.getNodeByIdAsync(pageId);
-    if (!page || page.type !== "PAGE") throw new Error(`Page not found: ${pageId}`);
+    if (page?.type !== "PAGE") throw new Error(`Page not found: ${pageId}`);
     const existing = page.children.find(
       (node: { type: string; name: string; id: string }) =>
         node.type === "SECTION" && node.name === name

@@ -17,7 +17,9 @@ const mkTmp = (): string => {
 };
 
 afterEach(() => {
-  tmpDirs.splice(0).forEach((dir) => rmSync(dir, { recursive: true, force: true }));
+  tmpDirs.splice(0).forEach((dir) => {
+    rmSync(dir, { recursive: true, force: true });
+  });
 });
 
 describe("design node map", () => {

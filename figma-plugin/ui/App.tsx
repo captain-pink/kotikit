@@ -214,6 +214,7 @@ export function App(): React.ReactElement {
           </div>
         </div>
         <button
+          type="button"
           onClick={runDoctor}
           disabled={!connected || busy !== null}
           style={
@@ -228,8 +229,11 @@ export function App(): React.ReactElement {
 
       {!connected ? (
         <section style={{ marginTop: 18 }}>
-          <label style={{ display: "block", fontSize: 12, marginBottom: 6 }}>Bridge URL</label>
+          <label htmlFor="bridge-url" style={{ display: "block", fontSize: 12, marginBottom: 6 }}>
+            Bridge URL
+          </label>
           <input
+            id="bridge-url"
             type="text"
             value={connectUrl}
             onChange={(event) => setConnectUrl(event.target.value)}
@@ -243,6 +247,7 @@ export function App(): React.ReactElement {
             }}
           />
           <button
+            type="button"
             onClick={handleConnect}
             disabled={busy === "connect"}
             style={{ ...buttonStyle, marginTop: 10, width: "100%" }}
@@ -298,6 +303,7 @@ export function App(): React.ReactElement {
               />
             </div>
             <button
+              type="button"
               onClick={loadReviewReport}
               disabled={busy !== null}
               style={{ ...buttonStyle, marginTop: 10, width: "100%" }}
@@ -327,6 +333,7 @@ export function App(): React.ReactElement {
           <section style={{ marginTop: 18 }}>
             <h3 style={{ fontSize: 13, margin: "0 0 8px" }}>Variables</h3>
             <button
+              type="button"
               onClick={syncVariables}
               disabled={busy !== null || !tools.includes("kotikit_sync_plugin_variables")}
               style={{ ...buttonStyle, width: "100%" }}

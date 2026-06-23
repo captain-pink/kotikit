@@ -9,24 +9,22 @@
  * guaranteed; order of starts is FIFO.
  */
 
-interface Task<T> {
-  fn: () => Promise<T>;
-  resolve: (value: T) => void;
-  reject: (reason: unknown) => void;
+interface QueuedTask {
+  run: () => void;
 }
 
 export function createLimiter(opts: { minTime: number; maxConcurrent: number }): {
   schedule: <T>(fn: () => Promise<T>) => Promise<T>;
 } {
   const { minTime, maxConcurrent } = opts;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const queue: Task<any>[] = [];
+  const queue: QueuedTask[] = [];
   let lastStartAt = 0;
   let inFlight = 0;
 
   function drain(): void {
     while (inFlight < maxConcurrent && queue.length > 0) {
-      const task = queue.shift()!;
+      const task = queue.shift();
+      if (task === undefined) return;
       const now = Date.now();
       const nextStart = Math.max(now, lastStartAt + minTime);
       // Reserve both the time slot AND the concurrency slot immediately,
@@ -37,25 +35,29 @@ export function createLimiter(opts: { minTime: number; maxConcurrent: number }):
       const delay = nextStart - now;
 
       setTimeout(() => {
-        task.fn().then(
-          (value) => {
-            inFlight--;
-            task.resolve(value);
-            drain();
-          },
-          (err: unknown) => {
-            inFlight--;
-            task.reject(err);
-            drain();
-          }
-        );
+        task.run();
       }, delay);
     }
   }
 
   function schedule<T>(fn: () => Promise<T>): Promise<T> {
     return new Promise<T>((resolve, reject) => {
-      queue.push({ fn, resolve, reject } as Task<T>);
+      queue.push({
+        run: () => {
+          fn().then(
+            (value) => {
+              inFlight--;
+              resolve(value);
+              drain();
+            },
+            (err: unknown) => {
+              inFlight--;
+              reject(err);
+              drain();
+            }
+          );
+        },
+      });
       drain();
     });
   }
@@ -106,14 +108,14 @@ export function createAdaptiveLimiter(opts: AdaptiveLimiterOptions): AdaptiveLim
   let successStreak = 0;
   let pausedUntil = 0;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const queue: Task<any>[] = [];
+  const queue: QueuedTask[] = [];
   let lastStartAt = 0;
   let inFlight = 0;
 
   function drain(): void {
     while (inFlight < maxConcurrent && queue.length > 0) {
-      const task = queue.shift()!;
+      const task = queue.shift();
+      if (task === undefined) return;
       const now = Date.now();
       const nextStart = Math.max(now, lastStartAt + currentMinTime, pausedUntil);
       lastStartAt = nextStart;
@@ -121,25 +123,29 @@ export function createAdaptiveLimiter(opts: AdaptiveLimiterOptions): AdaptiveLim
       const delay = nextStart - now;
 
       setTimeout(() => {
-        task.fn().then(
-          (value) => {
-            inFlight--;
-            task.resolve(value);
-            drain();
-          },
-          (err: unknown) => {
-            inFlight--;
-            task.reject(err);
-            drain();
-          }
-        );
+        task.run();
       }, delay);
     }
   }
 
   function schedule<T>(fn: () => Promise<T>): Promise<T> {
     return new Promise<T>((resolve, reject) => {
-      queue.push({ fn, resolve, reject } as Task<T>);
+      queue.push({
+        run: () => {
+          fn().then(
+            (value) => {
+              inFlight--;
+              resolve(value);
+              drain();
+            },
+            (err: unknown) => {
+              inFlight--;
+              reject(err);
+              drain();
+            }
+          );
+        },
+      });
       drain();
     });
   }

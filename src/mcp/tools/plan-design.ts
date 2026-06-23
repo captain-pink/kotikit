@@ -41,7 +41,7 @@ export function registerPlanDesignTools(registry: ToolRegistry, ctx: ToolContext
       const spec = await readScreenSpec(root, scope, screen ?? null);
 
       // Optional flow manifest
-      let flowManifest;
+      let flowManifest: Awaited<ReturnType<typeof readFlowManifest>> | undefined;
       try {
         flowManifest = await readFlowManifest(root, scope);
       } catch {

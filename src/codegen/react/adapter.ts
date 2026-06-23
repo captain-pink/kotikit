@@ -107,9 +107,18 @@ export const reactAdapter: Adapter = {
         message: string;
       }[] = [];
       const re = /^(.+\.tsx?)\((\d+),(\d+)\): error TS\d+: (.+)$/gm;
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(raw)) !== null) {
-        failures.push({ file: m[1]!, line: Number(m[2]), column: Number(m[3]), message: m[4]! });
+      let match = re.exec(raw);
+      while (match !== null) {
+        const [, file, line, column, message] = match;
+        if (
+          file !== undefined &&
+          line !== undefined &&
+          column !== undefined &&
+          message !== undefined
+        ) {
+          failures.push({ file, line: Number(line), column: Number(column), message });
+        }
+        match = re.exec(raw);
       }
       return { failures };
     }
@@ -158,9 +167,13 @@ export const reactAdapter: Adapter = {
         message: string;
       }[] = [];
       const re = /^\[warn\] (.+)$/gm;
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(raw)) !== null) {
-        failures.push({ file: m[1]!, message: "Code style issues found by prettier" });
+      let match = re.exec(raw);
+      while (match !== null) {
+        const [, file] = match;
+        if (file !== undefined) {
+          failures.push({ file, message: "Code style issues found by prettier" });
+        }
+        match = re.exec(raw);
       }
       return { failures };
     }
@@ -175,9 +188,13 @@ export const reactAdapter: Adapter = {
         message: string;
       }[] = [];
       const re = /^\s*(?:FAIL|×)\s+(.+\.test\.tsx?)\s*>?\s*(.+)?$/gm;
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(raw)) !== null) {
-        failures.push({ file: m[1]!, message: m[2] ?? "Test failed" });
+      let match = re.exec(raw);
+      while (match !== null) {
+        const [, file, message] = match;
+        if (file !== undefined) {
+          failures.push({ file, message: message ?? "Test failed" });
+        }
+        match = re.exec(raw);
       }
       return { failures };
     }

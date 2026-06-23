@@ -72,7 +72,6 @@ export function startBridgeServer(opts: BridgeOpts): BridgeServer {
         // No-op; client speaks first.
       },
       async message(ws, raw) {
-        let req;
         try {
           const parsed = JSON.parse(typeof raw === "string" ? raw : raw.toString());
           const parsedReq = BridgeRequestSchema.safeParse(parsed);
@@ -80,57 +79,56 @@ export function startBridgeServer(opts: BridgeOpts): BridgeServer {
             ws.send(JSON.stringify(rpcError(null, RPC_INVALID_REQUEST, "Invalid request shape.")));
             return;
           }
-          req = parsedReq.data;
+          const req = parsedReq.data;
+
+          try {
+            switch (req.method) {
+              case "tools/list": {
+                const reply: BridgeResponse = {
+                  jsonrpc: "2.0",
+                  id: req.id,
+                  result: { tools: registry.tools },
+                };
+                ws.send(JSON.stringify(reply));
+                return;
+              }
+              case "tools/call": {
+                const params = req.params as { name?: string; arguments?: unknown } | undefined;
+                const name = params?.name;
+                if (!name) {
+                  ws.send(
+                    JSON.stringify(rpcError(req.id, RPC_INVALID_REQUEST, "Missing tool name."))
+                  );
+                  return;
+                }
+                const handler = registry.handlers.get(name);
+                if (!handler) {
+                  ws.send(
+                    JSON.stringify(rpcError(req.id, RPC_METHOD_NOT_FOUND, `Unknown tool: ${name}`))
+                  );
+                  return;
+                }
+                const result = await handler(params?.arguments ?? {});
+                const reply: BridgeResponse = {
+                  jsonrpc: "2.0",
+                  id: req.id,
+                  result,
+                };
+                ws.send(JSON.stringify(reply));
+                return;
+              }
+              default:
+                ws.send(
+                  JSON.stringify(
+                    rpcError(req.id, RPC_METHOD_NOT_FOUND, `Unknown method: ${req.method}`)
+                  )
+                );
+            }
+          } catch (err) {
+            ws.send(JSON.stringify(rpcError(req.id, RPC_INTERNAL_ERROR, (err as Error).message)));
+          }
         } catch {
           ws.send(JSON.stringify(rpcError(null, RPC_PARSE_ERROR, "Parse error.")));
-          return;
-        }
-
-        try {
-          switch (req.method) {
-            case "tools/list": {
-              const reply: BridgeResponse = {
-                jsonrpc: "2.0",
-                id: req.id,
-                result: { tools: registry.tools },
-              };
-              ws.send(JSON.stringify(reply));
-              return;
-            }
-            case "tools/call": {
-              const params = req.params as { name?: string; arguments?: unknown } | undefined;
-              const name = params?.name;
-              if (!name) {
-                ws.send(
-                  JSON.stringify(rpcError(req.id, RPC_INVALID_REQUEST, "Missing tool name."))
-                );
-                return;
-              }
-              const handler = registry.handlers.get(name);
-              if (!handler) {
-                ws.send(
-                  JSON.stringify(rpcError(req.id, RPC_METHOD_NOT_FOUND, `Unknown tool: ${name}`))
-                );
-                return;
-              }
-              const result = await handler(params?.arguments ?? {});
-              const reply: BridgeResponse = {
-                jsonrpc: "2.0",
-                id: req.id,
-                result,
-              };
-              ws.send(JSON.stringify(reply));
-              return;
-            }
-            default:
-              ws.send(
-                JSON.stringify(
-                  rpcError(req.id, RPC_METHOD_NOT_FOUND, `Unknown method: ${req.method}`)
-                )
-              );
-          }
-        } catch (err) {
-          ws.send(JSON.stringify(rpcError(req.id, RPC_INTERNAL_ERROR, (err as Error).message)));
         }
       },
       close(_ws, _code, _reason) {

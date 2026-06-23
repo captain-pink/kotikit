@@ -46,7 +46,7 @@ function registerPlanCode(registry: ToolRegistry, ctx: ToolContext): void {
       const config = (await ctx.loadConfig()) ?? defaultConfig();
 
       // 2. Read the spec — surface a friendly error when missing
-      let spec;
+      let spec: Awaited<ReturnType<typeof readScreenSpec>>;
       try {
         spec = await readScreenSpec(root, scope, screenSlug);
       } catch (err) {

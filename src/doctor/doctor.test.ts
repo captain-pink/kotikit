@@ -18,7 +18,9 @@ const mkTmp = (): string => {
 };
 
 afterEach(() => {
-  tmpDirs.splice(0).forEach((dir) => rmSync(dir, { recursive: true, force: true }));
+  tmpDirs.splice(0).forEach((dir) => {
+    rmSync(dir, { recursive: true, force: true });
+  });
   if (originalFigmaToken === undefined) {
     delete process.env.FIGMA_TOKEN;
   } else {

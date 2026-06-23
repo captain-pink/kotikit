@@ -167,18 +167,20 @@ function parseTopLevelKeys(block: string): string[] {
   const keys: string[] = [];
   // Match identifier: { at the current depth-0 position
   const keyRe = /(?:^|[\s,\n])([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:\s*\{/g;
-  let m: RegExpExecArray | null;
-  while ((m = keyRe.exec(block)) !== null) {
+  let match = keyRe.exec(block);
+  while (match !== null) {
     // Verify this { is at depth 0 by counting braces in the block up to this match
-    const upTo = m.index;
+    const upTo = match.index;
     let depth = 0;
     for (let i = 0; i < upTo; i++) {
       if (block[i] === "{") depth++;
       else if (block[i] === "}") depth--;
     }
-    if (depth === 0) {
-      keys.push(m[1]!.toLowerCase());
+    const key = match[1];
+    if (depth === 0 && key !== undefined) {
+      keys.push(key.toLowerCase());
     }
+    match = keyRe.exec(block);
   }
   return Array.from(new Set(keys));
 }

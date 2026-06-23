@@ -67,7 +67,7 @@ function registerDsSearch(registry: ToolRegistry, ctx: ToolContext): void {
       }
 
       const db = new Database(componentsDbPath(ctx.root), { readonly: true });
-      let results;
+      let results: ReturnType<typeof searchComponents>;
       try {
         results = searchComponents(db, query, limit ?? 25);
       } finally {
