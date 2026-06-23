@@ -17,7 +17,8 @@ import type { ToolRegistry } from "../server.js";
 export function registerDesignApplyTools(registry: ToolRegistry, ctx: ToolContext): void {
   registry.tools.push({
     name: "kotikit_design_apply_step",
-    description: "Record that the Figma plugin applied a design plan step (audit log).",
+    description:
+      "Record that the official Figma MCP apply path created or updated a design plan step (audit log).",
     inputSchema: {
       type: "object",
       properties: {
@@ -140,7 +141,7 @@ export function registerDesignApplyTools(registry: ToolRegistry, ctx: ToolContex
       if (target !== null && figmaFileKey !== target.fileKey) {
         throw new KotikitError(
           "This applied Figma node belongs to a different Figma file than the bound draft target.",
-          "Open the bound draft file and run the kotikit plugin there before applying the design."
+          "Open the bound draft file with the official Figma integration before applying the design."
         );
       }
       if (target !== null && figmaPageId !== target.pageId) {
@@ -161,7 +162,7 @@ export function registerDesignApplyTools(registry: ToolRegistry, ctx: ToolContex
       ) {
         throw new KotikitError(
           "This applied Figma node is missing kotikit Section metadata.",
-          "Apply the design with the updated kotikit plugin so generated nodes stay inside the draft Section."
+          "Apply the design through the official Figma integration and keep generated nodes inside the draft Section."
         );
       }
       if (

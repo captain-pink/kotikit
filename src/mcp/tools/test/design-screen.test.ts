@@ -81,6 +81,15 @@ const target = (pageName = "Draft - Cart"): FigmaDraftTarget => ({
 });
 
 describe("kotikit_design_get_screen", () => {
+  it("advertises official Figma MCP as the apply surface", () => {
+    const registry = makeRegistry();
+    registerDesignScreenTools(registry, makeCtx(mkTmp()));
+    const tool = registry.tools.find((entry) => entry.name === "kotikit_design_get_screen");
+
+    expect(tool?.description).toContain("official Figma MCP");
+    expect(tool?.description).not.toContain("plugin");
+  });
+
   it("happy path: returns plan + spec + dsComponents + skipped", async () => {
     const root = mkTmp();
     const spec = newScreenSpec({ title: "Cart", description: "x" });
@@ -105,11 +114,15 @@ describe("kotikit_design_get_screen", () => {
     const result = await callTool(registry, "kotikit_design_get_screen", { scope: "cart" });
     expect(result.isError).toBeFalsy();
     const detail = parseToolDetail(result) as {
+      applyMode: string;
+      applyInstructions: string[];
       plan: { pageName: string; target?: { pageName?: string } };
       spec: { title: string };
       dsComponents: Record<string, unknown>;
       skipped: { name: string }[];
     };
+    expect(detail.applyMode).toBe("official-figma-mcp");
+    expect(detail.applyInstructions.join(" ")).toContain("official Figma MCP");
     expect(detail.plan.pageName).toBe("Cart");
     expect(detail.plan.target?.pageName).toBe("Draft - Cart");
     expect(detail.spec.title).toBe("Cart");

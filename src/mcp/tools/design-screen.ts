@@ -24,7 +24,8 @@ export function registerDesignScreenTools(registry: ToolRegistry, ctx: ToolConte
 function registerDesignGetScreen(registry: ToolRegistry, ctx: ToolContext): void {
   registry.tools.push({
     name: "kotikit_design_get_screen",
-    description: "Fetch the design plan + spec + DS component bundle for one screen.",
+    description:
+      "Fetch the official Figma MCP apply packet: design plan, spec, target, DS components, and audit instructions for one screen.",
     inputSchema: {
       type: "object",
       properties: {
@@ -137,6 +138,12 @@ function registerDesignGetScreen(registry: ToolRegistry, ctx: ToolContext): void
         : [];
 
       return toolText(`Design plan for ${plan.pageName}: ${plan.steps.length} steps.`, {
+        applyMode: "official-figma-mcp",
+        applyInstructions: [
+          "Use the official Figma MCP integration to create or refine nodes in the bound draft page.",
+          "Use use_figma for normal Figma writes; use generate_figma_design only when capturing a web page or HTML reference is explicitly useful.",
+          "Keep all generated nodes inside the bound kotikit-owned Section and call kotikit_design_apply_step with node metadata after each applied step.",
+        ],
         plan,
         spec,
         ...(flow ? { flow } : {}),

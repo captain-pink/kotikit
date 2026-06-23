@@ -59,6 +59,15 @@ const seedTargetSpec = async (
 };
 
 describe("kotikit_design_apply_step", () => {
+  it("describes itself as an official Figma MCP apply recorder", () => {
+    const registry = makeRegistry();
+    registerDesignApplyTools(registry, makeCtx(mkTmp()));
+    const tool = registry.tools.find((entry) => entry.name === "kotikit_design_apply_step");
+
+    expect(tool?.description).toContain("official Figma MCP");
+    expect(tool?.description).not.toContain("plugin");
+  });
+
   it("advertises every design plan step kind accepted by the apply log", () => {
     const registry = makeRegistry();
     registerDesignApplyTools(registry, makeCtx(mkTmp()));
