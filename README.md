@@ -1,24 +1,23 @@
 # kotikit
 
+![Kotikit workflow infographic](docs/assets/kotikit-workflow-infographic.webp)
+
 Create Figma-ready product drafts from plain language, using your real design
 system.
 
-kotikit is a local-first MCP toolkit for Claude Code, Codex, and other
-MCP-capable agents. It helps an assistant ask product questions, save structured
-screen specs, sync a Figma design system, compose safe Figma draft pages, review
-designs, and remember repeated feedback.
+AI can generate screens quickly, but product design is not just drawing boxes.
+A useful UX/UI draft still needs product judgment, real components, edge
+states, review loops, and a path toward implementation that does not break the
+system.
 
-![Kotikit workflow infographic](docs/assets/kotikit-workflow-infographic.webp)
+kotikit is an experimental local-first toolkit for product designers, founders,
+PMs, and teams who want to move from idea to Figma prototype faster without
+becoming frontend engineers first.
 
-```text
-Product idea
-  -> guided questions
-  -> local spec
-  -> Figma design-system index
-  -> safe draft page
-  -> design review
-  -> project design memory
-```
+It helps Claude Code, Codex, and other MCP-capable agents ask the right product
+questions, sync your Figma design system, create safe draft pages, review the
+result, remember repeated feedback, and keep the design process grounded in the
+components your team actually uses.
 
 ## Demo
 
@@ -30,11 +29,18 @@ draft, then running a design review.
 
 ## Why It Exists
 
-Most people can describe the screen they need, but cannot quickly create a
-useful Figma draft. Product managers and founders can explain a workflow, but
-often need a designer to turn that into a concrete first screen. Designers lose
-time on repetitive layouts, states, tables, forms, and review loops. Engineers
-get pulled toward implementation before the design is clear.
+Everyone is being told to use AI for everything, including UX/UI design. But
+the product designer role is not becoming obsolete. It is changing under
+pressure: teams expect faster exploration, faster prototypes, and faster
+handoff, while the work still needs taste, structure, accessibility, states,
+constraints, and design-system discipline.
+
+Most people can describe the screen they need, but cannot quickly turn that
+description into a useful Figma draft. Product managers and founders can
+explain a workflow, but often need help shaping it into a concrete screen.
+Designers lose time on repetitive layouts, states, tables, forms, and review
+loops. Engineers get pulled toward implementation before the product shape is
+clear.
 
 AI agents can help, but generic AI UI output usually has the same failures:
 
@@ -45,7 +51,13 @@ AI agents can help, but generic AI UI output usually has the same failures:
 
 kotikit is an experiment in closing that gap: anyone should be able to describe
 what they need, then let an agent use real Figma libraries, safe draft targets,
-review comments, and local project memory to create something inspectable.
+review comments, and local project memory to create something inspectable in
+minutes.
+
+The long-term goal is a safer path from product idea to Figma prototype and,
+later, to implementation in frameworks like React. The current focus is the
+design side: make the draft useful, reviewable, and grounded in the team's real
+system before code generation becomes part of the guided workflow.
 
 ## Status
 
@@ -66,10 +78,11 @@ currently focused on stabilizing design creation, review, and design-system use.
 
 ## Who It Is For
 
+- **Product designers** who want AI leverage for fast drafts, state coverage,
+  design-system lookup, comment review, and iteration while they keep creative
+  control.
 - **Product managers and founders** who want to turn product intent into an
-  inspectable design draft without learning Figma deeply.
-- **Designers** who want an agent to handle repetitive drafting, state coverage,
-  comment review, and design-system lookup while they keep creative control.
+  inspectable Figma prototype without learning Figma deeply.
 - **Engineers** who want design work to become structured before implementation
   starts.
 - **Agent workflow builders** who want to study a local-first MCP and Figma
