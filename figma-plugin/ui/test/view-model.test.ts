@@ -15,7 +15,7 @@ describe("plugin dashboard view model", () => {
   it("builds checklist rows from tool availability, doctor, and review report", () => {
     const model = buildDashboardModel({
       connected: true,
-      tools: ["kotikit_doctor", "kotikit_design_review_report", "kotikit_design_apply_step"],
+      tools: ["kotikit_doctor", "kotikit_design_review_report"],
       doctor: result({ ok: true, checks: [] }),
       reviewReport: result({
         summary: {
@@ -29,12 +29,7 @@ describe("plugin dashboard view model", () => {
     });
 
     expect(model.statusText).toBe("Connected");
-    expect(model.checklist.map((item) => item.status)).toEqual([
-      "done",
-      "done",
-      "ready",
-      "attention",
-    ]);
+    expect(model.checklist.map((item) => item.status)).toEqual(["done", "done", "attention"]);
     expect(model.reviewSummary).toEqual({
       open: 2,
       fixed: 1,
@@ -53,11 +48,6 @@ describe("plugin dashboard view model", () => {
     });
 
     expect(model.statusText).toBe("Disconnected");
-    expect(model.checklist.map((item) => item.status)).toEqual([
-      "pending",
-      "pending",
-      "pending",
-      "pending",
-    ]);
+    expect(model.checklist.map((item) => item.status)).toEqual(["pending", "pending", "pending"]);
   });
 });

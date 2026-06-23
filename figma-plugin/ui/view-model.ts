@@ -60,8 +60,6 @@ export function detailFromToolResult<T = unknown>(result: ToolResult): T | null 
   }
 }
 
-const toolAvailable = (tools: string[], name: string): boolean => tools.includes(name);
-
 const doctorStatus = (result: ToolResult | null): ChecklistItem => {
   const detail = result ? detailFromToolResult<DoctorDetail>(result) : null;
   if (result === null) {
@@ -126,13 +124,6 @@ const reviewStatus = (result: ToolResult | null): ChecklistItem => {
   };
 };
 
-const applyStatus = (tools: string[]): ChecklistItem => ({
-  id: "apply",
-  label: "Design apply",
-  status: toolAvailable(tools, "kotikit_design_apply_step") ? "ready" : "pending",
-  detail: toolAvailable(tools, "kotikit_design_apply_step") ? "Tool available" : "Tool missing",
-});
-
 const replyStatus = (summary: ReviewSummary | null): ChecklistItem => {
   if (summary === null) {
     return {
@@ -154,12 +145,7 @@ export function buildDashboardModel(input: DashboardInput): DashboardModel {
   const summary = reviewSummaryFrom(input.reviewReport);
   return {
     statusText: input.connected ? "Connected" : "Disconnected",
-    checklist: [
-      doctorStatus(input.doctor),
-      reviewStatus(input.reviewReport),
-      applyStatus(input.tools),
-      replyStatus(summary),
-    ],
+    checklist: [doctorStatus(input.doctor), reviewStatus(input.reviewReport), replyStatus(summary)],
     reviewSummary: summary,
   };
 }

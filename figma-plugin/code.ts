@@ -65,9 +65,8 @@ const exportLocalVariables = async (): Promise<void> => {
 };
 
 figma.ui.onmessage = async (msg: { type: string; payload?: unknown }) => {
-  // Phase 5 MVP: the UI does most of the work via the bridge.
-  // The sandbox only receives messages requesting Figma operations
-  // that can't be done from the iframe.
+  // The sandbox only handles Figma operations that cannot be done from the UI
+  // iframe or REST API. Design creation belongs to the official Figma MCP path.
   switch (msg.type) {
     case "export-local-variables":
       try {
