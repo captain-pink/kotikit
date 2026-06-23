@@ -1,0 +1,14 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreBinaries": ["show"],
+  "workspaces": {
+    ".": {
+      "entry": ["index.ts", "scripts/*.ts", "src/**/test/**/*.test.ts", "test/**/*.test.ts"],
+      "project": ["src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"]
+    },
+    "figma-plugin": {
+      "entry": ["code.ts", "ui/index.html", "src/test/**/*.test.ts", "ui/test/**/*.test.ts"],
+      "project": ["**/*.{ts,tsx}"]
+    }
+  }
+}

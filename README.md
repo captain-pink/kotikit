@@ -357,6 +357,38 @@ If you previously customized copied skill files, scaffold may skip them to avoid
 overwriting local changes. If you did not customize them, remove the old copied
 skill folders and rerun scaffold.
 
+## Development
+
+Common local checks:
+
+```bash
+bun run format
+bun run check
+bun run typecheck
+bun test
+```
+
+Dead-code analysis uses Knip:
+
+```bash
+bun run check:unused
+```
+
+If the report looks correct, the safe cleanup command can remove unused exports
+and unused dependencies:
+
+```bash
+bun run fix:unused
+```
+
+File deletion is separate and intentionally explicit:
+
+```bash
+bun run fix:unused:files
+```
+
+Always review the resulting diff and run the normal checks before committing.
+
 ## Roadmap
 
 Near term:

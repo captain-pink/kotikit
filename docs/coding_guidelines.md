@@ -105,9 +105,17 @@ boring, precise at boundaries, easy to test, and hard to misuse.
 - Use `bun run check:spelling` for spell checks. The script runs
   `bunx --bun cspell` so it follows the repo's Bun-first runtime policy instead
   of depending on the system Node version.
+- Use `bun run check:unused` to run Knip and inspect unused files, exports,
+  exported types, dependencies, and binaries. This command is intentionally not
+  part of `bun run check` yet because the repo may contain known cleanup
+  candidates that need human review.
+- Use `bun run fix:unused` only after reviewing the Knip report. It can remove
+  unused exports and dependencies, then format the changed files.
+- Use `bun run fix:unused:files` only when you explicitly intend to let Knip
+  delete unused files. Review the diff carefully before committing.
 - Git hooks are installed with Husky. Pre-commit runs lint-staged on staged
-  files, commit-msg enforces Conventional Commits, and pre-push runs
-  `bun test`.
+  files and `bun run typecheck`, commit-msg enforces Conventional Commits, and
+  pre-push runs `bun test`.
 - Keep the cspell dictionary focused on project vocabulary, product names,
   fixture tokens, and intentional technical terms. Do not use it to hide real
   typos.

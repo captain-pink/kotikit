@@ -14,7 +14,10 @@
     "check": "bun run check:biome && bun run check:spelling",
     "check:biome": "biome check --changed --no-errors-on-unmatched",
     "check:spelling": "bunx --bun cspell . --no-progress",
+    "check:unused": "knip",
     "format": "biome check --write .",
+    "fix:unused": "knip --fix --format",
+    "fix:unused:files": "knip --fix --allow-remove-files --format",
     "lint:staged": "lint-staged",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
@@ -35,7 +38,9 @@
     "@types/bun": "latest",
     "cspell": "^10.0.1",
     "husky": "^9.1.7",
-    "lint-staged": "^17.0.8"
+    "knip": "^6.18.0",
+    "lint-staged": "^17.0.8",
+    "typescript": "^6.0.3"
   },
   "lint-staged": {
     "*.{cjs,js,json,jsonc,md,mjs,ts,tsx}": [
