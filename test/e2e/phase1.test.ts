@@ -175,7 +175,10 @@ describe("Phase 1 E2E — happy path", () => {
       sharedState: ["cartItems", "shippingAddress", "paymentMethod"],
     };
 
-    const createResult = await callTool(registry, "kotikit_flow_create", { draft });
+    const createResult = await callTool(registry, "kotikit_flow_create", {
+      draft,
+      allowUnguided: true,
+    });
     expect(createResult.isError).toBeUndefined();
 
     // ── Step 6: Assert on disk ─────────────────────────────────────────────
@@ -295,7 +298,7 @@ describe("Phase 1 E2E — happy path", () => {
         },
       },
     };
-    await callTool(registry, "kotikit_spec_create", { draft });
+    await callTool(registry, "kotikit_spec_create", { draft, allowUnguided: true });
 
     // Assert spec.json on disk
     const specPath = `${tmpDir}/.kotikit/specs/profile-page/spec.json`;

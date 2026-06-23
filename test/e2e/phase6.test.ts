@@ -233,6 +233,7 @@ describe("Phase 6 E2E — token-shape changes", () => {
 
     const registry = buildRegistry(root);
     await callTool(registry, "kotikit_spec_create", {
+      allowUnguided: true,
       draft: {
         scope: "profile-page",
         screen: {
@@ -268,6 +269,7 @@ describe("Phase 6 E2E — token-shape changes", () => {
     seedDsComponent(root, "Button", ["Variant"]);
     const registry = buildRegistry(root);
     await callTool(registry, "kotikit_spec_create", {
+      allowUnguided: true,
       draft: {
         scope: "profile-page",
         screen: {

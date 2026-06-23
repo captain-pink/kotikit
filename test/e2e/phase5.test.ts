@@ -197,7 +197,10 @@ describe("Phase 5 E2E — design plan happy path", () => {
         acceptanceCriteria: ["renders"],
       },
     };
-    const createResult = await callTool(registry, "kotikit_spec_create", { draft });
+    const createResult = await callTool(registry, "kotikit_spec_create", {
+      draft,
+      allowUnguided: true,
+    });
     expect(createResult.isError).toBeFalsy();
     seedDsComponentJson(root, "Button");
     seedDsComponentJson(root, "Input");
@@ -294,7 +297,7 @@ describe("Phase 5 E2E — multi-screen flow", () => {
       transitions: [],
       sharedState: [],
     };
-    await callTool(registry, "kotikit_flow_create", { draft });
+    await callTool(registry, "kotikit_flow_create", { draft, allowUnguided: true });
     await bindDraftTarget(registry, "checkout-flow", "cart");
 
     const planResult = await callTool(registry, "kotikit_plan_design", {
@@ -385,7 +388,7 @@ describe("Phase 5 E2E — bridge", () => {
         acceptanceCriteria: [],
       },
     };
-    await callTool(registry, "kotikit_spec_create", { draft });
+    await callTool(registry, "kotikit_spec_create", { draft, allowUnguided: true });
     await bindDraftTarget(registry, "profile-page");
 
     const started = startPhase5Bridge({ registry, root });

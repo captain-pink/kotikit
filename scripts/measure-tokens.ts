@@ -144,6 +144,7 @@ async function setupFixture(): Promise<string> {
   // Seed a single-screen spec via spec_create through the tool
   const registry = buildRegistry(root);
   await callTool(registry, "kotikit_spec_create", {
+    allowUnguided: true,
     draft: {
       scope: "profile-page",
       screen: {

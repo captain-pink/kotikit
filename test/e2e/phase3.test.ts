@@ -148,7 +148,10 @@ describe("Phase 3 E2E — happy path", () => {
         acceptanceCriteria: ["Avatar renders", "Name renders"],
       },
     };
-    const createResult = await callTool(registry, "kotikit_spec_create", { draft });
+    const createResult = await callTool(registry, "kotikit_spec_create", {
+      draft,
+      allowUnguided: true,
+    });
     expect(createResult.isError).toBeFalsy();
 
     // 3) plan_code
@@ -247,7 +250,7 @@ describe("Phase 3 E2E — gate failure", () => {
         acceptanceCriteria: [],
       },
     };
-    await callTool(registry, "kotikit_spec_create", { draft });
+    await callTool(registry, "kotikit_spec_create", { draft, allowUnguided: true });
 
     // First _save with FAILING gate
     const failReport = makeFailReport(["tsc", "eslint", "prettier", "vitest"], "eslint");
@@ -320,7 +323,7 @@ describe("Phase 3 E2E — missing gates", () => {
         acceptanceCriteria: [],
       },
     };
-    await callTool(registry, "kotikit_spec_create", { draft });
+    await callTool(registry, "kotikit_spec_create", { draft, allowUnguided: true });
 
     const result = await callTool(registry, "kotikit_implement_code_start", {
       scope: "profile-page",
@@ -357,7 +360,7 @@ describe("Phase 3 E2E — multi-screen", () => {
       transitions: [],
       sharedState: [],
     };
-    await callTool(registry, "kotikit_flow_create", { draft });
+    await callTool(registry, "kotikit_flow_create", { draft, allowUnguided: true });
 
     const passReport = makePassReport(["tsc", "eslint", "prettier", "vitest"]);
     registry = buildPhase3Registry(root, async () => passReport);
@@ -410,6 +413,7 @@ describe("Phase 3 E2E — path traversal", () => {
     let registry = buildPhase3Registry(root);
     await callTool(registry, "kotikit_config_init", { tests: true, autoCommit: true });
     await callTool(registry, "kotikit_spec_create", {
+      allowUnguided: true,
       draft: {
         scope: "profile-page",
         screen: {

@@ -474,7 +474,7 @@ describe("Phase 4 E2E — Phase 3 + Phase 4 coexistence", () => {
         acceptanceCriteria: ["renders"],
       },
     };
-    await callTool(registry, "kotikit_spec_create", { draft });
+    await callTool(registry, "kotikit_spec_create", { draft, allowUnguided: true });
 
     const sr = await callTool(registry, "kotikit_implement_code_start", {
       scope: "profile-page",
