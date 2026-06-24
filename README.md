@@ -19,6 +19,17 @@ questions, sync your Figma design system, create safe draft pages, review the
 result, remember repeated feedback, and keep the design process grounded in the
 components your team actually uses.
 
+> [!WARNING]
+> kotikit is a very unstable research prototype. It is public for visibility,
+> not because the current workflow is reliable. Recent experiments have made
+> parts of the toolchain fragile, and the project will likely be reimagined or
+> rewritten as Figma and official assistant integrations expose more native
+> capabilities. For example, native Figma design-system search such as
+> `search_design_system` may replace large parts of kotikit's custom
+> design-system sync/indexing layer. Expect breaking changes, incomplete flows,
+> and failed runs. Do not use this on important production Figma files without
+> copies and manual review.
+
 ## Demo
 
 A 1-minute demo video will live here.
@@ -61,12 +72,19 @@ system before code generation becomes part of the guided workflow.
 
 ## Status
 
-kotikit is a public alpha research project. The repository is public so people
-can inspect the workflow, try it locally, and see where the idea is going.
+kotikit is a public alpha research project and currently unstable. The
+repository is public so people can inspect the workflow, see the direction, and
+understand the experiment. It should not be treated as a dependable product or
+stable open-source package.
 
 It is not a mature open-source project yet:
 
 - Bugs and rough edges are expected.
+- Current setup, sync, and Figma draft-creation flows may fail.
+- Recent changes have broken parts of the workflow; the next iteration may be a
+  rewrite instead of incremental fixes.
+- Some kotikit features may be removed as Figma exposes native equivalents
+  through official assistant/plugin integrations.
 - Public PRs are not being accepted right now.
 - There is no support SLA.
 - APIs, local file formats, and workflows may change.
