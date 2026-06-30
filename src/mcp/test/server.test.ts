@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { FACADE_TOOL_NAMES } from "../facade/tools.js";
 import { buildServer } from "../server.js";
 
 describe("MCP server", () => {
@@ -17,9 +18,9 @@ describe("MCP server", () => {
     expect(server).toBeDefined();
   });
 
-  it("registers only design-first MCP tools", () => {
+  it("registers facade tools plus design-first compatibility tools", () => {
     const { registry } = buildServer();
-    const expectedTools = [
+    const compatibilityTools = [
       "kotikit_spec_create",
       "kotikit_spec_get",
       "kotikit_spec_list",
@@ -58,7 +59,6 @@ describe("MCP server", () => {
       "kotikit_design_review_comment_prepare",
       "kotikit_design_review_comment_post",
       "kotikit_get_system_prompt",
-      "kotikit_doctor",
       "kotikit_bridge_start",
       "kotikit_bridge_stop",
       "kotikit_bridge_status",
@@ -67,6 +67,7 @@ describe("MCP server", () => {
       "kotikit_workflow_next",
       "kotikit_workflow_event",
     ];
+    const expectedTools = [...FACADE_TOOL_NAMES, ...compatibilityTools];
     const registeredNames = registry.tools.map((t) => t.name);
     const removedCodeTools = [
       "kotikit_plan_code",
@@ -85,6 +86,8 @@ describe("MCP server", () => {
       expect(registeredNames).not.toContain(name);
       expect(registry.handlers.has(name)).toBe(false);
     }
+    expect(registeredNames.slice(0, FACADE_TOOL_NAMES.length)).toEqual([...FACADE_TOOL_NAMES]);
+    expect(registeredNames.filter((name) => name === "kotikit_doctor")).toHaveLength(1);
     expect(registry.tools.length).toBe(expectedTools.length);
     expect(registry.handlers.size).toBe(expectedTools.length);
   });

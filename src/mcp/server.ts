@@ -2,13 +2,28 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import {
+  CallToolRequestSchema,
+  CompleteRequestSchema,
+  ErrorCode,
+  GetPromptRequestSchema,
+  ListPromptsRequestSchema,
+  ListResourcesRequestSchema,
+  ListResourceTemplatesRequestSchema,
+  ListToolsRequestSchema,
+  McpError,
+  ReadResourceRequestSchema,
+} from "@modelcontextprotocol/sdk/types.js";
 import { loadConfig } from "../config/load.js";
 import { loadDotEnv } from "../util/env.js";
 import { findProjectRoot } from "../util/paths.js";
 import { KotikitError, toolError } from "../util/result.js";
 import { type BridgeManager, createBridgeManager } from "./bridge/manager.js";
 import type { ToolContext } from "./context.js";
+import { completeFacadeArgument } from "./facade/completions.js";
+import { getFacadePrompt, listFacadePrompts } from "./facade/prompts.js";
+import { listFacadeResourceTemplates, readFacadeResource } from "./facade/resources.js";
+import { registerFacadeTools } from "./facade/tools.js";
 import { KOTIKIT_MCP_INSTRUCTIONS } from "./instructions.js";
 import { registerBrainstormTools } from "./tools/brainstorm.js";
 import { registerBridgeTools } from "./tools/bridge.js";
@@ -18,7 +33,6 @@ import { registerDesignApplyTools } from "./tools/design-apply.js";
 import { registerDesignCommentTools } from "./tools/design-comments.js";
 import { registerDesignReviewTools } from "./tools/design-review.js";
 import { registerDesignScreenTools } from "./tools/design-screen.js";
-import { registerDoctorTools } from "./tools/doctor.js";
 import { registerDsSearchTools } from "./tools/ds-search.js";
 import { registerFigmaTargetTools } from "./tools/figma-target.js";
 import { registerFlowTools } from "./tools/flow.js";
@@ -44,6 +58,21 @@ export interface ToolRegistry {
   handlers: Map<string, Handler>;
 }
 
+export function toMcpRequestError(err: unknown): McpError {
+  if (err instanceof McpError) return err;
+  if (err instanceof KotikitError) {
+    return new McpError(
+      ErrorCode.InvalidParams,
+      err.userMessage,
+      err.hint === undefined ? undefined : { hint: err.hint }
+    );
+  }
+  return new McpError(
+    ErrorCode.InternalError,
+    "Something went wrong. The operation did not complete. Please try again, or check that the project is set up correctly."
+  );
+}
+
 /**
  * Build the server and return it along with the registry.
  * Exported so tests can inspect the registry without spawning a process.
@@ -52,7 +81,7 @@ export function buildServer(): { server: Server; registry: ToolRegistry; bridge:
   const server = new Server(
     { name: "kotikit", version: "0.1.0" },
     {
-      capabilities: { tools: {} },
+      capabilities: { tools: {}, resources: {}, prompts: {}, completions: {} },
       instructions: KOTIKIT_MCP_INSTRUCTIONS,
     }
   );
@@ -69,6 +98,7 @@ export function buildServer(): { server: Server; registry: ToolRegistry; bridge:
     bridge,
   };
 
+  registerFacadeTools(registry, ctx);
   registerSpecTools(registry, ctx);
   registerConfigTools(registry, ctx);
   registerFlowTools(registry, ctx);
@@ -84,7 +114,6 @@ export function buildServer(): { server: Server; registry: ToolRegistry; bridge:
   registerDesignCommentTools(registry, ctx);
   registerDesignReviewTools(registry, ctx);
   registerSystemPromptTools(registry, ctx);
-  registerDoctorTools(registry, ctx);
   registerPluginVariableTools(registry, ctx);
   registerBridgeTools(registry, ctx);
   registerWorkflowTools(registry, ctx);
@@ -101,6 +130,40 @@ export function buildServer(): { server: Server; registry: ToolRegistry; bridge:
       return await handler(request.params.arguments ?? {});
     } catch (err) {
       return toolError(err);
+    }
+  });
+
+  server.setRequestHandler(ListResourcesRequestSchema, async () => ({ resources: [] }));
+
+  server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => ({
+    resourceTemplates: listFacadeResourceTemplates(),
+  }));
+
+  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+    try {
+      return await readFacadeResource(request.params.uri);
+    } catch (err) {
+      throw toMcpRequestError(err);
+    }
+  });
+
+  server.setRequestHandler(ListPromptsRequestSchema, async () => ({
+    prompts: listFacadePrompts(),
+  }));
+
+  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+    try {
+      return getFacadePrompt(request.params.name, request.params.arguments ?? {});
+    } catch (err) {
+      throw toMcpRequestError(err);
+    }
+  });
+
+  server.setRequestHandler(CompleteRequestSchema, async (request) => {
+    try {
+      return await completeFacadeArgument(request.params);
+    } catch (err) {
+      throw toMcpRequestError(err);
     }
   });
 

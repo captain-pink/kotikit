@@ -45,7 +45,9 @@ describe("KOTIKIT_MCP_INSTRUCTIONS", () => {
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("official Figma MCP");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("use_figma");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("generate_figma_design");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit_record_figma_apply");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("local kotikit plugin only for variable export");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).not.toContain("then call kotikit_design_apply_step");
     expect(KOTIKIT_MCP_INSTRUCTIONS).not.toContain("Start the Figma plugin bridge before applying");
   });
 });
