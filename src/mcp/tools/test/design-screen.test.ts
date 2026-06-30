@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { defaultConfig } from "../../../config/schema.js";
+import { createArtifactStore } from "../../../core/runs/artifact-store.js";
+import type { Artifact } from "../../../core/schemas/artifact.js";
 import { openDesignReviewDb } from "../../../db/design-review-db.js";
 import type { FigmaDraftTarget } from "../../../figma/draft-target.js";
 import { writeDesignPlan } from "../../../planning/design-plan-store.js";
@@ -128,6 +130,30 @@ describe("kotikit_design_get_screen", () => {
     expect(detail.spec.title).toBe("Cart");
     expect(Object.keys(detail.dsComponents).sort()).toEqual(["Button", "Input"]);
     expect(detail.skipped).toHaveLength(0);
+  });
+
+  it("prefers a matching graph apply-packet artifact over the legacy design plan", async () => {
+    const root = mkTmp();
+    await createArtifactStore(root).writeArtifact(applyPacketArtifact({ scope: "members" }));
+
+    const registry = makeRegistry();
+    registerDesignScreenTools(registry, makeCtx(root));
+    const result = await callTool(registry, "kotikit_design_get_screen", { scope: "members" });
+
+    expect(result.isError).toBeFalsy();
+    const detail = parseToolDetail(result) as {
+      applyMode: string;
+      graphFacade: { preferredTool: string; artifactId: string; runId: string };
+      artifact: { id: string; type: string; payload: { data?: Record<string, unknown> } };
+    };
+    expect(detail.applyMode).toBe("official-figma-mcp");
+    expect(detail.graphFacade).toEqual({
+      preferredTool: "kotikit_get_artifact",
+      artifactId: "apply-members",
+      runId: "run-design-screen",
+    });
+    expect(detail.artifact.type).toBe("figma-apply-packet");
+    expect(detail.artifact.payload.data?.scope).toBe("members");
   });
 
   it("missing design plan: friendly error mentioning plan_design", async () => {
@@ -331,3 +357,29 @@ describe("kotikit_design_get_screen", () => {
     expect(detail.designPreferences[0]?.rule).toContain("compact row density");
   });
 });
+
+function applyPacketArtifact(input: { scope: string; screen?: string }): Artifact {
+  return {
+    id: `apply-${input.screen ?? input.scope}`,
+    runId: "run-design-screen",
+    type: "figma-apply-packet",
+    schemaVersion: "FigmaApplyPacket/v1",
+    createdAt: "2026-06-30T00:00:00.000Z",
+    updatedAt: "2026-06-30T00:00:00.000Z",
+    sourceNode: {
+      key: "draft.buildFigmaApplyPacket",
+      version: "1.0.0",
+    },
+    payload: {
+      schemaVersion: "FigmaApplyPacket/v1",
+      summary: "Apply members draft through official Figma MCP.",
+      data: {
+        scope: input.scope,
+        screen: input.screen ?? null,
+        mode: "official-figma-mcp",
+        targetPageId: "0:1",
+        targetSectionName: "kotikit / members / 2026-06-30",
+      },
+    },
+  };
+}

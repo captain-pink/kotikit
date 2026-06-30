@@ -1,6 +1,18 @@
-import { describe, expect, it } from "bun:test";
+import { afterAll, describe, expect, it } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { readFacadeResource } from "../facade/resources.js";
 import { FACADE_TOOL_NAMES } from "../facade/tools.js";
 import { buildServer } from "../server.js";
+
+const tmpDirs: string[] = [];
+
+afterAll(() => {
+  tmpDirs.forEach((dir) => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+});
 
 describe("MCP server", () => {
   it("builds without throwing", () => {
@@ -16,6 +28,28 @@ describe("MCP server", () => {
   it("server object is constructed", () => {
     const { server } = buildServer();
     expect(server).toBeDefined();
+  });
+
+  it("wires facade resources to the server graph runtime", async () => {
+    const root = mkProject();
+    const { runtime } = buildServer({ root });
+    const started = await runtime.startFlow({
+      flowId: "create-screen",
+      input: {
+        project: { root },
+        userIntent: "Create a members table screen.",
+      },
+    });
+
+    const result = await readFacadeResource(`kotikit://runs/${started.runId}`, { runtime });
+    const content = result.contents[0];
+    const run = JSON.parse(content !== undefined && "text" in content ? content.text : "{}") as {
+      runId?: string;
+      status?: string;
+    };
+
+    expect(run.runId).toBe(started.runId);
+    expect(run.status).toBe("waiting-for-user");
   });
 
   it("registers facade tools plus design-first compatibility tools", () => {
@@ -92,3 +126,9 @@ describe("MCP server", () => {
     expect(registry.handlers.size).toBe(expectedTools.length);
   });
 });
+
+function mkProject(): string {
+  const root = mkdtempSync(join(tmpdir(), "kotikit-server-"));
+  tmpDirs.push(root);
+  return root;
+}

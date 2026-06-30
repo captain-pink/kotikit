@@ -16,7 +16,8 @@ void (KotikitError as unknown);
 export function registerPlanDesignTools(registry: ToolRegistry, ctx: ToolContext): void {
   registry.tools.push({
     name: "kotikit_plan_design",
-    description: "Generate the per-screen design plan from a spec.",
+    description:
+      "Deprecated compatibility tool. Prefer graph draft nodes through kotikit_start/kotikit_continue. Generates the per-screen design plan from a spec.",
     inputSchema: {
       type: "object",
       properties: {

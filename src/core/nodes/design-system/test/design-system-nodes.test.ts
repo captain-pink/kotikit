@@ -204,6 +204,49 @@ describe("design-system graph nodes", () => {
     });
   });
 
+  it("uses the missing-component decision answer instead of interrupting again", async () => {
+    const output = await runNode(
+      "designSystem.askMissingComponentDecision",
+      {
+        ...state(mkProject()),
+        answers: { "missing-components": "create-draft-components" },
+        fitReport: {
+          missingComponents: [
+            { requestedPart: "email input", reason: "No local component found." },
+          ],
+        },
+      },
+      {}
+    );
+
+    expect(output.interrupt).toBeUndefined();
+    expect(output.statePatch?.fitReport).toMatchObject({
+      missingComponents: [expect.objectContaining({ requestedPart: "email input" })],
+    });
+  });
+
+  it("records approved primitive exceptions from the missing-component decision answer", async () => {
+    const output = await runNode(
+      "designSystem.askMissingComponentDecision",
+      {
+        ...state(mkProject()),
+        answers: { "missing-components": "approve-primitive-exceptions" },
+        fitReport: {
+          missingComponents: [
+            { requestedPart: "email input", reason: "No local component found." },
+            { requestedPart: "status helper", reason: "No local component found." },
+          ],
+        },
+      },
+      {}
+    );
+
+    expect(output.interrupt).toBeUndefined();
+    expect(output.statePatch?.fitReport).toMatchObject({
+      approvedPrimitiveExceptions: ["email input", "status helper"],
+    });
+  });
+
   it("saves a compact design-system fit artifact", async () => {
     const output = await runNode(
       "designSystem.saveFitReport",
@@ -238,7 +281,6 @@ describe("design-system graph nodes", () => {
       ...createDesignSystemNodeDefinitions(),
       stubNode("setup.detectLocalCache", { capabilities: ["setup.detect"] }),
       stubNode("setup.detectFigmaRemoteMcp", { capabilities: ["setup.detect"] }),
-      stubNode("qa.postDraftQa", { capabilities: ["qa.run"] }),
     ]);
 
     expect(() =>

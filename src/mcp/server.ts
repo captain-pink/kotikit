@@ -15,6 +15,12 @@ import {
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { loadConfig } from "../config/load.js";
+import { loadBuiltInFlows } from "../core/flows/catalog.js";
+import { createGraphRuntime, type GraphRuntime } from "../core/graph/runtime.js";
+import { createBuiltInNodeRegistry } from "../core/nodes/built-in-registry.js";
+import { createArtifactStore } from "../core/runs/artifact-store.js";
+import { createCheckpointStore } from "../core/runs/checkpoint-store.js";
+import { createRunStore } from "../core/runs/run-store.js";
 import { loadDotEnv } from "../util/env.js";
 import { findProjectRoot } from "../util/paths.js";
 import { KotikitError, toolError } from "../util/result.js";
@@ -23,7 +29,7 @@ import type { ToolContext } from "./context.js";
 import { completeFacadeArgument } from "./facade/completions.js";
 import { getFacadePrompt, listFacadePrompts } from "./facade/prompts.js";
 import { listFacadeResourceTemplates, readFacadeResource } from "./facade/resources.js";
-import { registerFacadeTools } from "./facade/tools.js";
+import { type FacadeRuntime, registerFacadeTools } from "./facade/tools.js";
 import { KOTIKIT_MCP_INSTRUCTIONS } from "./instructions.js";
 import { registerBrainstormTools } from "./tools/brainstorm.js";
 import { registerBridgeTools } from "./tools/bridge.js";
@@ -77,7 +83,12 @@ export function toMcpRequestError(err: unknown): McpError {
  * Build the server and return it along with the registry.
  * Exported so tests can inspect the registry without spawning a process.
  */
-export function buildServer(): { server: Server; registry: ToolRegistry; bridge: BridgeManager } {
+export function buildServer(options: { root?: string } = {}): {
+  server: Server;
+  registry: ToolRegistry;
+  bridge: BridgeManager;
+  runtime: FacadeRuntime;
+} {
   const server = new Server(
     { name: "kotikit", version: "0.1.0" },
     {
@@ -90,15 +101,16 @@ export function buildServer(): { server: Server; registry: ToolRegistry; bridge:
   const handlers = new Map<string, Handler>();
   const registry: ToolRegistry = { tools, handlers };
 
-  const root = findProjectRoot();
+  const root = options.root ?? findProjectRoot();
   const bridge = createBridgeManager({ registry, root });
   const ctx: ToolContext = {
     root,
     loadConfig: () => loadConfig(root),
     bridge,
   };
+  const runtime = createServerGraphRuntime(root);
 
-  registerFacadeTools(registry, ctx);
+  registerFacadeTools(registry, ctx, { runtime });
   registerSpecTools(registry, ctx);
   registerConfigTools(registry, ctx);
   registerFlowTools(registry, ctx);
@@ -141,7 +153,7 @@ export function buildServer(): { server: Server; registry: ToolRegistry; bridge:
 
   server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     try {
-      return await readFacadeResource(request.params.uri);
+      return await readFacadeResource(request.params.uri, { runtime });
     } catch (err) {
       throw toMcpRequestError(err);
     }
@@ -167,7 +179,33 @@ export function buildServer(): { server: Server; registry: ToolRegistry; bridge:
     }
   });
 
-  return { server, registry, bridge };
+  return { server, registry, bridge, runtime };
+}
+
+function createServerGraphRuntime(root: string): FacadeRuntime {
+  const artifactStore = createArtifactStore(root);
+  let runtimePromise: Promise<GraphRuntime> | undefined;
+  const runtime = async (): Promise<GraphRuntime> => {
+    runtimePromise ??= loadBuiltInFlows().then((flows) =>
+      createGraphRuntime({
+        registry: createBuiltInNodeRegistry(),
+        flowCatalog: flows,
+        runStore: createRunStore(root),
+        artifactStore,
+        checkpointStore: createCheckpointStore(root),
+      })
+    );
+    return runtimePromise;
+  };
+  return {
+    startFlow: async (input) => (await runtime()).startFlow(input),
+    continueRun: async (input) => (await runtime()).continueRun(input),
+    answerRun: async (input) => (await runtime()).answerRun(input),
+    patchRunState: async (input) => (await runtime()).patchRunState(input),
+    getRunState: async (runId) => (await runtime()).getRunState(runId),
+    getArtifact: async (artifactId) => (await runtime()).getArtifact(artifactId),
+    listArtifacts: async (runId) => artifactStore.listArtifacts(runId),
+  };
 }
 
 /** Start the MCP server connected to stdio. Optionally also starts the bridge. */

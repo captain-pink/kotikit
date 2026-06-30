@@ -1,5 +1,6 @@
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import { ensureDraftTarget } from "../../core/adapters/figma/target.js";
 import { loadBuiltInFlows } from "../../core/flows/catalog.js";
 import { computeStableHash } from "../../core/graph/graph-hash.js";
 import type {
@@ -21,6 +22,7 @@ export const FACADE_TOOL_NAMES = [
   "kotikit_start",
   "kotikit_continue",
   "kotikit_answer",
+  "kotikit_bind_figma_target",
   "kotikit_get_artifact",
   "kotikit_list_artifacts",
   "kotikit_search_design_system",
@@ -33,7 +35,7 @@ export type FacadeToolName = (typeof FACADE_TOOL_NAMES)[number];
 
 export type FacadeRuntime = Pick<
   GraphRuntime,
-  "startFlow" | "continueRun" | "answerRun" | "getRunState" | "getArtifact"
+  "startFlow" | "continueRun" | "answerRun" | "patchRunState" | "getRunState" | "getArtifact"
 > & {
   listArtifacts?(runId?: string): Promise<Artifact[]>;
 };
@@ -63,6 +65,7 @@ const StartInputSchema = z.strictObject({
     .strictObject({
       project: RuntimeProjectInputSchema.optional(),
       userIntent: z.string().min(1).optional(),
+      figmaTarget: z.unknown().optional(),
     })
     .optional(),
 });
@@ -74,6 +77,11 @@ const RunIdInputSchema = z.strictObject({
 const AnswerInputSchema = z.strictObject({
   runId: z.string().min(1),
   answer: z.string().min(1),
+});
+
+const BindFigmaTargetInputSchema = z.strictObject({
+  runId: z.string().min(1),
+  target: z.unknown(),
 });
 
 const GetArtifactInputSchema = z.strictObject({
@@ -149,6 +157,10 @@ export function registerFacadeTools(
           type: "object",
           properties: {
             userIntent: { type: "string", description: "Designer request in plain language." },
+            figmaTarget: {
+              type: "object",
+              description: "Safe Figma draft target object to seed into the graph run.",
+            },
             project: {
               type: "object",
               properties: {
@@ -173,6 +185,9 @@ export function registerFacadeTools(
       const startInput: RuntimeStartInput = {
         project: input.input?.project ?? { root: ctx.root },
         ...(input.input?.userIntent === undefined ? {} : { userIntent: input.input.userIntent }),
+        ...(input.input?.figmaTarget === undefined
+          ? {}
+          : { figmaTarget: ensureDraftTarget(input.input.figmaTarget) }),
       };
       return toolText(
         `Started ${input.flowId}.`,
@@ -220,6 +235,40 @@ export function registerFacadeTools(
       return toolText(
         `Answered run ${input.runId}.`,
         compactRunResult(await runtime.answerRun({ runId: input.runId, answer: input.answer }))
+      );
+    } catch (err) {
+      return toolError(err);
+    }
+  });
+
+  registerTool(registry, {
+    name: "kotikit_bind_figma_target",
+    description: "Bind a safe Figma draft target object into an active graph run.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        runId: { type: "string", description: "Kotikit run id." },
+        target: {
+          type: "object",
+          description: "Safe Figma draft target resolved from an exact draft page URL.",
+        },
+      },
+      required: ["runId", "target"],
+    },
+  });
+  registry.handlers.set("kotikit_bind_figma_target", async (args) => {
+    try {
+      const input = BindFigmaTargetInputSchema.parse(args);
+      const runtime = requireRuntime(deps.runtime);
+      const target = ensureDraftTarget(input.target);
+      return toolText(
+        `Bound Figma draft target for run ${input.runId}.`,
+        compactRunResult(
+          await runtime.patchRunState({
+            runId: input.runId,
+            statePatch: { figmaTarget: target },
+          })
+        )
       );
     } catch (err) {
       return toolError(err);
@@ -294,11 +343,29 @@ export function registerFacadeTools(
     },
   });
 
-  registerDelegateTool(registry, {
+  registerTool(registry, {
     name: "kotikit_record_figma_apply",
     description: "Record metadata after the official Figma MCP apply path updates a draft.",
-    delegateName: "kotikit_design_apply_step",
     inputSchema: figmaApplyInputSchema(),
+  });
+  registry.handlers.set("kotikit_record_figma_apply", async (args) => {
+    try {
+      const candidate = recordFrom(args);
+      const runId = stringField(candidate, "runId");
+      if (runId === undefined) {
+        return delegateToCompatibilityTool(registry, "kotikit_design_apply_step", args);
+      }
+      const runtime = requireRuntime(deps.runtime);
+      const result = await runtime.patchRunState({
+        runId,
+        statePatch: {
+          applyMetadata: figmaApplyMetadataFrom(candidate),
+        },
+      });
+      return toolText(`Recorded Figma apply metadata for run ${runId}.`, compactRunResult(result));
+    } catch (err) {
+      return toolError(err);
+    }
   });
 
   registerDelegateTool(registry, {
@@ -380,6 +447,10 @@ function figmaApplyInputSchema(): Tool["inputSchema"] {
   return {
     type: "object",
     properties: {
+      runId: {
+        type: "string",
+        description: "Optional active kotikit graph run id to patch with apply metadata.",
+      },
       scope: { type: "string", description: "Scope (flow or single-screen) slug." },
       screen: { type: "string", description: "Screen slug; omit for single-screen specs." },
       stepIndex: {
@@ -401,6 +472,14 @@ function figmaApplyInputSchema(): Tool["inputSchema"] {
       componentName: {
         type: "string",
         description: "Component name when the step placed a component.",
+      },
+      partId: {
+        type: "string",
+        description: "Apply-packet UI part id represented by this Figma node.",
+      },
+      draftComponentId: {
+        type: "string",
+        description: "Kotikit draft component id used to create this node, when applicable.",
       },
       dsKey: {
         type: "string",
@@ -437,9 +516,89 @@ function figmaApplyInputSchema(): Tool["inputSchema"] {
         type: "string",
         description: "Figma node name created or updated by this step.",
       },
+      variableBindings: {
+        type: "array",
+        description: "Variable/style bindings applied by official Figma MCP.",
+        items: { type: "object" },
+      },
+      layoutFrames: {
+        type: "array",
+        description: "Auto-layout/grid frame metadata applied by official Figma MCP.",
+        items: { type: "object" },
+      },
+      repeatedItems: {
+        type: "array",
+        description: "Repeated row/card/cell structure metadata.",
+        items: { type: "object" },
+      },
+      textTransforms: {
+        type: "array",
+        description: "Text transform metadata for post-apply verification.",
+        items: { type: "object" },
+      },
     },
     required: ["scope", "stepIndex", "outcome"],
   };
+}
+
+function figmaApplyMetadataFrom(input: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...(stringField(input, "figmaFileKey") !== undefined
+      ? { fileKey: stringField(input, "figmaFileKey") }
+      : {}),
+    ...(stringField(input, "figmaPageId") !== undefined
+      ? { pageId: stringField(input, "figmaPageId") }
+      : {}),
+    ...(stringField(input, "figmaSectionName") !== undefined
+      ? { sectionName: stringField(input, "figmaSectionName") }
+      : {}),
+    nodes: [
+      {
+        ...(stringField(input, "figmaNodeId") !== undefined
+          ? { id: stringField(input, "figmaNodeId") }
+          : {}),
+        ...(stringField(input, "figmaNodeName") !== undefined
+          ? { name: stringField(input, "figmaNodeName") }
+          : {}),
+        ...(stringField(input, "componentName") !== undefined
+          ? { componentName: stringField(input, "componentName") }
+          : {}),
+        ...(stringField(input, "partId") !== undefined
+          ? { partId: stringField(input, "partId") }
+          : {}),
+        ...(stringField(input, "draftComponentId") !== undefined
+          ? { draftComponentId: stringField(input, "draftComponentId") }
+          : {}),
+        ...(stringField(input, "dsKey") !== undefined
+          ? { componentKey: stringField(input, "dsKey") }
+          : {}),
+      },
+    ].filter((node) => Object.keys(node).length > 0),
+    variableBindings: recordArray(input.variableBindings),
+    layoutFrames: recordArray(input.layoutFrames),
+    repeatedItems: recordArray(input.repeatedItems),
+    textTransforms: recordArray(input.textTransforms),
+  };
+}
+
+function recordFrom(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function recordArray(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value)
+    ? value.filter(
+        (item): item is Record<string, unknown> =>
+          typeof item === "object" && item !== null && !Array.isArray(item)
+      )
+    : [];
+}
+
+function stringField(value: Record<string, unknown>, key: string): string | undefined {
+  const candidate = value[key];
+  return typeof candidate === "string" && candidate.length > 0 ? candidate : undefined;
 }
 
 function reviewFigmaTargetInputSchema(): Tool["inputSchema"] {

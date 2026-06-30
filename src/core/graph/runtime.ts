@@ -26,6 +26,10 @@ export type GraphRuntime = {
   startFlow(input: { flowId: string; input: RuntimeStartInput }): Promise<RuntimeRunResult>;
   continueRun(input: { runId: string }): Promise<RuntimeRunResult>;
   answerRun(input: { runId: string; answer: string }): Promise<RuntimeRunResult>;
+  patchRunState(input: {
+    runId: string;
+    statePatch: Partial<KotikitGraphState>;
+  }): Promise<RuntimeRunResult>;
   getRunState(runId: string): Promise<KotikitGraphState>;
   getArtifact(artifactId: string): Promise<Artifact>;
 };
@@ -33,6 +37,7 @@ export type GraphRuntime = {
 export type RuntimeStartInput = {
   project: KotikitGraphState["project"];
   userIntent?: string;
+  figmaTarget?: KotikitGraphState["figmaTarget"];
 };
 
 export type RuntimeRunResult = {
@@ -90,6 +95,7 @@ export function createGraphRuntime(input: {
         status: "running",
         project: startInput.input.project,
         userIntent: startInput.input.userIntent,
+        figmaTarget: startInput.input.figmaTarget,
         artifacts: [],
         errors: [],
       };
@@ -133,11 +139,20 @@ export function createGraphRuntime(input: {
           "Only answer runs that are paused with a pending question."
         );
       }
+      const pendingQuestionId = run.state.pendingQuestion?.id;
       const state = {
         ...run.state,
         status: "running" as const,
         pendingQuestion: undefined,
         userIntent: answer,
+        ...(pendingQuestionId === undefined
+          ? {}
+          : {
+              answers: {
+                ...(run.state.answers ?? {}),
+                [pendingQuestionId]: answer,
+              },
+            }),
       };
       const updated = await input.runStore.updateRunState(runId, {
         status: "running",
@@ -150,6 +165,23 @@ export function createGraphRuntime(input: {
         input.artifactStore,
         input.checkpointStore
       );
+    },
+    async patchRunState({ runId, statePatch }): Promise<RuntimeRunResult> {
+      const run = await input.runStore.getRun(runId);
+      const state = {
+        ...run.state,
+        ...statePatch,
+        runId: run.id,
+        flowId: run.flowId,
+        flowVersion: run.flowVersion,
+        graphHash: run.graphHash,
+        status: run.status,
+      };
+      const updated = await input.runStore.updateRunState(runId, {
+        status: run.status,
+        state,
+      });
+      return toResult(updated);
     },
     async getRunState(runId: string): Promise<KotikitGraphState> {
       return (await input.runStore.getRun(runId)).state;
@@ -253,7 +285,10 @@ async function executeRun(
       };
       run = await runStore.updateRunState(run.id, {
         currentNodeId: node.id,
-        nextNodeIndex: run.nextNodeIndex + 1,
+        nextNodeIndex:
+          output.interrupt.status === "waiting-for-user"
+            ? run.nextNodeIndex
+            : run.nextNodeIndex + 1,
         status: output.interrupt.status,
         state: interruptedState,
       });

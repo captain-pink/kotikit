@@ -12,6 +12,65 @@ code registry search, code gates, or code/design audits.
 
 ---
 
+## Graph Flow Facade
+
+### kotikit_flow_list
+
+Purpose: List compact built-in and loaded flow summaries.
+Input: `{}`
+Output: `{ flows: { id; version; title; requiredCapabilities; safetyProfile }[] }`
+Example: "Show available kotikit flows."
+
+### kotikit_start
+
+Purpose: Start a graph-backed designer flow.
+Input: `{ flowId: string; input?: { userIntent?: string; figmaTarget?: FigmaDraftTarget; project?: { root: string; name?: string } } }`
+Output: `{ runId; status; pendingQuestion?; artifacts; errors }`
+Example: "Start create-screen for a members table."
+
+### kotikit_bind_figma_target
+
+Purpose: Bind a safe Figma draft target object into an active graph run before
+draft-component or screen writes.
+Input: `{ runId: string; target: FigmaDraftTarget }`
+Output: `{ runId; status; pendingQuestion?; artifacts; errors }`
+Example: Called after resolving a draft page target.
+Notes: The target must include a draft page name and kotikit-owned Section.
+
+### kotikit_answer
+
+Purpose: Resume a run paused for a designer decision.
+Input: `{ runId: string; answer: string }`
+Output: `{ runId; status; pendingQuestion?; artifacts; errors }`
+Example: "Answer with create-draft-components."
+
+### kotikit_continue
+
+Purpose: Continue a run after an external action such as Figma apply metadata
+recording.
+Input: `{ runId: string }`
+Output: `{ runId; status; pendingQuestion?; artifacts; errors }`
+Example: "Continue the draft run."
+
+### kotikit_record_figma_apply
+
+Purpose: Record official Figma MCP apply metadata into the active graph run.
+Input: `{ runId: string; scope: string; stepIndex: number; outcome: "ok" | "warned" | "failed"; figmaFileKey; figmaPageId; figmaSectionName; figmaNodeId?; figmaNodeName?; partId?; draftComponentId?; componentName?; dsKey?; variableBindings?; layoutFrames?; repeatedItems?; textTransforms? }`
+Output: `{ runId; status; pendingQuestion?; artifacts; errors }`
+Example: Called after official Figma MCP writes nodes to the draft page.
+Notes: Graph draft verification expects part ids, component keys or draft
+component origins, variable/style bindings, auto-layout/grid metadata, repeated
+item structure, and text transform metadata to match the apply packet.
+
+### kotikit_get_artifact
+
+Purpose: Read one compact graph artifact by id.
+Input: `{ artifactId: string }`
+Output: `{ artifact }`
+Example: "Fetch the figma-apply-packet artifact."
+
+---
+
 ## Setup
 
 ### kotikit_config_status
@@ -231,7 +290,10 @@ Purpose: Fetch the official Figma MCP apply packet for one screen.
 Input: `{ scope: string; screen?: string }`
 Output: `{ applyMode; applyInstructions; plan; spec; flow?; target; dsComponents; skipped }`
 Example: "Get the design context for the profile screen."
-Notes: The assistant applies this packet through the official Figma MCP tools.
+Notes: Deprecated compatibility surface. Graph runs should read the
+`figma-apply-packet` artifact with `kotikit_get_artifact`; this tool prefers
+matching graph apply-packet artifacts before falling back to legacy design
+plans.
 
 ### kotikit_design_apply_step
 
@@ -240,6 +302,9 @@ plan step.
 Input: `{ scope: string; screen?: string; stepIndex: number; outcome: "ok" | "warned" | "failed"; note?: string; ...figmaMetadata }`
 Output: `{ line: string }`
 Example: Called after Figma writes, not directly by the designer.
+Notes: Deprecated compatibility logger. Prefer `kotikit_record_figma_apply`
+with `runId` for graph runs so apply metadata is patched into graph state before
+`kotikit_continue`.
 
 ---
 

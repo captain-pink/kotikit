@@ -240,7 +240,7 @@ bun run typecheck
 
 Expected: all pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add package.json bun.lock src/core/schemas schemas
@@ -828,7 +828,7 @@ git commit -m "feat(core): preserve local design-system grounding adapter"
 - Modify: `src/mcp/tools/design-screen.ts`
 - Modify: `src/mcp/tools/design-apply.ts`
 
-- [ ] **Step 1: Write failing UI contract and draft invariant tests**
+- [x] **Step 1: Write failing UI contract and draft invariant tests**
 
 Tests:
 
@@ -857,7 +857,7 @@ Tests:
   negative dimensions, clipped words, missing component refs, detached
   instances, layout overlap, and hardcoded component imitations.
 
-- [ ] **Step 2: Wrap target validation**
+- [x] **Step 2: Wrap target validation**
 
 Move or wrap existing target logic behind:
 
@@ -867,7 +867,7 @@ Move or wrap existing target logic behind:
 
 No Figma write can happen without this state.
 
-- [ ] **Step 3: Wrap design planning**
+- [x] **Step 3: Wrap design planning**
 
 Expose UI and draft planning as graph nodes:
 
@@ -890,7 +890,7 @@ must carry enough metadata to verify component keys, draft component origins,
 variable/style bindings, auto-layout settings, repeated-item structure, and
 text transforms after apply.
 
-- [ ] **Step 4: Implement apply recording nodes**
+- [x] **Step 4: Implement apply recording nodes**
 
 Implement:
 
@@ -899,14 +899,21 @@ Implement:
 - `figma.verifyDraftInvariants`
 - `figma.saveApplyReport`
 
-- [ ] **Step 5: Add compatibility wrappers**
+- [x] **Step 5: Add compatibility wrappers**
 
 Old target/plan/design/apply tools should delegate to the active draft graph
 run or read graph artifacts.
 
 Mark old public descriptions as deprecated.
 
-- [ ] **Step 6: Verify**
+Task 8 implementation note: graph draft nodes now persist apply-packet
+artifacts and `kotikit_design_get_screen` reads those graph artifacts before
+falling back to legacy design plans. The small MCP facade is wired to the graph
+runtime in `buildServer`, including Figma target binding and apply metadata
+patching. Full removal of the remaining legacy target, plan, and apply
+compatibility tools belongs to the later facade and stale-code cleanup tasks.
+
+- [x] **Step 6: Verify**
 
 Run:
 

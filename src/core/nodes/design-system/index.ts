@@ -46,6 +46,7 @@ type FitReport = {
   exactMatches: FitMatch[];
   substitutes: FitMatch[];
   missingComponents: FitGap[];
+  approvedPrimitiveExceptions?: string[];
   variableGaps: VariableGap[];
   repeatedPatterns: PatternFit[];
 };
@@ -226,6 +227,16 @@ export function createDesignSystemNodeDefinitions(
         const state = graphState(input.state);
         const fitReport = fitReportFrom(state.fitReport);
         if (fitReport.missingComponents.length === 0) {
+          return { statePatch: { fitReport } } satisfies RuntimeNodeOutput;
+        }
+        if (state.answers?.["missing-components"] === "approve-primitive-exceptions") {
+          return {
+            statePatch: {
+              fitReport: approvePrimitiveExceptions(fitReport),
+            },
+          } satisfies RuntimeNodeOutput;
+        }
+        if (state.answers?.["missing-components"] !== undefined) {
           return { statePatch: { fitReport } } satisfies RuntimeNodeOutput;
         }
         return {
@@ -487,6 +498,17 @@ function fitReportRefs(report: FitReport): string[] {
   ];
 }
 
+function approvePrimitiveExceptions(report: FitReport): FitReport {
+  const approved = uniqueStrings([
+    ...(report.approvedPrimitiveExceptions ?? []),
+    ...report.missingComponents.map((gap) => gap.requestedPart),
+  ]);
+  return {
+    ...report,
+    approvedPrimitiveExceptions: approved,
+  };
+}
+
 function graphState(value: unknown): KotikitGraphState {
   return value as KotikitGraphState;
 }
@@ -515,6 +537,7 @@ function fitReportFrom(value: unknown): FitReport {
     exactMatches: arrayFrom<FitMatch>(value.exactMatches),
     substitutes: arrayFrom<FitMatch>(value.substitutes),
     missingComponents: arrayFrom<FitGap>(value.missingComponents),
+    approvedPrimitiveExceptions: stringArray(value.approvedPrimitiveExceptions),
     variableGaps: arrayFrom<VariableGap>(value.variableGaps),
     repeatedPatterns: arrayFrom<PatternFit>(value.repeatedPatterns),
   };

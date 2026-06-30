@@ -55,6 +55,49 @@ gaps, and repeated-pattern coverage explicit. Missing meaningful UI parts are
 not silently approved as hardcoded layers; they become component gaps for the
 draft-component preflight.
 
+## Implementation Update: UI Contract, Draft, Figma, And QA Nodes
+
+Completed on branch `feature/kotikit-migration`.
+
+The migration now has deterministic graph nodes for the core draft path:
+
+- UI composition contracts require every meaningful UI part to resolve to an
+  existing component, kotikit-created draft component, or explicit primitive
+  exception;
+- table/list repeated patterns require a component family or draft components
+  for container, header row, data row, and cell coverage before screen
+  composition continues;
+- layout contracts require auto-layout/grid structural frames;
+- variable binding plans pause when any required color, typography, radius,
+  spacing, stroke, shadow, or effect token would need an unapproved literal;
+- missing component planning creates and validates `Kotikit Draft Components`
+  before screen composition, and composition only accepts created draft
+  component keys;
+- draft nodes compile high-fidelity draft plans and build official Figma MCP
+  apply packets only after safe draft target and brief rules pass, and persist
+  packet artifacts with component, draft-origin, variable/style, layout,
+  repeated-structure, and text-transform metadata;
+- Figma nodes validate file, page, kotikit Section, component refs, draft
+  origins, variable/style bindings, layout settings, repeated structures, and
+  text transforms before accepting apply metadata;
+- the small MCP facade is wired to the graph runtime in real server sessions,
+  `kotikit_start` can seed a safe Figma draft target, `kotikit_bind_figma_target`
+  can patch a target into an active run, and `kotikit_record_figma_apply`
+  patches graph runs with component part, draft-component origin,
+  variable/style, layout, repeated-item, and text transform metadata before
+  `kotikit_continue`;
+- QA nodes block vertical or mirrored text, flipped transforms, negative
+  dimensions, clipped text, missing component refs, detached instances, layout
+  overlap, and hardcoded component imitations, and fail closed when apply
+  metadata has not been recorded.
+
+Legacy target/plan/design/apply MCP tools remain as deprecated compatibility
+surfaces while the graph facade becomes the primary path. The legacy screen
+reader now prefers graph apply-packet artifacts when present. Remaining legacy
+target, plan, and apply tool removal stays with the facade cleanup and stale-code
+removal tasks because the old compatibility handlers are intentionally thin
+bridges while the graph facade owns runtime execution.
+
 ## Sources Reviewed
 
 Local repo:

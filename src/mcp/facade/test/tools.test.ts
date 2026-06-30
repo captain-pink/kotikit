@@ -1,4 +1,7 @@
-import { describe, expect, it } from "bun:test";
+import { afterAll, describe, expect, it } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { RuntimeRunResult } from "../../../core/graph/runtime.js";
 import type { Artifact } from "../../../core/schemas/artifact.js";
@@ -12,6 +15,14 @@ const makeRegistry = (): ToolRegistry => ({ tools: [] as Tool[], handlers: new M
 const makeCtx = (): ToolContext => ({
   root: "/tmp/kotikit-facade-test",
   loadConfig: async () => null,
+});
+
+const tmpDirs: string[] = [];
+
+afterAll(() => {
+  tmpDirs.forEach((dir) => {
+    rmSync(dir, { recursive: true, force: true });
+  });
 });
 
 async function callTool(registry: ToolRegistry, name: string, args: unknown) {
@@ -38,6 +49,23 @@ function makeState(status: KotikitGraphState["status"]): KotikitGraphState {
     userIntent: "Create a settings screen",
     artifacts: [{ id: "artifact-1", type: "design-brief", schemaVersion: "DesignBrief/v1" }],
     errors: [],
+  };
+}
+
+function draftTarget(): NonNullable<KotikitGraphState["figmaTarget"]> {
+  return {
+    fileKey: "FILE",
+    pageId: "1:2",
+    pageName: "Draft - Members",
+    pageUrl: "https://www.figma.com/design/FILE/Name?node-id=1-2",
+    boundAt: "2026-06-30T00:00:00.000Z",
+    source: "user-url",
+    section: { id: "section-1", name: "kotikit / members / 2026-06-30" },
+    safety: {
+      requireDraftPageName: true,
+      allowPageCreation: false,
+      requireKotikitSection: true,
+    },
   };
 }
 
@@ -72,6 +100,26 @@ function makeRuntime(): FacadeRuntime {
       expect(input).toEqual({ runId: "run-1", answer: "Use compact desktop density." });
       return { runId: "run-1", status: "done", state: makeState("done") };
     },
+    async patchRunState(input): Promise<RuntimeRunResult> {
+      expect(input).toMatchObject({
+        runId: "run-1",
+        statePatch: {
+          applyMetadata: {
+            fileKey: "FILE",
+            pageId: "1:2",
+            sectionName: "kotikit / members / 2026-06-30",
+          },
+        },
+      });
+      return {
+        runId: "run-1",
+        status: "waiting-for-figma",
+        state: {
+          ...makeState("waiting-for-figma"),
+          applyMetadata: input.statePatch.applyMetadata,
+        },
+      };
+    },
     async getRunState(runId): Promise<KotikitGraphState> {
       expect(runId).toBe("run-1");
       return makeState("done");
@@ -95,6 +143,22 @@ describe("MCP facade tools", () => {
     expect(names.slice(0, FACADE_TOOL_NAMES.length)).toEqual([...FACADE_TOOL_NAMES]);
     expect(names).toContain("kotikit_workflow_start");
     expect(names.filter((name) => name === "kotikit_doctor")).toHaveLength(1);
+  });
+
+  it("buildServer wires the graph runtime for real MCP sessions", async () => {
+    const root = mkProject();
+    const { registry } = buildServer({ root });
+
+    const result = await callTool(registry, "kotikit_start", {
+      flowId: "create-screen",
+      input: {
+        userIntent: "Create a members table screen.",
+      },
+    });
+    const text = result.content[0]?.text ?? "";
+
+    expect(text).not.toContain("graph runtime is not wired");
+    expect(text).toContain("runId");
   });
 
   it("lists compact built-in flow summaries", async () => {
@@ -134,6 +198,7 @@ describe("MCP facade tools", () => {
 
     expect(applyTool?.inputSchema.required).toEqual(["scope", "stepIndex", "outcome"]);
     expect(applyTool?.inputSchema.properties).toHaveProperty("figmaNodeId");
+    expect(applyTool?.inputSchema.properties).toHaveProperty("runId");
     expect(reviewTool?.inputSchema.properties).toHaveProperty("figmaUrl");
     expect(reviewTool?.inputSchema.properties).toHaveProperty("fileKey");
     expect(reviewTool?.inputSchema.properties).toHaveProperty("nodeId");
@@ -166,6 +231,67 @@ describe("MCP facade tools", () => {
     expect(detail.status).toBe("waiting-for-user");
   });
 
+  it("starts a flow with an initial Figma draft target", async () => {
+    let startInput: RuntimeRunResult | undefined;
+    const runtime = {
+      ...makeRuntime(),
+      async startFlow(input): Promise<RuntimeRunResult> {
+        expect(input.input.figmaTarget).toMatchObject({
+          fileKey: "FILE",
+          pageId: "1:2",
+        });
+        startInput = {
+          runId: "run-1",
+          status: "waiting-for-user",
+          state: { ...makeState("waiting-for-user"), figmaTarget: input.input.figmaTarget },
+        };
+        return startInput;
+      },
+    } satisfies FacadeRuntime;
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx(), { runtime });
+
+    const result = await callTool(registry, "kotikit_start", {
+      flowId: "create-screen",
+      input: {
+        userIntent: "Create a settings screen",
+        figmaTarget: draftTarget(),
+      },
+    });
+    const detail = detailOf<{ runId: string; status: string }>(result.content[0]?.text ?? "");
+
+    expect(result.isError).toBeFalsy();
+    expect(detail.runId).toBe("run-1");
+    expect(startInput?.state.figmaTarget).toMatchObject({ pageName: "Draft - Members" });
+  });
+
+  it("binds a Figma draft target into an active graph run", async () => {
+    let patchedTarget: unknown;
+    const runtime = {
+      ...makeRuntime(),
+      async patchRunState(input): Promise<RuntimeRunResult> {
+        patchedTarget = input.statePatch.figmaTarget;
+        return {
+          runId: "run-1",
+          status: "running",
+          state: { ...makeState("running"), figmaTarget: patchedTarget },
+        };
+      },
+    } satisfies FacadeRuntime;
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx(), { runtime });
+
+    const result = await callTool(registry, "kotikit_bind_figma_target", {
+      runId: "run-1",
+      target: draftTarget(),
+    });
+    const detail = detailOf<{ runId: string; status: string }>(result.content[0]?.text ?? "");
+
+    expect(result.isError).toBeFalsy();
+    expect(detail.runId).toBe("run-1");
+    expect(patchedTarget).toMatchObject({ fileKey: "FILE", pageId: "1:2" });
+  });
+
   it("answers a paused run through the injected runtime", async () => {
     const registry = makeRegistry();
     registerFacadeTools(registry, makeCtx(), { runtime: makeRuntime() });
@@ -179,6 +305,76 @@ describe("MCP facade tools", () => {
     expect(result.isError).toBeFalsy();
     expect(detail.runId).toBe("run-1");
     expect(detail.status).toBe("done");
+  });
+
+  it("records Figma apply metadata into a graph run when runId is supplied", async () => {
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx(), { runtime: makeRuntime() });
+
+    const result = await callTool(registry, "kotikit_record_figma_apply", {
+      runId: "run-1",
+      scope: "members",
+      stepIndex: 0,
+      outcome: "ok",
+      figmaFileKey: "FILE",
+      figmaPageId: "1:2",
+      figmaSectionName: "kotikit / members / 2026-06-30",
+      figmaNodeId: "node-1",
+      figmaNodeName: "Button",
+      componentName: "primary button",
+      dsKey: "button-key",
+      variableBindings: [{ targetId: "button", property: "fill", source: "variable" }],
+      layoutFrames: [{ id: "root", mode: "auto-layout" }],
+    });
+    const detail = detailOf<{ runId: string; status: string }>(result.content[0]?.text ?? "");
+
+    expect(result.isError).toBeFalsy();
+    expect(detail.runId).toBe("run-1");
+    expect(detail.status).toBe("waiting-for-figma");
+  });
+
+  it("records draft component origin metadata into graph apply metadata", async () => {
+    let applyMetadata: Record<string, unknown> | undefined;
+    const runtime = {
+      ...makeRuntime(),
+      async patchRunState(input): Promise<RuntimeRunResult> {
+        applyMetadata = input.statePatch.applyMetadata as Record<string, unknown>;
+        return {
+          runId: "run-1",
+          status: "waiting-for-figma",
+          state: {
+            ...makeState("waiting-for-figma"),
+            applyMetadata,
+          },
+        };
+      },
+    } satisfies FacadeRuntime;
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx(), { runtime });
+
+    await callTool(registry, "kotikit_record_figma_apply", {
+      runId: "run-1",
+      scope: "members",
+      stepIndex: 0,
+      outcome: "ok",
+      figmaFileKey: "FILE",
+      figmaPageId: "1:2",
+      figmaSectionName: "kotikit / members / 2026-06-30",
+      figmaNodeId: "node-1",
+      figmaNodeName: "Email Input",
+      partId: "email-input",
+      draftComponentId: "draft-email-input",
+      componentName: "email input",
+      dsKey: "draft:email-input",
+    });
+
+    expect(applyMetadata?.nodes).toEqual([
+      expect.objectContaining({
+        partId: "email-input",
+        draftComponentId: "draft-email-input",
+        componentKey: "draft:email-input",
+      }),
+    ]);
   });
 
   it("returns one artifact through the injected runtime", async () => {
@@ -196,3 +392,9 @@ describe("MCP facade tools", () => {
     });
   });
 });
+
+function mkProject(): string {
+  const root = mkdtempSync(join(tmpdir(), "kotikit-facade-"));
+  tmpDirs.push(root);
+  return root;
+}

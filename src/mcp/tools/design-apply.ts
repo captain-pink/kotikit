@@ -18,7 +18,7 @@ export function registerDesignApplyTools(registry: ToolRegistry, ctx: ToolContex
   registry.tools.push({
     name: "kotikit_design_apply_step",
     description:
-      "Record that the official Figma MCP apply path created or updated a design plan step (audit log).",
+      "Deprecated compatibility tool. Prefer kotikit_record_figma_apply and graph figma.recordApplyMetadata. Records that the official Figma MCP apply path created or updated a design plan step (audit log).",
     inputSchema: {
       type: "object",
       properties: {

@@ -86,6 +86,80 @@ describe("createGraphRuntime", () => {
     expect(completed.state.userIntent).toBe("Help admins invite and suspend members.");
   });
 
+  it("records answers by pending question id for downstream nodes", async () => {
+    const { runtime } = fixtureRuntime();
+    const started = await runtime.startFlow({
+      flowId: "fixture-flow",
+      input: { project: { root } },
+    });
+
+    const completed = await runtime.answerRun({
+      runId: started.runId,
+      answer: "Help admins invite and suspend members.",
+    });
+
+    expect(completed.state.answers).toEqual({
+      "screen-goal": "Help admins invite and suspend members.",
+    });
+  });
+
+  it("starts a flow with an initial Figma draft target", async () => {
+    const { runtime } = fixtureRuntime();
+
+    const started = await runtime.startFlow({
+      flowId: "fixture-flow",
+      input: {
+        project: { root },
+        figmaTarget: {
+          fileKey: "FILE",
+          pageId: "1:2",
+          pageName: "Draft - Members",
+          pageUrl: "https://www.figma.com/design/FILE/Name?node-id=1-2",
+          boundAt: "2026-06-30T00:00:00.000Z",
+          source: "user-url",
+          section: { id: "section-1", name: "kotikit / members / 2026-06-30" },
+          safety: {
+            requireDraftPageName: true,
+            allowPageCreation: false,
+            requireKotikitSection: true,
+          },
+        },
+      },
+    });
+
+    expect(started.state.figmaTarget).toMatchObject({
+      fileKey: "FILE",
+      pageId: "1:2",
+      pageName: "Draft - Members",
+    });
+  });
+
+  it("patches run state for external apply metadata", async () => {
+    const { runtime } = fixtureRuntime();
+    const started = await runtime.startFlow({
+      flowId: "fixture-flow",
+      input: { project: { root } },
+    });
+
+    const patched = await runtime.patchRunState({
+      runId: started.runId,
+      statePatch: {
+        applyMetadata: {
+          fileKey: "FILE",
+          pageId: "1:2",
+          sectionName: "kotikit / members / 2026-06-30",
+        },
+      },
+    });
+
+    expect(patched.state.applyMetadata).toMatchObject({
+      fileKey: "FILE",
+      pageId: "1:2",
+    });
+    expect(patched.state.runId).toBe(started.runId);
+    expect(patched.status).toBe("waiting-for-user");
+  });
+
   it("rejects answers when the run is not waiting for user input", async () => {
     const { runtime } = fixtureRuntime();
     const started = await runtime.startFlow({
@@ -181,7 +255,7 @@ describe("createGraphRuntime", () => {
 
     await expect(checkpointStore.getCheckpoint(started.runId)).resolves.toMatchObject({
       runId: started.runId,
-      nextNodeIndex: 2,
+      nextNodeIndex: 1,
     });
   });
 
@@ -287,8 +361,12 @@ function askUserNode(mode: "valid" | "missing-question"): NodeDefinition {
     kind: "interrupt",
     stateReads: ["userIntent"],
     stateWrites: ["pendingQuestion"],
-    run: async () =>
-      mode === "missing-question"
+    run: async ({ state }) => {
+      const answer = (state as { answers?: Record<string, string> }).answers?.["screen-goal"];
+      if (answer !== undefined) {
+        return { statePatch: { userIntent: answer } };
+      }
+      return mode === "missing-question"
         ? {
             interrupt: { status: "waiting-for-user" },
           }
@@ -297,7 +375,8 @@ function askUserNode(mode: "valid" | "missing-question"): NodeDefinition {
               id: "screen-goal",
               prompt: "What should this screen accomplish?",
             }),
-          },
+          };
+    },
   });
 }
 

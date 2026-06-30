@@ -2,6 +2,8 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { defaultConfig } from "../../config/schema.js";
+import { createArtifactStore } from "../../core/runs/artifact-store.js";
+import type { Artifact } from "../../core/schemas/artifact.js";
 import { openDesignReviewDb } from "../../db/design-review-db.js";
 import { readDesignPlan } from "../../planning/design-plan-store.js";
 import { readFlowManifest, readScreenSpec } from "../../spec/engine.js";
@@ -25,7 +27,7 @@ function registerDesignGetScreen(registry: ToolRegistry, ctx: ToolContext): void
   registry.tools.push({
     name: "kotikit_design_get_screen",
     description:
-      "Fetch the official Figma MCP apply packet: design plan, spec, target, DS components, and audit instructions for one screen.",
+      "Deprecated compatibility tool. Prefer graph artifact kotikit_get_artifact after draft.buildFigmaApplyPacket. Fetches the official Figma MCP apply packet: design plan, spec, target, DS components, and audit instructions for one screen.",
     inputSchema: {
       type: "object",
       properties: {
@@ -41,6 +43,24 @@ function registerDesignGetScreen(registry: ToolRegistry, ctx: ToolContext): void
       const { root } = ctx;
       const { scope, screen } = args as { scope: string; screen?: string };
       const screenSlug = screen ?? null;
+
+      const graphApplyPacket = await findMatchingGraphApplyPacket(root, scope, screenSlug);
+      if (graphApplyPacket !== undefined) {
+        return toolText(`Graph apply packet for ${scope}${screenSlug ? `/${screenSlug}` : ""}.`, {
+          applyMode: "official-figma-mcp",
+          applyInstructions: [
+            "Use the official Figma MCP integration to apply this graph-produced packet.",
+            "Record apply metadata with kotikit_record_figma_apply after Figma writes finish.",
+            "Use kotikit_get_artifact when you need to re-read the exact graph artifact.",
+          ],
+          graphFacade: {
+            preferredTool: "kotikit_get_artifact",
+            artifactId: graphApplyPacket.id,
+            runId: graphApplyPacket.runId,
+          },
+          artifact: graphApplyPacket,
+        });
+      }
 
       // 1. Load config (fall back to defaults when config is not yet written)
       (await ctx.loadConfig()) ?? defaultConfig();
@@ -157,4 +177,26 @@ function registerDesignGetScreen(registry: ToolRegistry, ctx: ToolContext): void
       return toolError(err);
     }
   });
+}
+
+async function findMatchingGraphApplyPacket(
+  root: string,
+  scope: string,
+  screen: string | null
+): Promise<Artifact | undefined> {
+  const artifacts = await createArtifactStore(root).listArtifacts();
+  return artifacts
+    .filter((artifact) => artifact.type === "figma-apply-packet")
+    .filter((artifact) => artifactDataMatchesScope(artifact, scope, screen))
+    .at(-1);
+}
+
+function artifactDataMatchesScope(
+  artifact: Artifact,
+  scope: string,
+  screen: string | null
+): boolean {
+  const payload = artifact.payload;
+  if (!("data" in payload) || payload.data === undefined) return false;
+  return payload.data.scope === scope && (payload.data.screen ?? null) === screen;
 }

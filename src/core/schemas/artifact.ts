@@ -123,10 +123,7 @@ export const UIQualityGateReportSchema = z.strictObject({
   checks: z.array(UIQualityGateCheckSchema),
 });
 
-const GenericArtifactPayloadDataSchema = z.record(
-  z.string(),
-  z.union([z.string(), z.number(), z.boolean(), z.null()])
-);
+const GenericArtifactPayloadDataSchema = z.record(z.string(), z.json());
 
 function createGenericArtifactPayloadSchema<SchemaVersion extends string>(
   schemaVersion: SchemaVersion

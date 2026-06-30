@@ -144,7 +144,7 @@ export const briefNodeDefinitions: NodeDefinition[] = [
     key: "brief.askNextQuestion",
     kind: "interrupt",
     paramsSchema: EmptyParamsSchema,
-    stateReads: ["brief"],
+    stateReads: ["brief", "answers"],
     stateWrites: ["brief", "pendingQuestion"],
     run: async (input) => {
       const state = graphState(input.state);
@@ -152,13 +152,21 @@ export const briefNodeDefinitions: NodeDefinition[] = [
       const questions = current.questions?.length
         ? current.questions
         : questionsForClassification(current.classification ?? "singleScreen");
-      const question = questions.find((candidate) => candidate.answer === undefined);
+      const answeredQuestions = applyStoredAnswers(questions, state.answers);
+      const question = answeredQuestions.find((candidate) => candidate.answer === undefined);
       if (question === undefined)
-        return { statePatch: { brief: current } } satisfies RuntimeNodeOutput;
+        return {
+          statePatch: {
+            brief: mergeBrief(current, {
+              questions: answeredQuestions,
+              activeQuestionId: undefined,
+            }),
+          },
+        } satisfies RuntimeNodeOutput;
       return {
         statePatch: {
           brief: mergeBrief(current, {
-            questions,
+            questions: answeredQuestions,
             activeQuestionId: question.id,
           }),
         },
@@ -327,6 +335,18 @@ function questionsForClassification(classification: BriefClassification): BriefQ
         },
       ]
     : DEFAULT_QUESTIONS;
+}
+
+function applyStoredAnswers(
+  questions: BriefQuestion[],
+  answers: Record<string, string> | undefined
+): BriefQuestion[] {
+  if (answers === undefined) return questions;
+  return questions.map((question) =>
+    question.answer === undefined && answers[question.id] !== undefined
+      ? { ...question, answer: answers[question.id] }
+      : question
+  );
 }
 
 function mergeBrief(current: unknown, patch: Partial<BriefModel>): BriefModel {

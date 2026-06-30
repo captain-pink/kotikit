@@ -35,20 +35,14 @@
       "params": {
         "reportCacheHealth": true
       }
-    },
-    {
-      "id": "post-cache-qa",
-      "uses": "qa.postDraftQa",
-      "params": {}
     }
   ],
   "edges": [
     ["detect-local-cache", "detect-figma-remote-mcp"],
     ["detect-figma-remote-mcp", "search-local-design-system"],
-    ["search-local-design-system", "build-fit-report"],
-    ["build-fit-report", "post-cache-qa"]
+    ["search-local-design-system", "build-fit-report"]
   ],
   "start": "detect-local-cache",
-  "end": ["post-cache-qa"],
+  "end": ["build-fit-report"],
   "safetyProfile": "design-system-sync"
 }

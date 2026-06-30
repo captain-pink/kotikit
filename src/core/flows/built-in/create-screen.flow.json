@@ -55,6 +55,26 @@
       "params": {}
     },
     {
+      "id": "plan-missing-components",
+      "uses": "draftComponents.planMissing",
+      "params": {}
+    },
+    {
+      "id": "ensure-draft-target",
+      "uses": "figma.ensureDraftTarget",
+      "params": {}
+    },
+    {
+      "id": "create-draft-components",
+      "uses": "draftComponents.createOnDraftPage",
+      "params": {}
+    },
+    {
+      "id": "validate-draft-components",
+      "uses": "draftComponents.validateCreated",
+      "params": {}
+    },
+    {
       "id": "build-ui-composition-contract",
       "uses": "ui.buildCompositionContract",
       "params": {}
@@ -75,26 +95,6 @@
       "params": {}
     },
     {
-      "id": "plan-missing-components",
-      "uses": "draftComponents.planMissing",
-      "params": {}
-    },
-    {
-      "id": "create-draft-components",
-      "uses": "draftComponents.createOnDraftPage",
-      "params": {}
-    },
-    {
-      "id": "validate-draft-components",
-      "uses": "draftComponents.validateCreated",
-      "params": {}
-    },
-    {
-      "id": "ensure-draft-target",
-      "uses": "figma.ensureDraftTarget",
-      "params": {}
-    },
-    {
       "id": "compile-high-fidelity-draft",
       "uses": "draft.compileHighFidelityDraft",
       "params": {}
@@ -110,8 +110,18 @@
       "params": {}
     },
     {
+      "id": "record-apply-metadata",
+      "uses": "figma.recordApplyMetadata",
+      "params": {}
+    },
+    {
       "id": "verify-draft-invariants",
       "uses": "figma.verifyDraftInvariants",
+      "params": {}
+    },
+    {
+      "id": "save-apply-report",
+      "uses": "figma.saveApplyReport",
       "params": {}
     },
     {
@@ -131,19 +141,21 @@
     ["infer-screen-blueprint", "search-local-design-system"],
     ["search-local-design-system", "build-fit-report"],
     ["build-fit-report", "ask-missing-component-decision"],
-    ["ask-missing-component-decision", "build-ui-composition-contract"],
+    ["ask-missing-component-decision", "plan-missing-components"],
+    ["plan-missing-components", "ensure-draft-target"],
+    ["ensure-draft-target", "create-draft-components"],
+    ["create-draft-components", "validate-draft-components"],
+    ["validate-draft-components", "build-ui-composition-contract"],
     ["build-ui-composition-contract", "build-layout-contract"],
     ["build-layout-contract", "build-variable-binding-plan"],
     ["build-variable-binding-plan", "validate-no-hardcoded-imitation"],
-    ["validate-no-hardcoded-imitation", "plan-missing-components"],
-    ["plan-missing-components", "create-draft-components"],
-    ["create-draft-components", "validate-draft-components"],
-    ["validate-draft-components", "ensure-draft-target"],
-    ["ensure-draft-target", "compile-high-fidelity-draft"],
+    ["validate-no-hardcoded-imitation", "compile-high-fidelity-draft"],
     ["compile-high-fidelity-draft", "build-figma-apply-packet"],
     ["build-figma-apply-packet", "wait-for-apply-metadata"],
-    ["wait-for-apply-metadata", "verify-draft-invariants"],
-    ["verify-draft-invariants", "run-ui-quality-gate"],
+    ["wait-for-apply-metadata", "record-apply-metadata"],
+    ["record-apply-metadata", "verify-draft-invariants"],
+    ["verify-draft-invariants", "save-apply-report"],
+    ["save-apply-report", "run-ui-quality-gate"],
     ["run-ui-quality-gate", "post-draft-qa"]
   ],
   "start": "classify-intent",

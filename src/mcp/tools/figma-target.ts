@@ -21,7 +21,8 @@ export function registerFigmaTargetTools(
 ): void {
   registry.tools.push({
     name: "kotikit_figma_target_bind",
-    description: "Bind a saved spec or flow to one approved Figma draft page.",
+    description:
+      "Deprecated compatibility tool. Prefer graph flow node figma.ensureDraftTarget through kotikit_start/kotikit_continue. Binds a saved spec or flow to one approved Figma draft page.",
     inputSchema: {
       type: "object",
       properties: {

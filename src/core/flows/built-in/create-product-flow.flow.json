@@ -11,9 +11,7 @@
     "designSystem.fit",
     "draftComponents.write",
     "figma.target",
-    "draft.compile",
-    "figma.write.remote",
-    "qa.run"
+    "draft.compile"
   ],
   "nodes": [
     {
@@ -52,6 +50,11 @@
       "params": {}
     },
     {
+      "id": "ensure-draft-target",
+      "uses": "figma.ensureDraftTarget",
+      "params": {}
+    },
+    {
       "id": "create-draft-components",
       "uses": "draftComponents.createOnDraftPage",
       "params": {}
@@ -62,23 +65,8 @@
       "params": {}
     },
     {
-      "id": "ensure-draft-target",
-      "uses": "figma.ensureDraftTarget",
-      "params": {}
-    },
-    {
       "id": "compile-high-fidelity-draft",
       "uses": "draft.compileHighFidelityDraft",
-      "params": {}
-    },
-    {
-      "id": "run-ui-quality-gate",
-      "uses": "qa.runUiQualityGate",
-      "params": {}
-    },
-    {
-      "id": "post-draft-qa",
-      "uses": "qa.postDraftQa",
       "params": {}
     }
   ],
@@ -89,14 +77,12 @@
     ["search-local-design-system", "build-fit-report"],
     ["build-fit-report", "ask-missing-component-decision"],
     ["ask-missing-component-decision", "plan-missing-components"],
-    ["plan-missing-components", "create-draft-components"],
+    ["plan-missing-components", "ensure-draft-target"],
+    ["ensure-draft-target", "create-draft-components"],
     ["create-draft-components", "validate-draft-components"],
-    ["validate-draft-components", "ensure-draft-target"],
-    ["ensure-draft-target", "compile-high-fidelity-draft"],
-    ["compile-high-fidelity-draft", "run-ui-quality-gate"],
-    ["run-ui-quality-gate", "post-draft-qa"]
+    ["validate-draft-components", "compile-high-fidelity-draft"]
   ],
   "start": "capture-goal-actor-scenario",
-  "end": ["post-draft-qa"],
+  "end": ["compile-high-fidelity-draft"],
   "safetyProfile": "product-flow-draft"
 }

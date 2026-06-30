@@ -105,6 +105,32 @@ describe("brief nodes", () => {
     });
   });
 
+  it("uses a resumed graph answer instead of asking the same brief question again", async () => {
+    const result = await runBriefNode(
+      "brief.askNextQuestion",
+      baseState({
+        answers: {
+          states: "Show skeleton rows while loading and a retry banner on errors.",
+        },
+        brief: {
+          questions: [{ id: "states", prompt: "States?", answer: undefined }],
+          activeQuestionId: "states",
+        },
+      })
+    );
+
+    expect(result.interrupt).toBeUndefined();
+    expect(result.statePatch?.brief).toMatchObject({
+      activeQuestionId: undefined,
+      questions: [
+        {
+          id: "states",
+          answer: "Show skeleton rows while loading and a retry banner on errors.",
+        },
+      ],
+    });
+  });
+
   it("records an answer into graph state", async () => {
     const result = await runBriefNode(
       "brief.recordAnswer",
