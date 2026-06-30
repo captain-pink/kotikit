@@ -5,14 +5,6 @@ import type {
   WorkflowSnapshot,
 } from "./workflow-schema.js";
 
-const CODE_TOOLS = [
-  "kotikit_plan_code",
-  "kotikit_implement_code_start",
-  "kotikit_implement_code_save",
-  "kotikit_scaffold_start",
-  "kotikit_scaffold_save",
-];
-
 const DESIGN_PLANNING_TOOLS = ["kotikit_plan_design"];
 const OFFICIAL_FIGMA_APPLY_TOOLS = ["official_figma_use", "official_figma_generate_design"];
 const DESIGN_APPLY_TOOLS = [
@@ -61,7 +53,7 @@ const setupResult = (session: WorkflowSession, snapshot: WorkflowSnapshot): Work
     instruction:
       "Initialize kotikit for this project before syncing design systems or creating designs.",
     allowedTools: CONFIG_TOOLS,
-    forbiddenTools: [...SYNC_TOOLS, ...designToolBlocks, ...CODE_TOOLS],
+    forbiddenTools: [...SYNC_TOOLS, ...designToolBlocks],
   });
 
 const syncResultFor = (
@@ -75,7 +67,7 @@ const syncResultFor = (
       nextAction: "ask-user",
       instruction: "Ask the user to provide a Figma token before syncing the design system.",
       allowedTools: ["kotikit_config_status"],
-      forbiddenTools: [...SYNC_TOOLS, ...designToolBlocks, ...CODE_TOOLS],
+      forbiddenTools: [...SYNC_TOOLS, ...designToolBlocks],
     });
   }
 
@@ -86,7 +78,7 @@ const syncResultFor = (
       nextAction: "ask-user",
       instruction: "Ask which published Figma design-system file should be connected.",
       allowedTools: CONFIG_TOOLS,
-      forbiddenTools: [...SYNC_TOOLS, ...designToolBlocks, ...CODE_TOOLS],
+      forbiddenTools: [...SYNC_TOOLS, ...designToolBlocks],
     });
   }
 
@@ -98,7 +90,7 @@ const syncResultFor = (
       instruction:
         "Run the design-system sync. If it pauses, call it again until the checkpoint completes.",
       allowedTools: SYNC_TOOLS,
-      forbiddenTools: [...designToolBlocks, ...CODE_TOOLS],
+      forbiddenTools: designToolBlocks,
     });
   }
 
@@ -110,7 +102,7 @@ const syncResultFor = (
       instruction:
         "Explain that Figma API variables were unavailable and offer the plugin variable sync path.",
       allowedTools: VARIABLE_TOOLS,
-      forbiddenTools: [...designToolBlocks, ...CODE_TOOLS],
+      forbiddenTools: designToolBlocks,
     });
   }
 
@@ -120,7 +112,7 @@ const syncResultFor = (
     nextAction: "done",
     instruction: "The design system is synced and ready for design work.",
     allowedTools: [],
-    forbiddenTools: CODE_TOOLS,
+    forbiddenTools: [],
   });
 };
 
@@ -145,7 +137,7 @@ const createDesignResultFor = (
       instruction:
         "Clarify the intended screen and create or confirm the saved spec before planning Figma work.",
       allowedTools: ["kotikit_brainstorm_start", "kotikit_spec_create"],
-      forbiddenTools: [...DESIGN_PLANNING_TOOLS, ...DESIGN_APPLY_TOOLS, ...CODE_TOOLS],
+      forbiddenTools: [...DESIGN_PLANNING_TOOLS, ...DESIGN_APPLY_TOOLS],
     });
   }
 
@@ -157,7 +149,7 @@ const createDesignResultFor = (
       instruction:
         "Ask the user for the exact Figma draft page or section, then bind it before planning design edits.",
       allowedTools: DRAFT_TARGET_TOOLS,
-      forbiddenTools: [...DESIGN_PLANNING_TOOLS, ...DESIGN_APPLY_TOOLS, ...CODE_TOOLS],
+      forbiddenTools: [...DESIGN_PLANNING_TOOLS, ...DESIGN_APPLY_TOOLS],
     });
   }
 
@@ -169,7 +161,7 @@ const createDesignResultFor = (
       instruction:
         "Ask whether missing components should become reusable draft components or inline design-only elements.",
       allowedTools: COMPONENT_DECISION_TOOLS,
-      forbiddenTools: [...DESIGN_APPLY_TOOLS, ...CODE_TOOLS],
+      forbiddenTools: DESIGN_APPLY_TOOLS,
     });
   }
 
@@ -184,7 +176,7 @@ const createDesignResultFor = (
       instruction:
         "Pause for human review of newly created reusable components before continuing the screen.",
       allowedTools: COMPONENT_DECISION_TOOLS,
-      forbiddenTools: [...DESIGN_APPLY_TOOLS, ...CODE_TOOLS],
+      forbiddenTools: DESIGN_APPLY_TOOLS,
     });
   }
 
@@ -195,7 +187,7 @@ const createDesignResultFor = (
       nextAction: "call-tool",
       instruction: "Create the Figma execution plan from the confirmed spec and draft target.",
       allowedTools: DESIGN_PLANNING_TOOLS,
-      forbiddenTools: [...DESIGN_APPLY_TOOLS, ...CODE_TOOLS],
+      forbiddenTools: DESIGN_APPLY_TOOLS,
     });
   }
 
@@ -206,7 +198,7 @@ const createDesignResultFor = (
       nextAction: "done",
       instruction: "The design plan has been applied.",
       allowedTools: [],
-      forbiddenTools: CODE_TOOLS,
+      forbiddenTools: [],
     });
   }
 
@@ -217,7 +209,7 @@ const createDesignResultFor = (
     instruction:
       "Fetch the kotikit apply packet, use the official Figma MCP integration to create or refine the design, then record applied node metadata in kotikit.",
     allowedTools: DESIGN_APPLY_TOOLS,
-    forbiddenTools: [...BRIDGE_TOOLS, ...CODE_TOOLS],
+    forbiddenTools: BRIDGE_TOOLS,
   });
 };
 
@@ -238,7 +230,7 @@ const reviewResultFor = (
       phase === "review-comments"
         ? ["kotikit_design_review_comments"]
         : ["kotikit_design_review_start", "kotikit_design_review_record"],
-    forbiddenTools: CODE_TOOLS,
+    forbiddenTools: [],
   });
 
 export function decideWorkflowNext(
@@ -263,6 +255,6 @@ export function decideWorkflowNext(
     nextAction: "ask-user",
     instruction: "Clarify the user's intent and save the next spec decision.",
     allowedTools: ["kotikit_brainstorm_start", "kotikit_spec_create"],
-    forbiddenTools: CODE_TOOLS,
+    forbiddenTools: [],
   });
 }

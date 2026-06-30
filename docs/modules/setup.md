@@ -23,11 +23,10 @@ kotikit.
 ## How it works
 
 The scaffold command resolves two roots: the target workspace/project and the
-kotikit repository. The target does not have to be a React app for design-only
-work; React only matters for the experimental implementation tools because the
-current code adapter is React-only. The scaffold verifies that
-`src/mcp/server.ts` exists in the kotikit root, then writes agent-specific
-setup:
+kotikit repository. The target can be any local workspace where kotikit may
+write `.kotikit/`, `design-system/`, and `.env`; it does not need to be an app
+project. The scaffold verifies that `src/mcp/server.ts` exists in the kotikit
+root, then writes agent-specific setup:
 
 - Claude Code: project-scoped `.mcp.json`, preserving existing `mcpServers`
   entries and upserting the `kotikit` server with a long per-tool timeout for

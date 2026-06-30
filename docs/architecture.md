@@ -35,7 +35,6 @@ The target project owns:
 - `.kotikit/workflows/*`
 - `.kotikit/specs/*`
 - `.kotikit/index.json`
-- `.kotikit/registry.db`
 - `.kotikit/design-review.db`
 - `.kotikit/bridge.json` when a bridge is running
 
@@ -127,13 +126,12 @@ This gives teams without Figma branches a practical safety boundary.
 - [modules/spec.md](modules/spec.md) - screen specs, flow manifests, and index.
 - [modules/sync.md](modules/sync.md) - Figma sync, normalization, rate limits,
   and checkpoints.
-- [modules/planning.md](modules/planning.md) - code plans, design plans,
-  component plans, node maps, and review evidence.
+- [modules/planning.md](modules/planning.md) - design plans, component plans,
+  node maps, and review evidence.
 - [modules/mcp.md](modules/mcp.md) - MCP server, tool registry, and bridge.
 - [modules/workflow.md](modules/workflow.md) - compact workflow controller,
   snapshots, and next-action decisions.
 - [modules/db.md](modules/db.md) - SQLite stores and migrations.
 - [modules/git.md](modules/git.md) - local auto-commit helpers.
-- [modules/codegen.md](modules/codegen.md) - experimental design-to-code track.
 - [modules/util.md](modules/util.md) - path, ID, env, and result helpers.
 - [modules/migrations.md](modules/migrations.md) - lazy JSON migration model.

@@ -22,25 +22,13 @@ Codex can call the `kotikit_*` MCP tools.
 Why a target workspace? kotikit stores local specs, design-system indexes,
 review memory, assistant config, and your `.env` token placeholder next to the
 work you are asking the assistant to manage. The current guided workflow does
-not require you to write React or run a web app.
+not require you to write code or run a web app.
 
 For design-only experiments, a plain local folder is enough:
 
 ```bash
 mkdir my-kotikit-workspace
 cd my-kotikit-workspace
-git init
-```
-
-A clean React/Vite project is still a good default if you want the workspace to
-be ready for the later design-to-code path. React is mentioned because kotikit's
-experimental implementation adapter is React-only today, not because Figma
-draft creation needs React:
-
-```bash
-bun create vite my-app --template react-ts
-cd my-app
-bun install
 git init
 ```
 

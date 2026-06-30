@@ -1,7 +1,4 @@
 import { existsSync } from "node:fs";
-import type { EnvironmentReport } from "../codegen/environment.js";
-import { verifyGateEnvironment } from "../codegen/environment.js";
-import { reactAdapter } from "../codegen/react/adapter.js";
 import { loadConfig } from "../config/load.js";
 import type { Config } from "../config/schema.js";
 import { isGitRepo as defaultIsGitRepo } from "../git/auto-commit.js";
@@ -39,13 +36,9 @@ export interface DoctorReport {
 export interface DoctorDeps {
   loadConfig?: (root: string) => Promise<Config | null>;
   isGitRepo?: (root: string) => Promise<boolean>;
-  verifyGates?: (input: { root: string; config: Config | null }) => Promise<EnvironmentReport>;
 }
 
 const check = (input: DoctorCheck): DoctorCheck => input;
-
-const gateHint = (report: EnvironmentReport): string | undefined =>
-  report.missing.map((missing) => missing.hint).join(" ");
 
 const designSystemArtifactsPresent = (root: string): boolean =>
   existsSync(componentsDbPath(root)) &&
@@ -118,16 +111,6 @@ const bridgeMessage = async (root: string): Promise<DoctorCheck> => {
 export async function runKotikitDoctor(root: string, deps: DoctorDeps = {}): Promise<DoctorReport> {
   const loadProjectConfig = deps.loadConfig ?? loadConfig;
   const checkGit = deps.isGitRepo ?? defaultIsGitRepo;
-  const checkGates =
-    deps.verifyGates ??
-    ((input) =>
-      input.config === null
-        ? Promise.resolve({ ok: true, missing: [] })
-        : verifyGateEnvironment({
-            root: input.root,
-            adapter: reactAdapter,
-            testFramework: input.config.project.testFramework,
-          }));
 
   const checks: DoctorCheck[] = [
     check({
@@ -241,19 +224,6 @@ export async function runKotikitDoctor(root: string, deps: DoctorDeps = {}): Pro
       hint: checkpointExists
         ? "Run kotikit_sync_ds again to resume, or inspect design-system/.sync-checkpoint.json."
         : undefined,
-    })
-  );
-
-  const gateReport = await checkGates({ root, config });
-  checks.push(
-    check({
-      id: "gates",
-      label: "Code gates",
-      status: gateReport.ok ? "ok" : "warn",
-      message: gateReport.ok
-        ? "Configured code gates are available."
-        : `${gateReport.missing.length} configured code gate(s) are missing.`,
-      hint: gateHint(gateReport),
     })
   );
 

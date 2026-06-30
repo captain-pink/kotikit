@@ -9,9 +9,9 @@ describe("KOTIKIT_MCP_INSTRUCTIONS", () => {
     expect(prefix).toContain("plain language");
   });
 
-  it("tells agents that code generation is not part of the guided workflow yet", () => {
-    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("Do not generate React code");
-    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("design-to-code is coming in a later version");
+  it("tells agents that code generation is not part of the core workflow", () => {
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("Do not generate code");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("Design-to-code is not part of the kotikit core");
     expect(KOTIKIT_MCP_INSTRUCTIONS).not.toContain(
       "For code generation, use kotikit_implement_code_start"
     );

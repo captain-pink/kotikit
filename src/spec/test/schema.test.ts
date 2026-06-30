@@ -238,8 +238,6 @@ describe("ConfigSchema", () => {
   it("defaultConfig has expected shape", () => {
     const c = defaultConfig();
     expect(c.schemaVersion).toBe(CONFIG_SCHEMA_VERSION);
-    expect(c.project.framework).toBe("react");
-    expect(c.project.tests).toBe(true);
     expect(c.git.autoCommit).toBe(true);
     expect(c.defaults.breakpoints).toEqual([375, 768, 1024, 1440]);
   });

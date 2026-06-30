@@ -37,8 +37,6 @@ describe("writeConfig + loadConfig round-trip", () => {
       throw new Error("Expected config to load.");
     }
     expect(loaded.schemaVersion).toBe(CONFIG_SCHEMA_VERSION);
-    expect(loaded.project.framework).toBe("react");
-    expect(loaded.project.tests).toBe(true);
     expect(loaded.git.autoCommit).toBe(true);
   });
 
@@ -126,17 +124,14 @@ describe("buildConfig", () => {
   it("empty answers returns default config", () => {
     const cfg = buildConfig({});
     const def = defaultConfig();
-    expect(cfg.project.framework).toBe(def.project.framework);
-    expect(cfg.project.tests).toBe(def.project.tests);
+    expect(cfg.defaults).toEqual(def.defaults);
     expect(cfg.git.autoCommit).toBe(def.git.autoCommit);
   });
 
   it("overrides only specified fields", () => {
-    const cfg = buildConfig({ tests: false, codeComponentsDir: "app/ui" });
-    expect(cfg.project.tests).toBe(false);
-    expect(cfg.project.codeComponentsDir).toBe("app/ui");
-    expect(cfg.project.framework).toBe("react"); // default preserved
-    expect(cfg.git.autoCommit).toBe(true); // default preserved
+    const cfg = buildConfig({ autoCommit: false });
+    expect(cfg.git.autoCommit).toBe(false);
+    expect(cfg.defaults).toEqual(defaultConfig().defaults);
   });
 
   it("sets figmaFiles when provided", () => {
@@ -145,24 +140,15 @@ describe("buildConfig", () => {
     expect(cfg.figma.designSystemFiles[0].key).toBe("abc");
   });
 
-  it("defaultConfig().project.testFramework is 'vitest'", () => {
-    expect(defaultConfig().project.testFramework).toBe("vitest");
-  });
-
   it("defaultConfig() keeps the existing Claude Code co-author", () => {
     expect(defaultConfig().git.coAuthor).toEqual({
       name: "Claude Code",
       email: "noreply@anthropic.com",
     });
   });
-
-  it("buildConfig({ testFramework: 'none' }) returns testFramework 'none'", () => {
-    const cfg = buildConfig({ testFramework: "none" });
-    expect(cfg.project.testFramework).toBe("none");
-  });
 });
 
-describe("parseConfig — testFramework back-fill", () => {
+describe("parseConfig — legacy project fields", () => {
   it("normalizes an existing config without schemaVersion to the latest in-memory schema", () => {
     const raw = {
       project: {
@@ -177,9 +163,10 @@ describe("parseConfig — testFramework back-fill", () => {
     };
     const cfg = parseConfig(raw);
     expect(cfg.schemaVersion).toBe(CONFIG_SCHEMA_VERSION);
+    expect("project" in cfg).toBe(false);
   });
 
-  it("parses an existing config without testFramework and fills default", () => {
+  it("parses an existing config with removed project fields and strips them", () => {
     const raw = {
       project: {
         framework: "react",
@@ -193,7 +180,7 @@ describe("parseConfig — testFramework back-fill", () => {
       },
     };
     const cfg = parseConfig(raw);
-    expect(cfg.project.testFramework).toBe("vitest");
+    expect("project" in cfg).toBe(false);
   });
 
   it("parses a Codex co-author override", () => {

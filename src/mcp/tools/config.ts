@@ -1,6 +1,4 @@
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { verifyGateEnvironment } from "../../codegen/environment.js";
-import { reactAdapter } from "../../codegen/react/adapter.js";
 import type { InitAnswers } from "../../config/init.js";
 import { buildConfig } from "../../config/init.js";
 import { configExists, loadConfig, resolveSecret, writeConfig } from "../../config/load.js";
@@ -50,23 +48,6 @@ function registerConfigStatus(registry: ToolRegistry, ctx: ToolContext): void {
         if (config !== null && config.figma.designSystemFiles.length === 0) {
           missing.push("no Figma design system connected yet (optional)");
         }
-
-        if (config !== null) {
-          const gateReport = await verifyGateEnvironment({
-            root: ctx.root,
-            adapter: reactAdapter,
-            testFramework: config.project.testFramework,
-          });
-          return toolText("Here's your kotikit setup status.", {
-            initialized,
-            isGitRepo: gitRepo,
-            missing,
-            gates: {
-              ok: gateReport.ok,
-              missing: gateReport.missing,
-            },
-          });
-        }
       }
 
       return toolText("Here's your kotikit setup status.", {
@@ -90,19 +71,6 @@ function registerConfigInit(registry: ToolRegistry, ctx: ToolContext): void {
     inputSchema: {
       type: "object",
       properties: {
-        framework: {
-          type: "string",
-          enum: ["react"],
-          description: "The UI framework used by this project.",
-        },
-        codeComponentsDir: {
-          type: "string",
-          description: "Directory where generated components live.",
-        },
-        tests: {
-          type: "boolean",
-          description: "Whether to generate test files alongside components.",
-        },
         autoCommit: {
           type: "boolean",
           description: "Whether kotikit should auto-commit spec changes via git.",

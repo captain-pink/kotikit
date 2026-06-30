@@ -43,12 +43,6 @@ export const singleSpecPath = (root: string, scope: string): string =>
 export const flowManifestPath = (root: string, scope: string): string =>
   `${root}/.kotikit/specs/${scope}/flow.json`;
 
-/** Path to a screen's ephemeral code plan inside .kotikit/specs/<scope>/. */
-export const codePlanPath = (root: string, scope: string, screenSlug: string | null): string => {
-  const name = screenSlug ? `${screenSlug}.code.plan.json` : "code.plan.json";
-  return `${root}/.kotikit/specs/${scope}/${name}`;
-};
-
 /** Path to <screen>.design.plan.json next to the spec.
  *  Single-screen scope (screen === null) → design.plan.json.
  *  Multi-screen → <screen>.design.plan.json. */
@@ -78,38 +72,8 @@ export const designNodeMapPath = (root: string, scope: string, screen: string | 
 /** Path to the bridge config file written when the bridge starts. */
 export const bridgeConfigPath = (root: string): string => `${root}/.kotikit/bridge.json`;
 
-/** Path to the Phase 3 minimal registry DB. */
-export const registryDbPath = (root: string): string => `${root}/.kotikit/registry.db`;
-
 /** Path to the local design review ledger and project design preferences DB. */
 export const designReviewDbPath = (root: string): string => `${root}/.kotikit/design-review.db`;
-
-/** Directory under the user's project that holds generated screen components for a scope. */
-export const codeComponentDir = (root: string, codeComponentsDir: string, scope: string): string =>
-  `${root}/${codeComponentsDir}/${scope}`;
-
-/** Full path to a generated component file. */
-export const codeComponentFile = (
-  root: string,
-  codeComponentsDir: string,
-  scope: string,
-  fileName: string
-): string => `${root}/${codeComponentsDir}/${scope}/${fileName}`;
-
-/** The directory where scaffolded DS components land: <codeComponentsDir>/ui/. */
-export const uiDir = (root: string, codeComponentsDir: string): string =>
-  `${root}/${codeComponentsDir}/ui`;
-
-/** Full path to a scaffolded component file: <codeComponentsDir>/ui/<kebab-name>.tsx. */
-export const uiComponentFile = (
-  root: string,
-  codeComponentsDir: string,
-  kebabName: string
-): string => `${root}/${codeComponentsDir}/ui/${kebabName}.tsx`;
-
-/** Full path to a colocated Storybook story: <codeComponentsDir>/ui/<kebab-name>.stories.tsx. */
-export const uiStoryFile = (root: string, codeComponentsDir: string, kebabName: string): string =>
-  `${root}/${codeComponentsDir}/ui/${kebabName}.stories.tsx`;
 
 /**
  * Walk up from `start` (default: process.cwd()) looking for a directory

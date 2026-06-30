@@ -17,10 +17,6 @@ The config module owns everything related to `.kotikit/config.json`: the Zod sch
 - `schemaVersion` — numeric config schema marker; missing values are normalized in memory
 - `figma.token` — optional Figma PAT or secret reference
 - `figma.designSystemFiles` — array of `{ key, name }` objects
-- `project.framework` — `"react"` (the only value currently supported)
-- `project.codeComponentsDir` — default `"src/components"`
-- `project.tests` — boolean, default `true`
-- `project.testFramework` — `"vitest"` | `"none"`, default `"vitest"`
 - `defaults.breakpoints` — pixel widths, default `[375, 768, 1024, 1440]`
 - `defaults.themes` — string array, default `["light", "dark"]`
 - `git.autoCommit` — boolean, default `true`
@@ -55,9 +51,8 @@ does not overwrite unknown settings.
 
 ## When to extend it
 
-- Adding a new top-level config key (e.g. a `deploy` block) — add the field to `ConfigSchema`, update `defaultConfig`, and add a question to the MCP `kotikit_config_init` tool.
+- Adding a new top-level config key (e.g. a `review` block) — add the field to `ConfigSchema`, update `defaultConfig`, and add a question to the MCP `kotikit_config_init` tool.
 - Supporting a second secret provider (e.g. AWS Secrets Manager) — extend `resolveSecretImpl` with a new prefix branch and update the spawn injection interface so tests can cover it without hitting a real AWS endpoint.
-- Adding a second framework — change the `project.framework` enum from `z.enum(["react"])` to include the new value; a parallel framework adapter in `src/codegen/` becomes available.
 - Changing where `.kotikit/` lives — update `configPath` in `src/util/paths.ts` (the config module delegates all path construction there).
 
 ## Related

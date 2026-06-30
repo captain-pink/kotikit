@@ -32,21 +32,19 @@ grouped here by product area:
 
 - Setup and specs: `kotikit_config_status`, `kotikit_config_init`, `kotikit_config_get`, `kotikit_spec_create`, `kotikit_spec_get`, `kotikit_spec_list`, `kotikit_spec_update`, `kotikit_flow_create`, `kotikit_brainstorm_start`, `kotikit_brainstorm_answer`, `kotikit_brainstorm_confirm`, `kotikit_brainstorm_assess`
 - Design-system sync and search: `kotikit_sync_ds`, `kotikit_sync_plugin_variables`, `kotikit_ds_search`, `kotikit_ds_get_component`, `kotikit_icons_search`
-- Experimental implementation: `kotikit_plan_code`, `kotikit_implement_code_start`, `kotikit_implement_code_save`, `kotikit_implement_code_gate`, `kotikit_registry_search`, `kotikit_scaffold_start`, `kotikit_scaffold_save`
 - Variable bridge and design creation: `kotikit_bridge_start`, `kotikit_bridge_stop`, `kotikit_bridge_status`, `kotikit_figma_target_bind`, `kotikit_component_plan_create`, `kotikit_plan_design`, `kotikit_design_get_screen`, `kotikit_design_apply_step`
 - Design review, comments, and memory: `kotikit_design_review_comments`, `kotikit_design_adjustment_record`, `kotikit_design_review_report`, `kotikit_design_comment_reply_prepare`, `kotikit_design_comment_reply_post`, `kotikit_design_memory_candidates`, `kotikit_design_memory_promote`, `kotikit_design_memory_dismiss`, `kotikit_design_memory_update`, `kotikit_design_memory_search`, `kotikit_design_review_start`, `kotikit_design_review_record`, `kotikit_design_review_get`, `kotikit_design_review_comment_prepare`, `kotikit_design_review_comment_post`
-- Audit, prompts, and diagnostics: `kotikit_audit`, `kotikit_get_system_prompt`, `kotikit_doctor`
+- Prompts, diagnostics, and workflow control: `kotikit_get_system_prompt`, `kotikit_doctor`, `kotikit_workflow_start`, `kotikit_workflow_status`, `kotikit_workflow_next`, `kotikit_workflow_event`
 
-Implementation and scaffolding tools are currently experimental. They stay
-registered so engineering work can continue, but guided designer flows should
-prefer specs, design-system sync, Figma design creation/refinement, and comment
-review.
+Design-to-code tools are not registered in the core MCP server. Code planning,
+implementation, scaffold, registry, and code/design audit flows can return
+later only as isolated extensions after the design workflow is stable.
 
 ## How it works
 
 `buildServer` is the single composition root. It constructs one `ToolRegistry` object, finds the project root via `findProjectRoot()`, builds a `ToolContext`, then calls each `register*` function with both. Each registrar pushes one or more `Tool` objects (the MCP JSON Schema description) onto `registry.tools` and one handler function per tool onto `registry.handlers`. The server's `CallToolRequestSchema` handler is a single dispatcher: it looks up the tool name in `handlers`, calls the handler, and lets `toolError` convert any thrown error into a safe MCP error response.
 
-The server also exposes `KOTIKIT_MCP_INSTRUCTIONS` during MCP initialization. These instructions are agent-neutral and front-load the workflow: ask `kotikit_workflow_start` or `kotikit_workflow_next` for the next allowed action, translate tool JSON into plain language, fetch long system prompts by reference, search design-system indexes before reading exact files, keep user-facing errors friendly, and treat kotikit as design-first until design-to-code returns in a later version.
+The server also exposes `KOTIKIT_MCP_INSTRUCTIONS` during MCP initialization. These instructions are agent-neutral and front-load the workflow: ask `kotikit_workflow_start` or `kotikit_workflow_next` for the next allowed action, translate tool JSON into plain language, fetch long system prompts by reference, search design-system indexes before reading exact files, keep user-facing errors friendly, and keep kotikit focused on design creation and review.
 
 The stdio transport is the normal agent path. Claude Code, Codex, and other
 MCP clients use it for setup, specs, sync, planning, design review, and official
@@ -86,5 +84,5 @@ The bridge transport is opt-in and can be started in two ways. Normal users ask 
 
 - [config](./config.md) — `ToolContext.loadConfig` wraps `loadConfig` from the config module
 - [util](./util.md) — `findProjectRoot` is called at server startup; `bridgeConfigPath` is the bridge config path helper
-- [spec](./spec.md), [sync](./sync.md), [codegen](./codegen.md), [planning](./planning.md), [db](./db.md), [git](./git.md) — all module engines are invoked from tool handler functions
+- [spec](./spec.md), [sync](./sync.md), [planning](./planning.md), [db](./db.md), [git](./git.md) — module engines are invoked from tool handler functions
 - [tools](../tools.md) — complete MCP tool cheat-sheet

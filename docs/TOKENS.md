@@ -22,8 +22,7 @@ These are the only token habits most designers need:
    sessions instead of mixing everything into one long chat.
 3. Let the agent search the design-system index before fetching exact component
    details.
-4. Avoid code/scaffold tools in design sessions. Guided design-to-code is not
-   enabled yet.
+4. Keep implementation/code requests outside kotikit's core design sessions.
 
 README and getting-started docs should keep token advice at this level. The
 tables below are for maintainers checking payload regressions.
@@ -34,7 +33,6 @@ The project is local-first, but context is still limited. Without discipline,
 an agent can accidentally load:
 
 - full design-system component JSON,
-- large scaffold bundles,
 - repeated system prompts,
 - long design-review reports,
 - stale brainstorm context from previous tasks.
@@ -55,27 +53,19 @@ client, so treat these numbers as regression signals, not exact billing data.
 
 | tool | bytes | ~tokens |
 | --- | ---: | ---: |
-| `kotikit_config_status` | 272 | 72 |
-| `kotikit_config_get` | 639 | 168 |
-| `kotikit_workflow_start` create-design | 2,147 | 565 |
-| `kotikit_workflow_next` | 2,142 | 564 |
-| `kotikit_workflow_event` latest summary | 2,332 | 614 |
+| `kotikit_config_status` | 210 | 55 |
+| `kotikit_config_get` | 479 | 126 |
+| `kotikit_workflow_start` create-design | 2,041 | 537 |
+| `kotikit_workflow_next` | 2,036 | 536 |
+| `kotikit_workflow_event` latest summary | 2,226 | 586 |
 | `kotikit_spec_list` | 133 | 35 |
 | `kotikit_spec_get` | 1,043 | 274 |
 | `kotikit_brainstorm_start` | 1,442 | 379 |
 | `kotikit_ds_search` | 247 | 65 |
 | `kotikit_icons_search` | 138 | 36 |
 | `kotikit_ds_get_component` | 599 | 158 |
-| `kotikit_implement_code_start` default refs | 5,366 | 1,412 |
-| `kotikit_implement_code_start` expanded | 6,435 | 1,693 |
-| `kotikit_plan_code` | 2,252 | 593 |
-| `kotikit_scaffold_start` compact page size 3 | 5,192 | 1,366 |
-| `kotikit_scaffold_start` full JSON page size 3 | 5,723 | 1,506 |
-| `kotikit_registry_search` | 653 | 172 |
 | `kotikit_plan_design` blocked fixture response | 217 | 57 |
 | `kotikit_design_get_screen` blocked fixture response | 136 | 36 |
-| `kotikit_audit` | 992 | 261 |
-| `kotikit_get_system_prompt` react | 1,741 | 458 |
 | `kotikit_get_system_prompt` brainstorm | 2,532 | 666 |
 
 The design-plan rows are intentionally labeled as blocked fixture responses.
@@ -85,17 +75,14 @@ path design payload.
 
 ## What To Watch
 
-- Search tools should stay tiny. `kotikit_ds_search`, `kotikit_icons_search`,
-  and `kotikit_registry_search` are the expected first step before exact
-  detail reads.
+- Search tools should stay tiny. `kotikit_ds_search` and
+  `kotikit_icons_search` are the expected first step before exact detail reads.
 - `kotikit_get_system_prompt` is a one-time session cost per prompt kind. Do
   not inline long doctrines into every tool response.
 - `kotikit_workflow_start`, `kotikit_workflow_next`, and
   `kotikit_workflow_event` should stay compact. They are the preferred way for
   agents to resume because they return the current phase and next allowed
   tools, not the full history of the task.
-- Code and scaffold tools are intentionally measured for engineering
-  visibility, but they are not part of the current guided designer workflow.
 - Local variable bridge responses do not normally enter the assistant context.
   Optimize bridge payloads for latency and plugin reliability first, then
   context size.

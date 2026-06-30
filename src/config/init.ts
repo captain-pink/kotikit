@@ -2,10 +2,6 @@ import type { Config } from "./schema";
 import { defaultConfig, parseConfig } from "./schema";
 
 export interface InitAnswers {
-  framework?: "react";
-  codeComponentsDir?: string;
-  tests?: boolean;
-  testFramework?: "vitest" | "none";
   autoCommit?: boolean;
   coAuthor?: Config["git"]["coAuthor"];
   figmaFiles?: { key: string; name: string }[];
@@ -22,13 +18,6 @@ export function buildConfig(answers: InitAnswers): Config {
     figma: {
       ...base.figma,
       designSystemFiles: answers.figmaFiles ?? base.figma.designSystemFiles,
-    },
-    project: {
-      ...base.project,
-      framework: answers.framework ?? base.project.framework,
-      codeComponentsDir: answers.codeComponentsDir ?? base.project.codeComponentsDir,
-      tests: answers.tests ?? base.project.tests,
-      testFramework: answers.testFramework ?? base.project.testFramework,
     },
     defaults: base.defaults,
     git: {

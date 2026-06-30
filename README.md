@@ -7,8 +7,7 @@ system.
 
 AI can generate screens quickly, but product design is not just drawing boxes.
 A useful UX/UI draft still needs product judgment, real components, edge
-states, review loops, and a path toward implementation that does not break the
-system.
+states, review loops, and a stable design workflow.
 
 kotikit is an experimental local-first toolkit for product designers, founders,
 PMs, and teams who want to move from idea to Figma prototype faster without
@@ -65,10 +64,10 @@ what they need, then let an agent use real Figma libraries, safe draft targets,
 review comments, and local project memory to create something inspectable in
 minutes.
 
-The long-term goal is a safer path from product idea to Figma prototype and,
-later, to implementation in frameworks like React. The current focus is the
-design side: make the draft useful, reviewable, and grounded in the team's real
-system before code generation becomes part of the guided workflow.
+The long-term goal is a safer path from product idea to Figma prototype. The
+current focus is deliberately design-only: make the draft useful, reviewable,
+and grounded in the team's real system before considering implementation
+extensions again.
 
 ## Status
 
@@ -94,8 +93,8 @@ It is not a mature open-source project yet:
   output.
 - Use it for experiments, copies, drafts, and controlled Figma files first.
 
-Design-to-code is intentionally not part of the guided workflow yet. kotikit is
-currently focused on stabilizing design creation, review, and design-system use.
+Design-to-code is removed from the core workflow. kotikit is currently focused
+on stabilizing design creation, review, and design-system use.
 
 ## Who It Is For
 
@@ -128,7 +127,8 @@ currently focused on stabilizing design creation, review, and design-system use.
 
 ## What Does Not Work Yet
 
-- Guided design-to-code is disabled.
+- Design-to-code, component scaffolding, implementation gates, and generated
+  code registries are not part of the core.
 - There is no polished npm, Homebrew, or global installer.
 - The Figma plugin is functional but still young.
 - The review workflow is useful, but not a replacement for a senior designer.
@@ -191,9 +191,8 @@ Requirements:
 
 Why a local target workspace? kotikit needs a normal folder to store local
 specs, synced design-system indexes, review memory, assistant config, and your
-Figma token placeholder. For design-only use this can be a scratch workspace. A
-clean React/Vite app is recommended right now only because the future
-design-to-code path and experimental code tools are React-only.
+Figma token placeholder. For design-only use this can be any scratch workspace;
+it does not need to be an app project.
 
 Minimal setup:
 
@@ -277,14 +276,15 @@ Later:
 - Production-quality installer.
 - Richer design-review reporting.
 - Broader design-system normalizer fixture corpus.
-- Design-to-code after design creation is stable.
+- Optional implementation extensions can be reconsidered after design creation
+  is stable.
 
 Not promised:
 
 - Hosted cloud service.
 - Public plugin marketplace distribution.
 - Public contribution process.
-- Production design-to-code.
+- Production design-to-code in the core.
 
 More detail lives in [NEXT_STEPS.md](NEXT_STEPS.md).
 

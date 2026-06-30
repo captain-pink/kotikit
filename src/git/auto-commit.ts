@@ -29,8 +29,8 @@ export interface AutoCommitOpts {
   /** Co-author identity for the commit footer. Defaults to Claude Code for backwards compatibility. */
   coAuthor?: CoAuthor;
   /** Subject prefix scope. Defaults to "spec". */
-  subjectScope?: "spec" | "code";
-  /** Optional subject suffix appended after `scope`. E.g. "/cart" → "feat(code): create checkout-flow/cart". */
+  subjectScope?: "spec";
+  /** Optional subject suffix appended after `scope`. E.g. "/cart" → "feat(spec): create checkout-flow/cart". */
   subjectSuffix?: string;
 }
 

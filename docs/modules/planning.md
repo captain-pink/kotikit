@@ -2,23 +2,16 @@
 
 ## What it does
 
-The planning module manages regenerable plans that guide an agent through multi-step code generation, component decisions, and design application. It owns three independent plan tracks: the code track that breaks screen implementation into ordered steps, the component track that records how missing design-system components should be resolved, and the design track that describes how to build a screen in Figma through the official Figma MCP integration. Plans are written next to their spec files inside `.kotikit/specs/<scope>/` and can be regenerated if ever needed again.
+The planning module manages regenerable plans that guide an agent through
+component decisions and Figma design application. It owns two plan tracks: the
+component track that records how missing design-system components should be
+resolved, and the design track that describes how to build a screen in Figma
+through the official Figma MCP integration. Plans are written next to their spec
+files inside `.kotikit/specs/<scope>/` and can be regenerated if needed.
 
-Current product stage: the design track is the guided workflow. The code track
-remains available for engineering experiments and future design-to-code work,
-but `/kotikit-auto` and `kotikit:auto` should not call it for designers yet.
+Design-to-code plans are not part of the core planning module.
 
 ## Public surface
-
-**Code plans** (`src/planning/code-plan-schema.ts`, `src/planning/plan-store.ts`, `src/planning/code-planner.ts`)
-- `CodePlan`, `CodePlanSchema` — the plan shape (version, scope, screen, componentName, targetPath, testPath, dsComponentRefs, steps, createdAt)
-- `CodePlanStepKind` — `"scaffold-component" | "compose-states" | "compose-interactions" | "compose-accessibility" | "compose-responsive" | "generate-test"`
-- `CodePlanStep`, `CodePlanStepSchema`
-- `parseCodePlan(raw)` — validates raw JSON, throws plain-English error on failure
-- `generateCodePlan(opts)` — async; uses the spec, config, and DS component list to build a `CodePlan`
-- `writeCodePlan(root, scope, screenSlug | null, plan)` — async; writes to the scope directory
-- `readCodePlan(root, scope, screenSlug | null)` — async; returns `CodePlan | null`
-- `deleteCodePlan(root, scope, screenSlug | null)` — async; removes the plan file
 
 **Design plans** (`src/planning/design-plan-schema.ts`, `src/planning/design-plan-store.ts`, `src/planning/design-planner.ts`)
 - `DesignPlan`, `DesignPlanSchema` — the plan shape (version, scope, screen, target, pageName, states, layout, steps, createdAt)
@@ -53,14 +46,11 @@ but `/kotikit-auto` and `kotikit:auto` should not call it for designers yet.
 ## How it works
 
 All plan tracks follow the same lifecycle: an MCP tool generates and writes the
-plan, a second tool reads and returns it to the agent, the agent executes the
-steps through codegen, component review, or the official Figma apply path, and a
-third tool deletes it on completion when appropriate. Plans are always
-regenerable from the spec they reference. Code and design apply plans are
-disposable work queues; component plans also act as compact decision records
-because they update the spec's component resolution metadata.
-
-The code plan's `steps` array maps directly to the code generation loop in `kotikit_implement_code_start`. Each step has a `kind` (which determines what the agent writes) and optional `notes` (which carry spec-derived context like "The list uses a pull-to-refresh gesture" for `compose-interactions`). The step kinds form a deliberate ordering: scaffold first, then states, then interactions, then accessibility, then responsive, then tests. This order ensures the file exists before richer behavior is layered in.
+plan, another tool reads and returns it to the agent, and the agent executes the
+steps through component review or the official Figma apply path. Plans are
+always regenerable from the spec they reference. Design plans are disposable
+work queues; component plans also act as compact decision records because they
+update the spec's component resolution metadata.
 
 The design plan's steps use a discriminated union on `kind`. Each step kind carries exactly the fields the corresponding Figma operation needs: `define-state-frame` carries dimensions; `apply-auto-layout` carries direction, padding, and spacing; `define-layout-zone` creates a semantic auto-layout container; `place-component` carries the component name, DS key, variant overrides, semantic role, and target zone; `bind-variable` carries the variable name and the CSS property to bind it to. The agent reads the apply packet, executes the work through the official Figma MCP integration, and records the result through `kotikit_design_apply_step`.
 
@@ -84,22 +74,27 @@ node IDs back through `kotikit_design_apply_step`. This is still a layout
 scaffold, not a visual QA engine: later review/gate passes should check
 overlap, clipping, minimum target size, and responsive state quality.
 
-Apply results are recorded in two forms. The JSONL apply log stays as the append-only audit trail. The optional `design.node-map.json` is a compact, validated map from design-plan steps to Figma node IDs. The map also stores the bound target, page, and Section metadata so future comment review and refinements can prove they are operating inside the approved draft area. `kotikit_design_review_comments` uses that map with Figma comment `client_meta.node_id` values to tell the agent which planned component or frame a review comment targets. Comments without node IDs, or comments whose node IDs are outside the map, are returned as unmapped rather than inferred from text.
+Apply results are recorded in two forms. The JSONL apply log stays as the
+append-only trail. The optional `design.node-map.json` is a compact, validated
+map from design-plan steps to Figma node IDs. The map also stores the bound
+target, page, and Section metadata so future comment review and refinements can
+prove they are operating inside the approved draft area.
+`kotikit_design_review_comments` uses that map with Figma comment
+`client_meta.node_id` values to tell the agent which planned component or frame
+a review comment targets. Comments without node IDs, or comments whose node IDs
+are outside the map, are returned as unmapped rather than inferred from text.
 
 Review results and refinements live in `.kotikit/design-review.db`. Agents record micro-adjustments through `kotikit_design_adjustment_record` instead of expanding specs or prompts with verbose change history. Standalone design-quality reviews start with `kotikit_design_review_start`, which gathers screenshot-led, shallow, bounded Figma evidence instead of loading a whole file tree. The reviewing agent records structured findings with `kotikit_design_review_record`; Figma comments are prepared and posted only after user approval. Repeated feedback can become a design memory candidate; promoted preferences are returned by `kotikit_design_get_screen` as `designPreferences` so future design passes can apply project taste before the same comment appears again.
 
 ## When to extend it
 
-- Adding a new code step kind (e.g. `"compose-animation"`) — extend `CodePlanStepKindSchema`, add logic to `generateCodePlan` to include it when the spec signals animation requirements, and update the MCP `implement_code_start` tool to handle the new kind.
 - Adding a new design step kind (e.g. `"export-asset"`) — add a new variant to `DesignPlanStepSchema` as a discriminated union member with its own Zod schema, then update the official Figma apply guidance and `kotikit_design_apply_step` schema. Keep file/page/Section validation transport-level; individual step handlers should not decide whether a Figma page is safe.
 - Adding a new generic layout role or zone — update `layout-contract.ts`, add planner tests with minimized specs, extend `DesignPlanSchema` enums, and keep the apply guidance semantic rather than design-system-specific.
 - Adding component creation execution — extend the component plan schema only if the existing reusable/inline split cannot describe the new action, then update the official Figma apply flow to consume component plans and keep human review as the completion gate.
-- Adding a design-to-code synchronization step — a new plan kind (e.g. `SyncPlan`) would follow the same store pattern; add `syncPlanPath` to `src/util/paths.ts` first.
-- Persisting plan history instead of deleting — replace `deleteCodePlan` with an archive move to a `.kotikit/history/` directory; the reader interface stays the same.
+- Persisting plan history instead of replacing plans — add an archive move to a `.kotikit/history/` directory; the reader interface stays the same.
 
 ## Related
 
 - [spec](./spec.md) — plans reference specs by scope and screen slug; `ScreenSpec` is the primary input to both generators
-- [codegen](./codegen.md) — code plan steps map to codegen operations in the implement flow
-- [util](./util.md) — `codePlanPath`, `designPlanPath`, `componentPlanPath`, and `designNodeMapPath` live here
-- [mcp](./mcp.md) — `kotikit_plan_code`, `kotikit_implement_code_start`, `kotikit_component_plan_create`, `kotikit_plan_design`, `kotikit_design_apply_step`, and the design review/comment/memory tools are the tool wrappers
+- [util](./util.md) — `designPlanPath`, `componentPlanPath`, and `designNodeMapPath` live here
+- [mcp](./mcp.md) — `kotikit_component_plan_create`, `kotikit_plan_design`, `kotikit_design_apply_step`, and the design review/comment/memory tools are the tool wrappers

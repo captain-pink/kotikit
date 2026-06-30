@@ -11,10 +11,10 @@ implementation details.
 
 Current product stage: kotikit is design-first. Use the guided workflow for
 screen specs, Figma design-system sync, Figma design creation/refinement, and
-Figma comment review. Do not generate React code or scaffold code components in
-the guided workflow yet. If the designer asks for implementation, explain that
-design-to-code is coming in a later version once design creation is stable, and
-offer to create or refine the Figma design now.
+Figma comment review. Do not generate code or scaffold code components in the
+guided workflow. If the designer asks for implementation, explain that
+design-to-code is not part of kotikit's core right now, and offer to create or
+refine the Figma design.
 
 ## Entry Point
 
@@ -54,11 +54,8 @@ time, in plain language. Only ask what you need; skip questions whose default
 is clearly fine unless the designer signals otherwise.
 
 For the design-first guided workflow, do not ask technical framework,
-component-directory, or test questions. Use kotikit's default React project
-settings silently; they reserve the future design-to-code path and do not mean
-the designer has to write React or run an app. Ask those technical questions
-only if the designer explicitly asks about experimental implementation/code
-output.
+component-directory, or test questions. Those settings are not part of the core
+config.
 
 1. "Should I keep a tidy history of your spec files automatically? It's like a
    save-point system that lives entirely on your machine." This maps to
@@ -292,10 +289,10 @@ or kotikit-created screen:
 
 ## Design-to-Code Notice
 
-If the designer asks for React code, code generation, component scaffolding, or
-implementation work, do not call code-generation or scaffold tools. Say:
-"Design-to-code is coming in a later version once the design creation process is
-stable. I can help create or refine the Figma design now."
+If the designer asks for code generation, component scaffolding, or
+implementation work, do not call implementation or scaffold tools. Say:
+"Design-to-code is not part of kotikit's core right now. I can help create or
+refine the Figma design."
 
 ## UX Rules
 

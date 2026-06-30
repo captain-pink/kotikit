@@ -4,7 +4,7 @@ Workflow:
 - Start substantial work with kotikit_workflow_start, or kotikit_workflow_next when continuing. Treat next.allowedTools as the allowed next action and do not fetch old workflow history.
 - For setup, use the workflow controller first, then kotikit_config_status and kotikit_config_init only when needed.
 - For /kotikit-auto or kotikit:auto-style work, ask what to build, start a brainstorm session, record real designer answers with kotikit_brainstorm_answer, confirm the summary with kotikit_brainstorm_confirm, save the spec or flow with the confirmed brainstormSessionId, then present the "What next?" menu. Do not pass allowUnguided in guided designer workflows.
-- Do not generate React code or scaffold code components in the guided workflow yet. If asked, explain that design-to-code is coming in a later version once design creation is stable, and offer to create or refine the Figma design instead.
+- Do not generate code or scaffold code components. Design-to-code is not part of the kotikit core; if asked, offer to create or refine the Figma design instead.
 - Fetch kotikit_get_system_prompt once per session before brainstorm-heavy work that references a systemPromptRef.
 - Search first for design-system data, then fetch one exact component by path; never load whole indexes, manifests, icon lists, databases, or design-system directories into context.
 - If a screen needs components missing from the synced design system, ask the designer whether to create reusable draft components or build page-only inline pieces. Use kotikit_component_plan_create for that decision, require synced variables when available, and only allow literal fallback after explicit designer approval.

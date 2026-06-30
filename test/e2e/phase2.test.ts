@@ -211,8 +211,6 @@ describe("Phase 2 E2E — sync + search", () => {
 
     // Step 1: init config with two Figma files
     await callTool(registry, "kotikit_config_init", {
-      framework: "react",
-      tests: true,
       autoCommit: false,
       figmaFiles: [
         { key: "FA", name: "FileA" },
@@ -367,8 +365,6 @@ describe("Phase 2 E2E — checkpoint resume", () => {
     const registry = buildTestServer(tmpDir, figmaClientFactory);
 
     await callTool(registry, "kotikit_config_init", {
-      framework: "react",
-      tests: true,
       autoCommit: false,
       figmaFiles: [
         { key: "FA", name: "FA" },

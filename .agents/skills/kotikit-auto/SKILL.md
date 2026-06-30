@@ -40,9 +40,8 @@ target workspace and run `/mcp`.
 - Never ask the user to edit JSON/TOML unless the MCP tools are unavailable.
 - Never load whole design-system directories, manifests, icon lists, or
   databases into context.
-- Do not generate React code or scaffold code components in the guided workflow
-  yet. If asked, explain that design-to-code is coming in a later version once
-  design creation is stable, then offer to create or refine the Figma design.
+- Do not generate code or scaffold code components. Design-to-code is not part
+  of the kotikit core. If asked, offer to create or refine the Figma design.
 
 ## Init Workflow
 
@@ -51,21 +50,14 @@ target workspace and run `/mcp`.
 2. If the workflow says `phase: "setup"`, call `kotikit_config_status`.
 3. If `initialized: true`, continue with the user's requested workflow.
 4. If `initialized: false`, keep setup design-first:
-   - Use the default React project settings silently. They only reserve the
-     future design-to-code path and do not mean the designer must write React.
    - Ask whether to keep a local save-point history. Default yes. Do not say
      "git" or "commit" unless the user asks.
    - Ask whether to connect a Figma design system now. It can be skipped.
-   - Ask technical framework, component-directory, or test questions only if the
-     user explicitly asks about experimental implementation/code output.
 5. Call `kotikit_config_init` with only the values the user answered. When
    running in Codex, include
    `coAuthor: { name: "Codex", email: "noreply@openai.com" }` unless the user
    explicitly asks for different commit metadata.
-6. If setup reports missing gate tools, tell the user the exact friendly
-   message from the tool and ask whether they want to install the missing
-   packages.
-7. Record the result with `kotikit_workflow_event` and continue with the user's
+6. Record the result with `kotikit_workflow_event` and continue with the user's
    requested workflow.
 
 ## Auto Workflow
@@ -204,10 +196,10 @@ run `kotikit:design-review`, or run `/kotikit-design-review`.
 
 ## Design-to-Code Notice
 
-If the designer asks for React code, code generation, component scaffolding, or
+If the designer asks for code generation, component scaffolding, or
 implementation work, do not call code-generation or scaffold tools. Say:
-"Design-to-code is coming in a later version once the design creation process is
-stable. I can help create or refine the Figma design now."
+"Design-to-code is not part of kotikit's core right now. I can help create or
+refine the Figma design."
 
 ## What Next Menu
 

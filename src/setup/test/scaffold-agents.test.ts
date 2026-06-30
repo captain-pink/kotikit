@@ -63,14 +63,13 @@ describe("scaffoldAgents", () => {
     expect(skill).toContain("kotikit_config_init");
     expect(skill).toContain("Claude Code");
     expect(skill).toContain("Codex");
-    expect(skill).toContain("Do not generate React code");
-    expect(skill).toContain("design-to-code is coming in a later version");
+    expect(skill).toContain("Do not generate code or scaffold code components");
+    expect(skill).toContain("Design-to-code is not part");
     expect(skill).toContain("Create or refine the Figma design");
     expect(skill).toContain("kotikit_brainstorm_answer");
     expect(skill).toContain("kotikit_brainstorm_confirm");
     expect(skill).toContain("brainstormSessionId");
     expect(skill).toContain("target workspace");
-    expect(skill).toContain("Use the default React project settings silently");
     expect(skill).not.toContain("target React project");
     expect(skill).not.toContain("their-react-project");
     expect(skill).not.toContain("Framework. Default to React");
@@ -330,7 +329,6 @@ describe("scaffoldAgents", () => {
     writeFileSync(
       join(targetRoot, ".kotikit", "config.json"),
       JSON.stringify({
-        project: { framework: "react", codeComponentsDir: "src/components", tests: true },
         defaults: { breakpoints: [375], themes: ["light"] },
         git: { autoCommit: true },
       })

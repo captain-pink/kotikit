@@ -8,7 +8,7 @@
  * Prints a TSV table:
  *   tool                                            bytes   ~tokens
  *   kotikit_spec_list                                 412       108
- *   kotikit_scaffold_start (3 components, compact)   1234       325
+ *   kotikit_design_get_screen                        1234       325
  *   ...
  *
  * Re-run after changing tool payloads. Paste the output into docs/TOKENS.md.
@@ -22,11 +22,9 @@ import simpleGit from "simple-git";
 import { loadConfig, writeConfig } from "../src/config/load.js";
 import { defaultConfig } from "../src/config/schema.js";
 import { initComponentsDb, upsertComponent } from "../src/db/components-db.js";
-import { initRegistryDb, upsertRegistry } from "../src/db/registry-db.js";
 import { openDb } from "../src/db/sqlite.js";
 import type { ToolContext } from "../src/mcp/context.js";
 import type { ToolRegistry } from "../src/mcp/server.js";
-import { registerAuditTools } from "../src/mcp/tools/audit.js";
 import { registerBrainstormTools } from "../src/mcp/tools/brainstorm.js";
 import { registerConfigTools } from "../src/mcp/tools/config.js";
 import { registerDesignApplyTools } from "../src/mcp/tools/design-apply.js";
@@ -34,15 +32,11 @@ import { registerDesignScreenTools } from "../src/mcp/tools/design-screen.js";
 import { registerDsSearchTools } from "../src/mcp/tools/ds-search.js";
 import { registerFlowTools } from "../src/mcp/tools/flow.js";
 import { registerIconsSearchTools } from "../src/mcp/tools/icons-search.js";
-import { registerImplementCodeTools } from "../src/mcp/tools/implement-code.js";
-import { registerPlanCodeTools } from "../src/mcp/tools/plan-code.js";
 import { registerPlanDesignTools } from "../src/mcp/tools/plan-design.js";
-import { registerRegistryTools } from "../src/mcp/tools/registry.js";
-import { registerScaffoldTools } from "../src/mcp/tools/scaffold.js";
 import { registerSpecTools } from "../src/mcp/tools/spec.js";
 import { registerSystemPromptTools } from "../src/mcp/tools/system-prompt.js";
 import { registerWorkflowTools } from "../src/mcp/tools/workflow.js";
-import { componentsDbPath, registryDbPath } from "../src/util/paths.js";
+import { componentsDbPath } from "../src/util/paths.js";
 
 type ToolResult = { content: { type: "text"; text: string }[]; isError?: boolean };
 
@@ -57,14 +51,9 @@ function buildRegistry(root: string): ToolRegistry {
   registerBrainstormTools(registry, ctx);
   registerDsSearchTools(registry, ctx);
   registerIconsSearchTools(registry, ctx);
-  registerPlanCodeTools(registry, ctx);
-  registerImplementCodeTools(registry, ctx);
-  registerRegistryTools(registry, ctx);
-  registerScaffoldTools(registry, ctx);
   registerPlanDesignTools(registry, ctx);
   registerDesignScreenTools(registry, ctx);
   registerDesignApplyTools(registry, ctx);
-  registerAuditTools(registry, ctx);
   registerSystemPromptTools(registry, ctx);
   registerWorkflowTools(registry, ctx);
   return registry;
@@ -112,19 +101,6 @@ function seedDsComponent(root: string, name: string, variantAxes: string[]): voi
   db.close();
 }
 
-function seedDsRegistry(root: string, name: string): void {
-  const db = openDb(registryDbPath(root));
-  initRegistryDb(db);
-  upsertRegistry(db, {
-    kind: "component",
-    name,
-    dsPath: `components/${name.toLowerCase()}.json`,
-    codePath: null,
-    status: "design-only",
-  });
-  db.close();
-}
-
 async function setupFixture(): Promise<string> {
   const root = mkdtempSync(join(tmpdir(), "kotikit-measure-"));
   const git = simpleGit(root);
@@ -140,7 +116,6 @@ async function setupFixture(): Promise<string> {
   // Seed 3 DS components
   for (const name of ["Button", "Card", "Input"]) {
     seedDsComponent(root, name, ["Variant", "Size"]);
-    seedDsRegistry(root, name);
   }
 
   // Seed a single-screen spec via spec_create through the tool
@@ -166,8 +141,7 @@ async function setupFixture(): Promise<string> {
       },
     },
   });
-  // Plan + design plan for design_get_screen measurement
-  await callTool(registry, "kotikit_plan_code", { scope: "profile-page" });
+  // Design plan for design_get_screen measurement
   await callTool(registry, "kotikit_plan_design", { scope: "profile-page" });
 
   return root;
@@ -243,52 +217,11 @@ async function main(): Promise<void> {
     await measure(registry, "kotikit_ds_get_component", { path: "components/button.json" })
   );
 
-  // Phase 3 — measure BOTH default (lazy) AND expand=true
-  rows.push(
-    await measure(
-      registry,
-      "kotikit_implement_code_start",
-      { scope: "profile-page" },
-      "kotikit_implement_code_start (default: refs)"
-    )
-  );
-  rows.push(
-    await measure(
-      registry,
-      "kotikit_implement_code_start",
-      { scope: "profile-page", expand: true },
-      "kotikit_implement_code_start (expand: full)"
-    )
-  );
-  rows.push(await measure(registry, "kotikit_plan_code", { scope: "profile-page" }));
-
-  // Phase 4 — measure BOTH default (compact, pageSize 3) AND expand
-  rows.push(
-    await measure(
-      registry,
-      "kotikit_scaffold_start",
-      {},
-      "kotikit_scaffold_start (default: compact, pageSize 3)"
-    )
-  );
-  rows.push(
-    await measure(
-      registry,
-      "kotikit_scaffold_start",
-      { compact: false, pageSize: 3 },
-      "kotikit_scaffold_start (full dsJson, pageSize 3)"
-    )
-  );
-
-  rows.push(await measure(registry, "kotikit_registry_search", { kind: "component" }));
-
-  // Phase 5
+  // Phase 3
   rows.push(await measure(registry, "kotikit_plan_design", { scope: "profile-page" }));
   rows.push(await measure(registry, "kotikit_design_get_screen", { scope: "profile-page" }));
 
-  // Phase 6
-  rows.push(await measure(registry, "kotikit_audit", {}));
-  rows.push(await measure(registry, "kotikit_get_system_prompt", { kind: "react" }));
+  // Phase 4
   rows.push(await measure(registry, "kotikit_get_system_prompt", { kind: "brainstorm" }));
 
   // Print table
