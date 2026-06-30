@@ -156,6 +156,8 @@ describe("kotikit_spec_create — multi-screen flow", () => {
   it("registers the tool", () => {
     const tool = registry.tools.find((t) => t.name === "kotikit_spec_create");
     expect(tool).toBeDefined();
+    expect(tool?.description).toContain("Deprecated");
+    expect(tool?.description).toContain("kotikit_get_artifact");
   });
 
   it("writes manifest + 3 screen specs", async () => {

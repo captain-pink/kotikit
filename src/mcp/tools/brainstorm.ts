@@ -242,7 +242,7 @@ function buildFlowDraft(scope: string, notes?: string) {
 const brainstormStartTool: Tool = {
   name: "kotikit_brainstorm_start",
   description:
-    "Start a brainstorm session for a new screen or flow. Returns the system prompt, coverage checklist, and opening questions tailored to the idea.",
+    "Deprecated compatibility tool. Prefer kotikit_start with flowId create-screen. Starts a brainstorm session for a new screen or flow and returns opening questions tailored to the idea.",
   inputSchema: {
     type: "object",
     properties: {
@@ -262,7 +262,7 @@ const brainstormStartTool: Tool = {
 const brainstormAssessTool: Tool = {
   name: "kotikit_brainstorm_assess",
   description:
-    "Assess coverage of a brainstorm session. Returns open dimensions and suggested questions, or a ready-to-save draft template when all dimensions are covered.",
+    "Deprecated compatibility tool. Prefer kotikit_continue or kotikit_answer on the graph facade. Assesses coverage of a brainstorm session.",
   inputSchema: {
     type: "object",
     properties: {
@@ -287,7 +287,7 @@ const brainstormAssessTool: Tool = {
 const brainstormAnswerTool: Tool = {
   name: "kotikit_brainstorm_answer",
   description:
-    "Record the designer's answer for one brainstorm dimension. Returns the next open question or readiness for confirmation.",
+    "Deprecated compatibility tool. Prefer kotikit_answer for graph runs. Records the designer's answer for one brainstorm dimension.",
   inputSchema: {
     type: "object",
     properties: {
@@ -320,7 +320,7 @@ const brainstormAnswerTool: Tool = {
 const brainstormConfirmTool: Tool = {
   name: "kotikit_brainstorm_confirm",
   description:
-    "Mark a fully answered brainstorm session as confirmed by the designer before saving a spec.",
+    "Deprecated compatibility tool. Prefer graph approval through kotikit_answer. Marks a fully answered brainstorm session as confirmed before saving a spec.",
   inputSchema: {
     type: "object",
     properties: {
@@ -375,6 +375,10 @@ export function registerBrainstormTools(registry: ToolRegistry, ctx: ToolContext
           QUALITY_BAR_SENTENCE,
         firstQuestions,
         qualityBar: QUALITY_BAR_SENTENCE,
+        graphFacade: {
+          preferredTool: "kotikit_start",
+          flowId: classification === "multiScreen" ? "create-product-flow" : "create-screen",
+        },
       });
     } catch (err) {
       return toolError(err);

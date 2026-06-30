@@ -64,6 +64,23 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("kotikit_brainstorm_start", () => {
+  it("marks the legacy brainstorm tools as deprecated and points to the graph facade", async () => {
+    const registry = setup();
+    const tool = registry.tools.find((candidate) => candidate.name === "kotikit_brainstorm_start");
+    const { text } = await callTool(registry, "kotikit_brainstorm_start", {
+      idea: "a members table screen",
+    });
+    const detail = parseDetail(text) as {
+      graphFacade?: { preferredTool: string; flowId: string };
+    };
+
+    expect(tool?.description).toContain("Deprecated");
+    expect(detail.graphFacade).toEqual({
+      preferredTool: "kotikit_start",
+      flowId: "create-screen",
+    });
+  });
+
   it("classifies a checkout flow idea as multiScreen and includes flowConnectivity", async () => {
     const registry = setup();
     const { text } = await callTool(registry, "kotikit_brainstorm_start", {

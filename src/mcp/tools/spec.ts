@@ -49,7 +49,7 @@ function registerSpecCreate(registry: ToolRegistry, ctx: ToolContext): void {
   registry.tools.push({
     name: "kotikit_spec_create",
     description:
-      "Create a new screen spec (single or multi-screen flow) and optionally auto-commit it.",
+      "Deprecated compatibility tool. Prefer kotikit_start and kotikit_get_artifact for graph-produced design briefs. Creates a screen spec or multi-screen flow and optionally auto-commits it.",
     inputSchema: {
       type: "object",
       properties: {
