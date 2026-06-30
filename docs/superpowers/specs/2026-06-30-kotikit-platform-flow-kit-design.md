@@ -11,6 +11,11 @@ concrete product and architecture target. It includes the separate research
 agent's findings on plugin packaging, Figma MCP, MCPB/Bun binaries, schema
 strategy, and flow-pack trust.
 
+All implementation, review, and research agents operating from this spec must
+follow `docs/coding_guidelines.md` throughout their work: use Bun, apply TDD for
+behavior changes, keep core modules agent-neutral, and make atomic Conventional
+Commits.
+
 ## Problem
 
 Kotikit has useful capabilities, but the current shape is still too tool-heavy
