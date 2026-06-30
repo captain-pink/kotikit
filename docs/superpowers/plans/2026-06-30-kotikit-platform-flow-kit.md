@@ -30,8 +30,8 @@ Recommended subagent split:
 - Agent D: create-screen flow, briefing subgraph, and old brainstorm/spec
   compatibility.
 - Agent E: design-system grounding adapter and local search preservation.
-- Agent F: draft creation subgraph, quick high-fidelity lane, and Figma apply
-  metadata invariants.
+- Agent F: UI quality contract, draft component preflight, variable binding,
+  quick high-fidelity lane, and Figma apply metadata invariants.
 - Agent G: improve-design/review-comments flows and memory approval
   invariants.
 - Agent H: plugin wrappers and installer packaging.
@@ -66,6 +66,8 @@ Create:
 - `src/core/nodes/brief/index.ts`
 - `src/core/nodes/flow/index.ts`
 - `src/core/nodes/design-system/index.ts`
+- `src/core/nodes/ui-composition/index.ts`
+- `src/core/nodes/draft-components/index.ts`
 - `src/core/nodes/draft/index.ts`
 - `src/core/nodes/figma/index.ts`
 - `src/core/nodes/qa/index.ts`
@@ -74,6 +76,11 @@ Create:
 - `src/core/adapters/design-system/figma-remote-search.ts`
 - `src/core/adapters/figma/target.ts`
 - `src/core/adapters/figma/apply-packet.ts`
+- `src/core/domain/ui-composition-contract.ts`
+- `src/core/domain/layout-contract.ts`
+- `src/core/domain/variable-binding-plan.ts`
+- `src/core/domain/draft-component-plan.ts`
+- `src/core/domain/ui-quality-gate.ts`
 - `src/mcp/facade/tools.ts`
 - `src/mcp/facade/resources.ts`
 - `src/mcp/facade/prompts.ts`
@@ -144,6 +151,11 @@ Create `src/core/schemas/test/json-schema-export.test.ts` with tests that:
 - call the Zod v4 JSON Schema export helper;
 - assert exported schemas include stable `$id`, title, type, and required
   fields;
+- assert artifact schemas include `ui-composition-contract`,
+  `layout-contract`, `variable-binding-plan`, `draft-component-plan`, and
+  `ui-quality-gate-report`;
+- assert graph state schema includes optional UI composition, layout, variable
+  binding, draft component, and UI quality gate fields;
 - assert the exported flow schema rejects transforms/custom/date/map/set usage
   by scanning for an explicit allowlist of schema node types used by kotikit,
   because JSON Schema cannot represent those constructs cleanly.
@@ -189,6 +201,11 @@ Implement:
 - `FlowEdgeSchema`
 - `ArtifactSchema`
 - `KotikitGraphStateSchema`
+- `UICompositionContractSchema`
+- `LayoutContractSchema`
+- `VariableBindingPlanSchema`
+- `DraftComponentPlanSchema`
+- `UIQualityGateReportSchema`
 - `exportKotikitJsonSchemas()`
 
 Rules:
@@ -488,9 +505,17 @@ Use node keys from the design spec:
 - `draft.compilePlan`
 - `draft.compileHighFidelityDraft`
 - `draft.buildFigmaApplyPacket`
+- `ui.buildCompositionContract`
+- `ui.buildLayoutContract`
+- `ui.buildVariableBindingPlan`
+- `ui.validateNoHardcodedImitation`
+- `draftComponents.planMissing`
+- `draftComponents.createOnDraftPage`
+- `draftComponents.validateCreated`
 - `figma.waitForApplyMetadata`
 - `figma.verifyDraftInvariants`
 - `qa.postDraftQa`
+- `qa.runUiQualityGate`
 - `review.collectEvidence`
 - `review.compareToDesignSystem`
 - `review.groupFindings`
@@ -645,6 +670,8 @@ Tests:
 - save an approved `design-brief` artifact;
 - map a multi-screen product flow from actor, goal, and scenario;
 - identify screens and states from the product-flow map.
+- produce screen blueprints that list required UI parts, repeated patterns,
+  screen states, and table/list/form regions for later UI composition checks.
 
 - [ ] **Step 2: Implement brief nodes**
 
@@ -715,7 +742,10 @@ Tests:
 - local icon search omits SVG payloads unless explicitly requested;
 - fit report prefers local cache results;
 - remote Figma search is not called when local cache has enough matches;
-- missing local cache returns a friendly setup action.
+- missing local cache returns a friendly setup action;
+- component fit report identifies exact matches, substitutes, missing
+  components, variable/style gaps, and repeated patterns such as tables,
+  lists, forms, tabs, filters, and toolbars.
 
 - [ ] **Step 2: Implement local adapter**
 
@@ -745,6 +775,10 @@ Implement:
 - `designSystem.askMissingComponentDecision`
 - `designSystem.saveFitReport`
 
+Fit reports must not silently approve hardcoded substitutes. If a meaningful UI
+part has no matching component, the report must mark it as a component gap for
+the draft-component preflight.
+
 - [ ] **Step 5: Verify**
 
 Run:
@@ -761,15 +795,24 @@ git add src/core/adapters/design-system src/core/nodes/design-system src/mcp/too
 git commit -m "feat(core): preserve local design-system grounding adapter"
 ```
 
-## Task 8: Implement Draft And Post-Draft QA Nodes
+## Task 8: Implement UI Contract, Draft Component, Draft, And QA Nodes
 
 **Files:**
 
 - Create: `src/core/adapters/figma/target.ts`
 - Create: `src/core/adapters/figma/apply-packet.ts`
+- Create: `src/core/domain/ui-composition-contract.ts`
+- Create: `src/core/domain/layout-contract.ts`
+- Create: `src/core/domain/variable-binding-plan.ts`
+- Create: `src/core/domain/draft-component-plan.ts`
+- Create: `src/core/domain/ui-quality-gate.ts`
+- Create: `src/core/nodes/ui-composition/index.ts`
+- Create: `src/core/nodes/draft-components/index.ts`
 - Create: `src/core/nodes/draft/index.ts`
 - Create: `src/core/nodes/figma/index.ts`
 - Create: `src/core/nodes/qa/index.ts`
+- Create: `src/core/nodes/ui-composition/test/ui-composition-nodes.test.ts`
+- Create: `src/core/nodes/draft-components/test/draft-component-nodes.test.ts`
 - Create: `src/core/nodes/draft/test/draft-nodes.test.ts`
 - Create: `src/core/nodes/figma/test/figma-nodes.test.ts`
 - Create: `src/core/nodes/qa/test/qa-nodes.test.ts`
@@ -781,18 +824,34 @@ git commit -m "feat(core): preserve local design-system grounding adapter"
 - Modify: `src/mcp/tools/design-screen.ts`
 - Modify: `src/mcp/tools/design-apply.ts`
 
-- [ ] **Step 1: Write failing draft invariant tests**
+- [ ] **Step 1: Write failing UI contract and draft invariant tests**
 
 Tests:
 
 - guided/deep draft path refuses to build apply packet without approved brief;
 - quick high-fidelity path can build from a screen blueprint and assumptions
   artifact without blocking on full brief approval;
+- UI composition contract rejects meaningful UI parts without an existing
+  component key, created draft component key, or approved primitive exception;
+- UI composition contract rejects partial component imitation where repeated
+  rows/cards/cells mix instances with loose hardcoded layers;
+- missing component preflight creates draft components in a
+  `Kotikit Draft Components` section before screen composition starts;
+- table/list contract requires a table/list component family or draft
+  components for table container, header row, data row, cell, and needed
+  states;
+- layout contract rejects generated structural frames without auto layout or
+  grid layout;
+- variable binding plan rejects color, typography, radius, spacing, stroke,
+  shadow, or effect literals without an approved fallback;
 - draft creation refuses Figma write without safe draft page target;
 - apply metadata must match file, page, and kotikit Section;
 - literal variable fallback pauses for approval;
 - missing component strategy pauses for approval;
-- post-draft QA saves findings without posting comments or changing memory.
+- post-draft QA saves findings without posting comments or changing memory;
+- UI quality gate rejects vertical text, mirrored text, flipped transforms,
+  negative dimensions, clipped words, missing component refs, detached
+  instances, layout overlap, and hardcoded component imitations.
 
 - [ ] **Step 2: Wrap target validation**
 
@@ -806,15 +865,26 @@ No Figma write can happen without this state.
 
 - [ ] **Step 3: Wrap design planning**
 
-Expose draft planning as a graph node:
+Expose UI and draft planning as graph nodes:
 
+- `ui.buildCompositionContract`
+- `ui.buildLayoutContract`
+- `ui.buildVariableBindingPlan`
+- `ui.validateNoHardcodedImitation`
+- `draftComponents.planMissing`
+- `draftComponents.createOnDraftPage`
+- `draftComponents.validateCreated`
 - `draft.compilePlan`
 - `draft.compileHighFidelityDraft`
 - `draft.draftScreensIncrementally`
 - `draft.buildFigmaApplyPacket`
+- `qa.runUiQualityGate`
 - `qa.postDraftQa`
 
-The apply packet remains compatible with official Figma MCP writes.
+The apply packet remains compatible with official Figma MCP writes. The packet
+must carry enough metadata to verify component keys, draft component origins,
+variable/style bindings, auto-layout settings, repeated-item structure, and
+text transforms after apply.
 
 - [ ] **Step 4: Implement apply recording nodes**
 
@@ -837,15 +907,15 @@ Mark old public descriptions as deprecated.
 Run:
 
 ```bash
-bun test src/core/nodes/draft src/core/nodes/figma src/core/nodes/qa src/figma/test src/planning/test src/mcp/tools
+bun test src/core/nodes/ui-composition src/core/nodes/draft-components src/core/nodes/draft src/core/nodes/figma src/core/nodes/qa src/figma/test src/planning/test src/mcp/tools
 bun run typecheck
 ```
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/core/adapters/figma src/core/nodes/draft src/core/nodes/figma src/core/nodes/qa src/figma src/planning src/mcp/tools
-git commit -m "feat(core): add adaptive draft creation nodes"
+git add src/core/adapters/figma src/core/domain src/core/nodes/ui-composition src/core/nodes/draft-components src/core/nodes/draft src/core/nodes/figma src/core/nodes/qa src/figma src/planning src/mcp/tools
+git commit -m "feat(core): add ui contract draft creation nodes"
 ```
 
 ## Task 9: Implement Improve-Design, Review-Comments, And Memory Nodes
@@ -869,9 +939,12 @@ Tests:
 - improve-existing-design flow gathers bounded evidence;
 - improve-existing-design flow compares an exact Figma target to local
   design-system evidence;
+- improve-existing-design revision plan preserves component instances and
+  variable bindings instead of replacing them with hardcoded layers;
 - findings are grouped by theme/severity;
 - revision plan is saved as an artifact;
 - approved revisions can be applied through the safe Figma draft/update path;
+- UI quality gate runs after approved revisions;
 - comment posting pauses for explicit approval;
 - memory promotion pauses for explicit approval.
 
@@ -1243,14 +1316,16 @@ git commit -m "docs: document platform flow kit architecture"
 Tests:
 
 - create-screen quick lane starts from a short high-fidelity request, searches
-  the local design-system fixture, creates an apply packet, waits for fake
-  apply metadata, verifies invariants, and saves post-draft QA;
+  the local design-system fixture, resolves missing components, creates draft
+  components when needed, builds UI composition/layout/variable contracts,
+  creates an apply packet, waits for fake apply metadata, runs UI quality
+  gates, and saves post-draft QA;
 - create-screen guided lane asks, answers, approves, saves a brief artifact,
   then creates the draft artifact chain;
 - create-product-flow maps fake actor/goal/scenario input into screens and
   drafts them incrementally;
 - improve-existing-design gathers fake target evidence, builds a revision plan,
-  and pauses before applying revisions;
+  preserves component/variable bindings, and pauses before applying revisions;
 - review-comments gathers fake comments, builds a revision plan, and pauses
   before posting comments or memory promotion.
 
@@ -1370,6 +1445,20 @@ The migration is complete when:
   design-system components and asks only safety-critical blocking questions.
 - Briefing, design-system grounding, draft creation, QA, review, and memory
   are reusable internal subgraphs instead of the primary user-facing menu.
+- High-fidelity draft creation requires UI composition, layout, variable
+  binding, draft component, and UI quality gate artifacts.
+- Meaningful UI parts are existing component instances, kotikit-created draft
+  component instances, or approved primitives; hardcoded component imitation is
+  rejected.
+- Missing components are created and validated in the active draft page before
+  screen or flow composition starts.
+- Generated structural UI uses auto layout or grid layout, with manual
+  positioning limited to top-level placement and approved exceptions.
+- Colors, typography, spacing, radius, stroke, shadow, and effects use synced
+  variables/styles unless a fallback is explicitly approved.
+- UI quality gates block completion on vertical or mirrored text, flipped
+  transforms, clipped words, detached instances, missing component refs,
+  hardcoded imitations, overlap, or mismatched Figma target metadata.
 - Local design-system search remains the primary grounding adapter.
 - Figma remote MCP is used as the default draft creation write path.
 - PAT setup is not required for draft creation happy path.

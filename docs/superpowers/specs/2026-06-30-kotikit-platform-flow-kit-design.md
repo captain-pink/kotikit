@@ -435,8 +435,13 @@ type KotikitGraphState = {
   designSystem?: DesignSystemContext;
   fitReport?: ComponentFitReport;
   figmaTarget?: FigmaTarget;
+  uiComposition?: UICompositionContract;
+  layoutContract?: LayoutContract;
+  variableBindingPlan?: VariableBindingPlan;
+  draftComponentPlan?: DraftComponentPlan;
   draftPlan?: DraftPlan;
   applyReport?: ApplyReport;
+  uiQualityGate?: UIQualityGateReport;
   review?: ReviewSession;
   pendingQuestion?: UserQuestion;
   pendingApproval?: ApprovalRequest;
@@ -457,9 +462,14 @@ Initial artifact types:
 - `flow-model`
 - `design-system-fit-report`
 - `figma-target`
+- `ui-composition-contract`
+- `layout-contract`
+- `variable-binding-plan`
+- `draft-component-plan`
 - `draft-plan`
 - `figma-apply-packet`
 - `figma-apply-report`
+- `ui-quality-gate-report`
 - `review-session`
 - `revision-plan`
 - `design-memory-candidate`
@@ -474,6 +484,64 @@ Artifact requirements:
 - Source node key/version.
 - JSON payload validated by Zod.
 - Optional filesystem path for large bodies.
+
+## UI Quality Contract
+
+Kotikit must compile polished Figma UI from a strict composition contract. It
+must not "draw a page" by loosely placing text, rectangles, and guessed layers.
+
+The draft path is valid only when these artifacts exist:
+
+- `UICompositionContract` - every intended UI part maps to an existing
+  design-system component key, a kotikit draft component, or an approved
+  primitive.
+- `LayoutContract` - auto-layout or grid hierarchy, sizing behavior, spacing,
+  table/list/grid structure, and responsive expectations.
+- `VariableBindingPlan` - variable/style bindings for colors, text styles,
+  spacing, radius, strokes, shadows, and approved fallback literals.
+- `DraftComponentPlan` - missing components to create in the active draft page
+  before composing screens.
+- `UIQualityGateReport` - post-apply validation for structure, component usage,
+  variables, layout, and text integrity.
+
+Hard UI rules:
+
+- **Component-first:** every meaningful UI element must use an existing
+  design-system component key or a kotikit-created draft component instance.
+  Approved primitives are allowed only for layout containers, backgrounds,
+  dividers, simple decorative shapes, or explicitly approved exceptions.
+- **No partial imitation:** if a component pattern is selected, kotikit must use
+  component instances and component properties consistently. It must not mix one
+  component instance with loose hardcoded text/rectangle copies of the same
+  pattern.
+- **Missing component preflight:** if no matching component exists, kotikit
+  creates the required draft component in a `Kotikit Draft Components` section
+  on the current draft page, validates it, then uses instances of that draft
+  component in the screen or flow.
+- **Auto-layout mandatory:** generated frames, sections, cards, rows, tables,
+  lists, forms, toolbars, tabs, filters, sidebars, and repeated items must use
+  auto layout or grid layout. Manual absolute positioning is allowed only for
+  top-level screen placement and explicitly approved exceptions.
+- **Variables/styles mandatory:** colors, typography, spacing, radius, strokes,
+  shadows, and effects come from synced variables/styles when available.
+  Literal values require a recorded approval or a draft variable.
+- **Text integrity gate:** generated text nodes must have normal horizontal
+  reading direction, rotation `0`, no negative/flipped transform, sane
+  dimensions, no clipped words, and no vertical or mirrored text.
+- **Table/list contract:** tables and dense lists must be built from an
+  existing table/list component family when available. Otherwise kotikit creates
+  draft components for the table container, header row, data row, cell, and
+  relevant states before composing the screen.
+- **State and QA coverage:** high-fidelity screens must include relevant
+  default, empty, loading, error, permission, and edge states when the screen
+  type implies them. The post-draft QA gate blocks completion on overlap,
+  detached instances, hardcoded component imitations, missing variables, broken
+  text orientation, or mismatched Figma target metadata.
+
+These rules are enforced by graph nodes, not only prompt instructions. A flow
+can move quickly, but it cannot skip component resolution, layout contract,
+variable binding, draft-component preflight, or post-write QA when the output is
+a high-fidelity Figma draft.
 
 ## MCP Facade
 
@@ -604,10 +672,16 @@ capture_minimal_intent
   -> infer_screen_blueprint
   -> search_local_design_system
   -> classify_fit
+  -> resolve_missing_components
+  -> build_ui_composition_contract
+  -> build_layout_contract
+  -> build_variable_binding_plan
   -> ensure_figma_target
   -> compile_high_fidelity_draft
+  -> create_missing_draft_components
   -> wait_for_figma_apply
   -> verify_draft_invariants
+  -> run_ui_quality_gate
   -> post_draft_qa
 ```
 
@@ -622,10 +696,16 @@ classify_intent
   -> save_brief_artifact
   -> search_local_design_system
   -> classify_fit
+  -> resolve_missing_components
+  -> build_ui_composition_contract
+  -> build_layout_contract
+  -> build_variable_binding_plan
   -> ensure_figma_target
   -> compile_high_fidelity_draft
+  -> create_missing_draft_components
   -> wait_for_figma_apply
   -> verify_draft_invariants
+  -> run_ui_quality_gate
   -> post_draft_qa
 ```
 
@@ -636,6 +716,8 @@ Interrupts:
 - Guided/deep lanes ask one design/product question at a time.
 - Final brief approval is required only for guided/deep lanes or when quick
   lane confidence is low.
+- Missing component approval happens before screen composition, because draft
+  components must be created first and then instantiated.
 
 ### Flow 3: Create Product Flow
 
@@ -651,7 +733,10 @@ capture_goal_actor_scenario
   -> map_user_flow
   -> identify_screens_and_states
   -> ground_shared_design_system
+  -> resolve_shared_missing_components
+  -> create_shared_draft_components
   -> draft_screens_incrementally
+  -> run_flow_level_ui_quality_gate
   -> optional_prototype_plan
   -> flow_level_qa
 ```
@@ -677,8 +762,10 @@ load_figma_target
   -> compare_to_design_system
   -> run_design_quality_review
   -> create_revision_plan
+  -> rebuild_ui_contract_for_revisions
   -> ask_revision_approval
   -> apply_approved_revisions
+  -> run_ui_quality_gate
   -> post_revision_qa
 ```
 
@@ -755,6 +842,8 @@ load_fit_report
   -> classify_gap
   -> propose_inline_or_draft_component_strategy
   -> ask_strategy_approval
+  -> create_draft_components_if_needed
+  -> validate_draft_components
   -> save_missing_component_decision
 ```
 
@@ -767,7 +856,10 @@ main product menu:
 - `screen-blueprint`
 - `journey-map`
 - `design-system-grounding`
+- `ui-composition-contract`
+- `draft-component-preflight`
 - `draft-creation`
+- `ui-quality-gate`
 - `post-draft-qa`
 - `design-review`
 - `comment-iteration`
@@ -789,24 +881,32 @@ check_local_cache
   -> optional_remote_validation
   -> classify_fit
   -> ask_missing_component_decision
+  -> create_draft_components_if_needed
+  -> validate_component_keys
   -> save_fit_report
 ```
 
 ## Figma Draft Creation Subgraph
 
 Goal: create or refine a bounded Figma draft from an approved brief, quick
-screen blueprint, or product-flow screen model.
+screen blueprint, or product-flow screen model. It consumes a UI composition
+contract, layout contract, variable binding plan, and draft component plan.
 
 Graph shape:
 
 ```text
 ensure_design_system_fit
+  -> ensure_ui_composition_contract
+  -> ensure_layout_contract
+  -> ensure_variable_binding_plan
+  -> create_missing_draft_components
   -> ensure_figma_target
   -> compile_draft_plan
   -> build_apply_packet
   -> wait_for_figma_apply
   -> record_apply_metadata
   -> verify_draft_invariants
+  -> run_ui_quality_gate
   -> save_apply_report
 ```
 
@@ -815,8 +915,14 @@ Hard invariants:
 - Figma writes require a verified draft target.
 - Generated nodes stay in a kotikit-owned Section.
 - Apply metadata must match file, page, and Section.
+- Meaningful UI parts must be component instances or approved primitives.
+- Missing components must be created and validated before screen composition.
+- Component keys and instance metadata must be recorded for repeated UI parts.
+- Auto layout or grid is required for generated structural UI.
 - Literal token fallback requires approval.
 - Missing component strategy requires approval.
+- Text orientation, transforms, clipping, and layout overlap are checked after
+  apply.
 
 ## Trust Model
 
@@ -965,6 +1071,10 @@ Docs should make clear:
   banning constructs that JSON Schema cannot represent in exported schemas.
 - Figma remote MCP behavior could change. Mitigate by keeping all Figma writes
   behind kotikit safety invariants and retaining local cache/search.
+- UI quality gates could become too strict and slow quick flows. Mitigate by
+  allowing approved primitives and explicit exceptions while keeping component,
+  auto-layout, variable, and text-integrity rules mandatory for high-fidelity
+  output.
 - Stale wrappers could linger. Mitigate with a deprecation inventory and
   removal tasks tied to graph-backed replacements.
 
@@ -992,6 +1102,10 @@ Sources reviewed directly or through the research sub-agent:
   https://developers.figma.com/docs/figma-mcp-server/tools-and-prompts/
 - Figma MCP rate limits:
   https://developers.figma.com/docs/figma-mcp-server/rate-limits-access/
+- Figma FrameNode API:
+  https://developers.figma.com/docs/plugins/api/FrameNode/
+- Figma InstanceNode API:
+  https://developers.figma.com/docs/plugins/api/InstanceNode/
 - Bun executables: https://bun.sh/docs/bundler/executables
 - Zod JSON Schema: https://zod.dev/json-schema
 - MCP security:
