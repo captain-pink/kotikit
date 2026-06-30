@@ -32,7 +32,7 @@ export const BrainstormSessionSchema = z.object({
   scope: z.string().min(1),
   classification: BrainstormClassificationSchema,
   requiredDimensions: z.array(BrainstormDimensionSchema).min(1),
-  answers: z.record(BrainstormDimensionSchema, z.array(BrainstormAnswerSchema)),
+  answers: z.partialRecord(BrainstormDimensionSchema, z.array(BrainstormAnswerSchema)),
   summary: z.string().optional(),
   createdAt: z.string().min(1),
   updatedAt: z.string().min(1),

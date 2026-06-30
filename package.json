@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "latest",
-    "zod": "^3.23.0",
+    "zod": "^4.0.0",
     "simple-git": "^3.27.0"
   },
   "devDependencies": {
