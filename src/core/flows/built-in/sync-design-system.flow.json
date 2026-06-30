@@ -5,7 +5,12 @@
   "title": "Sync Design System",
   "description": "Refresh kotikit's local design-system cache and report health.",
   "stateSchema": "KotikitGraphState/v1",
-  "requiredCapabilities": ["setup.detect", "designSystem.search.local", "designSystem.fit"],
+  "requiredCapabilities": [
+    "setup.detect",
+    "designSystem.search.local",
+    "designSystem.fit",
+    "qa.run"
+  ],
   "nodes": [
     {
       "id": "detect-local-cache",

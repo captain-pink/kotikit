@@ -30,6 +30,31 @@ The runtime now exposes a design-first MCP surface only:
 Design-to-code can return later only as an isolated extension after Figma draft
 creation is reliable.
 
+## Implementation Update: Local Design-System Grounding Adapter
+
+Completed on branch `feature/kotikit-migration`.
+
+The migration now preserves local design-system search as the primary grounding
+adapter instead of routing draft decisions through remote Figma search first:
+
+- added a compact `src/core/adapters/design-system/local-index.ts` wrapper
+  around the existing SQLite component and icon indexes;
+- added SVG-on-demand icon search so default icon results stay token-cheap;
+- added local variable/context helpers for future variable binding and setup
+  checks;
+- added an injectable `figma-remote-search` boundary that defaults to
+  `not-configured`, so remote search remains optional fallback behavior;
+- added graph nodes for local search, optional remote fallback, fit reports,
+  missing-component decisions, and compact fit-report artifacts;
+- moved `kotikit_ds_search`, `kotikit_ds_get_component`, and
+  `kotikit_icons_search` onto the shared adapter while preserving their
+  compatibility behavior.
+
+Fit reports now make exact matches, substitutes, missing components, variable
+gaps, and repeated-pattern coverage explicit. Missing meaningful UI parts are
+not silently approved as hardcoded layers; they become component gaps for the
+draft-component preflight.
+
 ## Sources Reviewed
 
 Local repo:
@@ -185,12 +210,14 @@ the largest and most fragile areas: Figma API shapes, library publishing rules,
 variables API plan limits, icon classification, checkpoints, normalization, and
 SQLite indexes.
 
-The next core should not assume custom sync is always the source of truth.
-Design-system access should be an adapter with this order:
+The next core should keep custom sync behind an adapter boundary while treating
+the local cache as the default source of truth for token-efficient grounding.
+Design-system access should use this order:
 
-1. Native Figma assistant/design-system search when available.
-2. Local cache/index when native search is unavailable or too expensive.
-3. Narrow manual component references for small projects.
+1. Local cache/index for component, icon, and variable grounding.
+2. Optional native Figma assistant/design-system search only when the local
+   cache is missing, stale, or insufficient.
+3. Narrow manual component references for small projects or emergency recovery.
 
 ## Core UX/UI Designer Flows
 
@@ -1160,9 +1187,8 @@ need a second architecture rewrite when project-defined flows arrive.
   should migration create a new `.kotikit/artifacts` model immediately?
 - Should auto-commit/save-points stay enabled by default, or become an optional
   adapter outside the core graph?
-- Should local design-system sync remain a default first-run step, or should the
-  new adapter prefer native Figma design-system search when the assistant
-  exposes it?
+- How should kotikit detect that the local design-system cache is stale enough
+  to offer optional native Figma remote search or a fresh sync?
 - Should the Figma plugin remain in this repo as an extension, or move to a
   separate package after variables import is stable?
 - Should the new public facade keep backwards-compatible aliases for old tools,

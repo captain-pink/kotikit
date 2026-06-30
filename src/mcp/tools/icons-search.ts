@@ -1,8 +1,5 @@
-import { Database } from "bun:sqlite";
-import { existsSync } from "node:fs";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { getIconSvg, searchIcons } from "../../db/icons-db.js";
-import { designSystemDir, iconsDbPath } from "../../util/paths.js";
+import { searchLocalIcons } from "../../core/adapters/design-system/local-index.js";
 import { KotikitError, toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
@@ -50,8 +47,11 @@ function registerIconsSearch(registry: ToolRegistry, ctx: ToolContext): void {
         includeSvg?: boolean;
       };
 
-      // Guard: design-system directory or icons.db must exist
-      if (!existsSync(designSystemDir(ctx.root)) || !existsSync(iconsDbPath(ctx.root))) {
+      const result = searchLocalIcons(ctx.root, query, {
+        limit: limit ?? 50,
+        includeSvg: includeSvg === true,
+      });
+      if (result.status === "needs-sync") {
         return toolError(
           new KotikitError(
             "Your design system hasn't been synced yet.",
@@ -60,34 +60,9 @@ function registerIconsSearch(registry: ToolRegistry, ctx: ToolContext): void {
         );
       }
 
-      const db = new Database(iconsDbPath(ctx.root), { readonly: true });
-
-      try {
-        const rows = searchIcons(db, query, limit ?? 50);
-
-        let results: Array<{
-          name: string;
-          key: string;
-          signal: string;
-          fileKey: string;
-          svg?: string;
-        }>;
-
-        if (includeSvg === true) {
-          results = rows.map((row) => ({
-            ...row,
-            svg: getIconSvg(db, row.name) ?? undefined,
-          }));
-        } else {
-          results = rows;
-        }
-
-        return toolText(`Found ${results.length} icons matching ${query}.`, {
-          results,
-        });
-      } finally {
-        db.close();
-      }
+      return toolText(`Found ${result.results.length} icons matching ${query}.`, {
+        results: result.results,
+      });
     } catch (err) {
       return toolError(err);
     }

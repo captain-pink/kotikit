@@ -434,7 +434,7 @@ bun run typecheck
 
 Expected: pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add package.json bun.lock src/core/graph src/core/runs
@@ -738,7 +738,7 @@ git commit -m "feat(core): add adaptive screen and flow briefing nodes"
 - Modify: `src/mcp/tools/icons-search.ts`
 - Modify: `src/sync/*` only where adapter boundaries require exported helpers.
 
-- [ ] **Step 1: Write failing adapter tests**
+- [x] **Step 1: Write failing adapter tests**
 
 Tests:
 
@@ -751,7 +751,7 @@ Tests:
   components, variable/style gaps, and repeated patterns such as tables,
   lists, forms, tabs, filters, and toolbars.
 
-- [ ] **Step 2: Implement local adapter**
+- [x] **Step 2: Implement local adapter**
 
 Wrap existing SQLite-backed search in:
 
@@ -763,13 +763,13 @@ Wrap existing SQLite-backed search in:
 
 Keep result payloads compact.
 
-- [ ] **Step 3: Implement remote adapter interface**
+- [x] **Step 3: Implement remote adapter interface**
 
 Add an interface for Figma remote MCP search but keep it injectable. The first
 implementation can be a typed boundary that returns `not-configured` unless a
 client adapter is supplied by the MCP facade.
 
-- [ ] **Step 4: Implement design-system nodes**
+- [x] **Step 4: Implement design-system nodes**
 
 Implement:
 
@@ -783,7 +783,7 @@ Fit reports must not silently approve hardcoded substitutes. If a meaningful UI
 part has no matching component, the report must mark it as a component gap for
 the draft-component preflight.
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run:
 
