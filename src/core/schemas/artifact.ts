@@ -22,6 +22,27 @@ export const ArtifactTypeSchema = z.enum([
   "design-memory-candidate",
 ]);
 
+export type ArtifactType = z.infer<typeof ArtifactTypeSchema>;
+
+export const ArtifactSchemaVersionByType = {
+  "design-brief": "DesignBrief/v1",
+  "screen-model": "ScreenModel/v1",
+  "flow-model": "FlowModel/v1",
+  "design-system-fit-report": "DesignSystemFitReport/v1",
+  "figma-target": "FigmaTarget/v1",
+  "ui-composition-contract": "UICompositionContract/v1",
+  "layout-contract": "LayoutContract/v1",
+  "variable-binding-plan": "VariableBindingPlan/v1",
+  "draft-component-plan": "DraftComponentPlan/v1",
+  "draft-plan": "DraftPlan/v1",
+  "figma-apply-packet": "FigmaApplyPacket/v1",
+  "figma-apply-report": "FigmaApplyReport/v1",
+  "ui-quality-gate-report": "UIQualityGateReport/v1",
+  "review-session": "ReviewSession/v1",
+  "revision-plan": "RevisionPlan/v1",
+  "design-memory-candidate": "DesignMemoryCandidate/v1",
+} as const satisfies Record<ArtifactType, string>;
+
 const SourceNodeSchema = z.strictObject({
   key: z.string().min(1),
   version: z.string().min(1),
@@ -102,15 +123,76 @@ export const UIQualityGateReportSchema = z.strictObject({
   checks: z.array(UIQualityGateCheckSchema),
 });
 
+const GenericArtifactPayloadDataSchema = z.record(
+  z.string(),
+  z.union([z.string(), z.number(), z.boolean(), z.null()])
+);
+
+function createGenericArtifactPayloadSchema<SchemaVersion extends string>(
+  schemaVersion: SchemaVersion
+) {
+  return z.strictObject({
+    schemaVersion: z.literal(schemaVersion),
+    summary: z.string().min(1).optional(),
+    refs: z.array(z.string().min(1)).optional(),
+    data: GenericArtifactPayloadDataSchema.optional(),
+  });
+}
+
+export const DesignBriefPayloadSchema = createGenericArtifactPayloadSchema(
+  ArtifactSchemaVersionByType["design-brief"]
+);
+export const ScreenModelPayloadSchema = createGenericArtifactPayloadSchema(
+  ArtifactSchemaVersionByType["screen-model"]
+);
+export const FlowModelPayloadSchema = createGenericArtifactPayloadSchema(
+  ArtifactSchemaVersionByType["flow-model"]
+);
+export const DesignSystemFitReportPayloadSchema = createGenericArtifactPayloadSchema(
+  ArtifactSchemaVersionByType["design-system-fit-report"]
+);
+export const FigmaTargetPayloadSchema = createGenericArtifactPayloadSchema(
+  ArtifactSchemaVersionByType["figma-target"]
+);
+export const DraftPlanPayloadSchema = createGenericArtifactPayloadSchema(
+  ArtifactSchemaVersionByType["draft-plan"]
+);
+export const FigmaApplyPacketPayloadSchema = createGenericArtifactPayloadSchema(
+  ArtifactSchemaVersionByType["figma-apply-packet"]
+);
+export const FigmaApplyReportPayloadSchema = createGenericArtifactPayloadSchema(
+  ArtifactSchemaVersionByType["figma-apply-report"]
+);
+export const ReviewSessionPayloadSchema = createGenericArtifactPayloadSchema(
+  ArtifactSchemaVersionByType["review-session"]
+);
+export const RevisionPlanPayloadSchema = createGenericArtifactPayloadSchema(
+  ArtifactSchemaVersionByType["revision-plan"]
+);
+export const DesignMemoryCandidatePayloadSchema = createGenericArtifactPayloadSchema(
+  ArtifactSchemaVersionByType["design-memory-candidate"]
+);
+
 export const ArtifactPayloadSchema = z.union([
+  DesignBriefPayloadSchema,
+  ScreenModelPayloadSchema,
+  FlowModelPayloadSchema,
+  DesignSystemFitReportPayloadSchema,
+  FigmaTargetPayloadSchema,
   UICompositionContractSchema,
   LayoutContractSchema,
   VariableBindingPlanSchema,
   DraftComponentPlanSchema,
+  DraftPlanPayloadSchema,
+  FigmaApplyPacketPayloadSchema,
+  FigmaApplyReportPayloadSchema,
   UIQualityGateReportSchema,
+  ReviewSessionPayloadSchema,
+  RevisionPlanPayloadSchema,
+  DesignMemoryCandidatePayloadSchema,
 ]);
 
-export const ArtifactSchema = z.strictObject({
+export const ArtifactEnvelopeSchema = z.strictObject({
   id: z.string().min(1),
   runId: z.string().min(1),
   type: ArtifactTypeSchema,
@@ -122,7 +204,65 @@ export const ArtifactSchema = z.strictObject({
   filesystemPath: z.string().min(1).optional(),
 });
 
-export type ArtifactType = z.infer<typeof ArtifactTypeSchema>;
+function createArtifactVariantSchema<Type extends ArtifactType>(
+  type: Type,
+  payloadSchema: z.ZodType
+) {
+  return ArtifactEnvelopeSchema.extend({
+    type: z.literal(type),
+    schemaVersion: z.literal(ArtifactSchemaVersionByType[type]),
+    payload: payloadSchema,
+  });
+}
+
+export const ArtifactVariantSchema = z.union([
+  createArtifactVariantSchema("design-brief", DesignBriefPayloadSchema),
+  createArtifactVariantSchema("screen-model", ScreenModelPayloadSchema),
+  createArtifactVariantSchema("flow-model", FlowModelPayloadSchema),
+  createArtifactVariantSchema("design-system-fit-report", DesignSystemFitReportPayloadSchema),
+  createArtifactVariantSchema("figma-target", FigmaTargetPayloadSchema),
+  createArtifactVariantSchema("ui-composition-contract", UICompositionContractSchema),
+  createArtifactVariantSchema("layout-contract", LayoutContractSchema),
+  createArtifactVariantSchema("variable-binding-plan", VariableBindingPlanSchema),
+  createArtifactVariantSchema("draft-component-plan", DraftComponentPlanSchema),
+  createArtifactVariantSchema("draft-plan", DraftPlanPayloadSchema),
+  createArtifactVariantSchema("figma-apply-packet", FigmaApplyPacketPayloadSchema),
+  createArtifactVariantSchema("figma-apply-report", FigmaApplyReportPayloadSchema),
+  createArtifactVariantSchema("ui-quality-gate-report", UIQualityGateReportSchema),
+  createArtifactVariantSchema("review-session", ReviewSessionPayloadSchema),
+  createArtifactVariantSchema("revision-plan", RevisionPlanPayloadSchema),
+  createArtifactVariantSchema("design-memory-candidate", DesignMemoryCandidatePayloadSchema),
+]);
+
+export const ArtifactSchema = ArtifactEnvelopeSchema.superRefine((artifact, ctx) => {
+  const expectedSchemaVersion = schemaVersionForArtifactType(artifact.type);
+
+  if (artifact.schemaVersion !== expectedSchemaVersion) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["schemaVersion"],
+      message: `Expected ${expectedSchemaVersion} for ${artifact.type}.`,
+    });
+  }
+
+  if (
+    typeof artifact.payload === "object" &&
+    artifact.payload !== null &&
+    "schemaVersion" in artifact.payload &&
+    artifact.payload.schemaVersion !== expectedSchemaVersion
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["payload", "schemaVersion"],
+      message: `Expected payload schema ${expectedSchemaVersion} for ${artifact.type}.`,
+    });
+  }
+});
+
+function schemaVersionForArtifactType(type: ArtifactType): string {
+  return ArtifactSchemaVersionByType[type];
+}
+
 export type Artifact = z.infer<typeof ArtifactSchema>;
 export type UICompositionContract = z.infer<typeof UICompositionContractSchema>;
 export type LayoutContract = z.infer<typeof LayoutContractSchema>;

@@ -22,6 +22,23 @@ function property(schema: JsonObject, name: string): JsonObject {
   return asObject(properties[name]);
 }
 
+function asArray(value: unknown): unknown[] {
+  if (!Array.isArray(value)) {
+    throw new Error("Expected a JSON array.");
+  }
+  return value;
+}
+
+function variantForType(variants: unknown[], type: string): JsonObject {
+  const variant = variants
+    .map(asObject)
+    .find((candidate) => property(candidate, "type").const === type);
+  if (variant === undefined) {
+    throw new Error(`Expected artifact schema variant for ${type}.`);
+  }
+  return variant;
+}
+
 describe("kotikit JSON Schema export", () => {
   it("exports flow definition json schema with stable id", () => {
     const { flow } = exportKotikitJsonSchemas();
@@ -76,6 +93,32 @@ describe("kotikit JSON Schema export", () => {
         payload: { schemaVersion: "UICompositionContract/v1" },
       })
     ).toThrow();
+  });
+
+  it("rejects declared artifact types that reuse a different payload schema", () => {
+    expect(() =>
+      ArtifactSchema.parse({
+        ...validArtifact(),
+        type: "design-brief",
+        schemaVersion: "DesignBrief/v1",
+      })
+    ).toThrow();
+  });
+
+  it("exports artifact json schema with type-bound payload variants", () => {
+    const { artifact } = exportKotikitJsonSchemas();
+    const variants = asArray(artifact.anyOf);
+    const designBrief = variantForType(variants, "design-brief");
+    const uiComposition = variantForType(variants, "ui-composition-contract");
+
+    expect(property(designBrief, "schemaVersion").const).toBe("DesignBrief/v1");
+    expect(property(property(designBrief, "payload"), "schemaVersion").const).toBe(
+      "DesignBrief/v1"
+    );
+    expect(property(uiComposition, "schemaVersion").const).toBe("UICompositionContract/v1");
+    expect(property(property(uiComposition, "payload"), "schemaVersion").const).toBe(
+      "UICompositionContract/v1"
+    );
   });
 
   it("rejects non json schema exported constructs", () => {

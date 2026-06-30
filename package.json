@@ -27,9 +27,10 @@
     "plugin:test": "cd figma-plugin && bun test"
   },
   "dependencies": {
+    "@langchain/langgraph": "^1.4.7",
     "@modelcontextprotocol/sdk": "latest",
-    "zod": "^4.0.0",
-    "simple-git": "^3.27.0"
+    "simple-git": "^3.27.0",
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.1",

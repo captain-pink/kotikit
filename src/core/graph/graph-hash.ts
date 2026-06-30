@@ -2,7 +2,11 @@ import { createHash } from "node:crypto";
 import type { GraphHashInput } from "./compiler.js";
 
 export function computeGraphHash(input: GraphHashInput): string {
-  return createHash("sha256").update(stableStringify(input)).digest("hex");
+  return computeStableHash(input);
+}
+
+export function computeStableHash(value: unknown): string {
+  return createHash("sha256").update(stableStringify(value)).digest("hex");
 }
 
 function stableStringify(value: unknown): string {

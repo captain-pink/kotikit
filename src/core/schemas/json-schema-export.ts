@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { z } from "zod";
-import { ArtifactSchema, KOTIKIT_ARTIFACT_SCHEMA_ID } from "./artifact.js";
+import { ArtifactSchema, ArtifactVariantSchema, KOTIKIT_ARTIFACT_SCHEMA_ID } from "./artifact.js";
 import { FlowDefinitionSchema, KOTIKIT_FLOW_SCHEMA_ID } from "./flow-definition.js";
 import { KOTIKIT_GRAPH_STATE_SCHEMA_ID, KotikitGraphStateSchema } from "./graph-state.js";
 
@@ -38,10 +38,26 @@ function exportJsonSchema(schema: z.ZodType, id: string, title: string): JsonObj
   };
 }
 
+function exportArtifactJsonSchema(): JsonObject {
+  const artifact = exportJsonSchema(ArtifactSchema, KOTIKIT_ARTIFACT_SCHEMA_ID, "Kotikit Artifact");
+  const variants = z.toJSONSchema(ArtifactVariantSchema) as JsonObject;
+  return {
+    ...artifact,
+    anyOf: asJsonArray(variants.anyOf),
+  };
+}
+
+function asJsonArray(value: unknown): unknown[] {
+  if (!Array.isArray(value)) {
+    throw new Error("Expected exported schema variants.");
+  }
+  return value;
+}
+
 export function exportKotikitJsonSchemas(): KotikitJsonSchemas {
   return {
     flow: exportJsonSchema(FlowDefinitionSchema, KOTIKIT_FLOW_SCHEMA_ID, "Kotikit Flow Definition"),
-    artifact: exportJsonSchema(ArtifactSchema, KOTIKIT_ARTIFACT_SCHEMA_ID, "Kotikit Artifact"),
+    artifact: exportArtifactJsonSchema(),
     graphState: exportJsonSchema(
       KotikitGraphStateSchema,
       KOTIKIT_GRAPH_STATE_SCHEMA_ID,
