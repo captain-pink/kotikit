@@ -1,0 +1,803 @@
+# Kotikit Platform Flow Kit Design
+
+Date: 2026-06-30
+
+## Status
+
+Draft design spec for the next kotikit migration slice.
+
+This spec expands the migration direction from `KOTIKIT_MIGRATION.md` into a
+concrete product and architecture target. It includes the separate research
+agent's findings on plugin packaging, Figma MCP, MCPB/Bun binaries, schema
+strategy, and flow-pack trust.
+
+## Problem
+
+Kotikit has useful capabilities, but the current shape is still too tool-heavy
+and too developer-shaped for the designer product we want.
+
+Current friction:
+
+- The user must understand setup steps such as clone repo, install Bun,
+  scaffold assistant config, add a Figma token, and restart the assistant.
+- The MCP surface exposes many low-level tools, so agents must keep the work
+  line in conversation.
+- Workflow state is controlled by a hand-written router instead of a durable
+  graph runtime.
+- Briefing, design-system grounding, draft creation, review, and memory are
+  split across separate tool chains.
+- Design-to-code was removed, but the remaining design core still needs a
+  smaller, more reliable center.
+- The local design-system cache is valuable and token-efficient, but it should
+  become one adapter inside a clearer flow system instead of driving the whole
+  product shape.
+
+## Product Goal
+
+Kotikit should be a designer-first flow kit.
+
+Designers should be able to install kotikit, start a built-in flow, answer
+plain-language questions, and get a safe Figma draft or review result without
+learning internal tool names, JSON schemas, graph state, or Figma API details.
+
+Teams should later be able to create custom flows by composing approved
+kotikit building blocks. Custom flows should feel like lego pieces, but those
+pieces must be typed, versioned, capability-gated workflow nodes, not arbitrary
+shell commands, raw Figma operations, or unrestricted MCP calls.
+
+## Non-Goals
+
+- Do not restore design-to-code in the core.
+- Do not make arbitrary JSON execute arbitrary workflow behavior.
+- Do not replace the local design-system sync/search layer yet. It remains the
+  primary token-efficient design-system cache.
+- Do not make Figma `search_design_system` the only grounding path. It is a
+  useful secondary or validation adapter.
+- Do not build a standalone desktop app before plugin and MCP packaging are
+  proven.
+- Do not require public extension signatures in the first migration. Use
+  allowlists and hash pins first.
+
+## Research Findings
+
+### Plugin Packaging
+
+One shared kotikit MCP server can power both Codex and Claude Code, but one
+literal plugin package should not try to serve both.
+
+Facts:
+
+- Codex plugins package skills, MCP servers, and app integrations through a
+  Codex plugin manifest.
+- Claude Code plugins use their own plugin manifest and can bundle MCP server
+  config.
+- The underlying MCP server can stay agent-neutral.
+
+Decision:
+
+- Build one shared `kotikit-mcp` server artifact.
+- Ship thin wrappers:
+  - `plugins/codex/`
+  - `plugins/claude/`
+- Keep current scaffold support as a compatibility/development installer.
+
+### MCPB And Bun Binaries
+
+Compiled Bun binaries are technically plausible for local MCP distribution, but
+they should not be the first production installer.
+
+Facts:
+
+- Bun can build standalone executables and cross-compile.
+- macOS and Windows distribution still has signing, permissions, antivirus,
+  architecture, and path-handling risk.
+
+Decision:
+
+- Phase 1 distribution uses source/npm/Bun based plugin installation.
+- Compiled Bun binaries and MCPB bundles move to a later packaging slice after
+  CI proves macOS and Windows MCP startup, SQLite writes, `.kotikit` writes,
+  and adapter configuration.
+
+### Figma Auth
+
+Figma remote MCP OAuth can remove Figma PAT setup from the default draft
+creation happy path, but not from every current kotikit capability.
+
+Facts:
+
+- Remote Figma MCP can authenticate without a personal access token.
+- Current local design-system sync, comments, and some review paths use
+  PAT-backed Figma REST calls.
+- The user explicitly wants local design-system sync/search retained because it
+  is token efficient.
+
+Decision:
+
+- Default onboarding should not require a PAT just to create a Figma draft.
+- PAT setup remains an advanced/local-cache path for design-system sync,
+  comment sync, and review capabilities until equivalent remote-MCP-backed
+  cache population exists.
+
+### Figma `search_design_system` And `use_figma`
+
+The Figma remote MCP tools are useful but should be treated as adapters behind
+kotikit invariants, not as the new source of truth.
+
+Decision:
+
+- Use `use_figma` or official Figma write tools for draft writes only behind
+  kotikit's draft target, Section ownership, and apply metadata invariants.
+- Use `search_design_system` for secondary validation, fallback discovery, or
+  cache seeding experiments.
+- Keep local SQLite search as the primary design-system grounding path in the
+  first graph migration.
+
+### Schema Strategy
+
+Use Zod v4 as the schema source of truth and generate JSON Schema for external
+flow manifests.
+
+Decision:
+
+- Upgrade from Zod v3 to Zod v4 during the graph foundation slice.
+- Use Zod v4 schemas for graph state, node params, node outputs, persisted
+  artifacts, and MCP boundary validation.
+- Generate JSON Schema files for designer/team-facing flow manifests.
+- Add tests that exported schemas do not use Zod constructs that JSON Schema
+  cannot represent cleanly.
+- Do not add TypeBox unless Zod v4 JSON Schema generation proves insufficient.
+
+### Flow-Pack Trust
+
+Use explicit allowlists plus hash/version pins now. Add signatures later when
+public extension distribution exists.
+
+Decision:
+
+- Built-in flows are trusted by kotikit release.
+- Project flows are disabled until explicitly enabled in project config.
+- Extension flow packs require source, version or ref, hash, and declared
+  capabilities in an allowlist.
+- Active runs persist manifest hash, node versions, and graph hash.
+- No custom flow can bypass hard-coded safety invariants.
+
+## Core Design Principle
+
+Designer flows are graphs. Figma, filesystem, SQLite, MCP, plugins, and agent
+setup are adapters.
+
+JSON flow manifests describe choreography. TypeScript/Zod node definitions
+own behavior, schemas, side effects, capability declarations, and safety
+invariants.
+
+## Target Architecture
+
+```text
+Designer
+  -> Codex plugin / Claude Code plugin / MCP config / future MCPB bundle
+  -> small kotikit MCP facade
+  -> MCP tools, resources, prompts, completions
+  -> LangGraph workflow runtime
+  -> flow catalog: built-in, project, extension
+  -> flow compiler and typed node registry
+  -> Zod v4 graph state and artifact schemas
+  -> checkpoint/run store
+  -> domain engines
+  -> adapters:
+       local design-system cache/search
+       Figma remote MCP write/search
+       Figma REST/PAT sync and comments
+       local storage
+       local design memory
+       optional variable bridge
+```
+
+## Package Layout
+
+Target source layout:
+
+```text
+src/core/
+  graph/
+    compiler.ts
+    flow-definition-schema.ts
+    graph-hash.ts
+    interrupts.ts
+    node-registry.ts
+    runtime.ts
+    state.ts
+  runs/
+    run-store.ts
+    checkpoint-store.ts
+    artifact-store.ts
+  schemas/
+    artifact.ts
+    flow-definition.ts
+    graph-state.ts
+    json-schema-export.ts
+  domain/
+    brief.ts
+    screen-model.ts
+    flow-model.ts
+    fit-report.ts
+    draft-plan.ts
+    review.ts
+  nodes/
+    brief/
+    design-system/
+    draft/
+    figma/
+    review/
+    memory/
+  adapters/
+    design-system/
+      local-index.ts
+      figma-remote-search.ts
+    figma/
+      target.ts
+      apply-packet.ts
+      remote-mcp.ts
+      rest.ts
+    storage/
+    memory/
+  flows/
+    built-in/
+      brief.flow.json
+      design-system-grounding.flow.json
+      draft.flow.json
+      review.flow.json
+src/mcp/
+  facade/
+    tools.ts
+    resources.ts
+    prompts.ts
+    completions.ts
+  server.ts
+plugins/
+  codex/
+  claude/
+schemas/
+  kotikit-flow.schema.json
+  kotikit-artifact.schema.json
+```
+
+Existing modules are migrated, not blindly deleted:
+
+- `src/sync/*` remains the local design-system cache engine and moves behind
+  `src/core/adapters/design-system/local-index.ts` over time.
+- `src/planning/*` remains the draft-plan and review domain engine until graph
+  nodes replace public tool choreography.
+- `src/spec/*` is migrated into brief/screen/flow domain models.
+- `src/workflow/*` is removed only after graph-backed facade tools cover its
+  supported flows.
+- MCP tool files become either facade tools, compatibility wrappers, or deleted
+  stale public surfaces.
+
+## Flow Catalog
+
+Flow manifests are loaded from three sources:
+
+1. Built-in flows shipped with kotikit.
+2. Project flows under `.kotikit/flows/*.flow.json`, disabled until enabled.
+3. Extension flow packs, disabled until allowlisted with hash/version pins.
+
+Every resolved flow has:
+
+- `schemaVersion`
+- `id`
+- `version`
+- `title`
+- `description`
+- `stateSchema`
+- `requiredCapabilities`
+- `nodes`
+- `edges`
+- `start`
+- `end`
+- `safetyProfile`
+
+Example shape:
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "draft",
+  "version": "1.0.0",
+  "title": "Create Figma Draft",
+  "stateSchema": "KotikitGraphState/v1",
+  "requiredCapabilities": ["designSystem.search.local", "figma.write.remote"],
+  "start": "load-approved-brief",
+  "nodes": [
+    {
+      "id": "load-approved-brief",
+      "uses": "brief.loadApproved",
+      "params": {}
+    },
+    {
+      "id": "ensure-design-system-fit",
+      "uses": "designSystem.buildFitReport",
+      "params": { "preferredSource": "local-index" }
+    },
+    {
+      "id": "ensure-figma-target",
+      "uses": "figma.ensureDraftTarget",
+      "interrupt": "ask-user"
+    },
+    {
+      "id": "build-apply-packet",
+      "uses": "draft.buildFigmaApplyPacket"
+    },
+    {
+      "id": "wait-for-apply",
+      "uses": "figma.waitForApplyMetadata",
+      "interrupt": "external-action"
+    }
+  ],
+  "edges": [
+    ["load-approved-brief", "ensure-design-system-fit"],
+    ["ensure-design-system-fit", "ensure-figma-target"],
+    ["ensure-figma-target", "build-apply-packet"],
+    ["build-apply-packet", "wait-for-apply"]
+  ],
+  "end": ["wait-for-apply"]
+}
+```
+
+## Node Registry
+
+Every executable node is code-owned and versioned:
+
+```ts
+type NodeDefinition = {
+  key: string;
+  version: string;
+  kind: "deterministic" | "llm" | "interrupt" | "external-action" | "subgraph";
+  paramsSchema: z.ZodType;
+  inputSchema: z.ZodType;
+  outputSchema: z.ZodType;
+  stateReads: string[];
+  stateWrites: string[];
+  sideEffects:
+    | "none"
+    | "filesystem"
+    | "sqlite"
+    | "figma-read"
+    | "figma-write"
+    | "comments-write";
+  requiredCapabilities: string[];
+  run: NodeRunner;
+};
+```
+
+Required registry behavior:
+
+- Unknown node keys fail validation before graph execution.
+- Node params are validated before compile.
+- Node versions are included in `graphHash`.
+- Side effects require explicit capabilities.
+- Manifest-declared capabilities cannot exceed project/extension allowlists.
+- Nodes are coarse workflow capabilities, not raw Figma API calls.
+
+## Runtime Compilation
+
+The runtime uses late compile, early validate:
+
+1. Load built-in, project, and extension manifests.
+2. Parse manifests with Zod v4.
+3. Validate structure: start, end, edges, duplicate ids, unreachable nodes,
+   cycles where disallowed, and missing node references.
+4. Resolve `uses` keys against the node registry.
+5. Validate node params against each node's params schema.
+6. Validate required capabilities against trust policy.
+7. Compute `graphHash` from manifest content, flow id/version, state schema
+   version, node keys, node versions, and safety profile.
+8. Compile a LangGraph graph.
+9. Persist run metadata before executing the first node.
+10. Resume active runs only against the original compatible `graphHash`.
+
+## Graph State
+
+The persisted graph state is Zod-owned and versioned.
+
+```ts
+type KotikitGraphState = {
+  schemaVersion: "KotikitGraphState/v1";
+  runId: string;
+  flowId: string;
+  flowVersion: string;
+  graphHash: string;
+  status:
+    | "running"
+    | "waiting-for-user"
+    | "waiting-for-figma"
+    | "blocked"
+    | "done";
+  project: ProjectRef;
+  userIntent?: string;
+  brief?: DesignBrief;
+  screen?: ScreenModel;
+  flowModel?: FlowModel;
+  designSystem?: DesignSystemContext;
+  fitReport?: ComponentFitReport;
+  figmaTarget?: FigmaTarget;
+  draftPlan?: DraftPlan;
+  applyReport?: ApplyReport;
+  review?: ReviewSession;
+  pendingQuestion?: UserQuestion;
+  pendingApproval?: ApprovalRequest;
+  artifacts: ArtifactRef[];
+  errors: WorkflowError[];
+};
+```
+
+## Artifact Model
+
+Artifacts are first-class. They are stored locally and exposed through MCP
+resources.
+
+Initial artifact types:
+
+- `design-brief`
+- `screen-model`
+- `flow-model`
+- `design-system-fit-report`
+- `figma-target`
+- `draft-plan`
+- `figma-apply-packet`
+- `figma-apply-report`
+- `review-session`
+- `revision-plan`
+- `design-memory-candidate`
+
+Artifact requirements:
+
+- Stable id.
+- Run id.
+- Type.
+- Schema version.
+- Created/updated timestamps.
+- Source node key/version.
+- JSON payload validated by Zod.
+- Optional filesystem path for large bodies.
+
+## MCP Facade
+
+The guided designer workflow should expose a small facade:
+
+- `kotikit_flow_list`
+- `kotikit_flow_validate`
+- `kotikit_start`
+- `kotikit_continue`
+- `kotikit_answer`
+- `kotikit_get_artifact`
+- `kotikit_list_artifacts`
+- `kotikit_search_design_system`
+- `kotikit_record_figma_apply`
+- `kotikit_review_figma_target`
+- `kotikit_doctor`
+
+MCP resources:
+
+- `kotikit://runs/{runId}`
+- `kotikit://runs/{runId}/state`
+- `kotikit://artifacts/{artifactId}`
+- `kotikit://flows/{flowId}`
+- `kotikit://design-system/components/{componentId}`
+- `kotikit://design-memory/{preferenceId}`
+
+MCP prompts:
+
+- `kotikit.create_brief`
+- `kotikit.create_figma_draft`
+- `kotikit.review_figma_design`
+- `kotikit.sync_design_system`
+
+MCP completions:
+
+- Flow ids.
+- Run ids.
+- Artifact ids.
+- Known spec or screen names.
+- Design-system component refs.
+
+Compatibility wrappers:
+
+- Old public tools can remain temporarily as wrappers around graph facade calls
+  during migration.
+- Wrappers should be marked deprecated in docs and MCP descriptions.
+- The end state is the small facade plus explicit extension tools.
+
+## Designer Flows
+
+### Flow 1: Setup And First Run
+
+Goal: make the designer's first action conversational.
+
+Happy path:
+
+1. Designer installs a Codex plugin, Claude Code plugin, or MCP config.
+2. Designer invokes kotikit.
+3. Kotikit runs doctor.
+4. Kotikit detects whether local cache is configured.
+5. Kotikit explains the minimum next step in plain language.
+6. Draft creation can proceed with Figma remote MCP OAuth.
+7. PAT setup is offered only when the user wants local sync/search or REST
+   comment review.
+
+### Flow 2: Idea To Brief
+
+Goal: turn rough intent into an approved design brief.
+
+Graph shape:
+
+```text
+classify_intent
+  -> ask_missing_question
+  -> record_answer
+  -> check_completeness
+  -> summarize_for_approval
+  -> save_brief_artifact
+```
+
+Interrupts:
+
+- Ask one design/product question at a time.
+- Ask for final brief approval.
+
+### Flow 3: Design-System Grounding
+
+Goal: ground draft decisions in the real design system without wasting tokens.
+
+Primary adapter:
+
+- Local SQLite component/icon/variable search from `design-system/`.
+
+Secondary adapters:
+
+- Figma remote MCP `search_design_system` for validation, cache gap checks, or
+  fallback discovery.
+- Manual narrow references for small projects.
+
+Graph shape:
+
+```text
+check_local_cache
+  -> search_local_components
+  -> search_local_tokens
+  -> optional_remote_validation
+  -> classify_fit
+  -> ask_missing_component_decision
+  -> save_fit_report
+```
+
+### Flow 4: Figma Draft Creation
+
+Goal: create or refine a bounded Figma draft from an approved brief and fit
+report.
+
+Graph shape:
+
+```text
+load_approved_brief
+  -> ensure_design_system_fit
+  -> ensure_figma_target
+  -> compile_draft_plan
+  -> build_apply_packet
+  -> wait_for_figma_apply
+  -> record_apply_metadata
+  -> verify_draft_invariants
+  -> save_apply_report
+```
+
+Hard invariants:
+
+- Figma writes require a verified draft target.
+- Generated nodes stay in a kotikit-owned Section.
+- Apply metadata must match file, page, and Section.
+- Literal token fallback requires approval.
+- Missing component strategy requires approval.
+
+### Flow 5: Review And Memory
+
+Goal: turn Figma comments or design-review evidence into revisions and durable
+local preferences.
+
+Graph shape:
+
+```text
+load_target_or_node_map
+  -> gather_comments_or_target_evidence
+  -> group_findings
+  -> create_revision_plan
+  -> ask_reply_or_memory_approval
+  -> record_preferences
+  -> done
+```
+
+Hard invariants:
+
+- Comment posting requires explicit recorded approval.
+- Memory promotion requires explicit recorded approval.
+- Review evidence is bounded and summarized before reaching the assistant.
+
+## Trust Model
+
+Built-in flows:
+
+- Trusted by the installed kotikit release.
+- Can use built-in node registry capabilities.
+
+Project flows:
+
+- Stored under `.kotikit/flows`.
+- Disabled until enabled in `.kotikit/config.json`.
+- Cannot introduce new executable behavior.
+- Can compose only allowed registered nodes/subgraphs.
+
+Extension flow packs:
+
+- Require explicit allowlist entries.
+- Allowlist entry includes source, package id, version/ref, content hash, and
+  declared capabilities.
+- Extension nodes are disabled in the first implementation wave unless a later
+  spec explicitly enables them.
+
+Active runs:
+
+- Persist flow id, flow version, manifest hash, graph hash, node versions,
+  state schema version, and safety profile.
+- Never silently switch graph versions.
+
+## Packaging UX
+
+### Phase 1 Packaging
+
+- Keep `bun run scaffold:agents` for developers and compatibility.
+- Add Codex plugin wrapper for installable Codex workflow.
+- Add Claude Code plugin wrapper for installable Claude workflow.
+- Shared server remains `kotikit-mcp`.
+- Default setup does not require PAT for draft creation.
+
+### Phase 2 Packaging
+
+- Add npm/Bun package distribution.
+- Add CI smoke tests for plugin startup.
+- Add platform-specific compiled binaries only after source distribution works.
+
+### Phase 3 Packaging
+
+- Add MCPB bundles if binary distribution is reliable.
+- Add signing/notarization and Windows smoke tests before recommending MCPB to
+  non-technical designers.
+
+## Migration Strategy
+
+Migrate by replacing public choreography flow-by-flow.
+
+Order:
+
+1. Add Zod v4, schema export, graph foundation, and run store.
+2. Add a minimal graph facade while old tools still work.
+3. Replace brainstorm/spec creation with the brief graph.
+4. Wrap local design-system search as the primary grounding adapter.
+5. Replace draft creation with the draft graph.
+6. Replace review/comment/memory choreography with the review graph.
+7. Add plugin wrappers.
+8. Update docs to the new designer UX.
+9. Remove stale old router/tool code that has graph-backed replacements.
+
+## Stale Code Policy
+
+Remove code only after a graph-backed path covers the behavior and tests pass.
+
+Expected removals by the end state:
+
+- `src/workflow/*` manual router.
+- Public old workflow tools.
+- Public brainstorm/spec/flow choreography tools once brief graph replaces
+  them.
+- Public component-plan tool once missing-component decisions are graph
+  interrupts.
+- Public design-plan and design-screen apply-packet tools once draft graph
+  exposes artifacts.
+- Public review/comment/memory tool sprawl once review graph replaces it.
+- Setup scaffold paths that are superseded by plugins, after compatibility
+  docs declare the old path deprecated.
+
+Expected retained or adapted code:
+
+- `src/sync/*` local design-system sync/search.
+- `src/db/*` SQLite helpers and design-review store, migrated where useful.
+- `src/figma/*` safe target validation.
+- `src/planning/*` draft-plan and review engines, migrated under core domain.
+- Optional plugin variable bridge as an extension path.
+
+## Testing Strategy
+
+Tests must make the graph core reliable before Figma integration is involved.
+
+Required test levels:
+
+- Schema tests for Zod v4 parse failures and JSON Schema export.
+- Compiler tests for invalid manifests, duplicate nodes, missing edges,
+  unknown node keys, forbidden capabilities, unreachable nodes, and hash
+  stability.
+- Runtime tests for pause, resume, answer, checkpoint, artifact persistence,
+  and graphHash mismatch behavior.
+- Node tests for pure domain behavior.
+- Adapter tests for local design-system search using fixtures.
+- MCP facade tests for compact, friendly tool outputs.
+- Compatibility wrapper tests while old tools still exist.
+- Packaging tests for Codex/Claude plugin manifests.
+- End-to-end smoke tests using fake Figma adapters before live Figma.
+
+## Documentation Strategy
+
+Docs should shift from tool catalog to designer flows.
+
+Update:
+
+- `README.md`
+- `docs/getting-started.md`
+- `docs/workflows.md`
+- `docs/architecture.md`
+- `docs/tools.md`
+- `docs/figma.md`
+- `docs/troubleshooting.md`
+- `docs/development.md`
+- `docs/modules/*`
+- `.agents/skills/kotikit-auto/SKILL.md`
+- `.agents/skills/kotikit-design-review/SKILL.md`
+
+Docs should make clear:
+
+- Design-to-code is out of core.
+- Local design-system cache remains supported.
+- Figma remote MCP OAuth is the default draft creation path.
+- PAT is advanced setup for local sync/search and REST-backed review.
+- Custom flow manifests are advanced and capability-gated.
+
+## Risks
+
+- LangGraphJS integration could pull in more abstraction than needed. Mitigate
+  by starting with a minimal brief graph and fixture tests.
+- Plugin packaging could become product-specific. Mitigate by keeping wrappers
+  thin and the MCP server agent-neutral.
+- Zod v4 JSON Schema export could fail for advanced schemas. Mitigate by
+  banning constructs that JSON Schema cannot represent in exported schemas.
+- Figma remote MCP behavior could change. Mitigate by keeping all Figma writes
+  behind kotikit safety invariants and retaining local cache/search.
+- Stale wrappers could linger. Mitigate with a deprecation inventory and
+  removal tasks tied to graph-backed replacements.
+
+## Source Notes
+
+Sources reviewed directly or through the research sub-agent:
+
+- `KOTIKIT_MIGRATION.md`
+- `README.md`
+- `docs/architecture.md`
+- `docs/tools.md`
+- `docs/workflows.md`
+- `docs/getting-started.md`
+- `docs/coding_guidelines.md`
+- Codex plugins: https://developers.openai.com/codex/plugins
+- Codex plugin build docs: https://developers.openai.com/codex/plugins/build
+- Codex MCP docs: https://developers.openai.com/codex/mcp
+- Claude Code plugin docs: https://code.claude.com/docs/en/plugins-reference
+- Claude plugin marketplace docs:
+  https://code.claude.com/docs/en/plugin-marketplaces
+- Figma MCP docs: https://developers.figma.com/docs/figma-mcp-server/
+- Figma remote MCP install:
+  https://developers.figma.com/docs/figma-mcp-server/remote-server-installation/
+- Figma MCP tools:
+  https://developers.figma.com/docs/figma-mcp-server/tools-and-prompts/
+- Figma MCP rate limits:
+  https://developers.figma.com/docs/figma-mcp-server/rate-limits-access/
+- Bun executables: https://bun.sh/docs/bundler/executables
+- Zod JSON Schema: https://zod.dev/json-schema
+- MCP security:
+  https://modelcontextprotocol.io/docs/tutorials/security/security_best_practices
+- MCP server tools:
+  https://modelcontextprotocol.io/specification/2025-06-18/server/tools

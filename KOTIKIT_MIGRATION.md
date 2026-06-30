@@ -2,6 +2,11 @@
 
 Date: 2026-06-30
 
+Detailed follow-up documents:
+
+- [Kotikit Platform Flow Kit Design](docs/superpowers/specs/2026-06-30-kotikit-platform-flow-kit-design.md)
+- [Kotikit Platform Flow Kit Implementation Plan](docs/superpowers/plans/2026-06-30-kotikit-platform-flow-kit.md)
+
 This document captures a proposed complete refactor of kotikit around a smaller
 designer-first core and a LangGraphJS workflow engine.
 
