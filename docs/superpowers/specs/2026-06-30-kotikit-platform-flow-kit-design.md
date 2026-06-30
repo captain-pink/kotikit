@@ -243,10 +243,13 @@ src/core/
     memory/
   flows/
     built-in/
-      brief.flow.json
-      design-system-grounding.flow.json
-      draft.flow.json
-      review.flow.json
+      first-run.flow.json
+      create-screen.flow.json
+      create-product-flow.flow.json
+      improve-existing-design.flow.json
+      review-comments.flow.json
+      sync-design-system.flow.json
+      resolve-missing-components.flow.json
 src/mcp/
   facade/
     tools.ts
@@ -302,16 +305,21 @@ Example shape:
 ```json
 {
   "schemaVersion": 1,
-  "id": "draft",
+  "id": "create-screen",
   "version": "1.0.0",
-  "title": "Create Figma Draft",
+  "title": "Create Screen Draft",
   "stateSchema": "KotikitGraphState/v1",
   "requiredCapabilities": ["designSystem.search.local", "figma.write.remote"],
-  "start": "load-approved-brief",
+  "start": "capture-minimal-intent",
   "nodes": [
     {
-      "id": "load-approved-brief",
-      "uses": "brief.loadApproved",
+      "id": "capture-minimal-intent",
+      "uses": "brief.captureMinimalIntent",
+      "params": { "lane": "quick-high-fidelity" }
+    },
+    {
+      "id": "infer-screen-blueprint",
+      "uses": "brief.inferScreenBlueprint",
       "params": {}
     },
     {
@@ -325,22 +333,28 @@ Example shape:
       "interrupt": "ask-user"
     },
     {
-      "id": "build-apply-packet",
-      "uses": "draft.buildFigmaApplyPacket"
+      "id": "compile-high-fidelity-draft",
+      "uses": "draft.compileHighFidelityDraft"
     },
     {
       "id": "wait-for-apply",
       "uses": "figma.waitForApplyMetadata",
       "interrupt": "external-action"
+    },
+    {
+      "id": "post-draft-qa",
+      "uses": "qa.postDraftQa"
     }
   ],
   "edges": [
-    ["load-approved-brief", "ensure-design-system-fit"],
+    ["capture-minimal-intent", "infer-screen-blueprint"],
+    ["infer-screen-blueprint", "ensure-design-system-fit"],
     ["ensure-design-system-fit", "ensure-figma-target"],
-    ["ensure-figma-target", "build-apply-packet"],
-    ["build-apply-packet", "wait-for-apply"]
+    ["ensure-figma-target", "compile-high-fidelity-draft"],
+    ["compile-high-fidelity-draft", "wait-for-apply"],
+    ["wait-for-apply", "post-draft-qa"]
   ],
-  "end": ["wait-for-apply"]
+  "end": ["post-draft-qa"]
 }
 ```
 
@@ -488,6 +502,12 @@ MCP resources:
 
 MCP prompts:
 
+- `kotikit.first_run`
+- `kotikit.quick_screen_draft`
+- `kotikit.create_screen`
+- `kotikit.create_product_flow`
+- `kotikit.improve_existing_design`
+- `kotikit.review_comments`
 - `kotikit.create_brief`
 - `kotikit.create_figma_draft`
 - `kotikit.review_figma_design`
@@ -508,9 +528,45 @@ Compatibility wrappers:
 - Wrappers should be marked deprecated in docs and MCP descriptions.
 - The end state is the small facade plus explicit extension tools.
 
-## Designer Flows
+## Designer Flow UX
 
-### Flow 1: Setup And First Run
+Built-in flows should be goal-shaped, but they must not force designers through
+one rigid process. Kotikit should adapt to the user's intent, available inputs,
+and risk level.
+
+Each user-facing flow supports lanes:
+
+- **Quick lane** - ask only safety-critical or truly blocking questions. Use
+  reasonable defaults, local design-system cache, existing artifacts, and
+  reversible draft assumptions.
+- **Guided lane** - ask product/design questions one at a time when the request
+  is ambiguous, novel, or high impact.
+- **Deep lane** - add journey, state matrix, responsive, accessibility, and
+  edge-case coverage when the user asks for a full product flow or complete
+  exploration.
+- **Repair lane** - start from an existing Figma target, comments, or a review
+  finding and produce revisions instead of a new draft.
+
+Every flow can skip subgraphs when the required artifact already exists. For
+example, a designer who has an approved brief can start directly at draft
+creation, and a designer who asks for a fast high-fidelity screen from existing
+components can bypass long discovery and use a compact assumptions artifact
+instead of a blocking brief approval.
+
+Hard approvals remain mandatory only for safety-sensitive moments:
+
+- binding or changing a Figma target;
+- literal token/value fallback;
+- missing component strategy;
+- posting comments;
+- promoting design memory;
+- enabling project or extension flow packs.
+
+This gives non-technical users a clear product while preserving expert speed.
+
+## Built-In Designer Flows
+
+### Flow 1: First Run / Setup
 
 Goal: make the designer's first action conversational.
 
@@ -525,11 +581,37 @@ Happy path:
 7. PAT setup is offered only when the user wants local sync/search or REST
    comment review.
 
-### Flow 2: Idea To Brief
+### Flow 2: Create Screen Draft
 
-Goal: turn rough intent into an approved design brief.
+Goal: create or refine one high-fidelity screen from intent, existing
+artifacts, and the local design-system cache.
 
-Graph shape:
+Lanes:
+
+- **Quick high-fidelity** - for requests like "make a billing settings screen
+  from our design system." Requires only enough intent to infer the screen,
+  local design-system grounding, and a safe Figma target. It records assumptions
+  but does not block on a full brief approval unless ambiguity is high.
+- **Guided screen** - asks product/design questions when the request lacks
+  users, jobs, data, states, or interaction constraints.
+- **Deep screen** - adds state matrix, responsive behavior, accessibility, and
+  edge-case coverage before draft creation.
+
+Quick graph shape:
+
+```text
+capture_minimal_intent
+  -> infer_screen_blueprint
+  -> search_local_design_system
+  -> classify_fit
+  -> ensure_figma_target
+  -> compile_high_fidelity_draft
+  -> wait_for_figma_apply
+  -> verify_draft_invariants
+  -> post_draft_qa
+```
+
+Guided graph shape:
 
 ```text
 classify_intent
@@ -538,70 +620,77 @@ classify_intent
   -> check_completeness
   -> summarize_for_approval
   -> save_brief_artifact
+  -> search_local_design_system
+  -> classify_fit
+  -> ensure_figma_target
+  -> compile_high_fidelity_draft
+  -> wait_for_figma_apply
+  -> verify_draft_invariants
+  -> post_draft_qa
 ```
 
 Interrupts:
 
-- Ask one design/product question at a time.
-- Ask for final brief approval.
+- Quick lane asks only for Figma target, design-system source when missing, or
+  a missing-component/literal-token decision.
+- Guided/deep lanes ask one design/product question at a time.
+- Final brief approval is required only for guided/deep lanes or when quick
+  lane confidence is low.
 
-### Flow 3: Design-System Grounding
+### Flow 3: Create Product Flow
 
-Goal: ground draft decisions in the real design system without wasting tokens.
+Goal: shape a multi-screen UX flow and create coherent Figma drafts.
 
-Primary adapter:
-
-- Local SQLite component/icon/variable search from `design-system/`.
-
-Secondary adapters:
-
-- Figma remote MCP `search_design_system` for validation, cache gap checks, or
-  fallback discovery.
-- Manual narrow references for small projects.
+Use for onboarding, checkout, invite flows, settings flows, admin workflows, or
+any task where navigation and user progression matter.
 
 Graph shape:
 
 ```text
-check_local_cache
-  -> search_local_components
-  -> search_local_tokens
-  -> optional_remote_validation
-  -> classify_fit
-  -> ask_missing_component_decision
-  -> save_fit_report
+capture_goal_actor_scenario
+  -> map_user_flow
+  -> identify_screens_and_states
+  -> ground_shared_design_system
+  -> draft_screens_incrementally
+  -> optional_prototype_plan
+  -> flow_level_qa
 ```
 
-### Flow 4: Figma Draft Creation
+Interrupts:
 
-Goal: create or refine a bounded Figma draft from an approved brief and fit
-report.
+- Ask only for missing actor, goal, scenario, or screen decisions.
+- Prototype wiring is optional and capability-gated.
+
+### Flow 4: Improve Existing Figma Design
+
+Goal: take an existing Figma target and make it better without starting from
+scratch.
+
+Use for "review this screen and improve it", "make this more usable", "bring
+this closer to our design system", or "polish this draft".
 
 Graph shape:
 
 ```text
-load_approved_brief
-  -> ensure_design_system_fit
-  -> ensure_figma_target
-  -> compile_draft_plan
-  -> build_apply_packet
-  -> wait_for_figma_apply
-  -> record_apply_metadata
-  -> verify_draft_invariants
-  -> save_apply_report
+load_figma_target
+  -> gather_bounded_evidence
+  -> compare_to_design_system
+  -> run_design_quality_review
+  -> create_revision_plan
+  -> ask_revision_approval
+  -> apply_approved_revisions
+  -> post_revision_qa
 ```
 
-Hard invariants:
+Interrupts:
 
-- Figma writes require a verified draft target.
-- Generated nodes stay in a kotikit-owned Section.
-- Apply metadata must match file, page, and Section.
-- Literal token fallback requires approval.
-- Missing component strategy requires approval.
+- Ask before applying revisions.
+- Ask before literal token fallback or missing-component creation.
 
-### Flow 5: Review And Memory
+### Flow 5: Review Comments And Iterate
 
-Goal: turn Figma comments or design-review evidence into revisions and durable
-local preferences.
+Goal: turn Figma comments or review notes into grouped decisions, revisions,
+approved replies, and optional design memory.
 
 Graph shape:
 
@@ -620,6 +709,114 @@ Hard invariants:
 - Comment posting requires explicit recorded approval.
 - Memory promotion requires explicit recorded approval.
 - Review evidence is bounded and summarized before reaching the assistant.
+
+### Flow 6: Sync / Refresh Design System
+
+Goal: keep kotikit's token-efficient local design-system cache healthy.
+
+Primary adapter:
+
+- Local SQLite component/icon/variable search from `design-system/`.
+
+Secondary adapters:
+
+- Figma remote MCP `search_design_system` for validation, cache gap checks, or
+  fallback discovery.
+- Manual narrow references for small projects.
+
+Graph shape:
+
+```text
+check_local_cache
+  -> configure_figma_sources_if_needed
+  -> sync_or_refresh_cache
+  -> index_health_check
+  -> search_smoke_test
+  -> report_component_token_icon_gaps
+```
+
+PAT setup belongs here and in REST-backed comment/review paths. It should not
+block the draft-creation happy path when Figma remote MCP is available.
+
+### Flow 7: Resolve Missing Components
+
+Goal: make missing design-system pieces explicit instead of silently inventing
+them during draft creation.
+
+Use when draft creation finds a component gap, when a designer asks "what is
+missing from this design system?", or when a team wants draft component
+candidates.
+
+Graph shape:
+
+```text
+load_fit_report
+  -> search_substitutes
+  -> classify_gap
+  -> propose_inline_or_draft_component_strategy
+  -> ask_strategy_approval
+  -> save_missing_component_decision
+```
+
+## Internal Reusable Subgraphs
+
+The user-facing flows above reuse smaller internal subgraphs. These are not the
+main product menu:
+
+- `briefing`
+- `screen-blueprint`
+- `journey-map`
+- `design-system-grounding`
+- `draft-creation`
+- `post-draft-qa`
+- `design-review`
+- `comment-iteration`
+- `memory-promotion`
+- `safe-figma-target`
+
+This keeps the public UX simple while preserving a composable graph runtime.
+
+## Design-System Grounding Subgraph
+
+Goal: ground draft decisions in the real design system without wasting tokens.
+
+Graph shape:
+
+```text
+check_local_cache
+  -> search_local_components
+  -> search_local_tokens
+  -> optional_remote_validation
+  -> classify_fit
+  -> ask_missing_component_decision
+  -> save_fit_report
+```
+
+## Figma Draft Creation Subgraph
+
+Goal: create or refine a bounded Figma draft from an approved brief, quick
+screen blueprint, or product-flow screen model.
+
+Graph shape:
+
+```text
+ensure_design_system_fit
+  -> ensure_figma_target
+  -> compile_draft_plan
+  -> build_apply_packet
+  -> wait_for_figma_apply
+  -> record_apply_metadata
+  -> verify_draft_invariants
+  -> save_apply_report
+```
+
+Hard invariants:
+
+- Figma writes require a verified draft target.
+- Generated nodes stay in a kotikit-owned Section.
+- Apply metadata must match file, page, and Section.
+- Literal token fallback requires approval.
+- Missing component strategy requires approval.
 
 ## Trust Model
 

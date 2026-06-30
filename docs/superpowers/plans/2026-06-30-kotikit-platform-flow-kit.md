@@ -27,10 +27,13 @@ Recommended subagent split:
 - Agent A: Zod v4 schemas, JSON Schema export, manifest validation.
 - Agent B: graph runtime, node registry, run/artifact stores.
 - Agent C: MCP facade tools/resources/prompts/completions.
-- Agent D: brief flow and old brainstorm/spec compatibility.
+- Agent D: create-screen flow, briefing subgraph, and old brainstorm/spec
+  compatibility.
 - Agent E: design-system grounding adapter and local search preservation.
-- Agent F: draft flow and Figma apply metadata invariants.
-- Agent G: review flow and memory approval invariants.
+- Agent F: draft creation subgraph, quick high-fidelity lane, and Figma apply
+  metadata invariants.
+- Agent G: improve-design/review-comments flows and memory approval
+  invariants.
 - Agent H: plugin wrappers and installer packaging.
 - Agent I: stale-code removal and docs rewrite.
 
@@ -53,14 +56,19 @@ Create:
 - `src/core/runs/run-store.ts`
 - `src/core/runs/artifact-store.ts`
 - `src/core/runs/checkpoint-store.ts`
-- `src/core/flows/built-in/brief.flow.json`
-- `src/core/flows/built-in/design-system-grounding.flow.json`
-- `src/core/flows/built-in/draft.flow.json`
-- `src/core/flows/built-in/review.flow.json`
+- `src/core/flows/built-in/first-run.flow.json`
+- `src/core/flows/built-in/create-screen.flow.json`
+- `src/core/flows/built-in/create-product-flow.flow.json`
+- `src/core/flows/built-in/improve-existing-design.flow.json`
+- `src/core/flows/built-in/review-comments.flow.json`
+- `src/core/flows/built-in/sync-design-system.flow.json`
+- `src/core/flows/built-in/resolve-missing-components.flow.json`
 - `src/core/nodes/brief/index.ts`
+- `src/core/nodes/flow/index.ts`
 - `src/core/nodes/design-system/index.ts`
 - `src/core/nodes/draft/index.ts`
 - `src/core/nodes/figma/index.ts`
+- `src/core/nodes/qa/index.ts`
 - `src/core/nodes/review/index.ts`
 - `src/core/adapters/design-system/local-index.ts`
 - `src/core/adapters/design-system/figma-remote-search.ts`
@@ -417,10 +425,13 @@ git commit -m "feat(core): add graph runtime and run stores"
 **Files:**
 
 - Create: `src/core/flows/catalog.ts`
-- Create: `src/core/flows/built-in/brief.flow.json`
-- Create: `src/core/flows/built-in/design-system-grounding.flow.json`
-- Create: `src/core/flows/built-in/draft.flow.json`
-- Create: `src/core/flows/built-in/review.flow.json`
+- Create: `src/core/flows/built-in/first-run.flow.json`
+- Create: `src/core/flows/built-in/create-screen.flow.json`
+- Create: `src/core/flows/built-in/create-product-flow.flow.json`
+- Create: `src/core/flows/built-in/improve-existing-design.flow.json`
+- Create: `src/core/flows/built-in/review-comments.flow.json`
+- Create: `src/core/flows/built-in/sync-design-system.flow.json`
+- Create: `src/core/flows/built-in/resolve-missing-components.flow.json`
 - Create: `src/core/flows/test/catalog.test.ts`
 - Modify: `src/core/graph/compiler.ts`
 
@@ -434,35 +445,58 @@ Tests:
 - project flows are ignored unless config enables them;
 - extension flows require allowlist entries with source, ref/version, hash, and
   capabilities.
+- create-screen supports quick, guided, and deep lanes without separate public
+  tool names;
+- quick high-fidelity lane skips full brief approval when the user supplied
+  enough intent and no safety-sensitive ambiguity exists.
 
 - [ ] **Step 2: Add initial built-in flow manifests**
 
 Add manifests for:
 
-- `brief`
-- `design-system-grounding`
-- `draft`
-- `review`
+- `first-run`
+- `create-screen`
+- `create-product-flow`
+- `improve-existing-design`
+- `review-comments`
+- `sync-design-system`
+- `resolve-missing-components`
+
+Do not expose `brief`, `design-system-grounding`, `draft`, or `review` as the
+main built-in product menu. Implement those as reusable subgraphs or node
+sequences inside the user-facing flows.
 
 Use node keys from the design spec:
 
+- `setup.runDoctor`
+- `setup.detectFigmaRemoteMcp`
+- `setup.detectLocalCache`
 - `brief.classifyIntent`
+- `brief.captureMinimalIntent`
+- `brief.inferScreenBlueprint`
 - `brief.askNextQuestion`
 - `brief.recordAnswer`
 - `brief.summarizeForApproval`
 - `brief.saveApproved`
+- `flow.captureGoalActorScenario`
+- `flow.mapUserFlow`
+- `flow.identifyScreensAndStates`
 - `designSystem.searchLocal`
 - `designSystem.buildFitReport`
 - `designSystem.askMissingComponentDecision`
 - `figma.ensureDraftTarget`
 - `draft.compilePlan`
+- `draft.compileHighFidelityDraft`
 - `draft.buildFigmaApplyPacket`
 - `figma.waitForApplyMetadata`
 - `figma.verifyDraftInvariants`
+- `qa.postDraftQa`
 - `review.collectEvidence`
+- `review.compareToDesignSystem`
 - `review.groupFindings`
 - `review.createRevisionPlan`
 - `review.askApproval`
+- `review.applyApprovedRevisions`
 - `memory.promotePreference`
 
 - [ ] **Step 3: Implement flow catalog loader**
@@ -548,6 +582,12 @@ Expose resources:
 
 Expose prompts:
 
+- `kotikit.first_run`
+- `kotikit.quick_screen_draft`
+- `kotikit.create_screen`
+- `kotikit.create_product_flow`
+- `kotikit.improve_existing_design`
+- `kotikit.review_comments`
 - `kotikit.create_brief`
 - `kotikit.create_figma_draft`
 - `kotikit.review_figma_design`
@@ -579,12 +619,14 @@ git add src/mcp/facade src/mcp/server.ts src/mcp/instructions.ts docs/developmen
 git commit -m "feat(mcp): add graph facade surface"
 ```
 
-## Task 6: Implement Brief Flow Nodes
+## Task 6: Implement Create-Screen And Briefing Nodes
 
 **Files:**
 
 - Create: `src/core/nodes/brief/index.ts`
+- Create: `src/core/nodes/flow/index.ts`
 - Create: `src/core/nodes/brief/test/brief-nodes.test.ts`
+- Create: `src/core/nodes/flow/test/flow-nodes.test.ts`
 - Modify: `src/spec/brainstorm-session.ts`
 - Modify: `src/spec/schema.ts`
 - Modify: `src/mcp/tools/brainstorm.ts`
@@ -595,30 +637,40 @@ git commit -m "feat(mcp): add graph facade surface"
 Tests:
 
 - classify a rough idea into screen or multi-screen flow intent;
+- capture minimal intent for quick high-fidelity screen creation;
+- infer a screen blueprint from a short request and local design-system hints;
 - ask one missing question at a time;
 - record an answer into graph state;
 - produce an approval summary;
-- save an approved `design-brief` artifact.
+- save an approved `design-brief` artifact;
+- map a multi-screen product flow from actor, goal, and scenario;
+- identify screens and states from the product-flow map.
 
 - [ ] **Step 2: Implement brief nodes**
 
 Implement node definitions:
 
 - `brief.classifyIntent`
+- `brief.captureMinimalIntent`
+- `brief.inferScreenBlueprint`
 - `brief.askNextQuestion`
 - `brief.recordAnswer`
 - `brief.summarizeForApproval`
 - `brief.saveApproved`
+- `flow.captureGoalActorScenario`
+- `flow.mapUserFlow`
+- `flow.identifyScreensAndStates`
 
 Reuse existing spec/brainstorm domain logic where it is clean. Move pure
-helpers under `src/core/domain/brief.ts` only when it reduces duplication.
+helpers under `src/core/domain/brief.ts`, `src/core/domain/screen-model.ts`,
+or `src/core/domain/flow-model.ts` only when it reduces duplication.
 
 - [ ] **Step 3: Add compatibility wrappers**
 
 Make old brainstorm/spec tools call the graph facade where practical:
 
-- `kotikit_brainstorm_start` starts `brief`;
-- `kotikit_brainstorm_answer` answers the active brief run;
+- `kotikit_brainstorm_start` starts the guided lane of `create-screen`;
+- `kotikit_brainstorm_answer` answers the active create-screen run;
 - `kotikit_brainstorm_confirm` approves the summary;
 - `kotikit_spec_create` reads the saved brief artifact.
 
@@ -629,7 +681,7 @@ Mark old tools as deprecated in descriptions.
 Run:
 
 ```bash
-bun test src/core/nodes/brief/test src/spec/test src/mcp/tools/brainstorm.test.ts src/mcp/tools/spec.test.ts
+bun test src/core/nodes/brief/test src/core/nodes/flow/test src/spec/test src/mcp/tools/brainstorm.test.ts src/mcp/tools/spec.test.ts
 bun run typecheck
 ```
 
@@ -639,8 +691,8 @@ targets under `src/mcp`.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/core/nodes/brief src/spec src/mcp/tools/brainstorm.ts src/mcp/tools/spec.ts
-git commit -m "feat(core): move briefing into graph flow"
+git add src/core/nodes/brief src/core/nodes/flow src/spec src/mcp/tools/brainstorm.ts src/mcp/tools/spec.ts
+git commit -m "feat(core): add adaptive screen and flow briefing nodes"
 ```
 
 ## Task 7: Preserve Local Design-System Search As Primary Adapter
@@ -709,7 +761,7 @@ git add src/core/adapters/design-system src/core/nodes/design-system src/mcp/too
 git commit -m "feat(core): preserve local design-system grounding adapter"
 ```
 
-## Task 8: Implement Draft Flow Nodes
+## Task 8: Implement Draft And Post-Draft QA Nodes
 
 **Files:**
 
@@ -717,8 +769,10 @@ git commit -m "feat(core): preserve local design-system grounding adapter"
 - Create: `src/core/adapters/figma/apply-packet.ts`
 - Create: `src/core/nodes/draft/index.ts`
 - Create: `src/core/nodes/figma/index.ts`
+- Create: `src/core/nodes/qa/index.ts`
 - Create: `src/core/nodes/draft/test/draft-nodes.test.ts`
 - Create: `src/core/nodes/figma/test/figma-nodes.test.ts`
+- Create: `src/core/nodes/qa/test/qa-nodes.test.ts`
 - Modify: `src/figma/draft-target.ts`
 - Modify: `src/planning/design-planner.ts`
 - Modify: `src/planning/design-plan-store.ts`
@@ -731,11 +785,14 @@ git commit -m "feat(core): preserve local design-system grounding adapter"
 
 Tests:
 
-- draft flow refuses to build apply packet without approved brief;
-- draft flow refuses Figma write without safe draft page target;
+- guided/deep draft path refuses to build apply packet without approved brief;
+- quick high-fidelity path can build from a screen blueprint and assumptions
+  artifact without blocking on full brief approval;
+- draft creation refuses Figma write without safe draft page target;
 - apply metadata must match file, page, and kotikit Section;
 - literal variable fallback pauses for approval;
-- missing component strategy pauses for approval.
+- missing component strategy pauses for approval;
+- post-draft QA saves findings without posting comments or changing memory.
 
 - [ ] **Step 2: Wrap target validation**
 
@@ -752,7 +809,10 @@ No Figma write can happen without this state.
 Expose draft planning as a graph node:
 
 - `draft.compilePlan`
+- `draft.compileHighFidelityDraft`
+- `draft.draftScreensIncrementally`
 - `draft.buildFigmaApplyPacket`
+- `qa.postDraftQa`
 
 The apply packet remains compatible with official Figma MCP writes.
 
@@ -777,18 +837,18 @@ Mark old public descriptions as deprecated.
 Run:
 
 ```bash
-bun test src/core/nodes/draft src/core/nodes/figma src/figma/test src/planning/test src/mcp/tools
+bun test src/core/nodes/draft src/core/nodes/figma src/core/nodes/qa src/figma/test src/planning/test src/mcp/tools
 bun run typecheck
 ```
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/core/adapters/figma src/core/nodes/draft src/core/nodes/figma src/figma src/planning src/mcp/tools
-git commit -m "feat(core): move draft creation into graph flow"
+git add src/core/adapters/figma src/core/nodes/draft src/core/nodes/figma src/core/nodes/qa src/figma src/planning src/mcp/tools
+git commit -m "feat(core): add adaptive draft creation nodes"
 ```
 
-## Task 9: Implement Review And Memory Flow Nodes
+## Task 9: Implement Improve-Design, Review-Comments, And Memory Nodes
 
 **Files:**
 
@@ -806,9 +866,12 @@ git commit -m "feat(core): move draft creation into graph flow"
 
 Tests:
 
-- review flow gathers bounded evidence;
+- improve-existing-design flow gathers bounded evidence;
+- improve-existing-design flow compares an exact Figma target to local
+  design-system evidence;
 - findings are grouped by theme/severity;
 - revision plan is saved as an artifact;
+- approved revisions can be applied through the safe Figma draft/update path;
 - comment posting pauses for explicit approval;
 - memory promotion pauses for explicit approval.
 
@@ -817,9 +880,11 @@ Tests:
 Implement:
 
 - `review.collectEvidence`
+- `review.compareToDesignSystem`
 - `review.groupFindings`
 - `review.createRevisionPlan`
 - `review.askApproval`
+- `review.applyApprovedRevisions`
 - `review.saveSession`
 
 - [ ] **Step 3: Implement memory nodes**
@@ -1107,6 +1172,7 @@ README should describe:
 
 - designer-first flow kit;
 - built-in flows;
+- quick high-fidelity screen creation from existing design-system components;
 - local design-system cache retained;
 - Figma remote MCP happy path;
 - plugin installation direction;
@@ -1120,9 +1186,9 @@ Structure:
 1. Install kotikit plugin or use local scaffold for development.
 2. Connect Figma remote MCP for draft creation.
 3. Optional PAT setup for local design-system sync/search and comments.
-4. Run first brief flow.
-5. Run first draft flow.
-6. Run review flow.
+4. Run quick screen draft or guided create-screen flow.
+5. Run product-flow, improve-design, or review-comments flow as needed.
+6. Run sync-design-system only when local cache needs setup or refresh.
 
 - [ ] **Step 4: Rewrite architecture and tools docs**
 
@@ -1165,9 +1231,10 @@ git commit -m "docs: document platform flow kit architecture"
 
 **Files:**
 
-- Create: `e2e/graph/brief-flow.test.ts`
-- Create: `e2e/graph/draft-flow.test.ts`
-- Create: `e2e/graph/review-flow.test.ts`
+- Create: `e2e/graph/create-screen-flow.test.ts`
+- Create: `e2e/graph/create-product-flow.test.ts`
+- Create: `e2e/graph/improve-existing-design-flow.test.ts`
+- Create: `e2e/graph/review-comments-flow.test.ts`
 - Create: `e2e/graph/fixtures/fake-figma.ts`
 - Modify: `package.json`
 
@@ -1175,11 +1242,17 @@ git commit -m "docs: document platform flow kit architecture"
 
 Tests:
 
-- brief flow starts, asks, answers, approves, saves brief artifact;
-- draft flow loads approved brief, searches local design-system fixture,
-  creates apply packet, waits for fake apply metadata, verifies invariants;
-- review flow gathers fake comments, builds revision plan, pauses before
-  posting comments or memory promotion.
+- create-screen quick lane starts from a short high-fidelity request, searches
+  the local design-system fixture, creates an apply packet, waits for fake
+  apply metadata, verifies invariants, and saves post-draft QA;
+- create-screen guided lane asks, answers, approves, saves a brief artifact,
+  then creates the draft artifact chain;
+- create-product-flow maps fake actor/goal/scenario input into screens and
+  drafts them incrementally;
+- improve-existing-design gathers fake target evidence, builds a revision plan,
+  and pauses before applying revisions;
+- review-comments gathers fake comments, builds a revision plan, and pauses
+  before posting comments or memory promotion.
 
 - [ ] **Step 2: Add fake Figma adapter**
 
@@ -1290,7 +1363,13 @@ The migration is complete when:
 - Zod v4 is the schema source of truth.
 - JSON Schema files are generated for external flow/artifact contracts.
 - LangGraph runtime can start, pause, resume, and complete flows.
-- Built-in brief, design-system grounding, draft, and review flows exist.
+- Built-in first-run, create-screen, create-product-flow,
+  improve-existing-design, review-comments, sync-design-system, and
+  resolve-missing-components flows exist.
+- Create-screen supports a quick high-fidelity lane that uses existing
+  design-system components and asks only safety-critical blocking questions.
+- Briefing, design-system grounding, draft creation, QA, review, and memory
+  are reusable internal subgraphs instead of the primary user-facing menu.
 - Local design-system search remains the primary grounding adapter.
 - Figma remote MCP is used as the default draft creation write path.
 - PAT setup is not required for draft creation happy path.
