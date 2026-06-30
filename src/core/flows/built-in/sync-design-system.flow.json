@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "sync-design-system",
+  "version": "1.0.0",
+  "title": "Sync Design System",
+  "description": "Refresh kotikit's local design-system cache and report health.",
+  "stateSchema": "KotikitGraphState/v1",
+  "requiredCapabilities": ["setup.detect", "designSystem.search.local", "designSystem.fit"],
+  "nodes": [
+    {
+      "id": "detect-local-cache",
+      "uses": "setup.detectLocalCache",
+      "params": {}
+    },
+    {
+      "id": "detect-figma-remote-mcp",
+      "uses": "setup.detectFigmaRemoteMcp",
+      "params": {}
+    },
+    {
+      "id": "search-local-design-system",
+      "uses": "designSystem.searchLocal",
+      "params": {
+        "smokeTest": true
+      }
+    },
+    {
+      "id": "build-fit-report",
+      "uses": "designSystem.buildFitReport",
+      "params": {
+        "reportCacheHealth": true
+      }
+    },
+    {
+      "id": "post-cache-qa",
+      "uses": "qa.postDraftQa",
+      "params": {}
+    }
+  ],
+  "edges": [
+    ["detect-local-cache", "detect-figma-remote-mcp"],
+    ["detect-figma-remote-mcp", "search-local-design-system"],
+    ["search-local-design-system", "build-fit-report"],
+    ["build-fit-report", "post-cache-qa"]
+  ],
+  "start": "detect-local-cache",
+  "end": ["post-cache-qa"],
+  "safetyProfile": "design-system-sync"
+}

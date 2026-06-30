@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "id": "resolve-missing-components",
+  "version": "1.0.0",
+  "title": "Resolve Missing Components",
+  "description": "Turn design-system gaps into explicit draft-component decisions.",
+  "stateSchema": "KotikitGraphState/v1",
+  "requiredCapabilities": [
+    "designSystem.search.local",
+    "designSystem.fit",
+    "draftComponents.write",
+    "qa.run"
+  ],
+  "nodes": [
+    {
+      "id": "search-local-design-system",
+      "uses": "designSystem.searchLocal",
+      "params": {
+        "includeSubstitutes": true
+      }
+    },
+    {
+      "id": "build-fit-report",
+      "uses": "designSystem.buildFitReport",
+      "params": {
+        "classifyGaps": true
+      }
+    },
+    {
+      "id": "ask-missing-component-decision",
+      "uses": "designSystem.askMissingComponentDecision",
+      "params": {}
+    },
+    {
+      "id": "plan-missing-components",
+      "uses": "draftComponents.planMissing",
+      "params": {}
+    },
+    {
+      "id": "create-draft-components",
+      "uses": "draftComponents.createOnDraftPage",
+      "params": {}
+    },
+    {
+      "id": "validate-draft-components",
+      "uses": "draftComponents.validateCreated",
+      "params": {}
+    },
+    {
+      "id": "run-ui-quality-gate",
+      "uses": "qa.runUiQualityGate",
+      "params": {}
+    }
+  ],
+  "edges": [
+    ["search-local-design-system", "build-fit-report"],
+    ["build-fit-report", "ask-missing-component-decision"],
+    ["ask-missing-component-decision", "plan-missing-components"],
+    ["plan-missing-components", "create-draft-components"],
+    ["create-draft-components", "validate-draft-components"],
+    ["validate-draft-components", "run-ui-quality-gate"]
+  ],
+  "start": "search-local-design-system",
+  "end": ["run-ui-quality-gate"],
+  "safetyProfile": "missing-components-explicit-decision"
+}

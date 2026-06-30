@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "first-run",
+  "version": "1.0.0",
+  "title": "First Run",
+  "description": "Check setup and explain the next smallest useful step.",
+  "stateSchema": "KotikitGraphState/v1",
+  "requiredCapabilities": ["setup.doctor", "setup.detect"],
+  "nodes": [
+    {
+      "id": "run-doctor",
+      "uses": "setup.runDoctor",
+      "params": {}
+    },
+    {
+      "id": "detect-figma-remote-mcp",
+      "uses": "setup.detectFigmaRemoteMcp",
+      "params": {}
+    },
+    {
+      "id": "detect-local-cache",
+      "uses": "setup.detectLocalCache",
+      "params": {}
+    }
+  ],
+  "edges": [
+    ["run-doctor", "detect-figma-remote-mcp"],
+    ["detect-figma-remote-mcp", "detect-local-cache"]
+  ],
+  "start": "run-doctor",
+  "end": ["detect-local-cache"],
+  "safetyProfile": "setup-readonly"
+}

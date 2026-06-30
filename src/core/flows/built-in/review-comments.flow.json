@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "id": "review-comments",
+  "version": "1.0.0",
+  "title": "Review Comments",
+  "description": "Group Figma comments into decisions, revisions, replies, and optional memory.",
+  "stateSchema": "KotikitGraphState/v1",
+  "requiredCapabilities": [
+    "figma.target",
+    "comments.read",
+    "review.write",
+    "comments.write",
+    "memory.write"
+  ],
+  "nodes": [
+    {
+      "id": "ensure-draft-target",
+      "uses": "figma.ensureDraftTarget",
+      "params": {}
+    },
+    {
+      "id": "collect-evidence",
+      "uses": "review.collectEvidence",
+      "params": {
+        "source": "comments"
+      }
+    },
+    {
+      "id": "group-findings",
+      "uses": "review.groupFindings",
+      "params": {}
+    },
+    {
+      "id": "create-revision-plan",
+      "uses": "review.createRevisionPlan",
+      "params": {}
+    },
+    {
+      "id": "ask-reply-or-memory-approval",
+      "uses": "review.askApproval",
+      "params": {
+        "requiresCommentApproval": true,
+        "requiresMemoryApproval": true
+      }
+    },
+    {
+      "id": "promote-preference",
+      "uses": "memory.promotePreference",
+      "params": {}
+    }
+  ],
+  "edges": [
+    ["ensure-draft-target", "collect-evidence"],
+    ["collect-evidence", "group-findings"],
+    ["group-findings", "create-revision-plan"],
+    ["create-revision-plan", "ask-reply-or-memory-approval"],
+    ["ask-reply-or-memory-approval", "promote-preference"]
+  ],
+  "start": "ensure-draft-target",
+  "end": ["promote-preference"],
+  "safetyProfile": "review-comments-approval-required"
+}

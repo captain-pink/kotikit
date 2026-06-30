@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "id": "improve-existing-design",
+  "version": "1.0.0",
+  "title": "Improve Existing Design",
+  "description": "Review an existing Figma target and apply approved revisions.",
+  "stateSchema": "KotikitGraphState/v1",
+  "requiredCapabilities": [
+    "figma.target",
+    "figma.read.remote",
+    "designSystem.search.local",
+    "review.write",
+    "figma.write.remote",
+    "qa.run"
+  ],
+  "nodes": [
+    {
+      "id": "ensure-draft-target",
+      "uses": "figma.ensureDraftTarget",
+      "params": {}
+    },
+    {
+      "id": "collect-evidence",
+      "uses": "review.collectEvidence",
+      "params": {}
+    },
+    {
+      "id": "compare-to-design-system",
+      "uses": "review.compareToDesignSystem",
+      "params": {}
+    },
+    {
+      "id": "group-findings",
+      "uses": "review.groupFindings",
+      "params": {}
+    },
+    {
+      "id": "create-revision-plan",
+      "uses": "review.createRevisionPlan",
+      "params": {}
+    },
+    {
+      "id": "build-ui-composition-contract",
+      "uses": "ui.buildCompositionContract",
+      "params": {}
+    },
+    {
+      "id": "build-layout-contract",
+      "uses": "ui.buildLayoutContract",
+      "params": {}
+    },
+    {
+      "id": "build-variable-binding-plan",
+      "uses": "ui.buildVariableBindingPlan",
+      "params": {}
+    },
+    {
+      "id": "ask-revision-approval",
+      "uses": "review.askApproval",
+      "params": {}
+    },
+    {
+      "id": "apply-approved-revisions",
+      "uses": "review.applyApprovedRevisions",
+      "params": {}
+    },
+    {
+      "id": "run-ui-quality-gate",
+      "uses": "qa.runUiQualityGate",
+      "params": {}
+    },
+    {
+      "id": "post-revision-qa",
+      "uses": "qa.postDraftQa",
+      "params": {}
+    }
+  ],
+  "edges": [
+    ["ensure-draft-target", "collect-evidence"],
+    ["collect-evidence", "compare-to-design-system"],
+    ["compare-to-design-system", "group-findings"],
+    ["group-findings", "create-revision-plan"],
+    ["create-revision-plan", "build-ui-composition-contract"],
+    ["build-ui-composition-contract", "build-layout-contract"],
+    ["build-layout-contract", "build-variable-binding-plan"],
+    ["build-variable-binding-plan", "ask-revision-approval"],
+    ["ask-revision-approval", "apply-approved-revisions"],
+    ["apply-approved-revisions", "run-ui-quality-gate"],
+    ["run-ui-quality-gate", "post-revision-qa"]
+  ],
+  "start": "ensure-draft-target",
+  "end": ["post-revision-qa"],
+  "safetyProfile": "approved-design-revision"
+}
