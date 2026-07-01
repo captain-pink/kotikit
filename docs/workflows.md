@@ -39,11 +39,19 @@ The assistant should:
 2. Search the local design-system cache before inventing anything.
 3. Ask only blocking questions, such as missing component strategy, literal
    variable fallback approval, or the exact Figma draft page target.
-4. Read the apply-packet artifact.
-5. Use the official Figma assistant integration to create the draft inside a
-   kotikit-owned Section.
+4. Read the apply-packet artifact and active Figma transaction.
+5. Use the official Figma assistant integration to apply one draft component,
+   screen state, or region state at the canvas plan bounds.
 6. Record Figma node metadata back into kotikit.
-7. Let the UI quality gate check common broken-output issues.
+7. Continue the run and repeat one screen state at a time until the transaction
+   queue is complete.
+8. Let the UI quality gate check common broken-output issues.
+
+Kotikit applies Figma drafts through incremental Figma transactions. It creates
+draft components first, then creates the filled screen, then creates each
+required state one screen state at a time. Each generated node is placed by the
+canvas plan and recorded in the node ledger so comment review can still work
+after designers move frames.
 
 ## Screen States
 
@@ -160,10 +168,12 @@ Comment review works best when the design was created through kotikit and has
 recorded Figma node metadata. Kotikit maps comments on known nodes back to graph
 artifacts when possible, groups them into decisions, and can prepare replies.
 
-The comment flow uses Figma REST comment snapshots plus saved apply metadata to
-build a compact `CommentEvidenceMap`. Raw comment snapshots are stored as
-artifacts after the evidence map exists, so the graph can resume review without
-keeping large payloads in assistant context.
+The comment flow uses Figma REST comment snapshots, canvas reconciliation, and
+saved apply metadata to build a compact `CommentEvidenceMap`. Designers may
+move or rename generated frames; kotikit reconciles the current canvas before
+mapping comments. Raw comment snapshots are stored as artifacts after the
+evidence map exists, so the graph can resume review without keeping large
+payloads in assistant context.
 
 Kotikit never posts replies or review comments without your approval.
 

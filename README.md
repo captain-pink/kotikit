@@ -162,9 +162,10 @@ kotikit has four main pieces:
 
 4. **Figma apply path**  
    The official Figma assistant integration writes draft designs in Figma using
-   kotikit's saved plan, target, design-system matches, and safety rules. The
-   local kotikit plugin is reserved for variable import on Figma plans where the
-   REST Variables API is unavailable.
+   incremental Figma transactions. Kotikit creates a canvas plan, applies one
+   screen state at a time, records the resulting Figma node ledger, and then
+   resumes the graph. The local kotikit plugin is reserved for variable import
+   on Figma plans where the REST Variables API is unavailable.
 
 See [docs/architecture.md](docs/architecture.md) for the detailed system map.
 
@@ -178,6 +179,8 @@ kotikit is designed to be local-first and conservative:
 - Figma design creation is blocked until you bind an exact draft page URL.
 - The target Figma page name must contain `Draft` or `Drafts`.
 - Generated screens are placed inside a kotikit-owned Figma Section.
+- Generated states follow the canvas plan so frames are same-sized,
+  non-overlapping, and reviewable without manual cleanup.
 - Apply-step logging validates file, page, and Section metadata.
 - Figma review comments are never posted without explicit approval.
 - Graph runs use context durability checks so large raw Figma, comment, and
@@ -300,7 +303,7 @@ Near term:
 
 - More reliable Figma draft creation across different design systems.
 - Better design-review drilldown without large context payloads.
-- Better official Figma apply guidance.
+- Better incremental Figma apply guidance.
 - Stronger component creation workflow for missing design-system pieces.
 - Better variable and library import flows.
 

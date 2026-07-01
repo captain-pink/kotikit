@@ -22,6 +22,9 @@ design decisions.
 - Never post comments, apply revisions, or promote design memory without
   explicit designer approval.
 - Do not generate code or implementation tasks.
+- Before reviewing comments on kotikit-generated work, let kotikit reconcile the
+  current canvas map. Designers may move or rename generated frames; do not
+  guess comment targets when the ledger cannot map them.
 
 ## Review Flow
 
@@ -35,9 +38,10 @@ design decisions.
    `target-bound` with `kotikit_answer`.
 5. Read review artifacts with `kotikit_get_artifact` when the graph returns
    artifact ids.
-6. If approved revisions are applied through official Figma MCP, call
-   `kotikit_record_figma_apply` with the active `runId` and returned node
-   metadata, then call `kotikit_continue`.
+6. If approved revisions are applied through official Figma MCP, apply the
+   active transaction only, call `kotikit_record_figma_apply` with the active
+   `runId`, `transactionId`, node id, bounds, component refs, variable refs,
+   and auto-layout metadata, then call `kotikit_continue`.
 7. Present findings grouped by severity and theme. Keep recommendations focused
    on layout, hierarchy, component usage, variables, state coverage,
    accessibility, and interaction clarity.

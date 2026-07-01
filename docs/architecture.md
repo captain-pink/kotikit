@@ -106,8 +106,10 @@ This gives teams without Figma branches a practical safety boundary.
    variables into an apply-packet artifact.
 
 4. **Official Figma apply**
-   The assistant uses the official Figma integration to apply the plan and
-   reports results back to kotikit.
+   The assistant uses the official Figma integration to drain incremental Figma
+   transactions one draft component, screen state, or region state at a time.
+   Each write follows the canvas plan and records node-ledger metadata back to
+   kotikit.
 
 5. **Review**
    Comments and design-quality findings are stored in `design-review.db`.

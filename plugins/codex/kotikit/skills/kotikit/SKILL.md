@@ -20,6 +20,10 @@ Use this designer-first skill when the user asks for `kotikit:auto`, `kotikit:de
 - Create or refine the Figma design; do not redirect the user into implementation work.
 - Prefer existing design-system components, variables, and styles.
 - If a meaningful component is missing, ask for approval to create it on the current draft page before composing screens.
+- Apply Figma drafts through incremental Figma transactions: create exactly one
+  draft component, screen state, or region state per write, place it at the
+  canvas plan bounds, record `transactionId`, node id, bounds, component refs,
+  variable refs, and auto-layout metadata, then continue the run.
 - Keep human approval points clear: missing component strategy, literal variable fallbacks, revision application, comment posting, and memory promotion.
 - Do not expose internal JSON, graph node ids, tool schemas, or local paths unless the user explicitly asks.
 
