@@ -53,6 +53,19 @@ required state one screen state at a time. Each generated node is placed by the
 canvas plan and recorded in the node ledger so comment review can still work
 after designers move frames.
 
+### Manual QA For Generated Figma Drafts
+
+After kotikit creates a draft, verify:
+
+- generated frames are in one clean kotikit Section;
+- draft components are in their own zone;
+- state frames are same-sized and non-overlapping;
+- loading, empty, no-results, error, and permission states replace the affected
+  region;
+- important controls use design-system component instances;
+- variables/styles are bound where available;
+- comments on moved frames still map after comment review starts.
+
 ## Screen States
 
 Kotikit plans state coverage before it composes the Figma screen. The graph
