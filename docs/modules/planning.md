@@ -2,12 +2,12 @@
 
 ## What it does
 
-The planning module manages regenerable plans and mapping helpers that guide an
-agent through Figma design application, review evidence, and comment mapping.
-Missing design-system components now move through graph `draftComponentPlan`
-state and artifacts instead of the old standalone component-plan JSON files.
-Disposable design plans are written next to their spec files inside
-`.kotikit/specs/<scope>/` and can be regenerated if needed.
+The planning module manages regenerable legacy design plans that guide an agent
+through Figma design application. Missing design-system components now move
+through graph `draftComponentPlan` state and artifacts instead of the old
+standalone component-plan JSON files. Disposable design plans are written next
+to their spec files inside `.kotikit/specs/<scope>/` and can be regenerated if
+needed.
 
 Design-to-code plans are not part of the core planning module.
 
@@ -24,12 +24,9 @@ Design-to-code plans are not part of the core planning module.
 - `readDesignPlan(root, scope, screen | null)` — async; returns `DesignPlan | null`
 - `deleteDesignPlan(root, scope, screen | null)` — async
 
-**Design node maps, review evidence, comments, and preferences** (`src/planning/design-node-map.ts`, `src/planning/design-review.ts`, `src/planning/design-comments.ts`, `src/db/design-review-db.ts`)
-- `DesignNodeMap` — persisted per-screen Figma node map written when graph apply metadata records official Figma node metadata
-- `readDesignNodeMap(root, scope, screen | null)` — async; returns `DesignNodeMap | null`
-- `upsertDesignNodeMapEntry(root, scope, screen | null, update)` — async; merges a step's latest target node metadata into the map
+**Review evidence and preferences** (`src/planning/design-review.ts`, `src/db/design-review-db.ts`)
 - `collectDesignReviewEvidence(input)` — fetches bounded depth-1 Figma target evidence, limits returned child regions, records a versioned cache row, and returns a temporary screenshot URL when available
-- `mapCommentsToDesignNodes(comments, nodeMap, options)` — pure mapper that links Figma comments by `client_meta.node_id` and leaves unmatched comments unmapped instead of guessing
+- Comment review now uses graph `CommentEvidenceMap` artifacts built from Figma REST comment snapshots plus graph apply metadata; unmatched comments remain unmapped instead of being guessed
 - `design-review.db` — local review ledger for comment sessions, standalone design-quality reviews, shallow evidence cache rows, micro-adjustments, reply/comment outbox rows, preference candidates, and active design preferences
 
 ## How it works
@@ -58,15 +55,14 @@ node IDs back through graph apply metadata. This is still a layout
 scaffold, not a visual QA engine: later review/gate passes should check
 overlap, clipping, minimum target size, and responsive state quality.
 
-Apply results are recorded in two forms. The JSONL apply log stays as the
-append-only trail. The optional `design.node-map.json` is a compact, validated
-map from design-plan steps to Figma node IDs. The map also stores the bound
-target, page, and Section metadata so future comment review and refinements can
-prove they are operating inside the approved draft area.
-Graph review and comment flows use that map with Figma comment
-`client_meta.node_id` values to tell the agent which planned component or frame
-a review comment targets. Comments without node IDs, or comments whose node IDs
-are outside the map, are returned as unmapped rather than inferred from text.
+Apply results are recorded through graph apply metadata and artifacts. The
+metadata stores file, page, Section, component, draft-origin, variable, layout,
+repeated-structure, and generated node details so review and comment flows can
+prove they are operating inside the approved draft area. Graph comment flows
+combine that apply metadata with Figma REST `client_meta.node_id` values to
+build `CommentEvidenceMap` artifacts. Comments without node IDs, or comments
+whose node IDs are outside the known metadata, are returned as unmapped rather
+than inferred from text.
 
 Review results and refinements live in `.kotikit/design-review.db`. Graph review
 nodes record micro-adjustments instead of expanding specs or prompts with
@@ -90,7 +86,6 @@ comment appears again.
 ## Related
 
 - [spec](./spec.md) — plans reference specs by scope and screen slug; `ScreenSpec` is the primary input to both generators
-- [util](./util.md) — `designPlanPath`, `designApplyLogPath`, and
-  `designNodeMapPath` live here
+- [util](./util.md) — `designPlanPath` and `designApplyLogPath` live here
 - [mcp](./mcp.md) — graph facade tools expose planning, review, and memory
   outputs as artifacts instead of public choreography wrappers

@@ -35,7 +35,7 @@ describe("comment graph nodes", () => {
     });
   });
 
-  it("builds evidence map from a seeded snapshot node map", async () => {
+  it("builds evidence map from seeded snapshot target metadata", async () => {
     const output = await runNode("comments.buildEvidenceMap", {
       review: {
         commentSnapshot: {

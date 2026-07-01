@@ -82,4 +82,31 @@ describe("comment evidence map", () => {
       ],
     });
   });
+
+  it("skips resolved comments unless requested", () => {
+    const resolvedComment = {
+      id: "resolved-comment",
+      message: "Already handled",
+      client_meta: { node_id: "1:2" },
+      resolved_at: "2026-07-01T01:00:00.000Z",
+    };
+
+    expect(
+      buildCommentEvidenceMap({
+        fileKey: "file-1",
+        comments: [resolvedComment],
+        nodeMap,
+        mappedAt: "2026-07-01T00:00:00.000Z",
+      }).comments
+    ).toHaveLength(0);
+    expect(
+      buildCommentEvidenceMap({
+        fileKey: "file-1",
+        comments: [resolvedComment],
+        nodeMap,
+        mappedAt: "2026-07-01T00:00:00.000Z",
+        includeResolved: true,
+      }).comments
+    ).toHaveLength(1);
+  });
 });

@@ -9,7 +9,6 @@ import {
   componentsDbPath,
   configPath,
   designApplyLogPath,
-  designNodeMapPath,
   designPlanPath,
   designReviewDbPath,
   designSystemDir,
@@ -161,18 +160,6 @@ describe("paths", () => {
     it("designApplyLogPath multi-screen", () => {
       expect(designApplyLogPath("/p", "checkout-flow", "cart")).toBe(
         "/p/.kotikit/specs/checkout-flow/cart.design.apply.log"
-      );
-    });
-
-    it("designNodeMapPath single-screen", () => {
-      expect(designNodeMapPath("/p", "profile-page", null)).toBe(
-        "/p/.kotikit/specs/profile-page/design.node-map.json"
-      );
-    });
-
-    it("designNodeMapPath multi-screen", () => {
-      expect(designNodeMapPath("/p", "checkout-flow", "cart")).toBe(
-        "/p/.kotikit/specs/checkout-flow/cart.design.node-map.json"
       );
     });
 

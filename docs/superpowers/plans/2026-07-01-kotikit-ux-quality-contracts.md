@@ -1231,7 +1231,7 @@ bun test src/core/nodes/ux/test/ux-nodes.test.ts src/core/nodes/test/built-in-no
 
 Expected: pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/core/nodes/ux src/core/nodes/built-in-registry.ts src/core/flows/built-in/create-screen.flow.json e2e/graph/create-screen-flow.test.ts
@@ -2944,7 +2944,7 @@ git commit -m "docs: document ux quality contracts"
 - Inspect: `src/planning/test/design-node-map.test.ts`
 - Modify or remove only files proven unused by graph-backed replacements.
 
-- [ ] **Step 1: Run Knip**
+- [x] **Step 1: Run Knip**
 
 Run:
 
@@ -2955,7 +2955,7 @@ bun run check:unused
 Expected: Knip may report unused exports or stale files. Save the relevant
 findings in the task notes before editing.
 
-- [ ] **Step 2: Decide what is stale**
+- [x] **Step 2: Decide what is stale**
 
 Keep code only if one of these is true:
 
@@ -2970,7 +2970,7 @@ Remove or migrate code if:
 - It requires Chrome DevTools or manual browser inspection.
 - It stores a node map that is not consumed by graph review or apply metadata.
 
-- [ ] **Step 3: Move reusable tests before deleting code**
+- [x] **Step 3: Move reusable tests before deleting code**
 
 If `src/planning/test/design-comments.test.ts` contains useful mapping cases,
 move those cases into:
@@ -2987,7 +2987,7 @@ bun test src/core/domain/test/comment-evidence-map.test.ts
 
 Expected: pass.
 
-- [ ] **Step 4: Remove stale files**
+- [x] **Step 4: Remove stale files**
 
 Use `git rm` only for files proven stale:
 
@@ -3000,7 +3000,7 @@ old apply metadata into the new comment evidence map. If it remains, add a
 short module comment explaining that it is a compatibility source for graph
 metadata.
 
-- [ ] **Step 5: Run focused tests**
+- [x] **Step 5: Run focused tests**
 
 Run:
 
@@ -3010,7 +3010,7 @@ bun test src/core/domain/test/comment-evidence-map.test.ts src/core/nodes/commen
 
 Expected: pass.
 
-- [ ] **Step 6: Run Knip again**
+- [x] **Step 6: Run Knip again**
 
 Run:
 
@@ -3020,6 +3020,11 @@ bun run check:unused
 
 Expected: no stale files from this migration slice. Broader known cleanup
 candidates may remain if unrelated.
+
+Task note: after cleanup, Knip still reports broader exported-symbol and
+exported-type hygiene outside this migration slice, but no longer reports the
+removed `src/planning/design-comments.ts` or `src/planning/design-node-map.ts`
+files.
 
 - [ ] **Step 7: Commit**
 

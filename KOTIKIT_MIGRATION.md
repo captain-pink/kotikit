@@ -1172,7 +1172,7 @@ Keep in the new core:
 - Design brief/spec capture.
 - Design-system search abstraction.
 - Draft planning and apply packet generation.
-- Apply metadata and node map recording.
+- Apply metadata and compact comment evidence recording.
 - Review/comment flow.
 - Local design memory.
 
@@ -1396,7 +1396,8 @@ Migration tests:
 
 - Existing `.kotikit/specs` screen spec becomes a new `DesignBrief`.
 - Existing flow manifest becomes a new `FlowModel`.
-- Existing draft target and node map remain usable.
+- Existing draft target remains usable, while legacy node-map assumptions move
+  into graph apply metadata and `CommentEvidenceMap` artifacts.
 - Existing review memory can be read by the review graph.
 
 ## Risks

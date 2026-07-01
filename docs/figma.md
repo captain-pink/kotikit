@@ -71,8 +71,8 @@ page URL must:
 - have a page name containing `Draft` or `Drafts`
 
 Generated frames are placed inside a kotikit-owned Section on that page. Later
-apply logs validate the Figma file, page, and Section metadata before updating
-node maps used for comment review.
+apply metadata validates the Figma file, page, and Section before it can be
+used by review and comment evidence flows.
 
 ## Comment Evidence
 
