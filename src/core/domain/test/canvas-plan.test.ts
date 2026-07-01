@@ -316,6 +316,10 @@ describe("canvas and figma ledger artifact schemas", () => {
           ...placement,
           id: "duplicate-placement",
         })),
+        strategy: {
+          ...validCanvasPlan().strategy,
+          creationOrder: ["duplicate-placement"],
+        },
       })
     ).toThrow();
     expect(() =>
