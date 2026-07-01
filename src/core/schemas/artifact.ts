@@ -537,6 +537,7 @@ const CommentEvidenceTargetSchema = z.strictObject({
   stateId: z.string().min(1).optional(),
   componentKey: z.string().min(1).optional(),
   draftComponentId: z.string().min(1).optional(),
+  bounds: BoundsSchema.optional(),
 });
 
 const CommentEvidenceItemSchema = z.strictObject({
@@ -796,6 +797,7 @@ export type LayoutContract = z.infer<typeof LayoutContractSchema>;
 export type VariableBindingPlan = z.infer<typeof VariableBindingPlanSchema>;
 export type DraftComponentPlan = z.infer<typeof DraftComponentPlanSchema>;
 export type DraftComponentLifecycle = z.infer<typeof DraftComponentLifecycleSchema>;
+export type Bounds = z.infer<typeof BoundsSchema>;
 export type CanvasPlan = z.infer<typeof CanvasPlanSchema>;
 export type FigmaTransactionPlan = z.infer<typeof FigmaTransactionPlanSchema>;
 export type FigmaNodeLedger = z.infer<typeof FigmaNodeLedgerSchema>;

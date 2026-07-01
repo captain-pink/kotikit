@@ -14,6 +14,11 @@
   ],
   "nodes": [
     {
+      "id": "reconcile-canvas",
+      "uses": "comments.reconcileCanvas",
+      "params": {}
+    },
+    {
       "id": "build-comment-evidence-map",
       "uses": "comments.buildEvidenceMap",
       "params": {}
@@ -70,6 +75,7 @@
     }
   ],
   "edges": [
+    ["reconcile-canvas", "build-comment-evidence-map"],
     ["build-comment-evidence-map", "collect-evidence"],
     ["collect-evidence", "group-findings"],
     ["group-findings", "create-revision-plan"],
@@ -80,7 +86,7 @@
     ["detect-preference-candidate", "ask-memory-approval"],
     ["ask-memory-approval", "promote-preference"]
   ],
-  "start": "build-comment-evidence-map",
+  "start": "reconcile-canvas",
   "end": ["promote-preference"],
   "safetyProfile": "review-comments-approval-required"
 }

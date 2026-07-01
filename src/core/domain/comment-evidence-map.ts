@@ -1,4 +1,5 @@
 import type { CommentEvidenceMap } from "../schemas/artifact.js";
+import { type Bounds, BoundsSchema } from "../schemas/artifact.js";
 
 type FigmaCommentLike = Record<string, unknown> & {
   id?: unknown;
@@ -23,6 +24,7 @@ type NodeTarget = {
   stateId?: string;
   componentKey?: string;
   draftComponentId?: string;
+  bounds?: Bounds;
 };
 
 type MappingStrategy = "node-id" | "parent-thread";
@@ -172,10 +174,18 @@ function nodeTargetsFrom(nodeMap: NodeMapLike): NodeTarget[] {
             ...optionalString(record, "stateId"),
             ...optionalString(record, "componentKey"),
             ...optionalString(record, "draftComponentId"),
+            ...(boundsFrom(record.bounds) === undefined
+              ? {}
+              : { bounds: boundsFrom(record.bounds) }),
           },
         ];
       })
     : [];
+}
+
+function boundsFrom(value: unknown): Bounds | undefined {
+  const parsed = BoundsSchema.safeParse(value);
+  return parsed.success ? parsed.data : undefined;
 }
 
 function nodeIdFromClientMeta(value: unknown): string | undefined {
