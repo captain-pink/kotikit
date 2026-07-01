@@ -78,6 +78,9 @@ export function runUiQualityGate(input: { nodes: AppliedNode[] }): UIQualityGate
       input.nodes,
       (node) => node.draftComponentDetachedUse === true
     ),
+    checkCanvasOverlap(input.nodes),
+    checkScreenStateAutoLayout(input.nodes),
+    checkMissingTransactionMetadata(input.nodes),
   ];
 
   return {
@@ -85,6 +88,48 @@ export function runUiQualityGate(input: { nodes: AppliedNode[] }): UIQualityGate
     status: checks.some((item) => item.status === "blocked") ? "blocked" : "passed",
     checks,
   };
+}
+
+function checkCanvasOverlap(nodes: AppliedNode[]): UIQualityGateReport["checks"][number] {
+  const topLevelNodes = nodes.filter((node) =>
+    ["screen-state", "draft-component"].includes(String(node.semanticRole ?? ""))
+  );
+  const findings = topLevelNodes.flatMap((left, index) =>
+    topLevelNodes
+      .slice(index + 1)
+      .flatMap((right) =>
+        hasBounds(left) && hasBounds(right) && boundsOverlap(left.bounds, right.bounds)
+          ? [`${String(left.id ?? "unknown")} overlaps ${String(right.id ?? "unknown")}`]
+          : []
+      )
+  );
+  return checkResult("canvas-overlap", "Canvas overlap", findings);
+}
+
+function checkScreenStateAutoLayout(nodes: AppliedNode[]): UIQualityGateReport["checks"][number] {
+  return checkResult(
+    "screen-state-auto-layout",
+    "Screen state auto layout",
+    nodes
+      .filter((node) => node.semanticRole === "screen-state" && node.autoLayout !== true)
+      .map((node) => String(node.id ?? "unknown"))
+  );
+}
+
+function checkMissingTransactionMetadata(
+  nodes: AppliedNode[]
+): UIQualityGateReport["checks"][number] {
+  return checkResult(
+    "transaction-metadata",
+    "Transaction metadata",
+    nodes
+      .filter(
+        (node) =>
+          node.semanticRole !== undefined &&
+          (node.transactionId === undefined || node.placementId === undefined)
+      )
+      .map((node) => String(node.id ?? "unknown"))
+  );
 }
 
 function check(
@@ -103,8 +148,23 @@ function check(
   };
 }
 
+function checkResult(
+  id: string,
+  name: string,
+  findings: string[]
+): UIQualityGateReport["checks"][number] {
+  return {
+    id,
+    name,
+    status: findings.length > 0 ? "blocked" : "passed",
+    ...(findings.length > 0 ? { findings } : {}),
+    ...(findings.length > 0 ? { recommendedAction: recommendedActionFor(id) } : {}),
+  };
+}
+
 function recommendedActionFor(id: string): string {
   const actions: Record<string, string> = {
+    "canvas-overlap": "Move generated frames into the canvas plan grid before continuing.",
     "component-refs":
       "Replace hardcoded layers with design-system or approved draft component instances.",
     "draft-component-detached-use":
@@ -120,6 +180,8 @@ function recommendedActionFor(id: string): string {
     "state-preview-card":
       "Represent this as a page, region, component, or flow state instead of an extra state card.",
     "state-shell-drift": "Keep persistent shell regions aligned across related screen states.",
+    "screen-state-auto-layout": "Rebuild the screen state as an auto-layout frame.",
+    "transaction-metadata": "Record transactionId and placementId for every generated node.",
   };
   return actions[id] ?? "Fix the blocked UI quality finding before continuing.";
 }
@@ -137,4 +199,30 @@ function hasNegativeTransform(node: AppliedNode): boolean {
 
 function hasNegativeDimension(node: AppliedNode): boolean {
   return Number(node.width) < 0 || Number(node.height) < 0;
+}
+
+function hasBounds(node: AppliedNode): node is AppliedNode & {
+  bounds: { x: number; y: number; width: number; height: number };
+} {
+  return (
+    typeof node.bounds === "object" &&
+    node.bounds !== null &&
+    !Array.isArray(node.bounds) &&
+    typeof (node.bounds as { x?: unknown }).x === "number" &&
+    typeof (node.bounds as { y?: unknown }).y === "number" &&
+    typeof (node.bounds as { width?: unknown }).width === "number" &&
+    typeof (node.bounds as { height?: unknown }).height === "number"
+  );
+}
+
+function boundsOverlap(
+  left: { x: number; y: number; width: number; height: number },
+  right: { x: number; y: number; width: number; height: number }
+): boolean {
+  return !(
+    left.x + left.width <= right.x ||
+    right.x + right.width <= left.x ||
+    left.y + left.height <= right.y ||
+    right.y + right.height <= left.y
+  );
 }
