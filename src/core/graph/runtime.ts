@@ -281,6 +281,11 @@ async function executeRun(
           };
 
     if (output.interrupt !== undefined) {
+      const interruptResume = resolveInterruptResume(output.interrupt);
+      let nextNodeIndex = run.nextNodeIndex + 1;
+      if (interruptResume === "same-node") {
+        nextNodeIndex = run.nextNodeIndex;
+      }
       const interruptedState = {
         ...stateWithArtifacts,
         status: output.interrupt.status,
@@ -288,10 +293,7 @@ async function executeRun(
       };
       run = await runStore.updateRunState(run.id, {
         currentNodeId: node.id,
-        nextNodeIndex:
-          output.interrupt.status === "waiting-for-user"
-            ? run.nextNodeIndex
-            : run.nextNodeIndex + 1,
+        nextNodeIndex,
         status: output.interrupt.status,
         state: interruptedState,
       });
@@ -314,6 +316,14 @@ async function executeRun(
   });
   await writeRuntimeCheckpoint(run, checkpointStore);
   return toResult(run);
+}
+
+function resolveInterruptResume(
+  interrupt: RuntimeInterrupt
+): NonNullable<RuntimeInterrupt["resume"]> {
+  if (interrupt.resume !== undefined) return interrupt.resume;
+  if (interrupt.status === "waiting-for-user") return "same-node";
+  return "next-node";
 }
 
 async function writeRuntimeCheckpoint(
