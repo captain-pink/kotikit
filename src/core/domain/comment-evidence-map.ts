@@ -151,7 +151,9 @@ function commentMetadata(
       ? { resolvedAt: stringField(comment, "resolved_at") }
       : {}),
     ...(authorFromComment(comment) !== undefined ? { author: authorFromComment(comment) } : {}),
-    ...(comment.client_meta !== undefined ? { clientMeta: comment.client_meta } : {}),
+    ...(normalizedClientMeta(comment.client_meta) !== undefined
+      ? { clientMeta: normalizedClientMeta(comment.client_meta) }
+      : {}),
   };
 }
 
@@ -179,6 +181,24 @@ function nodeTargetsFrom(nodeMap: NodeMapLike): NodeTarget[] {
 function nodeIdFromClientMeta(value: unknown): string | undefined {
   return typeof value === "object" && value !== null && !Array.isArray(value)
     ? stringField(value as Record<string, unknown>, "node_id")
+    : undefined;
+}
+
+function normalizedClientMeta(value: unknown): Record<string, unknown> | undefined {
+  const clientMeta = recordFrom(value);
+  const nodeId = stringField(clientMeta, "node_id");
+  const nodeOffset = nodeOffsetFrom(clientMeta.node_offset);
+  const normalized = {
+    ...(nodeId !== undefined ? { nodeId } : {}),
+    ...(nodeOffset !== undefined ? { nodeOffset } : {}),
+  };
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+function nodeOffsetFrom(value: unknown): { x: number; y: number } | undefined {
+  const offset = recordFrom(value);
+  return typeof offset.x === "number" && typeof offset.y === "number"
+    ? { x: offset.x, y: offset.y }
     : undefined;
 }
 

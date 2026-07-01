@@ -208,9 +208,16 @@ describe("create-screen graph flow", () => {
 
       expect(completed.runId).toBe(started.runId);
       expect(completed.status).toBe("done");
+      expect(recordFrom(completed.state).applyMetadata).toBeUndefined();
       expect(JSON.stringify(completed.state).length).toBeLessThan(256 * 1024);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
   });
 });
+
+function recordFrom(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}

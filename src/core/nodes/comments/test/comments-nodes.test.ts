@@ -38,6 +38,15 @@ describe("comment graph nodes", () => {
   it("builds evidence map from seeded snapshot target metadata", async () => {
     const output = await runNode("comments.buildEvidenceMap", {
       review: {
+        nodeMap: {
+          nodes: [
+            {
+              nodeId: "primary-action",
+              nodeName: "Primary Action",
+              partId: "primary-action",
+            },
+          ],
+        },
         commentSnapshot: {
           fileKey: "file-1",
           comments: [
@@ -64,6 +73,10 @@ describe("comment graph nodes", () => {
       schemaVersion: "CommentEvidenceMap/v1",
       comments: [expect.objectContaining({ mappingStrategy: "node-id" })],
     });
+    expect(recordFrom(output.statePatch?.review).commentEvidenceMap).toBeUndefined();
+    expect(recordFrom(output.statePatch?.review).commentSnapshot).toBeUndefined();
+    expect(recordFrom(output.statePatch?.review).nodeMap).toBeUndefined();
+    expect(recordFrom(output.statePatch?.review).commentSnapshotRef).toBe("comment-evidence-map");
   });
 });
 
@@ -91,4 +104,10 @@ function state(patch: Partial<KotikitGraphState>): KotikitGraphState {
     errors: [],
     ...patch,
   };
+}
+
+function recordFrom(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }

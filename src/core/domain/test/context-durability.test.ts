@@ -53,10 +53,10 @@ describe("context durability", () => {
     expect(
       pruneRawReviewPayloads({
         commentSnapshot: { comments: [{ id: "comment-1", message: "Long raw payload" }] },
+        nodeMap: { nodes: [{ nodeId: "1:2" }] },
         commentEvidenceMap: { schemaVersion: "CommentEvidenceMap/v1" },
       })
     ).toEqual({
-      commentEvidenceMap: { schemaVersion: "CommentEvidenceMap/v1" },
       commentSnapshotRef: "comment-evidence-map",
     });
   });

@@ -59,4 +59,21 @@ describe("UX envelope planning", () => {
       ])
     );
   });
+
+  it("keeps unknown screen archetypes on a generic fallback instead of admin-table defaults", () => {
+    const envelope = buildUxEnvelope({
+      userIntent: "Create a celebratory onboarding welcome screen",
+      screen: { title: "Welcome" },
+    });
+    const matrix = buildStateMatrix({ envelope });
+
+    expect(envelope).toMatchObject({
+      screenArchetype: "unknown",
+      actor: "Designer",
+      primaryGoal: "Welcome",
+      primaryTask: "Draft UI",
+      edgeCases: [],
+    });
+    expect(matrix.states).toEqual([]);
+  });
 });

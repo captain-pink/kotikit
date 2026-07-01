@@ -117,6 +117,7 @@ export const draftComponentNodeDefinitions: NodeDefinition[] = [
         plan: state.draftComponentPlan,
         createdDraftComponents: recordArray(recordFrom(state.draftPlan).createdDraftComponents),
         appliedInstances: recordArray(recordFrom(state.applyReport).draftComponentInstances),
+        placements: recordArray(recordFrom(state.applyReport).draftComponentPlacements),
       });
       return {
         statePatch: { draftComponentLifecycle },

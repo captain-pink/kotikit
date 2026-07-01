@@ -63,7 +63,13 @@ export function assertCompactGraphState(
 
 export function pruneRawReviewPayloads(review: Record<string, unknown>): Record<string, unknown> {
   if (review.commentEvidenceMap === undefined) return review;
-  const { commentSnapshot: _commentSnapshot, sourceSnapshot: _sourceSnapshot, ...rest } = review;
+  const {
+    commentEvidenceMap: _commentEvidenceMap,
+    commentSnapshot: _commentSnapshot,
+    nodeMap: _nodeMap,
+    sourceSnapshot: _sourceSnapshot,
+    ...rest
+  } = review;
   return {
     ...rest,
     commentSnapshotRef: "comment-evidence-map",

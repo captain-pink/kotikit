@@ -282,6 +282,7 @@ const UIQualityGateCheckSchema = z.strictObject({
   name: z.string().min(1),
   status: z.enum(["passed", "blocked"]),
   findings: z.array(z.string().min(1)).optional(),
+  recommendedAction: z.string().min(1).optional(),
 });
 
 export const UIQualityGateReportSchema = z.strictObject({

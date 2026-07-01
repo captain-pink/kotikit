@@ -14,20 +14,38 @@ type AppliedInstance = {
   stateId?: unknown;
 };
 
+type DraftComponentPlacement = {
+  draftComponentId?: unknown;
+  pageId?: unknown;
+  sectionName?: unknown;
+  x?: unknown;
+  y?: unknown;
+  width?: unknown;
+  height?: unknown;
+  overlapsGeneratedScreen?: unknown;
+  overlapsScreen?: unknown;
+};
+
 export function buildDraftComponentLifecycle(input: {
   plan: DraftComponentPlan;
   createdDraftComponents: CreatedDraftComponent[];
   appliedInstances: AppliedInstance[];
+  placements?: DraftComponentPlacement[];
 }): DraftComponentLifecycle {
   return {
     schemaVersion: "DraftComponentLifecycle/v1",
-    sectionName: "Kotikit Draft Components",
+    sectionName: input.plan.sectionName,
     components: input.plan.components.map((component) => {
       const created = input.createdDraftComponents.find((item) => item.id === component.id);
       const instances = input.appliedInstances.filter(
         (instance) =>
           instance.draftComponentId === component.id && typeof instance.nodeId === "string"
       );
+      const placement = (input.placements ?? []).find(
+        (item) => item.draftComponentId === component.id
+      );
+      const overlapsGeneratedScreen =
+        placement?.overlapsGeneratedScreen === true || placement?.overlapsScreen === true;
       return {
         draftComponentId: component.id,
         name: component.name,
@@ -36,13 +54,17 @@ export function buildDraftComponentLifecycle(input: {
           ? { componentKey: created.componentKey }
           : {}),
         ...(typeof created?.nodeId === "string" ? { componentNodeId: created.nodeId } : {}),
-        placement: { sectionName: "Kotikit Draft Components" },
+        placement: placementFor(placement, input.plan.sectionName),
         requiredInstances: 1,
         actualInstances: instances.map((instance) => ({
           nodeId: String(instance.nodeId),
           ...(typeof instance.stateId === "string" ? { stateId: instance.stateId } : {}),
         })),
-        status: instances.length > 0 ? "used" : "orphan-blocked",
+        status: overlapsGeneratedScreen
+          ? "overlap-blocked"
+          : instances.length > 0
+            ? "used"
+            : "orphan-blocked",
       };
     }),
   };
@@ -64,4 +86,20 @@ export function verifyDraftComponentLifecycle(lifecycle: DraftComponentLifecycle
       "Move draft components into the reserved Kotikit Draft Components area before continuing."
     );
   }
+}
+
+function placementFor(
+  placement: DraftComponentPlacement | undefined,
+  fallbackSectionName: string
+): DraftComponentLifecycle["components"][number]["placement"] {
+  if (placement === undefined) return { sectionName: fallbackSectionName };
+  return {
+    ...(typeof placement.pageId === "string" ? { pageId: placement.pageId } : {}),
+    sectionName:
+      typeof placement.sectionName === "string" ? placement.sectionName : fallbackSectionName,
+    ...(typeof placement.x === "number" ? { x: placement.x } : {}),
+    ...(typeof placement.y === "number" ? { y: placement.y } : {}),
+    ...(typeof placement.width === "number" ? { width: placement.width } : {}),
+    ...(typeof placement.height === "number" ? { height: placement.height } : {}),
+  };
 }

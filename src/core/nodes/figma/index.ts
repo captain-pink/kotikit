@@ -45,6 +45,7 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
       validateApplyMetadata(target, metadata);
       return {
         statePatch: {
+          applyMetadata: undefined,
           applyReport: {
             schemaVersion: "FigmaApplyReport/v1",
             status: "recorded",

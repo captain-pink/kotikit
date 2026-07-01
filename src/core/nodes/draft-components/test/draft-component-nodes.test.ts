@@ -149,6 +149,39 @@ describe("draft component graph nodes", () => {
     });
   });
 
+  it("marks overlapping draft component placements as blocked", async () => {
+    const result = await runNode("draftComponents.buildLifecycle", {
+      draftComponentPlan: {
+        schemaVersion: "DraftComponentPlan/v1",
+        sectionName: "Kotikit Draft Components",
+        components: [{ id: "draft-email-input", name: "email input", reason: "Missing input" }],
+      },
+      draftPlan: {
+        createdDraftComponents: [
+          {
+            id: "draft-email-input",
+            name: "email input",
+            componentKey: "draft:draft-email-input",
+          },
+        ],
+      },
+      applyReport: {
+        draftComponentInstances: [{ draftComponentId: "draft-email-input", nodeId: "node-1" }],
+        draftComponentPlacements: [
+          {
+            draftComponentId: "draft-email-input",
+            sectionName: "Kotikit Draft Components",
+            overlapsGeneratedScreen: true,
+          },
+        ],
+      },
+    });
+
+    expect(result.statePatch?.draftComponentLifecycle).toMatchObject({
+      components: [expect.objectContaining({ status: "overlap-blocked" })],
+    });
+  });
+
   it("blocks unused draft components after apply", async () => {
     await expect(
       runNode("draftComponents.verifyLifecycle", {

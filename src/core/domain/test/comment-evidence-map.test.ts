@@ -38,6 +38,30 @@ describe("comment evidence map", () => {
     });
   });
 
+  it("normalizes client metadata without copying raw payload fields", () => {
+    const map = buildCommentEvidenceMap({
+      fileKey: "file-1",
+      comments: [
+        {
+          id: "comment-1",
+          message: "Table loading state is missing",
+          client_meta: {
+            node_id: "1:2",
+            node_offset: { x: 8, y: 12 },
+            ignoredLargePayload: "x".repeat(1_000),
+          },
+        },
+      ],
+      nodeMap,
+      mappedAt: "2026-07-01T00:00:00.000Z",
+    });
+
+    expect(map.comments[0]?.clientMeta).toEqual({
+      nodeId: "1:2",
+      nodeOffset: { x: 8, y: 12 },
+    });
+  });
+
   it("inherits target from parent comment replies", () => {
     const map = buildCommentEvidenceMap({
       fileKey: "file-1",

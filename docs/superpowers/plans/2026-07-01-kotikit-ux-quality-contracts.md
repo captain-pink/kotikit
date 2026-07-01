@@ -3048,7 +3048,7 @@ git commit -m "docs(core): clarify node map compatibility boundary"
 
 - No planned code files. This task verifies the completed slice.
 
-- [ ] **Step 1: Run targeted graph tests**
+- [x] **Step 1: Run targeted graph tests**
 
 Run:
 
@@ -3058,7 +3058,7 @@ bun test src/core/domain/test/ux-envelope.test.ts src/core/domain/test/state-rep
 
 Expected: pass.
 
-- [ ] **Step 2: Run e2e graph tests**
+- [x] **Step 2: Run e2e graph tests**
 
 Run:
 
@@ -3068,7 +3068,7 @@ bun test e2e/graph
 
 Expected: pass.
 
-- [ ] **Step 3: Run full test suite**
+- [x] **Step 3: Run full test suite**
 
 Run:
 
@@ -3078,7 +3078,7 @@ bun test
 
 Expected: pass.
 
-- [ ] **Step 4: Run typecheck**
+- [x] **Step 4: Run typecheck**
 
 Run:
 
@@ -3088,7 +3088,7 @@ bun run typecheck
 
 Expected: pass.
 
-- [ ] **Step 5: Run local checks**
+- [x] **Step 5: Run local checks**
 
 Run:
 
@@ -3098,7 +3098,7 @@ bun run check
 
 Expected: pass.
 
-- [ ] **Step 6: Run unused check**
+- [x] **Step 6: Run unused check**
 
 Run:
 
@@ -3108,6 +3108,10 @@ bun run check:unused
 
 Expected: no unused files introduced by this migration slice. Any unrelated
 repo-wide findings must be listed in the final handoff.
+
+Task note: `bun run check:unused` still exits non-zero for broader repo-wide
+exported-symbol and exported-type hygiene. It does not report migration-owned
+stale files removed in Task 11.
 
 - [ ] **Step 7: Manual demo in test repo**
 
@@ -3126,7 +3130,11 @@ Expected Figma result:
 - every draft component is used as an instance or the run blocks;
 - QA artifact reports pass.
 
-- [ ] **Step 8: Request code review**
+Task note: not run in this shell session because it requires an active Figma
+file/session. Offline graph smoke coverage for the same Admin members flow
+passed through `bun test e2e/graph`.
+
+- [x] **Step 8: Request code review**
 
 Use `superpowers:requesting-code-review` for an independent review focused on:
 
@@ -3139,7 +3147,7 @@ Use `superpowers:requesting-code-review` for an independent review focused on:
 - designer-facing error messages;
 - tests proving current screenshot regressions cannot return.
 
-- [ ] **Step 9: Fix review findings**
+- [x] **Step 9: Fix review findings**
 
 For each valid finding:
 
@@ -3147,6 +3155,12 @@ For each valid finding:
 2. Implement the smallest fix.
 3. Run the targeted test.
 4. Commit with a Conventional Commit message.
+
+Task note: independent review found no critical issues and raised compactness,
+generic fallback, draft-overlap, and recovery-action findings. Fixes added
+targeted tests for compact apply/comment state, generic unknown pattern packs,
+draft component overlap blocking, compact comment metadata, and QA recovery
+actions.
 
 - [ ] **Step 10: Final migration doc update**
 

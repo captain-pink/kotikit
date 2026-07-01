@@ -74,16 +74,29 @@ export type UXPatternPackState = z.infer<typeof UXPatternPackStateSchema>;
 export const adminDataTablePatternPack = UXPatternPackSchema.parse(adminDataTable);
 export const dashboardSummaryPatternPack = UXPatternPackSchema.parse(dashboardSummary);
 export const settingsFormPatternPack = UXPatternPackSchema.parse(settingsForm);
+const genericScreenPatternPack = UXPatternPackSchema.parse({
+  schemaVersion: "UXPatternPack/v1",
+  id: "generic-screen",
+  version: "1.0.0",
+  title: "Generic screen",
+  appliesTo: ["unknown"],
+  defaultStates: [],
+  componentRoles: [],
+  layoutRules: [],
+  qaRules: [],
+  sourceRefs: ["https://www.nngroup.com/articles/task-analysis/"],
+});
 
 export const builtInPatternPacks = [
   adminDataTablePatternPack,
   dashboardSummaryPatternPack,
   settingsFormPatternPack,
+  genericScreenPatternPack,
 ] as const;
 
 export function selectPatternPack(archetype: string): UXPatternPack {
   return (
     builtInPatternPacks.find((pack) => pack.appliesTo.includes(archetype)) ??
-    adminDataTablePatternPack
+    genericScreenPatternPack
   );
 }

@@ -917,6 +917,10 @@
                       "type": "string",
                       "minLength": 1
                     }
+                  },
+                  "recommendedAction": {
+                    "type": "string",
+                    "minLength": 1
                   }
                 },
                 "required": ["id", "name", "status"],
@@ -2987,6 +2991,10 @@
                       "type": "string",
                       "minLength": 1
                     }
+                  },
+                  "recommendedAction": {
+                    "type": "string",
+                    "minLength": 1
                   }
                 },
                 "required": ["id", "name", "status"],

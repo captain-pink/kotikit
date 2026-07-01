@@ -43,4 +43,31 @@ describe("draft component lifecycle", () => {
 
     expect(() => verifyDraftComponentLifecycle(lifecycle)).toThrow(KotikitError);
   });
+
+  it("blocks draft components that overlap the generated screen", () => {
+    const lifecycle = buildDraftComponentLifecycle({
+      plan: {
+        schemaVersion: "DraftComponentPlan/v1",
+        sectionName: "Kotikit Draft Components",
+        components: [{ id: "draft-table-row", name: "Table row", reason: "Missing" }],
+      },
+      createdDraftComponents: [
+        { id: "draft-table-row", name: "Table row", componentKey: "component-key", nodeId: "1:2" },
+      ],
+      appliedInstances: [{ draftComponentId: "draft-table-row", nodeId: "2:1" }],
+      placements: [
+        {
+          draftComponentId: "draft-table-row",
+          sectionName: "Kotikit Draft Components",
+          overlapsGeneratedScreen: true,
+        },
+      ],
+    });
+
+    expect(lifecycle.components[0]).toMatchObject({
+      draftComponentId: "draft-table-row",
+      status: "overlap-blocked",
+    });
+    expect(() => verifyDraftComponentLifecycle(lifecycle)).toThrow("overlaps");
+  });
 });
