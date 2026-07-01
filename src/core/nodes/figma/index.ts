@@ -56,6 +56,7 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
             layoutFrames: recordArray(metadata.layoutFrames),
             repeatedItems: recordArray(metadata.repeatedItems),
             textTransforms: recordArray(metadata.textTransforms),
+            states: recordArray(metadata.states),
             recordedAt: nowIso(),
           },
         },
@@ -105,6 +106,7 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
             layoutFrames: toJson(recordArray(report.layoutFrames)),
             repeatedItems: toJson(recordArray(report.repeatedItems)),
             textTransforms: toJson(recordArray(report.textTransforms)),
+            states: toJson(recordArray(report.states)),
           },
         },
       };

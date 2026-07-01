@@ -25,6 +25,9 @@ describe("qa graph nodes", () => {
           { id: "detached", detachedInstance: true },
           { id: "overlap", overlaps: ["other"] },
           { id: "hardcoded", hardcodedComponentImitation: true },
+          { id: "state-card", statePreviewCard: true },
+          { id: "missing-state", expectedStateFrame: true },
+          { id: "shell-drift", stateShellDrift: true },
         ],
       },
     });
@@ -37,6 +40,9 @@ describe("qa graph nodes", () => {
         expect.objectContaining({ id: "mirrored-text", status: "blocked" }),
         expect.objectContaining({ id: "component-refs", status: "blocked" }),
         expect.objectContaining({ id: "hardcoded-imitation", status: "blocked" }),
+        expect.objectContaining({ id: "state-preview-card", status: "blocked" }),
+        expect.objectContaining({ id: "missing-state-frame", status: "blocked" }),
+        expect.objectContaining({ id: "state-shell-drift", status: "blocked" }),
       ]),
     });
   });

@@ -101,6 +101,7 @@ export function fakeApplyMetadataFor(state: KotikitGraphState): Record<string, u
   const uiComposition = recordFrom(state.uiComposition ?? packet.uiComposition);
   const variableBindingPlan = recordFrom(state.variableBindingPlan ?? packet.variableBindingPlan);
   const layoutContract = recordFrom(state.layoutContract ?? packet.layoutContract);
+  const stateRepresentation = recordFrom(state.stateRepresentation);
   const parts = recordArray(uiComposition.parts);
 
   return {
@@ -129,6 +130,14 @@ export function fakeApplyMetadataFor(state: KotikitGraphState): Record<string, u
     layoutFrames: recordArray(layoutContract.frames),
     repeatedItems: recordArray(packet.repeatedItems),
     textTransforms: recordArray(packet.textTransforms),
+    states: recordArray(stateRepresentation.states).map((item) => ({
+      stateId: item.stateId,
+      kind: item.kind,
+      representation: item.representation,
+      persistentRegions: item.persistentRegions,
+      width: 1280,
+      height: 720,
+    })),
   };
 }
 

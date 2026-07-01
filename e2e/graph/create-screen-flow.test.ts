@@ -61,6 +61,9 @@ describe("create-screen graph flow", () => {
           componentKey: "draft:draft-secondary-action",
         })
       );
+      expect(waitingForApply.state.stateRepresentation).toMatchObject({
+        schemaVersion: "StateRepresentationContract/v1",
+      });
 
       await expect(
         artifactStore.getArtifact(`${started.runId}-figma-apply-packet`)
@@ -131,6 +134,9 @@ describe("create-screen graph flow", () => {
         answer: "approve-draft-only-literals",
       });
       expect(waitingForApply.status).toBe("waiting-for-figma");
+      expect(waitingForApply.state.stateRepresentation).toMatchObject({
+        schemaVersion: "StateRepresentationContract/v1",
+      });
       await expect(
         artifactStore.getArtifact(`${started.runId}-design-brief`)
       ).resolves.toMatchObject({

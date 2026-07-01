@@ -2,6 +2,11 @@ import { z } from "zod";
 import { KotikitError } from "../../../util/result.js";
 import { buildAutoLayoutContract } from "../../domain/layout-contract.js";
 import {
+  buildStateRepresentationContract,
+  type StateRepresentationContract,
+  verifyStateRepresentationMetadata,
+} from "../../domain/state-representation.js";
+import {
   assertNoHardcodedImitation,
   buildUiCompositionContract,
 } from "../../domain/ui-composition-contract.js";
@@ -52,6 +57,27 @@ export const uiCompositionNodeDefinitions: NodeDefinition[] = [
     },
   }),
   node({
+    key: "ui.buildStateRepresentationContract",
+    stateReads: ["stateMatrix"],
+    stateWrites: ["stateRepresentation"],
+    run: async (input) => {
+      const state = graphState(input.state);
+      if (state.stateMatrix === undefined) {
+        throw new KotikitError(
+          "The state matrix has not been planned yet.",
+          "Plan UX states before composing high-fidelity screens."
+        );
+      }
+      return {
+        statePatch: {
+          stateRepresentation: buildStateRepresentationContract({
+            stateMatrix: state.stateMatrix,
+          }),
+        },
+      } satisfies RuntimeNodeOutput;
+    },
+  }),
+  node({
     key: "ui.buildVariableBindingPlan",
     kind: "interrupt",
     stateReads: ["uiComposition", "designSystem"],
@@ -80,6 +106,19 @@ export const uiCompositionNodeDefinitions: NodeDefinition[] = [
         } satisfies RuntimeNodeOutput;
       }
       return { statePatch: { variableBindingPlan: result } } satisfies RuntimeNodeOutput;
+    },
+  }),
+  node({
+    key: "ui.verifyStateRepresentation",
+    stateReads: ["stateRepresentation", "applyReport"],
+    stateWrites: [],
+    run: async (input) => {
+      const state = graphState(input.state);
+      verifyStateRepresentationMetadata({
+        contract: requireStateRepresentation(state.stateRepresentation),
+        appliedStates: recordArray(recordFrom(state.applyReport).states),
+      });
+      return {} satisfies RuntimeNodeOutput;
     },
   }),
   node({
@@ -119,6 +158,16 @@ function requireUiComposition(value: unknown): UICompositionContract {
     );
   }
   return value as UICompositionContract;
+}
+
+function requireStateRepresentation(value: unknown): StateRepresentationContract {
+  if (value === undefined) {
+    throw new KotikitError(
+      "The state representation contract has not been built yet.",
+      "Build the state representation contract before verifying applied Figma state metadata."
+    );
+  }
+  return value as StateRepresentationContract;
 }
 
 function graphState(value: unknown): KotikitGraphState {

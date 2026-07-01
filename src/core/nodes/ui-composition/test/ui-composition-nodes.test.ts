@@ -224,6 +224,50 @@ describe("ui composition graph nodes", () => {
     ).rejects.toThrow("hardcoded component imitation");
   });
 
+  it("builds a state representation contract from the state matrix", async () => {
+    const result = await runNode("ui.buildStateRepresentationContract", {
+      stateMatrix: stateMatrix(),
+    });
+
+    expect(result.statePatch?.stateRepresentation).toMatchObject({
+      schemaVersion: "StateRepresentationContract/v1",
+      states: [
+        expect.objectContaining({
+          stateId: "members-loading",
+          representation: "region-state",
+        }),
+      ],
+    });
+  });
+
+  it("rejects region states applied as preview cards", async () => {
+    await expect(
+      runNode("ui.verifyStateRepresentation", {
+        stateRepresentation: {
+          schemaVersion: "StateRepresentationContract/v1",
+          states: [
+            {
+              stateId: "members-loading",
+              kind: "loading",
+              scope: "region",
+              representation: "region-state",
+              replacementBehavior: "replace-table-body",
+              persistentRegions: ["sidebar"],
+            },
+          ],
+        },
+        applyReport: {
+          states: [
+            {
+              stateId: "members-loading",
+              representation: "preview-card",
+            },
+          ],
+        },
+      })
+    ).rejects.toThrow("preview card");
+  });
+
   it("builds an auto-layout layout contract and rejects structural frames without layout", async () => {
     const result = await runNode("ui.buildLayoutContract", {
       uiComposition: {
@@ -360,5 +404,24 @@ function state(patch: Partial<KotikitGraphState>): KotikitGraphState {
     artifacts: [],
     errors: [],
     ...patch,
+  };
+}
+
+function stateMatrix(): NonNullable<KotikitGraphState["stateMatrix"]> {
+  return {
+    schemaVersion: "StateMatrix/v1",
+    states: [
+      {
+        id: "members-loading",
+        label: "Loading",
+        kind: "loading",
+        scope: "region",
+        affectedRegion: "members table",
+        persistentRegions: ["sidebar"],
+        replacementBehavior: "replace-table-body",
+        requiredComponents: ["skeleton row"],
+        sourceRefs: ["https://carbondesignsystem.com/patterns/empty-states-pattern/"],
+      },
+    ],
   };
 }

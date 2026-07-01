@@ -42,6 +42,24 @@ export function runUiQualityGate(input: { nodes: AppliedNode[] }): UIQualityGate
       input.nodes,
       (node) => node.hardcodedComponentImitation === true
     ),
+    check(
+      "state-preview-card",
+      "State preview cards",
+      input.nodes,
+      (node) => node.statePreviewCard === true
+    ),
+    check(
+      "missing-state-frame",
+      "Missing state frame",
+      input.nodes,
+      (node) => node.expectedStateFrame === true && node.stateFrameNodeId === undefined
+    ),
+    check(
+      "state-shell-drift",
+      "State shell drift",
+      input.nodes,
+      (node) => node.stateShellDrift === true
+    ),
   ];
 
   return {
