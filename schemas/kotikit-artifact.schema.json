@@ -899,11 +899,13 @@
               "properties": {
                 "id": {
                   "type": "string",
-                  "minLength": 1
+                  "minLength": 1,
+                  "maxLength": 2048
                 },
                 "name": {
                   "type": "string",
-                  "minLength": 1
+                  "minLength": 1,
+                  "maxLength": 512
                 }
               },
               "required": ["name"],
@@ -918,11 +920,13 @@
               "properties": {
                 "width": {
                   "type": "number",
-                  "exclusiveMinimum": 0
+                  "exclusiveMinimum": 0,
+                  "maximum": 100000
                 },
                 "height": {
                   "type": "number",
-                  "exclusiveMinimum": 0
+                  "exclusiveMinimum": 0,
+                  "maximum": 100000
                 }
               },
               "required": ["width", "height"],
@@ -930,16 +934,19 @@
             },
             "minGap": {
               "type": "number",
-              "minimum": 0
+              "minimum": 0,
+              "maximum": 100000
             },
             "zones": {
+              "maxItems": 500,
               "type": "array",
               "items": {
                 "type": "object",
                 "properties": {
                   "id": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "kind": {
                     "type": "string",
@@ -947,24 +954,31 @@
                   },
                   "label": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 512
                   },
                   "bounds": {
                     "type": "object",
                     "properties": {
                       "x": {
-                        "type": "number"
+                        "type": "number",
+                        "minimum": -1000000,
+                        "maximum": 1000000
                       },
                       "y": {
-                        "type": "number"
+                        "type": "number",
+                        "minimum": -1000000,
+                        "maximum": 1000000
                       },
                       "width": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 100000
                       },
                       "height": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 100000
                       }
                     },
                     "required": ["x", "y", "width", "height"],
@@ -976,13 +990,15 @@
               }
             },
             "placements": {
+              "maxItems": 500,
               "type": "array",
               "items": {
                 "type": "object",
                 "properties": {
                   "id": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "kind": {
                     "type": "string",
@@ -990,32 +1006,41 @@
                   },
                   "stateId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "draftComponentId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "label": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 512
                   },
                   "bounds": {
                     "type": "object",
                     "properties": {
                       "x": {
-                        "type": "number"
+                        "type": "number",
+                        "minimum": -1000000,
+                        "maximum": 1000000
                       },
                       "y": {
-                        "type": "number"
+                        "type": "number",
+                        "minimum": -1000000,
+                        "maximum": 1000000
                       },
                       "width": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 100000
                       },
                       "height": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 100000
                       }
                     },
                     "required": ["x", "y", "width", "height"],
@@ -1023,11 +1048,13 @@
                   },
                   "parentZoneId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "transactionId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   }
                 },
                 "required": ["id", "kind", "label", "bounds", "parentZoneId", "transactionId"],
@@ -1041,17 +1068,21 @@
                   "type": "boolean"
                 },
                 "creationOrder": {
+                  "maxItems": 500,
                   "type": "array",
                   "items": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   }
                 },
                 "designerNotes": {
+                  "maxItems": 500,
                   "type": "array",
                   "items": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   }
                 }
               },
@@ -1083,13 +1114,15 @@
               "const": "incremental-official-figma-mcp"
             },
             "transactions": {
+              "maxItems": 500,
               "type": "array",
               "items": {
                 "type": "object",
                 "properties": {
                   "id": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "order": {
                     "type": "integer",
@@ -1107,17 +1140,27 @@
                   },
                   "label": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 512
                   },
                   "placementId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
-                  "status": {
+                  "stateId": {
                     "type": "string",
-                    "enum": ["pending", "active", "recorded", "failed"]
+                    "minLength": 1,
+                    "maxLength": 2048
+                  },
+                  "draftComponentId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "requiredMetadata": {
+                    "minItems": 1,
+                    "maxItems": 500,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -1130,13 +1173,9 @@
                       ]
                     }
                   },
-                  "stateId": {
+                  "status": {
                     "type": "string",
-                    "minLength": 1
-                  },
-                  "draftComponentId": {
-                    "type": "string",
-                    "minLength": 1
+                    "enum": ["pending", "active", "recorded", "failed"]
                   }
                 },
                 "required": [
@@ -1145,8 +1184,8 @@
                   "kind",
                   "label",
                   "placementId",
-                  "status",
-                  "requiredMetadata"
+                  "requiredMetadata",
+                  "status"
                 ],
                 "additionalProperties": false
               }
@@ -1164,32 +1203,39 @@
             },
             "fileKey": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "maxLength": 2048
             },
             "pageId": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "maxLength": 2048
             },
             "sectionName": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "maxLength": 512
             },
             "nodes": {
+              "maxItems": 500,
               "type": "array",
               "items": {
                 "type": "object",
                 "properties": {
                   "nodeId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "name": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 512
                   },
                   "kind": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 512
                   },
                   "semanticRole": {
                     "type": "string",
@@ -1203,57 +1249,72 @@
                   },
                   "transactionId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "placementId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "stateId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "draftComponentId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "partId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "bounds": {
                     "type": "object",
                     "properties": {
                       "x": {
-                        "type": "number"
+                        "type": "number",
+                        "minimum": -1000000,
+                        "maximum": 1000000
                       },
                       "y": {
-                        "type": "number"
+                        "type": "number",
+                        "minimum": -1000000,
+                        "maximum": 1000000
                       },
                       "width": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 100000
                       },
                       "height": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 100000
                       }
                     },
                     "required": ["x", "y", "width", "height"],
                     "additionalProperties": false
                   },
                   "componentRefs": {
+                    "maxItems": 500,
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "minLength": 1
+                      "minLength": 1,
+                      "maxLength": 2048
                     }
                   },
                   "variableRefs": {
+                    "maxItems": 500,
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "minLength": 1
+                      "minLength": 1,
+                      "maxLength": 2048
                     }
                   },
                   "autoLayout": {
@@ -1261,7 +1322,8 @@
                   },
                   "recordedAt": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   }
                 },
                 "required": [
@@ -1282,7 +1344,8 @@
             },
             "updatedAt": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "maxLength": 2048
             }
           },
           "required": ["schemaVersion", "fileKey", "pageId", "sectionName", "nodes", "updatedAt"],
@@ -1297,24 +1360,29 @@
             },
             "fileKey": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "maxLength": 2048
             },
             "pageId": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "maxLength": 2048
             },
             "reconciledAt": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "maxLength": 2048
             },
             "nodes": {
+              "maxItems": 500,
               "type": "array",
               "items": {
                 "type": "object",
                 "properties": {
                   "nodeId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "ledgerStatus": {
                     "type": "string",
@@ -1322,28 +1390,36 @@
                   },
                   "previousName": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 512
                   },
                   "currentName": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 512
                   },
                   "previousBounds": {
                     "type": "object",
                     "properties": {
                       "x": {
-                        "type": "number"
+                        "type": "number",
+                        "minimum": -1000000,
+                        "maximum": 1000000
                       },
                       "y": {
-                        "type": "number"
+                        "type": "number",
+                        "minimum": -1000000,
+                        "maximum": 1000000
                       },
                       "width": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 100000
                       },
                       "height": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 100000
                       }
                     },
                     "required": ["x", "y", "width", "height"],
@@ -1353,18 +1429,24 @@
                     "type": "object",
                     "properties": {
                       "x": {
-                        "type": "number"
+                        "type": "number",
+                        "minimum": -1000000,
+                        "maximum": 1000000
                       },
                       "y": {
-                        "type": "number"
+                        "type": "number",
+                        "minimum": -1000000,
+                        "maximum": 1000000
                       },
                       "width": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 100000
                       },
                       "height": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 100000
                       }
                     },
                     "required": ["x", "y", "width", "height"],
@@ -1372,15 +1454,18 @@
                   },
                   "transactionId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "placementId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "stateId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   }
                 },
                 "required": ["nodeId", "ledgerStatus"],
@@ -3488,11 +3573,13 @@
               "properties": {
                 "id": {
                   "type": "string",
-                  "minLength": 1
+                  "minLength": 1,
+                  "maxLength": 2048
                 },
                 "name": {
                   "type": "string",
-                  "minLength": 1
+                  "minLength": 1,
+                  "maxLength": 512
                 }
               },
               "required": ["name"],
@@ -3507,11 +3594,13 @@
               "properties": {
                 "width": {
                   "type": "number",
-                  "exclusiveMinimum": 0
+                  "exclusiveMinimum": 0,
+                  "maximum": 100000
                 },
                 "height": {
                   "type": "number",
-                  "exclusiveMinimum": 0
+                  "exclusiveMinimum": 0,
+                  "maximum": 100000
                 }
               },
               "required": ["width", "height"],
@@ -3519,16 +3608,19 @@
             },
             "minGap": {
               "type": "number",
-              "minimum": 0
+              "minimum": 0,
+              "maximum": 100000
             },
             "zones": {
+              "maxItems": 500,
               "type": "array",
               "items": {
                 "type": "object",
                 "properties": {
                   "id": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "kind": {
                     "type": "string",
@@ -3536,24 +3628,31 @@
                   },
                   "label": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 512
                   },
                   "bounds": {
                     "type": "object",
                     "properties": {
                       "x": {
-                        "type": "number"
+                        "type": "number",
+                        "minimum": -1000000,
+                        "maximum": 1000000
                       },
                       "y": {
-                        "type": "number"
+                        "type": "number",
+                        "minimum": -1000000,
+                        "maximum": 1000000
                       },
                       "width": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 100000
                       },
                       "height": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 100000
                       }
                     },
                     "required": ["x", "y", "width", "height"],
@@ -3565,13 +3664,15 @@
               }
             },
             "placements": {
+              "maxItems": 500,
               "type": "array",
               "items": {
                 "type": "object",
                 "properties": {
                   "id": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "kind": {
                     "type": "string",
@@ -3579,32 +3680,41 @@
                   },
                   "stateId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "draftComponentId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "label": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 512
                   },
                   "bounds": {
                     "type": "object",
                     "properties": {
                       "x": {
-                        "type": "number"
+                        "type": "number",
+                        "minimum": -1000000,
+                        "maximum": 1000000
                       },
                       "y": {
-                        "type": "number"
+                        "type": "number",
+                        "minimum": -1000000,
+                        "maximum": 1000000
                       },
                       "width": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 100000
                       },
                       "height": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 100000
                       }
                     },
                     "required": ["x", "y", "width", "height"],
@@ -3612,11 +3722,13 @@
                   },
                   "parentZoneId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "transactionId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   }
                 },
                 "required": ["id", "kind", "label", "bounds", "parentZoneId", "transactionId"],
@@ -3630,17 +3742,21 @@
                   "type": "boolean"
                 },
                 "creationOrder": {
+                  "maxItems": 500,
                   "type": "array",
                   "items": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   }
                 },
                 "designerNotes": {
+                  "maxItems": 500,
                   "type": "array",
                   "items": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   }
                 }
               },
@@ -3731,13 +3847,15 @@
               "const": "incremental-official-figma-mcp"
             },
             "transactions": {
+              "maxItems": 500,
               "type": "array",
               "items": {
                 "type": "object",
                 "properties": {
                   "id": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "order": {
                     "type": "integer",
@@ -3755,17 +3873,27 @@
                   },
                   "label": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 512
                   },
                   "placementId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
-                  "status": {
+                  "stateId": {
                     "type": "string",
-                    "enum": ["pending", "active", "recorded", "failed"]
+                    "minLength": 1,
+                    "maxLength": 2048
+                  },
+                  "draftComponentId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "requiredMetadata": {
+                    "minItems": 1,
+                    "maxItems": 500,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -3778,13 +3906,9 @@
                       ]
                     }
                   },
-                  "stateId": {
+                  "status": {
                     "type": "string",
-                    "minLength": 1
-                  },
-                  "draftComponentId": {
-                    "type": "string",
-                    "minLength": 1
+                    "enum": ["pending", "active", "recorded", "failed"]
                   }
                 },
                 "required": [
@@ -3793,8 +3917,8 @@
                   "kind",
                   "label",
                   "placementId",
-                  "status",
-                  "requiredMetadata"
+                  "requiredMetadata",
+                  "status"
                 ],
                 "additionalProperties": false
               }
@@ -3871,32 +3995,39 @@
             },
             "fileKey": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "maxLength": 2048
             },
             "pageId": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "maxLength": 2048
             },
             "sectionName": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "maxLength": 512
             },
             "nodes": {
+              "maxItems": 500,
               "type": "array",
               "items": {
                 "type": "object",
                 "properties": {
                   "nodeId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "name": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 512
                   },
                   "kind": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 512
                   },
                   "semanticRole": {
                     "type": "string",
@@ -3910,57 +4041,72 @@
                   },
                   "transactionId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "placementId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "stateId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "draftComponentId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "partId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "bounds": {
                     "type": "object",
                     "properties": {
                       "x": {
-                        "type": "number"
+                        "type": "number",
+                        "minimum": -1000000,
+                        "maximum": 1000000
                       },
                       "y": {
-                        "type": "number"
+                        "type": "number",
+                        "minimum": -1000000,
+                        "maximum": 1000000
                       },
                       "width": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 100000
                       },
                       "height": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 100000
                       }
                     },
                     "required": ["x", "y", "width", "height"],
                     "additionalProperties": false
                   },
                   "componentRefs": {
+                    "maxItems": 500,
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "minLength": 1
+                      "minLength": 1,
+                      "maxLength": 2048
                     }
                   },
                   "variableRefs": {
+                    "maxItems": 500,
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "minLength": 1
+                      "minLength": 1,
+                      "maxLength": 2048
                     }
                   },
                   "autoLayout": {
@@ -3968,7 +4114,8 @@
                   },
                   "recordedAt": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   }
                 },
                 "required": [
@@ -3989,7 +4136,8 @@
             },
             "updatedAt": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "maxLength": 2048
             }
           },
           "required": ["schemaVersion", "fileKey", "pageId", "sectionName", "nodes", "updatedAt"],
@@ -4063,24 +4211,29 @@
             },
             "fileKey": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "maxLength": 2048
             },
             "pageId": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "maxLength": 2048
             },
             "reconciledAt": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "maxLength": 2048
             },
             "nodes": {
+              "maxItems": 500,
               "type": "array",
               "items": {
                 "type": "object",
                 "properties": {
                   "nodeId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "ledgerStatus": {
                     "type": "string",
@@ -4088,28 +4241,36 @@
                   },
                   "previousName": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 512
                   },
                   "currentName": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 512
                   },
                   "previousBounds": {
                     "type": "object",
                     "properties": {
                       "x": {
-                        "type": "number"
+                        "type": "number",
+                        "minimum": -1000000,
+                        "maximum": 1000000
                       },
                       "y": {
-                        "type": "number"
+                        "type": "number",
+                        "minimum": -1000000,
+                        "maximum": 1000000
                       },
                       "width": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 100000
                       },
                       "height": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 100000
                       }
                     },
                     "required": ["x", "y", "width", "height"],
@@ -4119,18 +4280,24 @@
                     "type": "object",
                     "properties": {
                       "x": {
-                        "type": "number"
+                        "type": "number",
+                        "minimum": -1000000,
+                        "maximum": 1000000
                       },
                       "y": {
-                        "type": "number"
+                        "type": "number",
+                        "minimum": -1000000,
+                        "maximum": 1000000
                       },
                       "width": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 100000
                       },
                       "height": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 100000
                       }
                     },
                     "required": ["x", "y", "width", "height"],
@@ -4138,15 +4305,18 @@
                   },
                   "transactionId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "placementId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   },
                   "stateId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 2048
                   }
                 },
                 "required": ["nodeId", "ledgerStatus"],

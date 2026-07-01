@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
   ArtifactPayloadSchema,
   ArtifactSchemaVersionByType,
+  BoundsSchema,
   CanvasPlanSchema,
   CanvasReconciliationReportSchema,
   FigmaNodeLedgerSchema,
@@ -61,7 +62,7 @@ function validCanvasPlan() {
     ],
     strategy: {
       primaryFirst: true,
-      creationOrder: ["txn-create-screen", "txn-verify-node"],
+      creationOrder: ["placement-content", "placement-header"],
       designerNotes: ["Keep screen states below draft components."],
     },
   };
@@ -194,7 +195,15 @@ describe("canvas and figma ledger artifact schemas", () => {
         project: { root: "/tmp/project" },
         canvasPlan: validCanvasPlan(),
         figmaTransactionPlan: validFigmaTransactionPlan(),
-        activeFigmaTransaction: { id: "txn-create-draft" },
+        activeFigmaTransaction: {
+          id: "txn-create-draft",
+          order: 1,
+          kind: "create-draft-component",
+          label: "Create draft table row",
+          placementId: "placement-content",
+          draftComponentId: "draft-table-row",
+          requiredMetadata: transactionMetadata,
+        },
         figmaNodeLedger: validFigmaNodeLedger(),
         canvasReconciliation: validCanvasReconciliation(),
         artifacts: [],
@@ -203,7 +212,7 @@ describe("canvas and figma ledger artifact schemas", () => {
     ).toMatchObject({
       canvasPlan: { schemaVersion: "CanvasPlan/v1" },
       figmaTransactionPlan: { schemaVersion: "FigmaTransactionPlan/v1" },
-      activeFigmaTransaction: { id: "txn-create-draft" },
+      activeFigmaTransaction: { id: "txn-create-draft", kind: "create-draft-component" },
       figmaNodeLedger: { schemaVersion: "FigmaNodeLedger/v1" },
       canvasReconciliation: { schemaVersion: "CanvasReconciliationReport/v1" },
     });
@@ -260,6 +269,97 @@ describe("canvas and figma ledger artifact schemas", () => {
     expect(() => CanvasPlanSchema.parse(placementWithoutTransaction)).toThrow();
     expect(() => FigmaTransactionPlanSchema.parse(transactionWithoutLabel)).toThrow();
     expect(() => FigmaNodeLedgerSchema.parse(ledgerWithObjectAutoLayout)).toThrow();
+  });
+
+  it("rejects raw active figma transaction payloads in graph state", () => {
+    expect(() =>
+      KotikitGraphStateSchema.parse({
+        schemaVersion: "KotikitGraphState/v1",
+        runId: "run-1",
+        flowId: "create-screen",
+        flowVersion: "1.0.0",
+        graphHash: "hash",
+        status: "waiting-for-figma",
+        project: { root: "/tmp/project" },
+        activeFigmaTransaction: {
+          id: "txn-create-draft",
+          order: 1,
+          kind: "create-draft-component",
+          label: "Create draft table row",
+          placementId: "placement-content",
+          requiredMetadata: transactionMetadata,
+          rawNodeTree: { document: { children: [] } },
+        },
+        artifacts: [],
+        errors: [],
+      })
+    ).toThrow();
+  });
+
+  it("rejects dangling and duplicated canvas plan relationships", () => {
+    expect(() =>
+      CanvasPlanSchema.parse({
+        ...validCanvasPlan(),
+        placements: validCanvasPlan().placements.map((placement) =>
+          placement.id === "placement-content"
+            ? { ...placement, parentZoneId: "missing-zone" }
+            : placement
+        ),
+      })
+    ).toThrow();
+    expect(() =>
+      CanvasPlanSchema.parse({
+        ...validCanvasPlan(),
+        placements: validCanvasPlan().placements.map((placement) => ({
+          ...placement,
+          id: "duplicate-placement",
+        })),
+      })
+    ).toThrow();
+    expect(() =>
+      CanvasPlanSchema.parse({
+        ...validCanvasPlan(),
+        placements: validCanvasPlan().placements.map((placement) => ({
+          ...placement,
+          transactionId: "duplicate-transaction",
+        })),
+      })
+    ).toThrow();
+    expect(() =>
+      CanvasPlanSchema.parse({
+        ...validCanvasPlan(),
+        strategy: {
+          ...validCanvasPlan().strategy,
+          creationOrder: ["missing-placement"],
+        },
+      })
+    ).toThrow();
+  });
+
+  it("rejects duplicate transaction orders and empty required metadata", () => {
+    expect(() =>
+      FigmaTransactionPlanSchema.parse({
+        ...validFigmaTransactionPlan(),
+        transactions: validFigmaTransactionPlan().transactions.map((transaction) => ({
+          ...transaction,
+          order: 1,
+        })),
+      })
+    ).toThrow();
+    expect(() =>
+      FigmaTransactionPlanSchema.parse({
+        ...validFigmaTransactionPlan(),
+        transactions: validFigmaTransactionPlan().transactions.map((transaction) =>
+          transaction.id === "txn-create-draft"
+            ? { ...transaction, requiredMetadata: [] }
+            : transaction
+        ),
+      })
+    ).toThrow();
+  });
+
+  it("rejects absurd incremental figma bounds", () => {
+    expect(() => BoundsSchema.parse({ x: 0, y: 0, width: 1e12, height: 720 })).toThrow();
   });
 
   it("parses graph state with empty compact canvas and transaction refs", () => {

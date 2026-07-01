@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  ActiveFigmaTransactionSchema,
   ArtifactTypeSchema,
   CanvasPlanSchema,
   CanvasReconciliationReportSchema,
@@ -79,7 +80,7 @@ export const KotikitGraphStateSchema = z.strictObject({
   applyReport: z.unknown().optional(),
   canvasPlan: CanvasPlanSchema.optional(),
   figmaTransactionPlan: FigmaTransactionPlanSchema.optional(),
-  activeFigmaTransaction: z.unknown().optional(),
+  activeFigmaTransaction: ActiveFigmaTransactionSchema.optional(),
   figmaNodeLedger: FigmaNodeLedgerSchema.optional(),
   canvasReconciliation: CanvasReconciliationReportSchema.optional(),
   uiQualityGate: UIQualityGateReportSchema.optional(),

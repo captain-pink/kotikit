@@ -64,57 +64,111 @@ const SourceNodeSchema = z.strictObject({
   version: z.string().min(1),
 });
 
+// Compact incremental Figma contracts: large raw Figma payloads belong in artifacts/files, not graph state.
+const INCREMENTAL_TEXT_MAX = 512;
+const INCREMENTAL_REF_MAX = 2_048;
+const INCREMENTAL_ARRAY_MAX = 500;
+const INCREMENTAL_COORDINATE_LIMIT = 1_000_000;
+const INCREMENTAL_DIMENSION_MAX = 100_000;
+
+const IncrementalTextSchema = z.string().min(1).max(INCREMENTAL_TEXT_MAX);
+const IncrementalRefSchema = z.string().min(1).max(INCREMENTAL_REF_MAX);
+
 export const BoundsSchema = z.strictObject({
-  x: z.number(),
-  y: z.number(),
-  width: z.number().positive(),
-  height: z.number().positive(),
+  x: z.number().min(-INCREMENTAL_COORDINATE_LIMIT).max(INCREMENTAL_COORDINATE_LIMIT),
+  y: z.number().min(-INCREMENTAL_COORDINATE_LIMIT).max(INCREMENTAL_COORDINATE_LIMIT),
+  width: z.number().positive().max(INCREMENTAL_DIMENSION_MAX),
+  height: z.number().positive().max(INCREMENTAL_DIMENSION_MAX),
 });
 
 const CanvasSectionRefSchema = z.strictObject({
-  id: z.string().min(1).optional(),
-  name: z.string().min(1),
+  id: IncrementalRefSchema.optional(),
+  name: IncrementalTextSchema,
 });
 
 const ScreenSizeSchema = z.strictObject({
-  width: z.number().positive(),
-  height: z.number().positive(),
+  width: z.number().positive().max(INCREMENTAL_DIMENSION_MAX),
+  height: z.number().positive().max(INCREMENTAL_DIMENSION_MAX),
 });
 
 const CanvasZoneSchema = z.strictObject({
-  id: z.string().min(1),
+  id: IncrementalRefSchema,
   kind: z.enum(["draft-components", "screen-states", "review-notes"]),
-  label: z.string().min(1),
+  label: IncrementalTextSchema,
   bounds: BoundsSchema,
 });
 
 const CanvasPlacementSchema = z.strictObject({
-  id: z.string().min(1),
+  id: IncrementalRefSchema,
   kind: z.enum(["screen-state", "draft-component", "annotation"]),
-  stateId: z.string().min(1).optional(),
-  draftComponentId: z.string().min(1).optional(),
-  label: z.string().min(1),
+  stateId: IncrementalRefSchema.optional(),
+  draftComponentId: IncrementalRefSchema.optional(),
+  label: IncrementalTextSchema,
   bounds: BoundsSchema,
-  parentZoneId: z.string().min(1),
-  transactionId: z.string().min(1),
+  parentZoneId: IncrementalRefSchema,
+  transactionId: IncrementalRefSchema,
 });
 
 const CanvasPlanStrategySchema = z.strictObject({
   primaryFirst: z.boolean(),
-  creationOrder: z.array(z.string().min(1)),
-  designerNotes: z.array(z.string().min(1)),
+  creationOrder: z.array(IncrementalRefSchema).max(INCREMENTAL_ARRAY_MAX),
+  designerNotes: z.array(z.string().min(1).max(INCREMENTAL_REF_MAX)).max(INCREMENTAL_ARRAY_MAX),
 });
 
-export const CanvasPlanSchema = z.strictObject({
-  schemaVersion: z.literal("CanvasPlan/v1"),
-  section: CanvasSectionRefSchema,
-  coordinateSpace: z.literal("section-relative"),
-  screenSize: ScreenSizeSchema,
-  minGap: z.number().nonnegative(),
-  zones: z.array(CanvasZoneSchema),
-  placements: z.array(CanvasPlacementSchema),
-  strategy: CanvasPlanStrategySchema,
-});
+export const CanvasPlanSchema = z
+  .strictObject({
+    schemaVersion: z.literal("CanvasPlan/v1"),
+    section: CanvasSectionRefSchema,
+    coordinateSpace: z.literal("section-relative"),
+    screenSize: ScreenSizeSchema,
+    minGap: z.number().nonnegative().max(INCREMENTAL_DIMENSION_MAX),
+    zones: z.array(CanvasZoneSchema).max(INCREMENTAL_ARRAY_MAX),
+    placements: z.array(CanvasPlacementSchema).max(INCREMENTAL_ARRAY_MAX),
+    strategy: CanvasPlanStrategySchema,
+  })
+  .superRefine((plan, ctx) => {
+    const zoneIds = new Set(plan.zones.map((zone) => zone.id));
+    const placementIds = new Set<string>();
+    const transactionIds = new Set<string>();
+
+    plan.placements.forEach((placement, index) => {
+      if (!zoneIds.has(placement.parentZoneId)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["placements", index, "parentZoneId"],
+          message: `Unknown parent zone ${placement.parentZoneId}.`,
+        });
+      }
+
+      if (placementIds.has(placement.id)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["placements", index, "id"],
+          message: `Duplicate placement id ${placement.id}.`,
+        });
+      }
+      placementIds.add(placement.id);
+
+      if (transactionIds.has(placement.transactionId)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["placements", index, "transactionId"],
+          message: `Duplicate transaction id ${placement.transactionId}.`,
+        });
+      }
+      transactionIds.add(placement.transactionId);
+    });
+
+    plan.strategy.creationOrder.forEach((placementId, index) => {
+      if (!placementIds.has(placementId)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["strategy", "creationOrder", index],
+          message: `Creation order references unknown placement ${placementId}.`,
+        });
+      }
+    });
+  });
 
 const FigmaTransactionKindSchema = z.enum([
   "create-draft-component",
@@ -133,23 +187,51 @@ const FigmaTransactionMetadataSchema = z.enum([
   "variable-refs",
 ]);
 
-const FigmaTransactionSchema = z.strictObject({
-  id: z.string().min(1),
+export const ActiveFigmaTransactionSchema = z.strictObject({
+  id: IncrementalRefSchema,
   order: z.number().int().positive(),
   kind: FigmaTransactionKindSchema,
-  label: z.string().min(1),
-  placementId: z.string().min(1),
-  status: FigmaTransactionStatusSchema,
-  requiredMetadata: z.array(FigmaTransactionMetadataSchema),
-  stateId: z.string().min(1).optional(),
-  draftComponentId: z.string().min(1).optional(),
+  label: IncrementalTextSchema,
+  placementId: IncrementalRefSchema,
+  stateId: IncrementalRefSchema.optional(),
+  draftComponentId: IncrementalRefSchema.optional(),
+  requiredMetadata: z.array(FigmaTransactionMetadataSchema).min(1).max(INCREMENTAL_ARRAY_MAX),
 });
 
-export const FigmaTransactionPlanSchema = z.strictObject({
-  schemaVersion: z.literal("FigmaTransactionPlan/v1"),
-  mode: z.literal("incremental-official-figma-mcp"),
-  transactions: z.array(FigmaTransactionSchema),
+const FigmaTransactionSchema = ActiveFigmaTransactionSchema.extend({
+  status: FigmaTransactionStatusSchema,
 });
+
+export const FigmaTransactionPlanSchema = z
+  .strictObject({
+    schemaVersion: z.literal("FigmaTransactionPlan/v1"),
+    mode: z.literal("incremental-official-figma-mcp"),
+    transactions: z.array(FigmaTransactionSchema).max(INCREMENTAL_ARRAY_MAX),
+  })
+  .superRefine((plan, ctx) => {
+    const ids = new Set<string>();
+    const orders = new Set<number>();
+
+    plan.transactions.forEach((transaction, index) => {
+      if (ids.has(transaction.id)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["transactions", index, "id"],
+          message: `Duplicate transaction id ${transaction.id}.`,
+        });
+      }
+      ids.add(transaction.id);
+
+      if (orders.has(transaction.order)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["transactions", index, "order"],
+          message: `Duplicate transaction order ${transaction.order}.`,
+        });
+      }
+      orders.add(transaction.order);
+    });
+  });
 
 const FigmaNodeSemanticRoleSchema = z.enum([
   "screen-state",
@@ -160,49 +242,49 @@ const FigmaNodeSemanticRoleSchema = z.enum([
 ]);
 
 const FigmaNodeLedgerEntrySchema = z.strictObject({
-  nodeId: z.string().min(1),
-  name: z.string().min(1),
-  kind: z.string().min(1),
+  nodeId: IncrementalRefSchema,
+  name: IncrementalTextSchema,
+  kind: IncrementalTextSchema,
   semanticRole: FigmaNodeSemanticRoleSchema,
-  transactionId: z.string().min(1),
-  placementId: z.string().min(1),
-  stateId: z.string().min(1).optional(),
-  draftComponentId: z.string().min(1).optional(),
-  partId: z.string().min(1).optional(),
+  transactionId: IncrementalRefSchema,
+  placementId: IncrementalRefSchema,
+  stateId: IncrementalRefSchema.optional(),
+  draftComponentId: IncrementalRefSchema.optional(),
+  partId: IncrementalRefSchema.optional(),
   bounds: BoundsSchema,
-  componentRefs: z.array(z.string().min(1)),
-  variableRefs: z.array(z.string().min(1)),
+  componentRefs: z.array(IncrementalRefSchema).max(INCREMENTAL_ARRAY_MAX),
+  variableRefs: z.array(IncrementalRefSchema).max(INCREMENTAL_ARRAY_MAX),
   autoLayout: z.boolean(),
-  recordedAt: z.string().min(1),
+  recordedAt: IncrementalRefSchema,
 });
 
 export const FigmaNodeLedgerSchema = z.strictObject({
   schemaVersion: z.literal("FigmaNodeLedger/v1"),
-  fileKey: z.string().min(1),
-  pageId: z.string().min(1),
-  sectionName: z.string().min(1),
-  nodes: z.array(FigmaNodeLedgerEntrySchema),
-  updatedAt: z.string().min(1),
+  fileKey: IncrementalRefSchema,
+  pageId: IncrementalRefSchema,
+  sectionName: IncrementalTextSchema,
+  nodes: z.array(FigmaNodeLedgerEntrySchema).max(INCREMENTAL_ARRAY_MAX),
+  updatedAt: IncrementalRefSchema,
 });
 
 const CanvasReconciliationNodeSchema = z.strictObject({
-  nodeId: z.string().min(1),
+  nodeId: IncrementalRefSchema,
   ledgerStatus: z.enum(["matched", "moved", "renamed", "missing", "untracked"]),
-  previousName: z.string().min(1).optional(),
-  currentName: z.string().min(1).optional(),
+  previousName: IncrementalTextSchema.optional(),
+  currentName: IncrementalTextSchema.optional(),
   previousBounds: BoundsSchema.optional(),
   currentBounds: BoundsSchema.optional(),
-  transactionId: z.string().min(1).optional(),
-  placementId: z.string().min(1).optional(),
-  stateId: z.string().min(1).optional(),
+  transactionId: IncrementalRefSchema.optional(),
+  placementId: IncrementalRefSchema.optional(),
+  stateId: IncrementalRefSchema.optional(),
 });
 
 export const CanvasReconciliationReportSchema = z.strictObject({
   schemaVersion: z.literal("CanvasReconciliationReport/v1"),
-  fileKey: z.string().min(1),
-  pageId: z.string().min(1),
-  reconciledAt: z.string().min(1),
-  nodes: z.array(CanvasReconciliationNodeSchema),
+  fileKey: IncrementalRefSchema,
+  pageId: IncrementalRefSchema,
+  reconciledAt: IncrementalRefSchema,
+  nodes: z.array(CanvasReconciliationNodeSchema).max(INCREMENTAL_ARRAY_MAX),
   unmappedCommentsRisk: z.enum(["none", "low", "needs-human"]),
 });
 
