@@ -1,17 +1,15 @@
 # Workflows
 
 These are the main kotikit workflows a designer or product person should know.
-The assistant should run the MCP tools for you; you should not need to call tool
+The assistant should run MCP tools for you; you should not need to call tool
 names directly.
 
-kotikit keeps a compact workflow pointer in the project. If you stop halfway
-through setup, syncing, creating a draft, or reviewing a design, the assistant
-should continue from the next safe step instead of rereading old history or
-guessing what happened.
+Kotikit now runs designer work as graph flows. A flow can pause for a designer
+decision, wait for Figma work, save an artifact, and resume from a run id.
 
-## Guided Screen Or Flow Spec
+## Start Kotikit
 
-Start with:
+Use the assistant entry point:
 
 ```text
 kotikit:auto
@@ -23,20 +21,44 @@ or in Claude Code:
 /kotikit-auto
 ```
 
-Then describe the thing you want to build:
+The assistant should check setup, list relevant flows when needed, then start
+the best prebuilt flow for your request.
+
+## Quick High-Fidelity Screen
+
+Ask for a specific screen when you already have a usable design system:
 
 ```text
-I want to build a members admin page with search, filters, table rows, member
-status controls, and an invite flow.
+Create a high-fidelity members admin screen using our existing table, filters,
+buttons, and status components.
 ```
 
 The assistant should:
 
-1. Ask product and design questions one topic at a time.
-2. Record your answers before it can save the spec.
-3. Confirm the screen or flow back to you in plain language.
-4. Save a local spec under `.kotikit/specs`.
-5. Offer the "What next?" menu.
+1. Start the `create-screen` flow with your intent.
+2. Search the local design-system cache before inventing anything.
+3. Ask only blocking questions, such as missing component strategy, literal
+   variable fallback approval, or the exact Figma draft page target.
+4. Read the apply-packet artifact.
+5. Use the official Figma assistant integration to create the draft inside a
+   kotikit-owned Section.
+6. Record Figma node metadata back into kotikit.
+7. Let the UI quality gate check common broken-output issues.
+
+## Guided Screen Or Product Flow
+
+Use the guided path when the product shape is not clear yet:
+
+```text
+I want to design an invite flow for adding new members.
+```
+
+The assistant should ask product/design questions one topic at a time, confirm
+the summary, save a design-brief artifact, and then continue into screen or
+product-flow drafting.
+
+Product-flow work should map actor, goal, scenario, screens, states, and shared
+state before drafting screens.
 
 ## Sync A Figma Design System
 
@@ -49,55 +71,26 @@ Sync my Figma design system.
 If no design system is configured, the assistant should ask for the Figma file
 URL or file key, save it to kotikit config, then run sync.
 
-kotikit syncs published components, component sets, icons, styles, and available
+Kotikit syncs published components, component sets, icons, styles, and available
 variables into `design-system/`.
 
 Important: the Figma file must be published as a library. Figma does not return
 importable component keys for unpublished local components.
 
-## Create Or Refine A Figma Draft
-
-Ask:
-
-```text
-Create the Figma design for the Members screen.
-```
-
-The assistant should:
-
-1. Pick the saved spec or ask which one to use.
-2. Confirm the design system has been synced if the screen should use it.
-3. Ask for an exact Figma draft page link.
-4. Bind that page as the safe target.
-5. Generate a design plan.
-6. Fetch the kotikit apply packet.
-7. Use the official Figma assistant integration to create or refine the design
-   inside a kotikit-owned Section.
-8. Record applied node metadata back into kotikit so comment review can map
-   feedback to the right design parts.
-
-Draft page rules:
-
-- The Figma URL must include `node-id`.
-- The target must be a page node, not a random child frame.
-- The page name must contain `Draft` or `Drafts`.
-
 ## Missing Components
 
-If the saved spec needs a component that is not in the synced design system,
-kotikit should not silently invent it.
+If local design-system search cannot find a meaningful UI part, kotikit should
+not silently invent or imitate it.
 
 The assistant should ask you to choose:
 
 - Create reusable draft components first.
-- Build the missing pieces inline in this page only.
+- Use an approved primitive exception for this draft only.
 
-If synced variables are unavailable, kotikit should suggest importing variables
-through the plugin before using literal values. Literal draft values are allowed
-only after you explicitly approve them.
-
-Reusable draft components pause the main screen task until you review those
-components and confirm the screen can use them.
+Reusable draft components are created and validated on the active draft page
+before the main screen composition continues. Literal color, typography,
+spacing, radius, stroke, shadow, or effect values are allowed only after you
+explicitly approve them.
 
 ## Import Variables On Non-Enterprise Figma Plans
 
@@ -113,22 +106,7 @@ skipped, use the plugin fallback:
 The plugin reads variables from the open file through Figma's Plugin API and
 sends a compact payload to kotikit over the local bridge.
 
-## Review Existing Figma Comments
-
-Ask:
-
-```text
-Review the Figma comments for the Members screen.
-```
-
-kotikit reads comments through the Figma API, maps comments on known nodes back
-to generated design-plan nodes when possible, and stores a compact review
-session in `.kotikit/design-review.db`.
-
-After fixes, kotikit can prepare replies for fixed comments. It should never
-post those replies without your approval.
-
-## Run A Design-Quality Review
+## Review An Existing Figma Design
 
 Ask:
 
@@ -139,15 +117,30 @@ https://www.figma.com/design/...
 
 The link must include `node-id`.
 
-kotikit gathers bounded evidence instead of reading the full Figma file:
+Kotikit gathers bounded REST-backed evidence instead of reading the full Figma
+file:
 
 - shallow target metadata
 - limited child-region summaries
 - a temporary screenshot URL when available
 - a short-lived local cache row with schema, fingerprint, and expiry
 
-The assistant records structured findings, summarizes the review, and asks
-whether you want selected comments posted back to Figma.
+The graph compares the target to local design-system evidence, creates a
+revision-plan artifact, and pauses before any approved revision is applied.
+
+## Review Existing Figma Comments
+
+Ask:
+
+```text
+Review the Figma comments for the Members screen.
+```
+
+Comment review works best when the design was created through kotikit and has
+recorded Figma node metadata. Kotikit maps comments on known nodes back to graph
+artifacts when possible, groups them into decisions, and can prepare replies.
+
+Kotikit never posts replies or review comments without your approval.
 
 ## Design Memory
 

@@ -32,15 +32,17 @@ official Figma MCP integration instead of kotikit's local plugin.
 The target project owns:
 
 - `.kotikit/config.json`
-- `.kotikit/workflows/*`
+- `.kotikit/runs/*`
+- `.kotikit/artifacts/*`
 - `.kotikit/specs/*`
 - `.kotikit/index.json`
 - `.kotikit/design-review.db`
 - `.kotikit/bridge.json` when a bridge is running
 
-Specs and plans are JSON. Review state and memory live in SQLite.
-Workflow sessions are compact JSON pointers to the current task; they keep only
-the latest decision summary so agents can resume without loading old history.
+Specs, graph runs, and graph artifacts are JSON. Review state and memory live
+in SQLite. Runs persist flow ids, graph hashes, node versions, status, and
+state; artifacts hold compact contracts such as briefs, fit reports, apply
+packets, review sessions, revision plans, and QA reports.
 
 ### Design-System Indexes
 

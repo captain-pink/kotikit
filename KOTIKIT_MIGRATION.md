@@ -218,6 +218,29 @@ The migration now has thin plugin wrappers for assistant setup:
 This keeps setup simpler for non-technical designers while preserving the
 developer-friendly source scaffold during the migration.
 
+## Implementation Update: User And Developer Docs Rewritten
+
+Completed on branch `feature/kotikit-migration`.
+
+The live docs now describe kotikit as a graph-backed designer flow kit instead
+of a manual choreography toolchain:
+
+- README, architecture, workflows, tools, getting-started, Figma,
+  troubleshooting, development, module docs, plugin docs, and bundled skills
+  now point designers to the small graph facade and built-in flows;
+- quick high-fidelity screen creation from existing design-system components is
+  documented as a first-class path, while guided screen/product-flow/review
+  flows remain available when more context or approval is needed;
+- plugin setup is documented as the preferred assistant path when available,
+  with the source scaffold kept for local development and manual MCP setup;
+- Figma personal access tokens are scoped to local design-system sync/search
+  and REST-backed design/comment review, not required for the draft-creation
+  happy path through the official Figma assistant integration;
+- local design-system search remains documented as the primary
+  token-efficient grounding source;
+- live documentation tests now fail if removed public choreography tools or old
+  workflow-controller language reappear in user-facing docs.
+
 ## Sources Reviewed During Initial Migration Analysis
 
 Local repo:

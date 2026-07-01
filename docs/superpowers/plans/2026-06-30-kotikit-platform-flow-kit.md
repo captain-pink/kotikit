@@ -922,7 +922,7 @@ bun test src/core/nodes/ui-composition src/core/nodes/draft-components src/core/
 bun run typecheck
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/core/adapters/figma src/core/domain src/core/nodes/ui-composition src/core/nodes/draft-components src/core/nodes/draft src/core/nodes/figma src/core/nodes/qa src/figma src/planning src/mcp/tools
@@ -1266,6 +1266,9 @@ git add src docs README.md KOTIKIT_MIGRATION.md scripts
 git commit -m "refactor(mcp): remove stale workflow tool choreography"
 ```
 
+Task 12 commit note: committed as `009f1ac feat(mcp): remove stale public
+choreography tools`.
+
 ## Task 13: Rewrite User And Developer Docs
 
 **Files:**
@@ -1288,7 +1291,7 @@ git commit -m "refactor(mcp): remove stale workflow tool choreography"
 - Modify: `.agents/skills/kotikit-auto/SKILL.md`
 - Modify: `.agents/skills/kotikit-design-review/SKILL.md`
 
-- [ ] **Step 1: Write doc scan tests**
+- [x] **Step 1: Write doc scan tests**
 
 Add or update a documentation scan test that checks:
 
@@ -1300,7 +1303,7 @@ Add or update a documentation scan test that checks:
 - old tool names are absent from live user docs except migration/deprecation
   notes.
 
-- [ ] **Step 2: Rewrite README**
+- [x] **Step 2: Rewrite README**
 
 README should describe:
 
@@ -1313,7 +1316,7 @@ README should describe:
 - current alpha status;
 - design-to-code removed.
 
-- [ ] **Step 3: Rewrite getting started**
+- [x] **Step 3: Rewrite getting started**
 
 Structure:
 
@@ -1324,14 +1327,14 @@ Structure:
 5. Run product-flow, improve-design, or review-comments flow as needed.
 6. Run sync-design-system only when local cache needs setup or refresh.
 
-- [ ] **Step 4: Rewrite architecture and tools docs**
+- [x] **Step 4: Rewrite architecture and tools docs**
 
 Architecture should center graph runtime and adapters.
 
 Tools doc should list the small facade and move old tool names to a migration
 history section only if still needed.
 
-- [ ] **Step 5: Rewrite skills**
+- [x] **Step 5: Rewrite skills**
 
 Skills should instruct agents to use the facade:
 
@@ -1342,7 +1345,7 @@ Skills should instruct agents to use the facade:
 - use official Figma MCP for writes;
 - record apply metadata.
 
-- [ ] **Step 6: Verify docs**
+- [x] **Step 6: Verify docs**
 
 Run:
 
@@ -1354,7 +1357,14 @@ rg "design-to-code|codegen|scaffold React|kotikit_workflow_|kotikit_plan_design|
 
 Expected: only approved migration-history or explicit non-core references.
 
-- [ ] **Step 7: Commit**
+Task 13 implementation note: added a live documentation regression test for
+removed choreography tools, plugin/scaffold guidance, Figma PAT scoping, local
+design-system grounding, and design-to-code removal. README, architecture,
+workflow, plugin, migration, and already-updated live docs now describe graph
+runs, artifacts, built-in designer flows, official Figma apply, and local
+design-system search.
+
+- [x] **Step 7: Commit**
 
 ```bash
 git add README.md KOTIKIT_MIGRATION.md docs .agents

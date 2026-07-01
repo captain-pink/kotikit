@@ -13,6 +13,6 @@ package is installed or linked in a way that exposes `kotikit-mcp` on `PATH`.
 The core MCP server stays agent-neutral, so the plugin layer only adds
 assistant-specific packaging and designer-facing launch instructions.
 
-Use plugin installation when your assistant supports local plugins. Use
-`bun run scaffold:agents` for local development, source checkouts, or manual MCP
-setup in a target workspace.
+Assistant plugins are preferred when your assistant supports local plugins. The
+source scaffold remains useful for local development, source checkouts, and
+manual MCP setup in a target workspace.
