@@ -6,9 +6,31 @@ Detailed follow-up documents:
 
 - [Kotikit Platform Flow Kit Design](docs/superpowers/specs/2026-06-30-kotikit-platform-flow-kit-design.md)
 - [Kotikit Platform Flow Kit Implementation Plan](docs/superpowers/plans/2026-06-30-kotikit-platform-flow-kit.md)
+- [Kotikit UX Quality Contracts Spec](docs/superpowers/specs/2026-07-01-kotikit-ux-quality-contracts.md)
+- [Kotikit UX Quality Contracts Implementation Plan](docs/superpowers/plans/2026-07-01-kotikit-ux-quality-contracts.md)
 
 This document captures a proposed complete refactor of kotikit around a smaller
 designer-first core and a LangGraphJS workflow engine.
+
+## Planned Update: UX Quality Contracts
+
+The first migrated Figma draft exposed three graph-contract gaps that must be
+closed before Kotikit is considered reliable for day-to-day designer use:
+
+- comment review needs a durable `CommentEvidenceMap/v1` built from Figma REST
+  comment snapshots plus graph apply metadata, because Figma comments are
+  spatial threaded objects and the Plugin API cannot read comments;
+- loading, empty, no-results, error, and permission output needs a
+  `StateMatrix/v1` and state representation gate so table/list states become
+  page or region states instead of loose preview cards;
+- draft components need `DraftComponentLifecycle/v1` so every created draft
+  component is placed in a reserved area and used as an instance in the final
+  screen, or the graph fails with an orphan/overlap finding.
+
+The execution plan requires every implementation agent to follow
+`docs/coding_guidelines.md`, work test-first with Bun, avoid hardcoded
+screen-specific logic, prefer generic pattern-pack data, and remove stale code
+only after equivalent graph-backed behavior is covered by tests.
 
 ## Implementation Update: Design-To-Code Removed From Core
 
