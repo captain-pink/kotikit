@@ -2,6 +2,7 @@ import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import { z } from "zod";
 import { nowIso, uuid } from "../../util/ids.js";
 import { KotikitError } from "../../util/result.js";
+import { assertCompactGraphState } from "../domain/context-durability.js";
 import type { ArtifactStore } from "../runs/artifact-store.js";
 import type { CheckpointStore } from "../runs/checkpoint-store.js";
 import type { RunRecord, RunStore } from "../runs/run-store.js";
@@ -103,6 +104,7 @@ export function createGraphRuntime(input: {
         artifacts: [],
         errors: [],
       };
+      assertCompactGraphState(state);
       const run: RunRecord = {
         id: runId,
         flowId: flow.id,
@@ -249,6 +251,7 @@ async function executeRun(
     );
 
     const patchedState = { ...run.state, ...output.statePatch };
+    assertCompactGraphState(patchedState);
 
     if (output.artifacts !== undefined) {
       for (const artifact of output.artifacts) {

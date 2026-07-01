@@ -74,4 +74,42 @@ describe("review-comments graph flow", () => {
       promotedMemory: null,
     });
   });
+
+  it("resumes after comment approval without carrying the raw comment snapshot", async () => {
+    const first = await createGraphSmokeFixture(root);
+
+    const postingPaused = await first.runtime.startFlow({
+      flowId: "review-comments",
+      input: {
+        project: { root, name: "Smoke Project" },
+        userIntent: "Review open Figma comments for the draft.",
+        review: fakeCommentSnapshot(),
+      },
+    });
+
+    expect(postingPaused.status).toBe("waiting-for-user");
+    expect(postingPaused.state.pendingQuestion?.id).toBe("approve-comment-posting");
+    expect(reviewRecord(postingPaused.state.review).commentSnapshot).toBeUndefined();
+    expect(reviewRecord(postingPaused.state.review).commentSnapshotRef).toBe(
+      "comment-evidence-map"
+    );
+
+    const second = await createGraphSmokeFixture(root);
+    const memoryPaused = await second.runtime.answerRun({
+      runId: postingPaused.runId,
+      answer: "skip-comment-posting",
+    });
+
+    expect(memoryPaused.runId).toBe(postingPaused.runId);
+    expect(memoryPaused.status).toBe("waiting-for-user");
+    expect(memoryPaused.state.pendingQuestion?.id).toBe("approve-memory-promotion");
+    expect(reviewRecord(memoryPaused.state.review).commentSnapshot).toBeUndefined();
+    expect(JSON.stringify(memoryPaused.state).length).toBeLessThan(256 * 1024);
+  });
 });
+
+function reviewRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}

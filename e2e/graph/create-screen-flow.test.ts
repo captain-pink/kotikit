@@ -170,4 +170,47 @@ describe("create-screen graph flow", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("resumes after Figma apply metadata is patched through a restarted runtime", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kotikit-e2e-create-screen-"));
+    try {
+      seedLocalDesignSystem(root, { includePrimaryAction: false });
+      const first = await createGraphSmokeFixture(root);
+
+      const started = await first.runtime.startFlow({
+        flowId: "create-screen",
+        input: {
+          project: { root, name: "Smoke Project" },
+          userIntent:
+            "Quick high-fidelity profile settings form using existing design-system components.",
+          figmaTarget: fakeDraftTarget("Draft - Restart Settings"),
+        },
+      });
+      const missingResolved = await first.runtime.answerRun({
+        runId: started.runId,
+        answer: "create-draft-components",
+      });
+      const waitingForApply = await first.runtime.answerRun({
+        runId: started.runId,
+        answer: "approve-draft-only-literals",
+      });
+
+      expect(missingResolved.status).toBe("waiting-for-user");
+      expect(waitingForApply.status).toBe("waiting-for-figma");
+
+      await first.runtime.patchRunState({
+        runId: started.runId,
+        statePatch: { applyMetadata: fakeApplyMetadataFor(waitingForApply.state) },
+      });
+
+      const second = await createGraphSmokeFixture(root);
+      const completed = await second.runtime.continueRun({ runId: started.runId });
+
+      expect(completed.runId).toBe(started.runId);
+      expect(completed.status).toBe("done");
+      expect(JSON.stringify(completed.state).length).toBeLessThan(256 * 1024);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });

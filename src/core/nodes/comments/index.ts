@@ -2,6 +2,7 @@ import { z } from "zod";
 import { nowIso } from "../../../util/ids.js";
 import { KotikitError } from "../../../util/result.js";
 import { buildCommentEvidenceMap } from "../../domain/comment-evidence-map.js";
+import { pruneRawReviewPayloads } from "../../domain/context-durability.js";
 import type { NodeDefinition } from "../../graph/node-registry.js";
 import { type Artifact, ArtifactSchemaVersionByType } from "../../schemas/artifact.js";
 import type { KotikitGraphState } from "../../schemas/graph-state.js";
@@ -48,7 +49,7 @@ export const commentNodeDefinitions: NodeDefinition[] = [
       return {
         statePatch: {
           commentEvidenceMap,
-          review: { ...review, commentEvidenceMap },
+          review: pruneRawReviewPayloads({ ...review, commentEvidenceMap }),
         },
         artifacts: [commentEvidenceArtifact(state, commentEvidenceMap)],
       } satisfies RuntimeNodeOutput;
