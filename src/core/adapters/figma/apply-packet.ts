@@ -1,6 +1,8 @@
 import type { FigmaDraftTarget } from "../../../figma/draft-target.js";
 import { KotikitError } from "../../../util/result.js";
 import type {
+  CanvasPlan,
+  FigmaTransactionPlan,
   LayoutContract,
   UICompositionContract,
   VariableBindingPlan,
@@ -14,6 +16,8 @@ export type FigmaApplyPacket = {
   uiComposition: UICompositionContract;
   layoutContract: LayoutContract;
   variableBindingPlan: VariableBindingPlan;
+  canvasPlan: CanvasPlan;
+  transactionPlan: FigmaTransactionPlan;
   steps: unknown[];
   repeatedItems: unknown[];
   textTransforms: unknown[];
@@ -22,6 +26,7 @@ export type FigmaApplyPacket = {
     verifyComponentRefs: true;
     verifyVariables: true;
     verifyAutoLayout: true;
+    incrementalTransactions: true;
   };
 };
 
@@ -31,6 +36,8 @@ export function buildFigmaApplyPacket(input: {
   uiComposition?: UICompositionContract;
   layoutContract?: LayoutContract;
   variableBindingPlan?: VariableBindingPlan;
+  canvasPlan?: CanvasPlan;
+  transactionPlan?: FigmaTransactionPlan;
   steps?: unknown[];
   repeatedItems?: unknown[];
   textTransforms?: unknown[];
@@ -38,11 +45,13 @@ export function buildFigmaApplyPacket(input: {
   if (
     input.uiComposition === undefined ||
     input.layoutContract === undefined ||
-    input.variableBindingPlan === undefined
+    input.variableBindingPlan === undefined ||
+    input.canvasPlan === undefined ||
+    input.transactionPlan === undefined
   ) {
     throw new KotikitError(
       "The Figma apply packet is missing required UI contracts.",
-      "Build composition, layout, and variable-binding contracts before applying the draft."
+      "Build composition, layout, variable-binding, canvas, and transaction plans before applying the draft."
     );
   }
 
@@ -54,6 +63,8 @@ export function buildFigmaApplyPacket(input: {
     uiComposition: input.uiComposition,
     layoutContract: input.layoutContract,
     variableBindingPlan: input.variableBindingPlan,
+    canvasPlan: input.canvasPlan,
+    transactionPlan: input.transactionPlan,
     steps: input.steps ?? [],
     repeatedItems: input.repeatedItems ?? [],
     textTransforms: input.textTransforms ?? [],
@@ -62,6 +73,7 @@ export function buildFigmaApplyPacket(input: {
       verifyComponentRefs: true,
       verifyVariables: true,
       verifyAutoLayout: true,
+      incrementalTransactions: true,
     },
   };
 }

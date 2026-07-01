@@ -59,6 +59,22 @@ describe("built-in node registry", () => {
     );
   });
 
+  it("builds incremental Figma plans before the apply packet in create-screen", async () => {
+    const flows = await loadBuiltInFlows();
+    const createScreen = flows.find((flow) => flow.id === "create-screen");
+    if (createScreen === undefined) throw new Error("Missing create-screen flow.");
+
+    expect(nodeIndex(createScreen, "draft.compileHighFidelityDraft")).toBeLessThan(
+      nodeIndex(createScreen, "draft.buildCanvasPlan")
+    );
+    expect(nodeIndex(createScreen, "draft.buildCanvasPlan")).toBeLessThan(
+      nodeIndex(createScreen, "draft.buildFigmaTransactionPlan")
+    );
+    expect(nodeIndex(createScreen, "draft.buildFigmaTransactionPlan")).toBeLessThan(
+      nodeIndex(createScreen, "draft.buildFigmaApplyPacket")
+    );
+  });
+
   it("ensures a safe target before missing-component draft creation", async () => {
     const flows = await loadBuiltInFlows();
     const resolveMissing = flows.find((flow) => flow.id === "resolve-missing-components");

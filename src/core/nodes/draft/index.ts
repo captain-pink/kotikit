@@ -3,10 +3,15 @@ import { nowIso, slugify } from "../../../util/ids.js";
 import { KotikitError } from "../../../util/result.js";
 import { buildFigmaApplyPacket, type FigmaApplyPacket } from "../../adapters/figma/apply-packet.js";
 import { ensureDraftTarget } from "../../adapters/figma/target.js";
+import { buildCanvasPlan } from "../../domain/canvas-plan.js";
+import { buildFigmaTransactionPlan } from "../../domain/figma-transaction-plan.js";
 import type { NodeDefinition } from "../../graph/node-registry.js";
 import {
   type Artifact,
   ArtifactSchemaVersionByType,
+  type CanvasPlan,
+  CanvasPlanSchema,
+  type FigmaTransactionPlan,
   type LayoutContract,
   type UICompositionContract,
   type VariableBindingPlan,
@@ -51,6 +56,41 @@ export const draftNodeDefinitions: NodeDefinition[] = [
     },
   }),
   node({
+    key: "draft.buildCanvasPlan",
+    stateReads: ["figmaTarget", "screen", "stateMatrix", "draftComponentPlan"],
+    stateWrites: ["canvasPlan"],
+    run: async (input) => {
+      const state = graphState(input.state);
+      const section = canvasSectionFrom(state);
+      const canvasPlan = buildCanvasPlan({
+        sectionName: section.name,
+        ...(section.id === undefined ? {} : { sectionId: section.id }),
+        screenTitle: screenTitle(state),
+        screenSize: { width: 1440, height: 900 },
+        states: canvasStatesFrom(state),
+        draftComponents: state.draftComponentPlan?.components ?? [],
+      });
+      return {
+        statePatch: { canvasPlan },
+      } satisfies RuntimeNodeOutput;
+    },
+  }),
+  node({
+    key: "draft.buildFigmaTransactionPlan",
+    stateReads: ["canvasPlan"],
+    stateWrites: ["figmaTransactionPlan"],
+    run: async (input) => {
+      const canvasPlan = CanvasPlanSchema.parse(graphState(input.state).canvasPlan);
+      const figmaTransactionPlan = buildFigmaTransactionPlan({
+        placements: canvasPlan.placements,
+        creationOrder: canvasPlan.strategy.creationOrder,
+      });
+      return {
+        statePatch: { figmaTransactionPlan },
+      } satisfies RuntimeNodeOutput;
+    },
+  }),
+  node({
     key: "draft.buildFigmaApplyPacket",
     stateReads: [
       "brief",
@@ -60,6 +100,8 @@ export const draftNodeDefinitions: NodeDefinition[] = [
       "layoutContract",
       "variableBindingPlan",
       "draftPlan",
+      "canvasPlan",
+      "figmaTransactionPlan",
     ],
     stateWrites: ["draftPlan"],
     sideEffects: "figma-write",
@@ -75,6 +117,8 @@ export const draftNodeDefinitions: NodeDefinition[] = [
         uiComposition: state.uiComposition as UICompositionContract | undefined,
         layoutContract: state.layoutContract as LayoutContract | undefined,
         variableBindingPlan: state.variableBindingPlan as VariableBindingPlan | undefined,
+        canvasPlan: state.canvasPlan as CanvasPlan | undefined,
+        transactionPlan: state.figmaTransactionPlan as FigmaTransactionPlan | undefined,
         steps: unknownArray(draftPlan.steps),
         repeatedItems: recordArray(draftPlan.repeatedItems),
         textTransforms: recordArray(draftPlan.textTransforms),
@@ -146,6 +190,46 @@ function statesFrom(state: KotikitGraphState): string[] {
   return states.length > 0 ? states : STANDARD_STATES;
 }
 
+function canvasSectionFrom(state: KotikitGraphState): { name: string; id?: string } {
+  const section = recordFrom(recordFrom(state.figmaTarget).section);
+  const name = stringField(section, "name") ?? `kotikit / ${screenTitle(state)}`;
+  const id = stringField(section, "id");
+  return {
+    name,
+    ...(id === undefined ? {} : { id }),
+  };
+}
+
+function canvasStatesFrom(state: KotikitGraphState): { id: string; label: string; kind: string }[] {
+  if (state.stateMatrix !== undefined) {
+    return state.stateMatrix.states.map((matrixState) => ({
+      id: matrixState.id,
+      label: matrixState.label,
+      kind: matrixState.kind,
+    }));
+  }
+
+  return statesFrom(state).map((label) => ({
+    id: slugify(label),
+    label,
+    kind: slugify(label),
+  }));
+}
+
+function transactionSummary(transaction: FigmaTransactionPlan["transactions"][number]): JSONType {
+  return {
+    id: transaction.id,
+    order: transaction.order,
+    kind: transaction.kind,
+    label: transaction.label,
+    placementId: transaction.placementId,
+    ...(transaction.stateId === undefined ? {} : { stateId: transaction.stateId }),
+    ...(transaction.draftComponentId === undefined
+      ? {}
+      : { draftComponentId: transaction.draftComponentId }),
+  };
+}
+
 function buildApplyPacketArtifact(state: KotikitGraphState, packet: FigmaApplyPacket): Artifact {
   const now = nowIso();
   const legacyScope = legacyScopeFrom(state);
@@ -182,6 +266,12 @@ function buildApplyPacketArtifact(state: KotikitGraphState, packet: FigmaApplyPa
         layoutFrames: toJson(packet.layoutContract.frames),
         repeatedItems: toJson(packet.repeatedItems),
         textTransforms: toJson(packet.textTransforms),
+        canvasPlan: {
+          sectionName: packet.canvasPlan.section.name,
+          placementCount: packet.canvasPlan.placements.length,
+          zoneCount: packet.canvasPlan.zones.length,
+        },
+        transactions: packet.transactionPlan.transactions.map(transactionSummary),
       },
     },
   };
