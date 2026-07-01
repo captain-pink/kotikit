@@ -1382,7 +1382,7 @@ git commit -m "docs: document platform flow kit architecture"
 - Create: `e2e/graph/fixtures/fake-figma.ts`
 - Modify: `package.json`
 
-- [ ] **Step 1: Add failing e2e tests**
+- [x] **Step 1: Add failing e2e tests**
 
 Tests:
 
@@ -1400,12 +1400,12 @@ Tests:
 - review-comments gathers fake comments, builds a revision plan, and pauses
   before posting comments or memory promotion.
 
-- [ ] **Step 2: Add fake Figma adapter**
+- [x] **Step 2: Add fake Figma adapter**
 
 Fake adapter must not call network. It should return deterministic node ids,
 page ids, Section ids, comments, and apply metadata.
 
-- [ ] **Step 3: Add script**
+- [x] **Step 3: Add script**
 
 Add package script:
 
@@ -1413,7 +1413,7 @@ Add package script:
 "test:e2e:graph": "bun test e2e/graph"
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 
@@ -1423,7 +1423,15 @@ bun test
 bun run typecheck
 ```
 
-- [ ] **Step 5: Commit**
+Task 14 implementation note: added offline graph smoke tests for
+`create-screen`, `create-product-flow`, `improve-existing-design`, and
+`review-comments` using deterministic fake Figma target/comment/apply metadata
+and local design-system SQLite fixtures. The tests drove fixes for guided brief
+approval, incremental product-flow drafting, flow-model design-system queries,
+and review revision variable-binding preservation. Verification passed with
+`bun run test:e2e:graph`, `bun test`, `bun run typecheck`, and `bun run check`.
+
+- [x] **Step 5: Commit**
 
 ```bash
 git add e2e package.json

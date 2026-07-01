@@ -241,6 +241,33 @@ of a manual choreography toolchain:
 - live documentation tests now fail if removed public choreography tools or old
   workflow-controller language reappear in user-facing docs.
 
+## Implementation Update: Graph Smoke Coverage
+
+Completed on branch `feature/kotikit-migration`.
+
+The migration now has offline end-to-end smoke coverage for the built-in graph
+flows:
+
+- `create-screen` quick lane resolves missing components into draft components,
+  builds composition/layout/variable contracts, emits an apply packet, accepts
+  fake Figma apply metadata, verifies draft invariants, and saves QA;
+- `create-screen` guided lane pauses for brief approval, saves a design-brief
+  artifact, then continues through the same draft artifact chain;
+- `create-product-flow` maps actor, goal, scenario, screens, and transitions,
+  then marks the draft pass as incremental;
+- `improve-existing-design` starts from bounded Figma evidence, preserves
+  component keys and variable bindings in the revision plan, and pauses before
+  applying revisions;
+- `review-comments` turns fake Figma comments into a revision plan, pauses
+  before posting comments, and pauses again before memory promotion.
+
+The smoke tests use a deterministic local design-system SQLite fixture and fake
+Figma target/comment/apply metadata. They do not call Figma or the network. The
+new suite also exposed and fixed graph-flow gaps: guided screen approval was
+missing, product-flow drafting was not marked incremental, flow-model
+design-system queries could fall back to raw punctuated intent, and seeded
+review finding variable bindings were not preserved.
+
 ## Sources Reviewed During Initial Migration Analysis
 
 Local repo:

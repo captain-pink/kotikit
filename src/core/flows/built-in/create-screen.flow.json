@@ -40,6 +40,21 @@
       "params": {}
     },
     {
+      "id": "summarize-brief-for-approval",
+      "uses": "brief.summarizeForApproval",
+      "params": {}
+    },
+    {
+      "id": "ask-brief-approval",
+      "uses": "brief.askApproval",
+      "params": {}
+    },
+    {
+      "id": "save-approved-brief",
+      "uses": "brief.saveApproved",
+      "params": {}
+    },
+    {
       "id": "search-local-design-system",
       "uses": "designSystem.searchLocal",
       "params": {}
@@ -138,7 +153,10 @@
   "edges": [
     ["classify-intent", "capture-minimal-intent"],
     ["capture-minimal-intent", "infer-screen-blueprint"],
-    ["infer-screen-blueprint", "search-local-design-system"],
+    ["infer-screen-blueprint", "summarize-brief-for-approval"],
+    ["summarize-brief-for-approval", "ask-brief-approval"],
+    ["ask-brief-approval", "save-approved-brief"],
+    ["save-approved-brief", "search-local-design-system"],
     ["search-local-design-system", "build-fit-report"],
     ["build-fit-report", "ask-missing-component-decision"],
     ["ask-missing-component-decision", "plan-missing-components"],

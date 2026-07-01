@@ -32,6 +32,7 @@ type ReviewFinding = {
   partName?: string;
   componentKey?: string;
   draftComponentId?: string;
+  variableBindings?: Record<string, unknown>[];
   suggestedComment?: string;
 };
 
@@ -658,6 +659,11 @@ function revisionFromFinding(finding: ReviewFinding, state: KotikitGraphState): 
   const componentKey =
     finding.componentKey ?? componentKeyForPart(partName, recordFrom(state.fitReport));
   const draftComponentId = finding.draftComponentId;
+  const variableBindings =
+    finding.variableBindings ??
+    recordArray(recordFrom(state.applyReport).variableBindings).filter(
+      (binding) => stringField(binding, "targetId") === nodeId
+    );
   return {
     nodeId,
     partName,
@@ -669,9 +675,7 @@ function revisionFromFinding(finding: ReviewFinding, state: KotikitGraphState): 
     recommendation: finding.recommendation,
     ...(componentKey !== undefined ? { componentKey } : {}),
     ...(draftComponentId !== undefined ? { draftComponentId } : {}),
-    variableBindings: recordArray(recordFrom(state.applyReport).variableBindings).filter(
-      (binding) => stringField(binding, "targetId") === nodeId
-    ),
+    variableBindings,
     ...(recordFrom(finding).layoutFrame !== undefined
       ? { layoutFrame: recordFrom(recordFrom(finding).layoutFrame) }
       : {}),
@@ -817,20 +821,24 @@ function graphState(value: unknown): KotikitGraphState {
 }
 
 function findingArray(value: unknown): ReviewFinding[] {
-  return recordArray(value).map((finding) => ({
-    theme: stringField(finding, "theme") ?? "other",
-    severity: severityFrom(stringField(finding, "severity")),
-    confidence: confidenceFrom(stringField(finding, "confidence")),
-    title: stringField(finding, "title") ?? "Review finding",
-    observation: stringField(finding, "observation"),
-    rationale: stringField(finding, "rationale"),
-    recommendation: stringField(finding, "recommendation") ?? "Revise this UI part.",
-    nodeId: stringField(finding, "nodeId"),
-    partName: stringField(finding, "partName"),
-    componentKey: stringField(finding, "componentKey"),
-    draftComponentId: stringField(finding, "draftComponentId"),
-    suggestedComment: stringField(finding, "suggestedComment"),
-  }));
+  return recordArray(value).map((finding) => {
+    const variableBindings = recordArray(finding.variableBindings);
+    return {
+      theme: stringField(finding, "theme") ?? "other",
+      severity: severityFrom(stringField(finding, "severity")),
+      confidence: confidenceFrom(stringField(finding, "confidence")),
+      title: stringField(finding, "title") ?? "Review finding",
+      observation: stringField(finding, "observation"),
+      rationale: stringField(finding, "rationale"),
+      recommendation: stringField(finding, "recommendation") ?? "Revise this UI part.",
+      nodeId: stringField(finding, "nodeId"),
+      partName: stringField(finding, "partName"),
+      componentKey: stringField(finding, "componentKey"),
+      draftComponentId: stringField(finding, "draftComponentId"),
+      ...(variableBindings.length > 0 ? { variableBindings } : {}),
+      suggestedComment: stringField(finding, "suggestedComment"),
+    };
+  });
 }
 
 function severityFrom(value: string | undefined): ReviewSeverity {

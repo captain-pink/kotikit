@@ -452,7 +452,7 @@ function meaningfulParts(state: KotikitGraphState): string[] {
   const screen = recordFrom(state.screen);
   const flowModel = recordFrom(state.flowModel);
   const screenParts = stringArray(screen.requiredUiParts);
-  const flowParts = stringArray(flowModel.screens).flatMap((item) =>
+  const flowParts = recordArray(flowModel.screens).flatMap((item) =>
     stringArray(recordFrom(item).requiredUiParts)
   );
   return uniqueStrings([...screenParts, ...flowParts]);
@@ -471,7 +471,7 @@ function repeatedPatternsFrom(state: KotikitGraphState): string[] {
   const screen = recordFrom(state.screen);
   const flowModel = recordFrom(state.flowModel);
   const screenPatterns = stringArray(screen.repeatedPatterns);
-  const flowPatterns = stringArray(flowModel.screens).flatMap((item) =>
+  const flowPatterns = recordArray(flowModel.screens).flatMap((item) =>
     stringArray(recordFrom(item).repeatedPatterns)
   );
   const regionPatterns = screenRegions(screen).flatMap(knownRoleTokens);
@@ -587,6 +587,10 @@ function stringArray(value: unknown): string[] {
 
 function recordFrom(value: unknown): Record<string, unknown> {
   return isRecord(value) ? value : {};
+}
+
+function recordArray(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? value.filter(isRecord) : [];
 }
 
 function arrayFrom<T>(value: unknown): T[] {

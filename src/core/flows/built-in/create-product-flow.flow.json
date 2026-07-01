@@ -68,6 +68,11 @@
       "id": "compile-high-fidelity-draft",
       "uses": "draft.compileHighFidelityDraft",
       "params": {}
+    },
+    {
+      "id": "draft-screens-incrementally",
+      "uses": "draft.draftScreensIncrementally",
+      "params": {}
     }
   ],
   "edges": [
@@ -80,9 +85,10 @@
     ["plan-missing-components", "ensure-draft-target"],
     ["ensure-draft-target", "create-draft-components"],
     ["create-draft-components", "validate-draft-components"],
-    ["validate-draft-components", "compile-high-fidelity-draft"]
+    ["validate-draft-components", "compile-high-fidelity-draft"],
+    ["compile-high-fidelity-draft", "draft-screens-incrementally"]
   ],
   "start": "capture-goal-actor-scenario",
-  "end": ["compile-high-fidelity-draft"],
+  "end": ["draft-screens-incrementally"],
   "safetyProfile": "product-flow-draft"
 }

@@ -223,6 +223,44 @@ export const briefNodeDefinitions: NodeDefinition[] = [
     },
   }),
   node({
+    key: "brief.askApproval",
+    kind: "interrupt",
+    paramsSchema: EmptyParamsSchema,
+    stateReads: ["brief", "answers"],
+    stateWrites: ["brief", "pendingQuestion"],
+    run: async (input) => {
+      const state = graphState(input.state);
+      const current = briefFrom(state.brief);
+      const lane = current.lane ?? classifyLane(intentFromState(state));
+      const approvalSummary =
+        current.approvalSummary ?? current.intent ?? current.title ?? "Approve this design brief.";
+      if (current.approved === true || lane === "quick") {
+        return {
+          statePatch: {
+            brief: mergeBrief(current, { approvalSummary, approved: true }),
+          },
+        } satisfies RuntimeNodeOutput;
+      }
+      if (state.answers?.["approve-brief"] === "approve-brief") {
+        return {
+          statePatch: {
+            brief: mergeBrief(current, { approvalSummary, approved: true }),
+          },
+        } satisfies RuntimeNodeOutput;
+      }
+      return {
+        statePatch: {
+          brief: mergeBrief(current, { approvalSummary, approved: false }),
+        },
+        interrupt: createUserInterrupt({
+          id: "approve-brief",
+          prompt: approvalSummary,
+          choices: ["approve-brief"],
+        }),
+      } satisfies RuntimeNodeOutput;
+    },
+  }),
+  node({
     key: "brief.saveApproved",
     paramsSchema: EmptyParamsSchema,
     stateReads: ["brief"],

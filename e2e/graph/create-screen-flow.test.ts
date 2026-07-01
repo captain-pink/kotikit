@@ -1,0 +1,148 @@
+import { describe, expect, it } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  createGraphSmokeFixture,
+  fakeApplyMetadataFor,
+  fakeDraftTarget,
+  seedLocalDesignSystem,
+} from "./fixtures/fake-figma.js";
+
+describe("create-screen graph flow", () => {
+  it("quick lane resolves a missing component, waits for fake apply, and saves QA", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kotikit-e2e-create-screen-"));
+    try {
+      seedLocalDesignSystem(root, { includePrimaryAction: false });
+      const { artifactStore, runtime } = await createGraphSmokeFixture(root);
+
+      const started = await runtime.startFlow({
+        flowId: "create-screen",
+        input: {
+          project: { root, name: "Smoke Project" },
+          userIntent:
+            "Quick high-fidelity profile settings form using existing design-system components.",
+          figmaTarget: fakeDraftTarget("Draft - Profile Settings"),
+        },
+      });
+
+      expect(started.status).toBe("waiting-for-user");
+      expect(started.state.pendingQuestion?.id).toBe("missing-components");
+
+      const missingResolved = await runtime.answerRun({
+        runId: started.runId,
+        answer: "create-draft-components",
+      });
+      expect(missingResolved.status).toBe("waiting-for-user");
+      expect(missingResolved.state.pendingQuestion?.id).toBe("approve-literal-variable-fallback");
+      expect(missingResolved.state.draftComponentPlan?.components).toContainEqual(
+        expect.objectContaining({ name: "secondary action" })
+      );
+
+      const waitingForApply = await runtime.answerRun({
+        runId: started.runId,
+        answer: "approve-draft-only-literals",
+      });
+      expect(waitingForApply.status).toBe("waiting-for-figma");
+      expect(waitingForApply.state.draftPlan).toMatchObject({
+        fidelity: "high",
+        applyPacket: expect.any(Object),
+      });
+      expect(waitingForApply.state.uiComposition?.parts).toContainEqual(
+        expect.objectContaining({
+          name: "secondary action",
+          source: "draft-component",
+          componentKey: "draft:draft-secondary-action",
+        })
+      );
+
+      await expect(
+        artifactStore.getArtifact(`${started.runId}-figma-apply-packet`)
+      ).resolves.toMatchObject({
+        type: "figma-apply-packet",
+        payload: {
+          data: {
+            targetFileKey: "FILE_SMOKE",
+            targetSectionName: "kotikit / smoke / 2026-06-30",
+          },
+        },
+      });
+
+      await runtime.patchRunState({
+        runId: started.runId,
+        statePatch: { applyMetadata: fakeApplyMetadataFor(waitingForApply.state) },
+      });
+      const completed = await runtime.continueRun({ runId: started.runId });
+
+      expect(completed.status).toBe("done");
+      expect(completed.state.uiQualityGate?.status).toBe("passed");
+      expect(completed.state.artifacts.map((artifact) => artifact.type)).toEqual(
+        expect.arrayContaining([
+          "design-brief",
+          "figma-apply-packet",
+          "figma-apply-report",
+          "ui-quality-gate-report",
+        ])
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("guided lane pauses for brief approval before creating the draft artifact chain", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kotikit-e2e-create-screen-"));
+    try {
+      seedLocalDesignSystem(root, { includeSecondaryAction: true });
+      const { artifactStore, runtime } = await createGraphSmokeFixture(root);
+
+      const started = await runtime.startFlow({
+        flowId: "create-screen",
+        input: {
+          project: { root, name: "Smoke Project" },
+          userIntent: "Design a profile settings form with account details and save actions.",
+          figmaTarget: fakeDraftTarget("Draft - Guided Settings"),
+        },
+      });
+
+      expect(started.status).toBe("waiting-for-user");
+      expect(started.state.pendingQuestion?.id).toBe("approve-brief");
+
+      const approved = await runtime.answerRun({
+        runId: started.runId,
+        answer: "approve-brief",
+      });
+      expect(approved.status).toBe("waiting-for-user");
+      expect(approved.state.pendingQuestion?.id).toBe("approve-literal-variable-fallback");
+
+      const waitingForApply = await runtime.answerRun({
+        runId: started.runId,
+        answer: "approve-draft-only-literals",
+      });
+      expect(waitingForApply.status).toBe("waiting-for-figma");
+      await expect(
+        artifactStore.getArtifact(`${started.runId}-design-brief`)
+      ).resolves.toMatchObject({
+        type: "design-brief",
+        payload: { summary: expect.stringContaining("Profile Settings") },
+      });
+
+      await runtime.patchRunState({
+        runId: started.runId,
+        statePatch: { applyMetadata: fakeApplyMetadataFor(waitingForApply.state) },
+      });
+      const completed = await runtime.continueRun({ runId: started.runId });
+
+      expect(completed.status).toBe("done");
+      expect(completed.state.artifacts.map((artifact) => artifact.type)).toEqual(
+        expect.arrayContaining([
+          "design-brief",
+          "figma-apply-packet",
+          "figma-apply-report",
+          "ui-quality-gate-report",
+        ])
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
