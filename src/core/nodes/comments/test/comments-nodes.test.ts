@@ -108,6 +108,10 @@ describe("comment graph nodes", () => {
         }),
       ],
     });
+    expect(recordFrom(output.statePatch?.review).currentNodes).toBeUndefined();
+    expect(recordFrom(output.statePatch?.review).currentNodesRef).toBe(
+      "canvas-reconciliation-report"
+    );
   });
 
   it("flags deleted generated nodes as human-risk before comment mapping", async () => {
@@ -181,6 +185,63 @@ describe("comment graph nodes", () => {
             nodeName: "Members / Filled v2",
             bounds: { x: 1200, y: 400, width: 1440, height: 900 },
           }),
+        }),
+      ],
+    });
+  });
+
+  it("does not map comments to missing generated nodes from stale apply metadata", async () => {
+    const output = await runNode("comments.buildEvidenceMap", {
+      review: {
+        commentSnapshot: {
+          fileKey: "file-1",
+          comments: [
+            {
+              id: "comment-1",
+              message: "Where did this frame go?",
+              client_meta: { node_id: "9:10" },
+            },
+          ],
+        },
+      },
+      applyReport: {
+        fileKey: "file-1",
+        pageId: "1:2",
+        nodes: [
+          {
+            id: "9:10",
+            name: "Members / Filled",
+            bounds: { x: 560, y: 0, width: 1440, height: 900 },
+          },
+        ],
+      },
+      canvasReconciliation: {
+        schemaVersion: "CanvasReconciliationReport/v1",
+        fileKey: "file-1",
+        pageId: "1:2",
+        reconciledAt: "2026-07-01T00:00:00.000Z",
+        unmappedCommentsRisk: "needs-human",
+        nodes: [
+          {
+            nodeId: "9:10",
+            ledgerStatus: "missing",
+            previousName: "Members / Filled",
+            previousBounds: { x: 560, y: 0, width: 1440, height: 900 },
+            transactionId: "txn-state-filled",
+            placementId: "state-filled",
+            stateId: "filled",
+          },
+        ],
+      },
+    });
+
+    expect(output.statePatch?.commentEvidenceMap).toMatchObject({
+      unmappedCount: 1,
+      comments: [
+        expect.objectContaining({
+          mappingStrategy: "unmapped",
+          mappingConfidence: "none",
+          status: "needs-human",
         }),
       ],
     });

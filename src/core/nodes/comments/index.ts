@@ -3,7 +3,10 @@ import { nowIso } from "../../../util/ids.js";
 import { KotikitError } from "../../../util/result.js";
 import { reconcileCanvasNodes } from "../../domain/canvas-reconciliation.js";
 import { buildCommentEvidenceMap } from "../../domain/comment-evidence-map.js";
-import { pruneRawReviewPayloads } from "../../domain/context-durability.js";
+import {
+  pruneCanvasReviewPayloads,
+  pruneRawReviewPayloads,
+} from "../../domain/context-durability.js";
 import type { NodeDefinition } from "../../graph/node-registry.js";
 import { type Artifact, ArtifactSchemaVersionByType, type Bounds } from "../../schemas/artifact.js";
 import type { KotikitGraphState } from "../../schemas/graph-state.js";
@@ -33,7 +36,10 @@ export const commentNodeDefinitions: NodeDefinition[] = [
       });
 
       return {
-        statePatch: { canvasReconciliation: report },
+        statePatch: {
+          canvasReconciliation: report,
+          review: pruneCanvasReviewPayloads(recordFrom(state.review)),
+        },
         artifacts: [canvasReconciliationArtifact(state, report)],
       } satisfies RuntimeNodeOutput;
     },
@@ -49,6 +55,8 @@ export const commentNodeDefinitions: NodeDefinition[] = [
       const snapshot = recordFrom(review.commentSnapshot);
       const comments = recordArray(snapshot.comments).map(normalizeComment);
       const applyReport = recordFrom(state.applyReport);
+      const canvasReconciliation = recordFrom(state.canvasReconciliation);
+      const missingNodeIds = missingReconciliationNodeIds(canvasReconciliation);
       const fileKey = stringField(snapshot, "fileKey") ?? stringField(applyReport, "fileKey");
       if (fileKey === undefined) {
         throw new KotikitError(
@@ -62,11 +70,17 @@ export const commentNodeDefinitions: NodeDefinition[] = [
         nodeMap: {
           fileKey,
           nodes: [
-            ...nodeTargetsFromNodeMap(recordFrom(snapshot.nodeMap)),
-            ...nodeTargetsFromNodeMap(recordFrom(review.nodeMap)),
-            ...nodeTargetsFromNodeMap(applyReport),
-            ...nodeTargetsFromNodeMap(recordFrom(state.canvasReconciliation)),
-          ],
+            ...filterMissingTargets(
+              nodeTargetsFromNodeMap(recordFrom(snapshot.nodeMap)),
+              missingNodeIds
+            ),
+            ...filterMissingTargets(
+              nodeTargetsFromNodeMap(recordFrom(review.nodeMap)),
+              missingNodeIds
+            ),
+            ...filterMissingTargets(nodeTargetsFromNodeMap(applyReport), missingNodeIds),
+            ...nodeTargetsFromNodeMap(canvasReconciliation),
+          ].filter((node) => !missingNodeIds.has(stringField(node, "nodeId") ?? "")),
         },
         mappedAt: nowIso(),
       });
@@ -193,6 +207,25 @@ function currentNodesForReview(
       },
     ];
   });
+}
+
+function missingReconciliationNodeIds(reconciliation: Record<string, unknown>): Set<string> {
+  return new Set(
+    recordArray(reconciliation.nodes)
+      .filter((node) => node.ledgerStatus === "missing")
+      .flatMap((node) => {
+        const nodeId = stringField(node, "nodeId");
+        return nodeId === undefined ? [] : [nodeId];
+      })
+  );
+}
+
+function filterMissingTargets(
+  nodes: Record<string, unknown>[],
+  missingNodeIds: Set<string>
+): Record<string, unknown>[] {
+  if (missingNodeIds.size === 0) return nodes;
+  return nodes.filter((node) => !missingNodeIds.has(stringField(node, "nodeId") ?? ""));
 }
 
 function graphState(value: unknown): KotikitGraphState {
