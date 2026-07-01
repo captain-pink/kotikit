@@ -1277,6 +1277,10 @@
                     "minLength": 1,
                     "maxLength": 2048
                   },
+                  "representation": {
+                    "type": "string",
+                    "enum": ["screen-frame", "region-state", "component-state", "flow-step"]
+                  },
                   "draftComponentId": {
                     "type": "string",
                     "minLength": 1,
@@ -4083,6 +4087,10 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 2048
+                  },
+                  "representation": {
+                    "type": "string",
+                    "enum": ["screen-frame", "region-state", "component-state", "flow-step"]
                   },
                   "draftComponentId": {
                     "type": "string",

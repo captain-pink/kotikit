@@ -155,6 +155,66 @@ export function fakeApplyMetadataFor(state: KotikitGraphState): Record<string, u
   };
 }
 
+export async function drainFakeFigmaTransactions(
+  runtime: GraphRuntime,
+  runId: string
+): Promise<KotikitGraphState> {
+  let state = await runtime.getRunState(runId);
+  let remainingTransactions = recordArray(
+    recordFrom(state.figmaTransactionPlan).transactions
+  ).length;
+
+  while (state.status === "waiting-for-figma") {
+    if (remainingTransactions <= 0) {
+      throw new Error("Fake Figma transaction drain exceeded the transaction count.");
+    }
+    remainingTransactions -= 1;
+
+    const active = recordFrom(state.activeFigmaTransaction);
+    if (active.id === undefined) {
+      throw new Error("Missing active fake transaction.");
+    }
+
+    await runtime.patchRunState({
+      runId,
+      statePatch: {
+        applyMetadata: fakeTransactionMetadataFor(state),
+      },
+    });
+    state = (await runtime.continueRun({ runId })).state;
+  }
+
+  return state;
+}
+
+export function fakeTransactionMetadataFor(state: KotikitGraphState): Record<string, unknown> {
+  const active = recordFrom(state.activeFigmaTransaction);
+  const transactionId = stringField(active, "id");
+  if (transactionId === undefined) {
+    throw new Error("Missing active fake transaction.");
+  }
+
+  const target = figmaTargetFrom(state);
+  const placement = recordArray(recordFrom(state.canvasPlan).placements).find(
+    (candidate) => candidate.id === active.placementId
+  );
+
+  return {
+    transactionId,
+    fileKey: stringField(target, "fileKey"),
+    pageId: stringField(target, "pageId"),
+    sectionName: stringField(recordFrom(target.section), "name"),
+    figmaNodeId: `node-${transactionId}`,
+    figmaNodeName: stringField(active, "label") ?? transactionId,
+    figmaNodeKind: "FRAME",
+    bounds: recordFrom(placement?.bounds),
+    representation: stateRepresentationForActive(state, active),
+    componentRefs: componentRefsFrom(state),
+    variableRefs: variableRefsFrom(state),
+    autoLayout: true,
+  };
+}
+
 export function fakeReviewEvidence(): Record<string, unknown> {
   return {
     target: {
@@ -237,6 +297,53 @@ export function fakeCommentSnapshot(): Record<string, unknown> {
       },
     },
   };
+}
+
+function figmaTargetFrom(state: KotikitGraphState): Record<string, unknown> {
+  const packet = recordFrom(recordFrom(state.draftPlan).applyPacket);
+  return {
+    ...recordFrom(state.figmaTarget),
+    ...recordFrom(packet.target),
+  };
+}
+
+function componentRefsFrom(state: KotikitGraphState): string[] {
+  const packet = recordFrom(recordFrom(state.draftPlan).applyPacket);
+  const uiComposition = recordFrom(state.uiComposition ?? packet.uiComposition);
+  return uniqueStrings(
+    recordArray(uiComposition.parts).flatMap((part) => [
+      stringField(part, "componentKey"),
+      stringField(part, "draftComponentId"),
+    ])
+  );
+}
+
+function variableRefsFrom(state: KotikitGraphState): string[] {
+  const packet = recordFrom(recordFrom(state.draftPlan).applyPacket);
+  const variableBindingPlan = recordFrom(state.variableBindingPlan ?? packet.variableBindingPlan);
+  return uniqueStrings(
+    recordArray(variableBindingPlan.bindings)
+      .filter((binding) =>
+        ["variable", "style", "draft-variable"].includes(String(binding.source ?? ""))
+      )
+      .flatMap((binding) => [stringField(binding, "id"), stringField(binding, "name")])
+  );
+}
+
+function stateRepresentationForActive(
+  state: KotikitGraphState,
+  active: Record<string, unknown>
+): string | undefined {
+  return stringField(
+    recordArray(recordFrom(state.stateRepresentation).states).find(
+      (candidate) => candidate.stateId === active.stateId
+    ) ?? {},
+    "representation"
+  );
+}
+
+function uniqueStrings(values: Array<string | undefined>): string[] {
+  return [...new Set(values.filter((value): value is string => value !== undefined))];
 }
 
 function seedComponent(

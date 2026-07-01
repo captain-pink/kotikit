@@ -314,6 +314,7 @@ function appendLedgerNode(
       "Use Figma auto layout for screen, region, draft component, and layout-frame transactions."
     );
   }
+  const representation = stateRepresentationForTransaction(input.active, input.metadata);
 
   const node = {
     nodeId,
@@ -327,6 +328,7 @@ function appendLedgerNode(
     transactionId: input.active.id,
     placementId: input.active.placementId,
     ...(input.active.stateId === undefined ? {} : { stateId: input.active.stateId }),
+    ...(representation === undefined ? {} : { representation }),
     ...(input.active.draftComponentId === undefined
       ? {}
       : { draftComponentId: input.active.draftComponentId }),
@@ -428,6 +430,24 @@ function semanticRoleForTransaction(
   return "component-instance";
 }
 
+function stateRepresentationForTransaction(
+  active: NonNullable<KotikitGraphState["activeFigmaTransaction"]>,
+  metadata: Record<string, unknown>
+): FigmaNodeLedger["nodes"][number]["representation"] {
+  const representation = stringField(metadata, "representation");
+  if (
+    representation === "screen-frame" ||
+    representation === "region-state" ||
+    representation === "component-state" ||
+    representation === "flow-step"
+  ) {
+    return representation;
+  }
+  if (active.kind === "create-screen-state") return "screen-frame";
+  if (active.kind === "create-region-state") return "region-state";
+  return undefined;
+}
+
 function applyReportFromLedger(ledger: FigmaNodeLedger): Record<string, unknown> {
   const nodes = ledger.nodes.map((node) => compactReportNode(node));
   return {
@@ -459,6 +479,7 @@ function applyReportFromLedger(ledger: FigmaNodeLedger): Record<string, unknown>
       .filter((node) => node.stateId !== undefined)
       .map((node) => ({
         stateId: node.stateId,
+        ...(node.representation === undefined ? {} : { representation: node.representation }),
         nodeId: node.nodeId,
         transactionId: node.transactionId,
       })),
@@ -490,6 +511,7 @@ function compactReportNode(node: FigmaNodeLedger["nodes"][number]): Record<strin
     transactionId: node.transactionId,
     placementId: node.placementId,
     ...(node.stateId === undefined ? {} : { stateId: node.stateId }),
+    ...(node.representation === undefined ? {} : { representation: node.representation }),
     ...(node.draftComponentId === undefined ? {} : { draftComponentId: node.draftComponentId }),
     ...(node.partId === undefined ? {} : { partId: node.partId }),
     bounds: node.bounds,

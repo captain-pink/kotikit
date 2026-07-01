@@ -329,6 +329,9 @@ const FigmaNodeLedgerEntrySchema = z.strictObject({
   transactionId: IncrementalRefSchema,
   placementId: IncrementalRefSchema,
   stateId: IncrementalRefSchema.optional(),
+  representation: z
+    .enum(["screen-frame", "region-state", "component-state", "flow-step"])
+    .optional(),
   draftComponentId: IncrementalRefSchema.optional(),
   partId: IncrementalRefSchema.optional(),
   bounds: BoundsSchema,

@@ -146,13 +146,8 @@
       "params": {}
     },
     {
-      "id": "wait-for-apply-metadata",
-      "uses": "figma.waitForApplyMetadata",
-      "params": {}
-    },
-    {
-      "id": "record-apply-metadata",
-      "uses": "figma.recordApplyMetadata",
+      "id": "apply-figma-transaction-queue",
+      "uses": "figma.applyTransactionQueue",
       "params": {}
     },
     {
@@ -215,9 +210,8 @@
     ["compile-high-fidelity-draft", "build-canvas-plan"],
     ["build-canvas-plan", "build-figma-transaction-plan"],
     ["build-figma-transaction-plan", "build-figma-apply-packet"],
-    ["build-figma-apply-packet", "wait-for-apply-metadata"],
-    ["wait-for-apply-metadata", "record-apply-metadata"],
-    ["record-apply-metadata", "build-draft-component-lifecycle"],
+    ["build-figma-apply-packet", "apply-figma-transaction-queue"],
+    ["apply-figma-transaction-queue", "build-draft-component-lifecycle"],
     ["build-draft-component-lifecycle", "verify-draft-invariants"],
     ["verify-draft-invariants", "verify-state-representation"],
     ["verify-state-representation", "verify-draft-component-lifecycle"],
