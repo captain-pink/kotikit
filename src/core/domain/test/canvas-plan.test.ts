@@ -632,6 +632,46 @@ describe("canvas and figma ledger artifact schemas", () => {
     });
   });
 
+  it("rejects canvas placements outside their parent zone bounds", () => {
+    const plan = buildCanvasPlan({
+      sectionName: "kotikit / members / 2026-07-01",
+      screenTitle: "Members",
+      screenSize: { width: 1440, height: 900 },
+      states: [{ id: "filled", label: "Filled", kind: "filled" }],
+      draftComponents: [{ id: "draft-table-row", name: "Draft/Table Row" }],
+    });
+    const outsideParentZone = {
+      ...plan,
+      placements: plan.placements.map((placement) =>
+        placement.id === "draft-draft-table-row"
+          ? { ...placement, bounds: { ...placement.bounds, x: -1 } }
+          : placement
+      ),
+    };
+
+    expect(() => verifyCanvasPlan(outsideParentZone)).toThrow("outside parent zone");
+  });
+
+  it("treats rectangles separated by exactly the minimum gap as non-overlapping", () => {
+    expect(
+      placementsOverlap(
+        { bounds: { x: 0, y: 0, width: 100, height: 100 } },
+        { bounds: { x: 124, y: 0, width: 100, height: 100 } },
+        24
+      )
+    ).toBe(false);
+  });
+
+  it("treats rectangles closer than the minimum gap as overlapping", () => {
+    expect(
+      placementsOverlap(
+        { bounds: { x: 0, y: 0, width: 100, height: 100 } },
+        { bounds: { x: 123, y: 0, width: 100, height: 100 } },
+        24
+      )
+    ).toBe(true);
+  });
+
   it("places screen states in a predictable two-column grid", () => {
     const plan = buildCanvasPlan({
       sectionName: "kotikit / members / 2026-07-01",

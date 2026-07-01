@@ -167,8 +167,8 @@ function assertRepeatedPatternCoverage(
 }
 
 function hasWords(value: string, required: string): boolean {
-  const words = required.split(" ");
-  return words.every((word) => value.includes(word));
+  const valueWords = tokensFor(value);
+  return tokensFor(required).every((word) => valueWords.includes(word));
 }
 
 function findFit(part: string, matches: FitMatch[] | undefined): FitMatch | undefined {
@@ -176,12 +176,11 @@ function findFit(part: string, matches: FitMatch[] | undefined): FitMatch | unde
 }
 
 function roleFor(part: string): string {
-  const normalized = normalize(part);
-  if (normalized.includes("button") || normalized.includes("action")) return "primary-action";
-  if (normalized.includes("table") || normalized.includes("list")) return "data-display";
-  if (normalized.includes("input") || normalized.includes("field")) return "input";
-  if (normalized.includes("filter") || normalized.includes("toolbar")) return "toolbar";
-  if (normalized.includes("row")) return "row";
+  if (hasAny(part, ["button", "action", "actions"])) return "primary-action";
+  if (hasAny(part, ["table", "tables", "list", "lists"])) return "data-display";
+  if (hasAny(part, ["input", "inputs", "field", "fields"])) return "input";
+  if (hasAny(part, ["filter", "filters", "toolbar", "toolbars"])) return "toolbar";
+  if (hasAny(part, ["row", "rows"])) return "row";
   return "content";
 }
 
@@ -202,7 +201,22 @@ function placementFor(input: {
 }
 
 function hasAny(value: string, candidates: string[]): boolean {
-  return candidates.some((candidate) => value.includes(normalize(candidate)));
+  return candidates.some((candidate) => hasPhrase(value, candidate));
+}
+
+function hasPhrase(value: string, required: string): boolean {
+  const valueWords = tokensFor(value);
+  const requiredWords = tokensFor(required);
+  if (requiredWords.length === 0) return false;
+
+  return valueWords.some((_, index) =>
+    requiredWords.every((word, offset) => valueWords[index + offset] === word)
+  );
+}
+
+function tokensFor(value: unknown): string[] {
+  const normalized = normalize(value);
+  return normalized === "" ? [] : normalized.split(" ");
 }
 
 function idFor(value: string): string {

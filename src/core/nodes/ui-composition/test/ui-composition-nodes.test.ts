@@ -99,6 +99,25 @@ describe("ui composition graph nodes", () => {
     ]);
   });
 
+  it("places transaction table parts in the admin data table body", async () => {
+    const result = await runNode("ui.buildCompositionContract", {
+      screen: { requiredUiParts: ["transaction history table"] },
+      uxEnvelope: adminDataTableEnvelope(),
+      fitReport: {
+        exactMatches: [
+          { requestedPart: "transaction history table", componentKey: "transaction-table-key" },
+        ],
+      },
+    });
+
+    expect(result.statePatch?.uiComposition?.parts).toEqual([
+      expect.objectContaining({
+        id: "transaction-history-table",
+        placement: "table-body",
+      }),
+    ]);
+  });
+
   it("rejects table/list repeated patterns without a component family or draft component", async () => {
     await expect(
       runNode("ui.buildCompositionContract", {

@@ -95,12 +95,24 @@ export function buildCanvasPlan(input: {
 }
 
 export function verifyCanvasPlan(plan: CanvasPlan): void {
-  const zoneIds = new Set(plan.zones.map((zone) => zone.id));
-  const missingParent = plan.placements.find((placement) => !zoneIds.has(placement.parentZoneId));
+  const zonesById = new Map(plan.zones.map((zone) => [zone.id, zone]));
+  const missingParent = plan.placements.find((placement) => !zonesById.has(placement.parentZoneId));
   if (missingParent !== undefined) {
     throw new KotikitError(
       `Canvas placement ${missingParent.label} references missing zone ${missingParent.parentZoneId}.`,
       "Regenerate the canvas plan before creating Figma nodes."
+    );
+  }
+
+  const outsideParent = plan.placements.find((placement) => {
+    const parentZone = zonesById.get(placement.parentZoneId);
+    return parentZone !== undefined && !boundsContain(parentZone.bounds, placement.bounds);
+  });
+  if (outsideParent !== undefined) {
+    const parentZone = zonesById.get(outsideParent.parentZoneId);
+    throw new KotikitError(
+      `Canvas placement ${outsideParent.label} is outside parent zone ${parentZone?.label ?? outsideParent.parentZoneId}.`,
+      "Move the placement fully inside its declared zone or regenerate the canvas plan before creating Figma nodes."
     );
   }
 
@@ -127,6 +139,15 @@ export function placementsOverlap(
     right.bounds.x < left.bounds.x + left.bounds.width + minGap &&
     left.bounds.y < right.bounds.y + right.bounds.height + minGap &&
     right.bounds.y < left.bounds.y + left.bounds.height + minGap
+  );
+}
+
+function boundsContain(parent: Bounds, child: Bounds): boolean {
+  return (
+    child.x >= parent.x &&
+    child.y >= parent.y &&
+    child.x + child.width <= parent.x + parent.width &&
+    child.y + child.height <= parent.y + parent.height
   );
 }
 
