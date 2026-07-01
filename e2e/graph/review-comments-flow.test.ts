@@ -2,11 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  createGraphSmokeFixture,
-  fakeCommentSnapshot,
-  fakeDraftTarget,
-} from "./fixtures/fake-figma.js";
+import { createGraphSmokeFixture, fakeCommentSnapshot } from "./fixtures/fake-figma.js";
 
 let root: string;
 
@@ -27,7 +23,6 @@ describe("review-comments graph flow", () => {
       input: {
         project: { root, name: "Smoke Project" },
         userIntent: "Review open Figma comments for the draft.",
-        figmaTarget: fakeDraftTarget("Draft - Comment Review"),
         review: fakeCommentSnapshot(),
       },
     });

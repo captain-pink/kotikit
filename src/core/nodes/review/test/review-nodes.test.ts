@@ -91,6 +91,66 @@ describe("review graph nodes", () => {
     ).rejects.toThrow("review evidence");
   });
 
+  it("collects review evidence from a compact comment evidence map", async () => {
+    const result = await runNode(
+      "review.collectEvidence",
+      {
+        commentEvidenceMap: {
+          schemaVersion: "CommentEvidenceMap/v1",
+          fileKey: "FILE",
+          mappedAt: "2026-07-01T00:00:00.000Z",
+          comments: [
+            {
+              commentId: "comment-1",
+              rootCommentId: "comment-1",
+              message: "Loading state is missing",
+              mappedTarget: {
+                nodeId: "node-primary-action",
+                nodeName: "Primary Action",
+                partId: "primary-action",
+                componentKey: "button-key",
+              },
+              mappingConfidence: "exact",
+              mappingStrategy: "node-id",
+              intent: "bug-usability",
+              status: "actionable",
+            },
+            {
+              commentId: "comment-2",
+              rootCommentId: "comment-2",
+              message: "What about the empty state?",
+              mappingConfidence: "none",
+              mappingStrategy: "unmapped",
+              intent: "needs-human-clarification",
+              status: "needs-human",
+            },
+          ],
+          unmappedCount: 1,
+        },
+      },
+      { source: "comments" }
+    );
+
+    expect(result.statePatch?.review).toMatchObject({
+      target: { fileKey: "FILE", nodeId: "comments" },
+      evidence: {
+        regions: [{ nodeId: "primary-action", name: "Primary Action" }],
+      },
+      unmappedComments: [expect.objectContaining({ commentId: "comment-2" })],
+      findings: [
+        expect.objectContaining({
+          nodeId: "primary-action",
+          partName: "Primary Action",
+          confidence: "observed",
+        }),
+        expect.objectContaining({
+          title: "Clarify unmapped comment comment-2",
+          confidence: "needs-decision",
+        }),
+      ],
+    });
+  });
+
   it("compares target regions to local design-system evidence", async () => {
     const result = await runNode("review.compareToDesignSystem", {
       review: reviewWithEvidence(),

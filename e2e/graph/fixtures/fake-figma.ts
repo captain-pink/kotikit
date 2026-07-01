@@ -216,15 +216,25 @@ export function fakeReviewEvidence(): Record<string, unknown> {
 export function fakeCommentSnapshot(): Record<string, unknown> {
   return {
     commentSnapshot: {
+      fileKey: "FILE_SMOKE",
       comments: [
         {
           id: "comment-1",
           message: "Please tighten the spacing around the primary action.",
-          nodeId: "primary-action",
-          targetName: "Primary Action",
+          client_meta: { node_id: "primary-action" },
           createdAt: "2026-06-30T00:00:00.000Z",
         },
       ],
+      nodeMap: {
+        nodes: [
+          {
+            nodeId: "primary-action",
+            nodeName: "Primary Action",
+            partId: "primary-action",
+            componentKey: "button-primary-key",
+          },
+        ],
+      },
     },
   };
 }

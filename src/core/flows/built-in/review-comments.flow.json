@@ -6,7 +6,6 @@
   "description": "Group Figma comments into decisions, revisions, replies, and optional memory.",
   "stateSchema": "KotikitGraphState/v1",
   "requiredCapabilities": [
-    "figma.target",
     "figma.read.remote",
     "comments.read",
     "review.write",
@@ -15,8 +14,8 @@
   ],
   "nodes": [
     {
-      "id": "ensure-draft-target",
-      "uses": "figma.ensureDraftTarget",
+      "id": "build-comment-evidence-map",
+      "uses": "comments.buildEvidenceMap",
       "params": {}
     },
     {
@@ -71,7 +70,7 @@
     }
   ],
   "edges": [
-    ["ensure-draft-target", "collect-evidence"],
+    ["build-comment-evidence-map", "collect-evidence"],
     ["collect-evidence", "group-findings"],
     ["group-findings", "create-revision-plan"],
     ["create-revision-plan", "ask-reply-or-memory-approval"],
@@ -81,7 +80,7 @@
     ["detect-preference-candidate", "ask-memory-approval"],
     ["ask-memory-approval", "promote-preference"]
   ],
-  "start": "ensure-draft-target",
+  "start": "build-comment-evidence-map",
   "end": ["promote-preference"],
   "safetyProfile": "review-comments-approval-required"
 }

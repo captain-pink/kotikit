@@ -56,6 +56,8 @@ type ReviewRevisionPlan = {
   sessionId?: string;
 };
 
+type CommentEvidenceItem = NonNullable<KotikitGraphState["commentEvidenceMap"]>["comments"][number];
+
 const EmptyParamsSchema = z.strictObject({});
 const CollectParamsSchema = z.strictObject({
   source: z.enum(["figma", "comments"]).optional(),
@@ -258,37 +260,43 @@ function collectCommentEvidence(
   review: Record<string, unknown>,
   maxRegions: number
 ): RuntimeNodeOutput {
-  const draftTarget = ensureDraftTarget(state.figmaTarget);
-  const commentSource = recordFrom(review.commentSnapshot).comments ?? review.comments;
-  if (!Array.isArray(commentSource)) {
+  const evidenceMap = state.commentEvidenceMap;
+  if (evidenceMap === undefined) {
     throw new KotikitError(
-      "This review-comments flow needs a comment snapshot.",
-      "Start the review-comments flow with review.commentSnapshot.comments from the graph input."
+      "This review-comments flow needs mapped comment evidence.",
+      "Build the comment evidence map from Figma comments before grouping findings."
     );
   }
-  const comments = recordArray(commentSource);
-  const regions = comments
-    .flatMap((comment) => {
-      const nodeId = stringField(comment, "nodeId");
-      if (nodeId === undefined) return [];
-      return [{ nodeId, name: stringField(comment, "targetName") ?? nodeId, type: "COMMENT" }];
-    })
+  const mappedComments = evidenceMap.comments.filter(
+    (comment) => comment.mappedTarget !== undefined
+  );
+  const unmappedComments = evidenceMap.comments.filter(
+    (comment) => comment.mappingStrategy === "unmapped"
+  );
+  const regions = mappedComments
+    .map((comment) => regionFromMappedComment(comment))
     .slice(0, maxRegions);
-  const targetNodeId = nodeIdFromUrl(draftTarget.pageUrl);
   const target = {
     source: "figma",
-    fileKey: draftTarget.fileKey,
-    nodeId: targetNodeId,
+    fileKey: evidenceMap.fileKey,
+    nodeId: "comments",
     targetKind: "page",
-    targetName: draftTarget.pageName,
-    figmaUrl: figmaUrlFor(draftTarget.pageUrl, targetNodeId),
+    targetName: "Figma comments",
+    figmaUrl:
+      stringField(recordFrom(review.target), "figmaUrl") ??
+      `https://www.figma.com/design/${evidenceMap.fileKey}/comments`,
   };
-  const findings = comments.map(commentFinding);
+  const findings = [
+    ...mappedComments
+      .filter((comment) => comment.status === "actionable")
+      .map(mappedCommentFinding),
+    ...unmappedComments.map(unmappedCommentFinding),
+  ];
   return {
     statePatch: {
       screen: {
         schemaVersion: "ScreenModel/v1",
-        title: draftTarget.pageName,
+        title: "Figma comments",
         requiredUiParts: uniqueStrings(
           regions.map((region) => String(region.name ?? region.nodeId))
         ),
@@ -303,11 +311,11 @@ function collectCommentEvidence(
           tokenBudget: {
             maxRegions,
             returnedRegions: regions.length,
-            truncatedRegions: Math.max(0, comments.length - regions.length),
+            truncatedRegions: Math.max(0, mappedComments.length - regions.length),
           },
           targetSummary: {
-            nodeId: targetNodeId,
-            name: draftTarget.pageName,
+            nodeId: "comments",
+            name: "Figma comments",
             type: "CANVAS",
             kind: "page",
             childCount: regions.length,
@@ -316,6 +324,7 @@ function collectCommentEvidence(
           notes: ["Evidence came from mapped Figma comments."],
         },
         findings,
+        unmappedComments,
       },
     },
   };
@@ -725,22 +734,62 @@ function screenFromEvidence(
   };
 }
 
-function commentFinding(comment: Record<string, unknown>): ReviewFinding {
-  const message = stringField(comment, "message") ?? "Review comment needs a decision.";
-  const nodeId = stringField(comment, "nodeId");
-  const partName = stringField(comment, "targetName") ?? nodeId ?? "Comment target";
+function regionFromMappedComment(comment: CommentEvidenceItem): Record<string, unknown> {
+  const target = comment.mappedTarget;
+  if (target === undefined) {
+    return { nodeId: comment.commentId, name: comment.commentId, type: "COMMENT" };
+  }
+  const nodeId = target.partId ?? target.nodeId;
   return {
-    theme: classifyTheme(message),
+    nodeId,
+    name: target.nodeName ?? target.partId ?? target.nodeId,
+    type: "COMMENT",
+    ...(target.componentKey !== undefined ? { componentKey: target.componentKey } : {}),
+    ...(target.draftComponentId !== undefined ? { draftComponentId: target.draftComponentId } : {}),
+  };
+}
+
+function mappedCommentFinding(comment: CommentEvidenceItem): ReviewFinding {
+  const target = comment.mappedTarget;
+  const nodeId = target?.partId ?? target?.nodeId;
+  const partName = target?.nodeName ?? target?.partId ?? nodeId ?? "Comment target";
+  return {
+    theme: themeFromCommentIntent(comment.intent, comment.message),
     severity: "medium",
     confidence: "observed",
     title: `Resolve comment for ${partName}`,
-    observation: message,
+    observation: comment.message,
     rationale: "Figma comments should become explicit design decisions or revisions.",
-    recommendation: message,
+    recommendation: comment.message,
     ...(nodeId !== undefined ? { nodeId } : {}),
     partName,
+    ...(target?.componentKey !== undefined ? { componentKey: target.componentKey } : {}),
+    ...(target?.draftComponentId !== undefined
+      ? { draftComponentId: target.draftComponentId }
+      : {}),
     suggestedComment: "Addressed in the kotikit revision plan.",
   };
+}
+
+function unmappedCommentFinding(comment: CommentEvidenceItem): ReviewFinding {
+  return {
+    theme: "other",
+    severity: "medium",
+    confidence: "needs-decision",
+    title: `Clarify unmapped comment ${comment.commentId}`,
+    observation: comment.message,
+    rationale: "Kotikit could not map this Figma comment to an exact design target.",
+    recommendation:
+      "Ask the designer whether this should apply to the page, a region, or a component.",
+  };
+}
+
+function themeFromCommentIntent(intent: CommentEvidenceItem["intent"], message: string): string {
+  if (intent === "design-system-mismatch") return "system";
+  if (intent === "copy-content") return "copy";
+  if (intent === "bug-usability") return "interaction";
+  if (intent === "question") return "other";
+  return classifyTheme(message);
 }
 
 function auditFindingFrom(finding: ReviewFinding): DesignAuditFindingInput {
