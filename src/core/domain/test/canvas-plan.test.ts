@@ -9,7 +9,6 @@ import {
 } from "../../schemas/artifact.js";
 import { KotikitGraphStateSchema } from "../../schemas/graph-state.js";
 
-const screenBounds = { x: 0, y: 0, width: 1440, height: 960 };
 const headerBounds = { x: 0, y: 0, width: 1440, height: 96 };
 const contentBounds = { x: 0, y: 120, width: 1440, height: 720 };
 const transactionMetadata = [
@@ -23,29 +22,48 @@ const transactionMetadata = [
 function validCanvasPlan() {
   return {
     schemaVersion: "CanvasPlan/v1",
-    section: { fileKey: "figma-file-1", pageId: "0:1", name: "Generated screens" },
+    section: { id: "section-generated", name: "Generated screens" },
     coordinateSpace: "section-relative",
-    screenSize: screenBounds,
+    screenSize: { width: 1440, height: 960 },
     minGap: 24,
     zones: [
-      { id: "header-zone", name: "Header zone", bounds: headerBounds },
-      { id: "content-zone", name: "Content zone", bounds: contentBounds },
+      {
+        id: "draft-zone",
+        kind: "draft-components",
+        label: "Draft components",
+        bounds: headerBounds,
+      },
+      {
+        id: "screen-zone",
+        kind: "screen-states",
+        label: "Screen states",
+        bounds: contentBounds,
+      },
     ],
     placements: [
       {
         id: "placement-header",
-        zoneId: "header-zone",
-        name: "Header",
+        kind: "annotation",
+        label: "Header notes",
         bounds: headerBounds,
+        parentZoneId: "draft-zone",
+        transactionId: "txn-verify-node",
       },
       {
         id: "placement-content",
-        zoneId: "content-zone",
-        name: "Table region",
+        kind: "screen-state",
+        stateId: "members-filled",
+        label: "Table region",
         bounds: contentBounds,
+        parentZoneId: "screen-zone",
+        transactionId: "txn-create-screen",
       },
     ],
-    strategy: "place-screen-states-below-source",
+    strategy: {
+      primaryFirst: true,
+      creationOrder: ["txn-create-screen", "txn-verify-node"],
+      designerNotes: ["Keep screen states below draft components."],
+    },
   };
 }
 
@@ -56,19 +74,21 @@ function validFigmaTransactionPlan() {
     transactions: [
       {
         id: "txn-create-draft",
-        order: 0,
+        order: 1,
         kind: "create-draft-component",
+        label: "Create draft table row",
+        placementId: "placement-content",
         status: "pending",
         requiredMetadata: transactionMetadata,
-        placementId: "placement-content",
       },
       {
         id: "txn-verify-node",
-        order: 1,
+        order: 2,
         kind: "verify-created-node",
+        label: "Verify created table row",
+        placementId: "placement-content",
         status: "pending",
         requiredMetadata: transactionMetadata,
-        dependsOn: ["txn-create-draft"],
       },
     ],
   };
@@ -94,11 +114,11 @@ function validFigmaNodeLedger() {
         bounds: contentBounds,
         componentRefs: ["table-key"],
         variableRefs: ["color-bg-default"],
-        autoLayout: { mode: "vertical", gap: 16 },
+        autoLayout: true,
         recordedAt: "2026-07-01T10:00:00.000Z",
-        updatedAt: "2026-07-01T10:00:00.000Z",
       },
     ],
+    updatedAt: "2026-07-01T10:00:00.000Z",
   };
 }
 
@@ -107,11 +127,11 @@ function validCanvasReconciliation() {
     schemaVersion: "CanvasReconciliationReport/v1",
     fileKey: "figma-file-1",
     pageId: "0:1",
-    timestamp: "2026-07-01T10:05:00.000Z",
+    reconciledAt: "2026-07-01T10:05:00.000Z",
     nodes: [
       {
         nodeId: "12:34",
-        status: "matched",
+        ledgerStatus: "matched",
         previousName: "Members filled",
         currentName: "Members filled",
         previousBounds: contentBounds,
@@ -131,8 +151,8 @@ describe("canvas and figma ledger artifact schemas", () => {
       schemaVersion: "CanvasPlan/v1",
       coordinateSpace: "section-relative",
       zones: [
-        { id: "header-zone", name: "Header zone" },
-        { id: "content-zone", name: "Content zone" },
+        { id: "draft-zone", label: "Draft components" },
+        { id: "screen-zone", label: "Screen states" },
       ],
     });
     expect(ArtifactPayloadSchema.parse(validCanvasPlan())).toMatchObject({
@@ -196,5 +216,87 @@ describe("canvas and figma ledger artifact schemas", () => {
     expect(ArtifactSchemaVersionByType["canvas-reconciliation-report"]).toBe(
       "CanvasReconciliationReport/v1"
     );
+  });
+
+  it("rejects non-executable incremental figma plan data", () => {
+    const placementWithoutTransaction = {
+      ...validCanvasPlan(),
+      placements: validCanvasPlan().placements.map((placement) =>
+        placement.id === "placement-content"
+          ? {
+              id: placement.id,
+              kind: placement.kind,
+              stateId: placement.stateId,
+              label: placement.label,
+              bounds: placement.bounds,
+              parentZoneId: placement.parentZoneId,
+            }
+          : placement
+      ),
+    };
+    const transactionWithoutLabel = {
+      ...validFigmaTransactionPlan(),
+      transactions: validFigmaTransactionPlan().transactions.map((transaction) =>
+        transaction.id === "txn-create-draft"
+          ? {
+              id: transaction.id,
+              order: transaction.order,
+              kind: transaction.kind,
+              placementId: transaction.placementId,
+              status: transaction.status,
+              requiredMetadata: transaction.requiredMetadata,
+            }
+          : transaction
+      ),
+    };
+    const ledgerWithObjectAutoLayout = {
+      ...validFigmaNodeLedger(),
+      nodes: validFigmaNodeLedger().nodes.map((node) => ({
+        ...node,
+        autoLayout: { mode: "vertical" },
+      })),
+    };
+
+    expect(() => CanvasPlanSchema.parse(placementWithoutTransaction)).toThrow();
+    expect(() => FigmaTransactionPlanSchema.parse(transactionWithoutLabel)).toThrow();
+    expect(() => FigmaNodeLedgerSchema.parse(ledgerWithObjectAutoLayout)).toThrow();
+  });
+
+  it("parses graph state with empty compact canvas and transaction refs", () => {
+    expect(
+      KotikitGraphStateSchema.parse({
+        schemaVersion: "KotikitGraphState/v1",
+        runId: "run-1",
+        flowId: "create-screen",
+        flowVersion: "1.0.0",
+        graphHash: "hash",
+        status: "running",
+        project: { root: "/tmp/project" },
+        canvasPlan: {
+          schemaVersion: "CanvasPlan/v1",
+          section: { name: "Generated screens" },
+          coordinateSpace: "section-relative",
+          screenSize: { width: 1440, height: 960 },
+          minGap: 24,
+          zones: [],
+          placements: [],
+          strategy: {
+            primaryFirst: true,
+            creationOrder: [],
+            designerNotes: [],
+          },
+        },
+        figmaTransactionPlan: {
+          schemaVersion: "FigmaTransactionPlan/v1",
+          mode: "incremental-official-figma-mcp",
+          transactions: [],
+        },
+        artifacts: [],
+        errors: [],
+      })
+    ).toMatchObject({
+      canvasPlan: { zones: [], placements: [] },
+      figmaTransactionPlan: { transactions: [] },
+    });
   });
 });

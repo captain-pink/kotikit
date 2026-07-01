@@ -72,36 +72,48 @@ export const BoundsSchema = z.strictObject({
 });
 
 const CanvasSectionRefSchema = z.strictObject({
-  fileKey: z.string().min(1).optional(),
-  pageId: z.string().min(1).optional(),
+  id: z.string().min(1).optional(),
   name: z.string().min(1),
+});
+
+const ScreenSizeSchema = z.strictObject({
+  width: z.number().positive(),
+  height: z.number().positive(),
 });
 
 const CanvasZoneSchema = z.strictObject({
   id: z.string().min(1),
-  name: z.string().min(1),
+  kind: z.enum(["draft-components", "screen-states", "review-notes"]),
+  label: z.string().min(1),
   bounds: BoundsSchema,
 });
 
 const CanvasPlacementSchema = z.strictObject({
   id: z.string().min(1),
-  zoneId: z.string().min(1),
-  name: z.string().min(1),
-  bounds: BoundsSchema,
+  kind: z.enum(["screen-state", "draft-component", "annotation"]),
   stateId: z.string().min(1).optional(),
   draftComponentId: z.string().min(1).optional(),
-  partId: z.string().min(1).optional(),
+  label: z.string().min(1),
+  bounds: BoundsSchema,
+  parentZoneId: z.string().min(1),
+  transactionId: z.string().min(1),
+});
+
+const CanvasPlanStrategySchema = z.strictObject({
+  primaryFirst: z.boolean(),
+  creationOrder: z.array(z.string().min(1)),
+  designerNotes: z.array(z.string().min(1)),
 });
 
 export const CanvasPlanSchema = z.strictObject({
   schemaVersion: z.literal("CanvasPlan/v1"),
   section: CanvasSectionRefSchema,
   coordinateSpace: z.literal("section-relative"),
-  screenSize: BoundsSchema,
+  screenSize: ScreenSizeSchema,
   minGap: z.number().nonnegative(),
-  zones: z.array(CanvasZoneSchema).min(1),
+  zones: z.array(CanvasZoneSchema),
   placements: z.array(CanvasPlacementSchema),
-  strategy: z.string().min(1),
+  strategy: CanvasPlanStrategySchema,
 });
 
 const FigmaTransactionKindSchema = z.enum([
@@ -123,21 +135,20 @@ const FigmaTransactionMetadataSchema = z.enum([
 
 const FigmaTransactionSchema = z.strictObject({
   id: z.string().min(1),
-  order: z.number().int().nonnegative(),
+  order: z.number().int().positive(),
   kind: FigmaTransactionKindSchema,
+  label: z.string().min(1),
+  placementId: z.string().min(1),
   status: FigmaTransactionStatusSchema,
-  requiredMetadata: z.array(FigmaTransactionMetadataSchema).min(1),
-  dependsOn: z.array(z.string().min(1)).optional(),
-  placementId: z.string().min(1).optional(),
+  requiredMetadata: z.array(FigmaTransactionMetadataSchema),
   stateId: z.string().min(1).optional(),
   draftComponentId: z.string().min(1).optional(),
-  partId: z.string().min(1).optional(),
 });
 
 export const FigmaTransactionPlanSchema = z.strictObject({
   schemaVersion: z.literal("FigmaTransactionPlan/v1"),
   mode: z.literal("incremental-official-figma-mcp"),
-  transactions: z.array(FigmaTransactionSchema).min(1),
+  transactions: z.array(FigmaTransactionSchema),
 });
 
 const FigmaNodeSemanticRoleSchema = z.enum([
@@ -148,8 +159,6 @@ const FigmaNodeSemanticRoleSchema = z.enum([
   "annotation",
 ]);
 
-const JsonObjectSchema = z.record(z.string(), z.json());
-
 const FigmaNodeLedgerEntrySchema = z.strictObject({
   nodeId: z.string().min(1),
   name: z.string().min(1),
@@ -158,15 +167,13 @@ const FigmaNodeLedgerEntrySchema = z.strictObject({
   transactionId: z.string().min(1),
   placementId: z.string().min(1),
   stateId: z.string().min(1).optional(),
-  draftId: z.string().min(1).optional(),
   draftComponentId: z.string().min(1).optional(),
   partId: z.string().min(1).optional(),
   bounds: BoundsSchema,
   componentRefs: z.array(z.string().min(1)),
   variableRefs: z.array(z.string().min(1)),
-  autoLayout: JsonObjectSchema,
+  autoLayout: z.boolean(),
   recordedAt: z.string().min(1),
-  updatedAt: z.string().min(1),
 });
 
 export const FigmaNodeLedgerSchema = z.strictObject({
@@ -175,11 +182,12 @@ export const FigmaNodeLedgerSchema = z.strictObject({
   pageId: z.string().min(1),
   sectionName: z.string().min(1),
   nodes: z.array(FigmaNodeLedgerEntrySchema),
+  updatedAt: z.string().min(1),
 });
 
 const CanvasReconciliationNodeSchema = z.strictObject({
   nodeId: z.string().min(1),
-  status: z.enum(["matched", "moved", "renamed", "missing", "untracked"]),
+  ledgerStatus: z.enum(["matched", "moved", "renamed", "missing", "untracked"]),
   previousName: z.string().min(1).optional(),
   currentName: z.string().min(1).optional(),
   previousBounds: BoundsSchema.optional(),
@@ -193,7 +201,7 @@ export const CanvasReconciliationReportSchema = z.strictObject({
   schemaVersion: z.literal("CanvasReconciliationReport/v1"),
   fileKey: z.string().min(1),
   pageId: z.string().min(1),
-  timestamp: z.string().min(1),
+  reconciledAt: z.string().min(1),
   nodes: z.array(CanvasReconciliationNodeSchema),
   unmappedCommentsRisk: z.enum(["none", "low", "needs-human"]),
 });
