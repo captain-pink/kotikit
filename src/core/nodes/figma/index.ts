@@ -368,6 +368,10 @@ function childLedgerNodesFromMetadata(
   },
   parent: { parentNodeId: string; recordedAt: string }
 ): FigmaNodeLedger["nodes"] {
+  if (input.active.kind !== "create-screen-state" && input.active.kind !== "create-region-state") {
+    return [];
+  }
+
   return recordArray(input.metadata.nodes).flatMap((nodeMetadata) => {
     const nodeId = stringField(nodeMetadata, "id");
     if (nodeId === undefined || nodeId === parent.parentNodeId) return [];

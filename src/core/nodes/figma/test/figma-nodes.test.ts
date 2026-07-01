@@ -379,6 +379,81 @@ describe("figma graph nodes", () => {
     });
   });
 
+  it("ignores internal child nodes from draft component creation transactions", async () => {
+    const result = await runNode("figma.applyTransactionQueue", {
+      figmaTarget: draftTarget(),
+      figmaTransactionPlan: {
+        schemaVersion: "FigmaTransactionPlan/v1",
+        mode: "incremental-official-figma-mcp",
+        transactions: [
+          {
+            id: "txn-draft-filter",
+            order: 1,
+            kind: "create-draft-component",
+            label: "Draft/Filter",
+            placementId: "draft-filter",
+            draftComponentId: "draft-filter",
+            status: "active",
+            requiredMetadata: [
+              "node-id",
+              "bounds",
+              "auto-layout",
+              "component-refs",
+              "variable-refs",
+            ],
+          },
+        ],
+      },
+      activeFigmaTransaction: {
+        id: "txn-draft-filter",
+        order: 1,
+        kind: "create-draft-component",
+        label: "Draft/Filter",
+        placementId: "draft-filter",
+        draftComponentId: "draft-filter",
+        requiredMetadata: ["node-id", "bounds", "auto-layout", "component-refs", "variable-refs"],
+      },
+      applyMetadata: {
+        ...targetMetadata(),
+        transactionId: "txn-draft-filter",
+        figmaNodeId: "9:20",
+        figmaNodeName: "Draft/Filter",
+        figmaNodeKind: "COMPONENT",
+        bounds: { x: 0, y: 0, width: 320, height: 80 },
+        componentRefs: ["draft:draft-filter"],
+        variableRefs: [],
+        autoLayout: true,
+        nodes: [
+          {
+            id: "9:21",
+            name: "Filter label",
+            kind: "TEXT",
+            partId: "filter-label",
+            draftComponentId: "draft-filter",
+            bounds: { x: 12, y: 12, width: 120, height: 24 },
+            componentRefs: ["draft-filter"],
+            variableRefs: [],
+            autoLayout: true,
+          },
+        ],
+      },
+    });
+
+    expect(result.statePatch?.figmaNodeLedger).toMatchObject({
+      nodes: [
+        expect.objectContaining({
+          nodeId: "9:20",
+          semanticRole: "draft-component",
+          draftComponentId: "draft-filter",
+        }),
+      ],
+    });
+    expect(result.statePatch?.figmaNodeLedger?.nodes).toHaveLength(1);
+    expect(result.statePatch?.applyReport).toMatchObject({
+      draftComponentInstances: [],
+    });
+  });
+
   it("records compact child draft component instances from a screen transaction", async () => {
     const result = await runNode("figma.applyTransactionQueue", {
       figmaTarget: draftTarget(),

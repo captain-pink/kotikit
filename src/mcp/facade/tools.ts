@@ -407,10 +407,12 @@ export function registerFacadeTools(
         );
       }
       const runtime = requireRuntime(deps.runtime);
+      const applyMetadata = figmaApplyMetadataFrom(candidate);
+      await validateFigmaApplyRecord(runtime, runId, applyMetadata);
       const result = await runtime.patchRunState({
         runId,
         statePatch: {
-          applyMetadata: figmaApplyMetadataFrom(candidate),
+          applyMetadata,
         },
       });
       return toolText(`Recorded Figma apply metadata for run ${runId}.`, compactRunResult(result));
@@ -915,6 +917,45 @@ function reviewFigmaTargetInputSchema(): Tool["inputSchema"] {
   };
 }
 
+async function validateFigmaApplyRecord(
+  runtime: FacadeRuntime,
+  runId: string,
+  applyMetadata: Record<string, unknown>
+): Promise<void> {
+  const state = await runtime.getRunState(runId);
+  if (state.status !== "waiting-for-figma") {
+    throw new KotikitError(
+      `Run ${runId} is not waiting for Figma apply metadata.`,
+      "Continue the kotikit run until it pauses for the active Figma transaction, then record the apply metadata."
+    );
+  }
+
+  const active = recordFrom(state.activeFigmaTransaction);
+  const activeId = stringField(active, "id");
+  if (activeId === undefined) {
+    throw new KotikitError(
+      `Run ${runId} is waiting for Figma but has no active Figma transaction.`,
+      "Continue the kotikit run to recover the active transaction before recording apply metadata."
+    );
+  }
+
+  const transactionId = stringField(applyMetadata, "transactionId");
+  if (transactionId !== activeId) {
+    throw new KotikitError(
+      `Recorded transaction ${transactionId ?? "unknown"} does not match the active Figma transaction ${activeId}.`,
+      "Use the active transaction from the latest kotikit run result before recording apply metadata."
+    );
+  }
+
+  const existing = recordFrom(state.applyMetadata);
+  if (Object.keys(existing).length > 0) {
+    throw new KotikitError(
+      `Run ${runId} already has unconsumed Figma apply metadata for transaction ${String(existing.transactionId ?? "unknown")}.`,
+      "Continue the kotikit run so the graph records the pending metadata before recording another transaction."
+    );
+  }
+}
+
 function compactFlow(flow: FlowDefinition): Record<string, unknown> {
   return {
     id: flow.id,
@@ -936,8 +977,23 @@ function compactRunResult(result: RuntimeRunResult): Record<string, unknown> {
     graphHash: result.state.graphHash,
     pendingQuestion: result.state.pendingQuestion,
     pendingApproval: result.state.pendingApproval,
+    activeFigmaTransaction: result.state.activeFigmaTransaction,
+    figmaTransactionProgress: transactionProgressFrom(result.state.figmaTransactionPlan),
     artifacts: result.state.artifacts,
     errors: result.state.errors,
+  };
+}
+
+function transactionProgressFrom(
+  plan: RuntimeRunResult["state"]["figmaTransactionPlan"]
+): Record<string, number> | undefined {
+  if (plan === undefined) return undefined;
+  return {
+    total: plan.transactions.length,
+    pending: plan.transactions.filter((transaction) => transaction.status === "pending").length,
+    active: plan.transactions.filter((transaction) => transaction.status === "active").length,
+    recorded: plan.transactions.filter((transaction) => transaction.status === "recorded").length,
+    failed: plan.transactions.filter((transaction) => transaction.status === "failed").length,
   };
 }
 
