@@ -243,7 +243,9 @@ describe("MCP facade tools", () => {
     expect(applyTool?.inputSchema.properties).toHaveProperty("bounds");
     expect(applyTool?.inputSchema.properties).toHaveProperty("componentRefs");
     expect(applyTool?.inputSchema.properties).toHaveProperty("variableRefs");
+    expect(applyTool?.inputSchema.properties).toHaveProperty("representation");
     expect(applyTool?.inputSchema.properties).toHaveProperty("autoLayout");
+    expect(applyTool?.inputSchema.properties).toHaveProperty("nodes");
   });
 
   it("records incremental transaction metadata into graph apply metadata", async () => {
@@ -278,20 +280,40 @@ describe("MCP facade tools", () => {
       figmaNodeName: "Members / Filled",
       figmaNodeKind: "frame",
       bounds: { x: 560, y: 0, width: 1440, height: 900 },
+      representation: "region-state",
       componentRefs: ["button-key"],
       variableRefs: ["var-color-primary"],
       autoLayout: true,
+      nodes: [
+        {
+          id: "node-2",
+          name: "Primary action",
+          kind: "instance",
+          partId: "primary-action",
+          draftComponentId: "draft-primary-action",
+          bounds: { x: 1200, y: 72, width: 160, height: 40 },
+          componentRefs: ["draft-primary-action"],
+          variableRefs: ["var-color-primary"],
+          autoLayout: true,
+        },
+      ],
     });
 
     expect(applyMetadata).toMatchObject({
       transactionId: "txn-filled",
       bounds: { x: 560, y: 0, width: 1440, height: 900 },
+      representation: "region-state",
       componentRefs: ["button-key"],
       variableRefs: ["var-color-primary"],
       autoLayout: true,
     });
     expect(applyMetadata?.nodes).toEqual([
       expect.objectContaining({ id: "node-1", kind: "frame" }),
+      expect.objectContaining({
+        id: "node-2",
+        draftComponentId: "draft-primary-action",
+        bounds: { x: 1200, y: 72, width: 160, height: 40 },
+      }),
     ]);
   });
 

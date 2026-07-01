@@ -315,6 +315,7 @@ function appendLedgerNode(
     );
   }
   const representation = stateRepresentationForTransaction(input.active, input.metadata);
+  const recordedAt = nowIso();
 
   const node = {
     nodeId,
@@ -339,8 +340,13 @@ function appendLedgerNode(
     componentRefs,
     variableRefs,
     autoLayout,
-    recordedAt: nowIso(),
+    recordedAt,
   };
+  const childNodes = childLedgerNodesFromMetadata(input, {
+    parentNodeId: nodeId,
+    recordedAt,
+  });
+  const updatedAt = nowIso();
 
   return FigmaNodeLedgerSchema.parse({
     schemaVersion: "FigmaNodeLedger/v1",
@@ -350,9 +356,82 @@ function appendLedgerNode(
       stringField(input.metadata, "sectionName") ??
       ledger.sectionName ??
       draftSectionName(input.target),
-    nodes: [...ledger.nodes, node],
-    updatedAt: nowIso(),
+    nodes: [...ledger.nodes, node, ...childNodes],
+    updatedAt,
   });
+}
+
+function childLedgerNodesFromMetadata(
+  input: {
+    active: NonNullable<KotikitGraphState["activeFigmaTransaction"]>;
+    metadata: Record<string, unknown>;
+  },
+  parent: { parentNodeId: string; recordedAt: string }
+): FigmaNodeLedger["nodes"] {
+  return recordArray(input.metadata.nodes).flatMap((nodeMetadata) => {
+    const nodeId = stringField(nodeMetadata, "id");
+    if (nodeId === undefined || nodeId === parent.parentNodeId) return [];
+
+    const semanticRole = childSemanticRoleFrom(nodeMetadata);
+    if (semanticRole === undefined) return [];
+
+    const draftComponentId = stringField(nodeMetadata, "draftComponentId");
+    const partId = stringField(nodeMetadata, "partId");
+    const componentRefs = uniqueStrings([
+      ...optionalStringArray(input.active.id, nodeMetadata.componentRefs, "componentRefs"),
+      stringField(nodeMetadata, "componentKey"),
+      draftComponentId,
+    ]);
+    return [
+      {
+        nodeId,
+        name:
+          stringField(nodeMetadata, "name") ??
+          partId ??
+          draftComponentId ??
+          `${input.active.label} child`,
+        kind:
+          stringField(nodeMetadata, "kind") ??
+          (semanticRole === "component-instance" ? "INSTANCE" : "FRAME"),
+        semanticRole,
+        transactionId: input.active.id,
+        placementId: input.active.placementId,
+        ...(input.active.stateId === undefined ? {} : { stateId: input.active.stateId }),
+        ...(draftComponentId === undefined ? {} : { draftComponentId }),
+        ...(partId === undefined ? {} : { partId }),
+        bounds: parseLedgerBounds(input.active.id, nodeMetadata.bounds),
+        componentRefs,
+        variableRefs: optionalStringArray(
+          input.active.id,
+          nodeMetadata.variableRefs,
+          "variableRefs"
+        ),
+        autoLayout: booleanField(nodeMetadata, "autoLayout") ?? false,
+        recordedAt: parent.recordedAt,
+      },
+    ];
+  });
+}
+
+function childSemanticRoleFrom(
+  nodeMetadata: Record<string, unknown>
+): FigmaNodeLedger["nodes"][number]["semanticRole"] | undefined {
+  const semanticRole = stringField(nodeMetadata, "semanticRole");
+  if (
+    semanticRole === "component-instance" ||
+    semanticRole === "layout-frame" ||
+    semanticRole === "annotation"
+  ) {
+    return semanticRole;
+  }
+  if (
+    stringField(nodeMetadata, "draftComponentId") !== undefined ||
+    stringField(nodeMetadata, "partId") !== undefined ||
+    stringField(nodeMetadata, "componentKey") !== undefined
+  ) {
+    return "component-instance";
+  }
+  return undefined;
 }
 
 function activeTransactionFrom(
@@ -404,6 +483,15 @@ function requiredStringArray(transactionId: string, value: unknown, field: strin
     );
   }
   return value;
+}
+
+function optionalStringArray(transactionId: string, value: unknown, field: string): string[] {
+  if (value === undefined) return [];
+  return requiredStringArray(transactionId, value, field);
+}
+
+function uniqueStrings(values: Array<string | undefined>): string[] {
+  return [...new Set(values.filter((value): value is string => value !== undefined))];
 }
 
 function requiresAutoLayout(
@@ -484,7 +572,9 @@ function applyReportFromLedger(ledger: FigmaNodeLedger): Record<string, unknown>
         transactionId: node.transactionId,
       })),
     draftComponentInstances: ledger.nodes
-      .filter((node) => node.draftComponentId !== undefined)
+      .filter(
+        (node) => node.draftComponentId !== undefined && node.semanticRole !== "draft-component"
+      )
       .map((node) => ({
         draftComponentId: node.draftComponentId,
         nodeId: node.nodeId,

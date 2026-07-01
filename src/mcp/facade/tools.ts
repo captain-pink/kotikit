@@ -631,9 +631,35 @@ function figmaApplyInputSchema(): Tool["inputSchema"] {
         description: "Compact variable/style refs used by this transaction.",
         items: { type: "string" },
       },
+      representation: {
+        type: "string",
+        enum: ["screen-frame", "region-state", "component-state", "flow-step"],
+        description: "Compact state representation for screen, region, component, or flow states.",
+      },
       autoLayout: {
         type: "boolean",
         description: "Whether the applied top-level node uses Figma auto layout.",
+      },
+      nodes: {
+        type: "array",
+        description:
+          "Compact child nodes created inside this transaction, such as draft component instances.",
+        items: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            name: { type: "string" },
+            kind: { type: "string" },
+            semanticRole: { type: "string" },
+            partId: { type: "string" },
+            draftComponentId: { type: "string" },
+            componentKey: { type: "string" },
+            bounds: { type: "object" },
+            componentRefs: { type: "array", items: { type: "string" } },
+            variableRefs: { type: "array", items: { type: "string" } },
+            autoLayout: { type: "boolean" },
+          },
+        },
       },
       variableBindings: {
         type: "array",
@@ -674,31 +700,81 @@ function figmaApplyMetadataFrom(input: Record<string, unknown>): Record<string, 
     ...(stringField(input, "figmaSectionName") !== undefined
       ? { sectionName: stringField(input, "figmaSectionName") }
       : {}),
-    nodes: [
-      {
-        ...(stringField(input, "figmaNodeId") !== undefined
-          ? { id: stringField(input, "figmaNodeId") }
-          : {}),
-        ...(stringField(input, "figmaNodeName") !== undefined
-          ? { name: stringField(input, "figmaNodeName") }
-          : {}),
-        ...(stringField(input, "figmaNodeKind") !== undefined
-          ? { kind: stringField(input, "figmaNodeKind") }
-          : {}),
-        ...(stringField(input, "componentName") !== undefined
-          ? { componentName: stringField(input, "componentName") }
-          : {}),
-        ...(stringField(input, "partId") !== undefined
-          ? { partId: stringField(input, "partId") }
-          : {}),
-        ...(stringField(input, "draftComponentId") !== undefined
-          ? { draftComponentId: stringField(input, "draftComponentId") }
-          : {}),
-        ...(stringField(input, "dsKey") !== undefined
-          ? { componentKey: stringField(input, "dsKey") }
-          : {}),
-      },
-    ].filter((node) => Object.keys(node).length > 0),
+    nodes: figmaApplyNodesFrom(input),
+    ...(boundsFrom(input.bounds) !== undefined ? { bounds: boundsFrom(input.bounds) } : {}),
+    ...(stringArray(input.componentRefs) !== undefined
+      ? { componentRefs: stringArray(input.componentRefs) }
+      : {}),
+    ...(stringArray(input.variableRefs) !== undefined
+      ? { variableRefs: stringArray(input.variableRefs) }
+      : {}),
+    ...(stateRepresentationField(input) !== undefined
+      ? { representation: stateRepresentationField(input) }
+      : {}),
+    ...(booleanField(input, "autoLayout") !== undefined
+      ? { autoLayout: booleanField(input, "autoLayout") }
+      : {}),
+    variableBindings: recordArray(input.variableBindings),
+    layoutFrames: recordArray(input.layoutFrames),
+    repeatedItems: recordArray(input.repeatedItems),
+    textTransforms: recordArray(input.textTransforms),
+  };
+}
+
+function figmaApplyNodesFrom(input: Record<string, unknown>): Record<string, unknown>[] {
+  const primaryNode = {
+    ...(stringField(input, "figmaNodeId") !== undefined
+      ? { id: stringField(input, "figmaNodeId") }
+      : {}),
+    ...(stringField(input, "figmaNodeName") !== undefined
+      ? { name: stringField(input, "figmaNodeName") }
+      : {}),
+    ...(stringField(input, "figmaNodeKind") !== undefined
+      ? { kind: stringField(input, "figmaNodeKind") }
+      : {}),
+    ...(stringField(input, "componentName") !== undefined
+      ? { componentName: stringField(input, "componentName") }
+      : {}),
+    ...(stringField(input, "partId") !== undefined ? { partId: stringField(input, "partId") } : {}),
+    ...(stringField(input, "draftComponentId") !== undefined
+      ? { draftComponentId: stringField(input, "draftComponentId") }
+      : {}),
+    ...(stringField(input, "dsKey") !== undefined
+      ? { componentKey: stringField(input, "dsKey") }
+      : {}),
+  };
+  const nodes = [
+    primaryNode,
+    ...recordArray(input.nodes).map((node) => compactApplyNodeFrom(node)),
+  ].filter((node) => Object.keys(node).length > 0);
+  const seen = new Set<string>();
+  return nodes.filter((node) => {
+    const id = stringField(node, "id");
+    if (id === undefined) return true;
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
+function compactApplyNodeFrom(input: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...(stringField(input, "id") !== undefined ? { id: stringField(input, "id") } : {}),
+    ...(stringField(input, "name") !== undefined ? { name: stringField(input, "name") } : {}),
+    ...(stringField(input, "kind") !== undefined ? { kind: stringField(input, "kind") } : {}),
+    ...(stringField(input, "semanticRole") !== undefined
+      ? { semanticRole: stringField(input, "semanticRole") }
+      : {}),
+    ...(stringField(input, "componentName") !== undefined
+      ? { componentName: stringField(input, "componentName") }
+      : {}),
+    ...(stringField(input, "partId") !== undefined ? { partId: stringField(input, "partId") } : {}),
+    ...(stringField(input, "draftComponentId") !== undefined
+      ? { draftComponentId: stringField(input, "draftComponentId") }
+      : {}),
+    ...(stringField(input, "componentKey") !== undefined
+      ? { componentKey: stringField(input, "componentKey") }
+      : {}),
     ...(boundsFrom(input.bounds) !== undefined ? { bounds: boundsFrom(input.bounds) } : {}),
     ...(stringArray(input.componentRefs) !== undefined
       ? { componentRefs: stringArray(input.componentRefs) }
@@ -709,10 +785,6 @@ function figmaApplyMetadataFrom(input: Record<string, unknown>): Record<string, 
     ...(booleanField(input, "autoLayout") !== undefined
       ? { autoLayout: booleanField(input, "autoLayout") }
       : {}),
-    variableBindings: recordArray(input.variableBindings),
-    layoutFrames: recordArray(input.layoutFrames),
-    repeatedItems: recordArray(input.repeatedItems),
-    textTransforms: recordArray(input.textTransforms),
   };
 }
 
@@ -766,6 +838,16 @@ function boundsFrom(value: unknown):
 function stringArray(value: unknown): string[] | undefined {
   return Array.isArray(value) && value.every((item) => typeof item === "string" && item.length > 0)
     ? value
+    : undefined;
+}
+
+function stateRepresentationField(input: Record<string, unknown>): string | undefined {
+  const representation = stringField(input, "representation");
+  return representation === "screen-frame" ||
+    representation === "region-state" ||
+    representation === "component-state" ||
+    representation === "flow-step"
+    ? representation
     : undefined;
 }
 

@@ -198,6 +198,7 @@ export function fakeTransactionMetadataFor(state: KotikitGraphState): Record<str
   const placement = recordArray(recordFrom(state.canvasPlan).placements).find(
     (candidate) => candidate.id === active.placementId
   );
+  const bounds = recordFrom(placement?.bounds);
 
   return {
     transactionId,
@@ -207,11 +208,12 @@ export function fakeTransactionMetadataFor(state: KotikitGraphState): Record<str
     figmaNodeId: `node-${transactionId}`,
     figmaNodeName: stringField(active, "label") ?? transactionId,
     figmaNodeKind: "FRAME",
-    bounds: recordFrom(placement?.bounds),
+    bounds,
     representation: stateRepresentationForActive(state, active),
     componentRefs: componentRefsFrom(state),
     variableRefs: variableRefsFrom(state),
     autoLayout: true,
+    nodes: compactChildNodesForActive(state, active, bounds),
   };
 }
 
@@ -316,6 +318,53 @@ function componentRefsFrom(state: KotikitGraphState): string[] {
       stringField(part, "draftComponentId"),
     ])
   );
+}
+
+function compactChildNodesForActive(
+  state: KotikitGraphState,
+  active: Record<string, unknown>,
+  parentBounds: Record<string, unknown>
+): Record<string, unknown>[] {
+  const kind = stringField(active, "kind");
+  if (kind !== "create-screen-state" && kind !== "create-region-state") return [];
+
+  const packet = recordFrom(recordFrom(state.draftPlan).applyPacket);
+  const uiComposition = recordFrom(state.uiComposition ?? packet.uiComposition);
+  return recordArray(uiComposition.parts)
+    .filter((part) => stringField(part, "draftComponentId") !== undefined)
+    .map((part, index) => ({
+      id: `node-${String(active.id)}-${String(part.id)}`,
+      name: stringField(part, "name") ?? String(part.id),
+      kind: "INSTANCE",
+      partId: stringField(part, "id"),
+      draftComponentId: stringField(part, "draftComponentId"),
+      bounds: childBoundsWithin(parentBounds, index),
+      componentRefs: uniqueStrings([
+        stringField(part, "componentKey"),
+        stringField(part, "draftComponentId"),
+      ]),
+      variableRefs: variableRefsFrom(state),
+      autoLayout: true,
+    }));
+}
+
+function childBoundsWithin(
+  parentBounds: Record<string, unknown>,
+  index: number
+): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} {
+  const parentX = typeof parentBounds.x === "number" ? parentBounds.x : 0;
+  const parentY = typeof parentBounds.y === "number" ? parentBounds.y : 0;
+  return {
+    x: parentX + 960,
+    y: parentY + 96 + index * 72,
+    width: 240,
+    height: 48,
+  };
 }
 
 function variableRefsFrom(state: KotikitGraphState): string[] {

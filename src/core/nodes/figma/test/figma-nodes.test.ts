@@ -318,6 +318,120 @@ describe("figma graph nodes", () => {
     });
   });
 
+  it("does not count draft component creation nodes as applied component instances", async () => {
+    const result = await runNode("figma.applyTransactionQueue", {
+      figmaTarget: draftTarget(),
+      figmaTransactionPlan: {
+        schemaVersion: "FigmaTransactionPlan/v1",
+        mode: "incremental-official-figma-mcp",
+        transactions: [
+          {
+            id: "txn-draft-filter",
+            order: 1,
+            kind: "create-draft-component",
+            label: "Draft/Filter",
+            placementId: "draft-filter",
+            draftComponentId: "draft-filter",
+            status: "active",
+            requiredMetadata: [
+              "node-id",
+              "bounds",
+              "auto-layout",
+              "component-refs",
+              "variable-refs",
+            ],
+          },
+        ],
+      },
+      activeFigmaTransaction: {
+        id: "txn-draft-filter",
+        order: 1,
+        kind: "create-draft-component",
+        label: "Draft/Filter",
+        placementId: "draft-filter",
+        draftComponentId: "draft-filter",
+        requiredMetadata: ["node-id", "bounds", "auto-layout", "component-refs", "variable-refs"],
+      },
+      applyMetadata: {
+        ...targetMetadata(),
+        transactionId: "txn-draft-filter",
+        figmaNodeId: "9:20",
+        figmaNodeName: "Draft/Filter",
+        figmaNodeKind: "COMPONENT",
+        bounds: { x: 0, y: 0, width: 320, height: 80 },
+        componentRefs: ["draft:draft-filter"],
+        variableRefs: [],
+        autoLayout: true,
+      },
+    });
+
+    expect(result.statePatch?.applyReport).toMatchObject({
+      nodes: [
+        expect.objectContaining({
+          id: "9:20",
+          semanticRole: "draft-component",
+          draftComponentId: "draft-filter",
+        }),
+      ],
+    });
+    expect(result.statePatch?.applyReport).toMatchObject({
+      draftComponentInstances: [],
+    });
+  });
+
+  it("records compact child draft component instances from a screen transaction", async () => {
+    const result = await runNode("figma.applyTransactionQueue", {
+      figmaTarget: draftTarget(),
+      figmaTransactionPlan: singleActiveTransactionPlan(),
+      activeFigmaTransaction: activeTransaction(),
+      applyMetadata: {
+        ...applyMetadata({
+          componentRefs: ["button-key", "draft-primary-action"],
+          variableRefs: ["color.bg"],
+        }),
+        nodes: [
+          {
+            id: "9:10",
+            name: "Members / Filled",
+            kind: "FRAME",
+          },
+          {
+            id: "9:42",
+            name: "Primary action",
+            kind: "INSTANCE",
+            partId: "primary-action",
+            draftComponentId: "draft-primary-action",
+            bounds: { x: 1120, y: 80, width: 160, height: 40 },
+            componentRefs: ["draft-primary-action"],
+            variableRefs: ["color.bg"],
+            autoLayout: true,
+          },
+        ],
+      },
+    });
+
+    expect(result.statePatch?.figmaNodeLedger).toMatchObject({
+      nodes: [
+        expect.objectContaining({ nodeId: "9:10", semanticRole: "screen-state" }),
+        expect.objectContaining({
+          nodeId: "9:42",
+          semanticRole: "component-instance",
+          draftComponentId: "draft-primary-action",
+          partId: "primary-action",
+        }),
+      ],
+    });
+    expect(result.statePatch?.applyReport).toMatchObject({
+      draftComponentInstances: [
+        expect.objectContaining({
+          draftComponentId: "draft-primary-action",
+          nodeId: "9:42",
+          transactionId: "txn-filled",
+        }),
+      ],
+    });
+  });
+
   it("verifies compact incremental apply evidence against the apply packet", async () => {
     const apply = await completeTransactionQueue({
       componentRefs: ["button-key"],
