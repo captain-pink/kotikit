@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { KotikitError } from "../../../util/result.js";
 import { ensureDraftTarget } from "../../adapters/figma/target.js";
+import {
+  buildDraftComponentLifecycle,
+  verifyDraftComponentLifecycle,
+} from "../../domain/draft-component-lifecycle.js";
 import { buildDraftComponentPlan } from "../../domain/draft-component-plan.js";
 import { createUserInterrupt } from "../../graph/interrupts.js";
 import type { NodeDefinition } from "../../graph/node-registry.js";
@@ -96,6 +100,34 @@ export const draftComponentNodeDefinitions: NodeDefinition[] = [
           "Create and validate draft components in the active draft page before composing the screen."
         );
       }
+      return {} satisfies RuntimeNodeOutput;
+    },
+  }),
+  node({
+    key: "draftComponents.buildLifecycle",
+    stateReads: ["draftComponentPlan", "draftPlan", "applyReport"],
+    stateWrites: ["draftComponentLifecycle"],
+    run: async (input) => {
+      const state = graphState(input.state);
+      if (state.draftComponentPlan === undefined) return {} satisfies RuntimeNodeOutput;
+      return {
+        statePatch: {
+          draftComponentLifecycle: buildDraftComponentLifecycle({
+            plan: state.draftComponentPlan,
+            createdDraftComponents: recordArray(recordFrom(state.draftPlan).createdDraftComponents),
+            appliedInstances: recordArray(recordFrom(state.applyReport).draftComponentInstances),
+          }),
+        },
+      } satisfies RuntimeNodeOutput;
+    },
+  }),
+  node({
+    key: "draftComponents.verifyLifecycle",
+    stateReads: ["draftComponentLifecycle"],
+    stateWrites: [],
+    run: async (input) => {
+      const lifecycle = graphState(input.state).draftComponentLifecycle;
+      if (lifecycle !== undefined) verifyDraftComponentLifecycle(lifecycle);
       return {} satisfies RuntimeNodeOutput;
     },
   }),

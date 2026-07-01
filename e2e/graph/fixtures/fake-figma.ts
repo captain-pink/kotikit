@@ -103,29 +103,30 @@ export function fakeApplyMetadataFor(state: KotikitGraphState): Record<string, u
   const layoutContract = recordFrom(state.layoutContract ?? packet.layoutContract);
   const stateRepresentation = recordFrom(state.stateRepresentation);
   const parts = recordArray(uiComposition.parts);
+  const appliedNodes = parts.map((part) => ({
+    id: `node-${String(part.id)}`,
+    partId: part.id,
+    name: part.name,
+    componentName: part.name,
+    componentKey: part.componentKey,
+    draftComponentId: part.draftComponentId,
+    expectedComponentRef: true,
+    width: 320,
+    height: 48,
+    textDirection: "horizontal",
+    mirroredText: false,
+    transform: { scaleX: 1, scaleY: 1 },
+    clippedText: false,
+    detachedInstance: false,
+    overlaps: [],
+    hardcodedComponentImitation: false,
+  }));
 
   return {
     fileKey: target.fileKey,
     pageId: target.pageId,
     sectionName: stringField(recordFrom(target.section), "name"),
-    nodes: parts.map((part) => ({
-      id: `node-${String(part.id)}`,
-      partId: part.id,
-      name: part.name,
-      componentName: part.name,
-      componentKey: part.componentKey,
-      draftComponentId: part.draftComponentId,
-      expectedComponentRef: true,
-      width: 320,
-      height: 48,
-      textDirection: "horizontal",
-      mirroredText: false,
-      transform: { scaleX: 1, scaleY: 1 },
-      clippedText: false,
-      detachedInstance: false,
-      overlaps: [],
-      hardcodedComponentImitation: false,
-    })),
+    nodes: appliedNodes,
     variableBindings: recordArray(variableBindingPlan.bindings),
     layoutFrames: recordArray(layoutContract.frames),
     repeatedItems: recordArray(packet.repeatedItems),
@@ -138,6 +139,19 @@ export function fakeApplyMetadataFor(state: KotikitGraphState): Record<string, u
       width: 1280,
       height: 720,
     })),
+    draftComponentInstances: appliedNodes
+      .filter((node) => typeof node.draftComponentId === "string")
+      .map((node) => ({
+        draftComponentId: node.draftComponentId,
+        nodeId: node.id,
+      })),
+    draftComponentPlacements: recordArray(recordFrom(state.draftPlan).createdDraftComponents).map(
+      (component) => ({
+        draftComponentId: component.id,
+        componentKey: component.componentKey,
+        sectionName: component.sectionName,
+      })
+    ),
   };
 }
 

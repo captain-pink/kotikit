@@ -28,6 +28,9 @@ describe("qa graph nodes", () => {
           { id: "state-card", statePreviewCard: true },
           { id: "missing-state", expectedStateFrame: true },
           { id: "shell-drift", stateShellDrift: true },
+          { id: "orphan-draft", orphanDraftComponent: true },
+          { id: "draft-overlap", draftComponentOverlap: true },
+          { id: "detached-draft-use", draftComponentDetachedUse: true },
         ],
       },
     });
@@ -43,6 +46,9 @@ describe("qa graph nodes", () => {
         expect.objectContaining({ id: "state-preview-card", status: "blocked" }),
         expect.objectContaining({ id: "missing-state-frame", status: "blocked" }),
         expect.objectContaining({ id: "state-shell-drift", status: "blocked" }),
+        expect.objectContaining({ id: "orphan-draft-component", status: "blocked" }),
+        expect.objectContaining({ id: "draft-component-overlap", status: "blocked" }),
+        expect.objectContaining({ id: "draft-component-detached-use", status: "blocked" }),
       ]),
     });
   });

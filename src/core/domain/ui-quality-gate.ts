@@ -60,6 +60,24 @@ export function runUiQualityGate(input: { nodes: AppliedNode[] }): UIQualityGate
       input.nodes,
       (node) => node.stateShellDrift === true
     ),
+    check(
+      "orphan-draft-component",
+      "Orphan draft component",
+      input.nodes,
+      (node) => node.orphanDraftComponent === true
+    ),
+    check(
+      "draft-component-overlap",
+      "Draft component overlap",
+      input.nodes,
+      (node) => node.draftComponentOverlap === true
+    ),
+    check(
+      "draft-component-detached-use",
+      "Draft component detached use",
+      input.nodes,
+      (node) => node.draftComponentDetachedUse === true
+    ),
   ];
 
   return {

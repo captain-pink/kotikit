@@ -146,6 +146,11 @@
       "params": {}
     },
     {
+      "id": "build-draft-component-lifecycle",
+      "uses": "draftComponents.buildLifecycle",
+      "params": {}
+    },
+    {
       "id": "verify-draft-invariants",
       "uses": "figma.verifyDraftInvariants",
       "params": {}
@@ -153,6 +158,11 @@
     {
       "id": "verify-state-representation",
       "uses": "ui.verifyStateRepresentation",
+      "params": {}
+    },
+    {
+      "id": "verify-draft-component-lifecycle",
+      "uses": "draftComponents.verifyLifecycle",
       "params": {}
     },
     {
@@ -195,9 +205,11 @@
     ["compile-high-fidelity-draft", "build-figma-apply-packet"],
     ["build-figma-apply-packet", "wait-for-apply-metadata"],
     ["wait-for-apply-metadata", "record-apply-metadata"],
-    ["record-apply-metadata", "verify-draft-invariants"],
+    ["record-apply-metadata", "build-draft-component-lifecycle"],
+    ["build-draft-component-lifecycle", "verify-draft-invariants"],
     ["verify-draft-invariants", "verify-state-representation"],
-    ["verify-state-representation", "save-apply-report"],
+    ["verify-state-representation", "verify-draft-component-lifecycle"],
+    ["verify-draft-component-lifecycle", "save-apply-report"],
     ["save-apply-report", "run-ui-quality-gate"],
     ["run-ui-quality-gate", "post-draft-qa"]
   ],

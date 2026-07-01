@@ -84,6 +84,10 @@ describe("create-screen graph flow", () => {
       const completed = await runtime.continueRun({ runId: started.runId });
 
       expect(completed.status).toBe("done");
+      expect(completed.state.draftComponentLifecycle).toMatchObject({
+        schemaVersion: "DraftComponentLifecycle/v1",
+        components: expect.arrayContaining([expect.objectContaining({ status: "used" })]),
+      });
       expect(completed.state.uiQualityGate?.status).toBe("passed");
       expect(completed.state.artifacts.map((artifact) => artifact.type)).toEqual(
         expect.arrayContaining([
