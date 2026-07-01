@@ -1,0 +1,129 @@
+{
+  "schemaVersion": "UXPatternPack/v1",
+  "id": "admin-data-table",
+  "version": "1.0.0",
+  "title": "Admin Data Table",
+  "appliesTo": ["admin-data-table"],
+  "intentKeywords": ["admin", "member", "members", "user", "users", "role", "table"],
+  "envelopeDefaults": {
+    "confidence": "inferred",
+    "actor": "Workspace admin",
+    "primaryGoal": "Manage workspace members",
+    "primaryTask": "Manage members",
+    "secondaryTasks": ["Search members", "Filter members", "Invite teammates", "Review access"],
+    "dataModel": {
+      "primaryEntity": "member",
+      "expectedVolume": "many",
+      "fields": ["name", "email", "role", "status", "last active", "security"]
+    },
+    "permissions": ["invite-member", "change-role", "review-access"],
+    "edgeCases": ["filled", "loading", "empty", "no-results", "error", "permission"],
+    "assumptions": [
+      "Administrative member screens usually need scan, search, filter, invite, and recovery states.",
+      "Table states should live in the table region instead of becoming unrelated cards."
+    ]
+  },
+  "defaultStates": [
+    {
+      "kind": "filled",
+      "scope": "region",
+      "affectedRegion": "members table",
+      "persistentRegions": ["sidebar", "top bar", "page header", "table toolbar"],
+      "replacementBehavior": "same-frame-variant",
+      "requiredComponents": ["table", "table header row", "table data row", "pagination"],
+      "sourceRefs": ["https://carbondesignsystem.com/components/data-table/usage/"]
+    },
+    {
+      "kind": "loading",
+      "scope": "region",
+      "affectedRegion": "members table",
+      "persistentRegions": ["sidebar", "top bar", "page header", "table toolbar"],
+      "replacementBehavior": "replace-table-body",
+      "requiredComponents": ["table skeleton row", "disabled toolbar controls"],
+      "copy": {
+        "title": "Loading members"
+      },
+      "sourceRefs": ["https://carbondesignsystem.com/patterns/loading-pattern/"]
+    },
+    {
+      "kind": "empty",
+      "scope": "region",
+      "affectedRegion": "members table",
+      "persistentRegions": ["sidebar", "top bar", "page header", "table toolbar"],
+      "replacementBehavior": "replace-region-content",
+      "requiredComponents": ["empty state", "primary action"],
+      "primaryAction": "Invite member",
+      "copy": {
+        "title": "No members yet",
+        "body": "Invite teammates to start managing access."
+      },
+      "sourceRefs": ["https://carbondesignsystem.com/patterns/empty-states-pattern/"]
+    },
+    {
+      "kind": "no-results",
+      "scope": "region",
+      "affectedRegion": "members table",
+      "persistentRegions": ["sidebar", "top bar", "page header", "table toolbar"],
+      "replacementBehavior": "replace-region-content",
+      "requiredComponents": ["empty state", "secondary action"],
+      "primaryAction": "Clear filters",
+      "copy": {
+        "title": "No members match the filters",
+        "body": "Adjust search or remove filters to see more members."
+      },
+      "sourceRefs": ["https://carbondesignsystem.com/patterns/empty-states-pattern/"]
+    },
+    {
+      "kind": "error",
+      "scope": "region",
+      "affectedRegion": "members table",
+      "persistentRegions": ["sidebar", "top bar", "page header", "table toolbar"],
+      "replacementBehavior": "replace-region-content",
+      "requiredComponents": ["inline error", "primary action"],
+      "primaryAction": "Retry",
+      "copy": {
+        "title": "Members could not load",
+        "body": "Try again or contact support if the problem continues."
+      },
+      "sourceRefs": ["https://carbondesignsystem.com/patterns/error-management-pattern/"]
+    },
+    {
+      "kind": "permission",
+      "scope": "page",
+      "affectedRegion": "main content",
+      "persistentRegions": ["sidebar", "top bar"],
+      "replacementBehavior": "replace-whole-page",
+      "requiredComponents": ["permission state", "secondary action"],
+      "secondaryAction": "Request access",
+      "copy": {
+        "title": "You do not have access",
+        "body": "Ask an owner for permission to manage members."
+      },
+      "sourceRefs": ["https://www.nngroup.com/articles/error-message-guidelines/"]
+    }
+  ],
+  "componentRoles": [
+    "sidebar navigation",
+    "page header",
+    "metrics",
+    "table toolbar",
+    "table",
+    "pagination",
+    "primary action"
+  ],
+  "layoutRules": [
+    "Keep navigation, page header, table toolbar, and table region in separate auto-layout frames.",
+    "Represent loading, empty, no-results, and error as table-region states unless access blocks the whole page.",
+    "Do not place state previews as cards below a filled table."
+  ],
+  "qaRules": [
+    "Every data-table state must have a matching region or page variant.",
+    "No generated state content may overlap the main screen frame or draft component section.",
+    "Repeated rows and cells must come from component instances."
+  ],
+  "sourceRefs": [
+    "https://www.nngroup.com/articles/task-analysis/",
+    "https://carbondesignsystem.com/patterns/empty-states-pattern/",
+    "https://carbondesignsystem.com/components/data-table/usage/"
+  ]
+}
