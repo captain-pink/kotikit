@@ -268,6 +268,29 @@ missing, product-flow drafting was not marked incremental, flow-model
 design-system queries could fall back to raw punctuated intent, and seeded
 review finding variable bindings were not preserved.
 
+## Implementation Update: Final Verification
+
+Completed on branch `feature/kotikit-migration`.
+
+Final migration verification passed for the active implementation surface:
+
+- `bun test` passed 725 tests across 90 files;
+- `bun run typecheck` passed;
+- `bun run check` passed;
+- `bun run measure` passed and the token table was updated for the current
+  `kotikit_start` create-screen payload;
+- `git diff --check` passed;
+- public MCP tools were inspected and contain the graph facade plus setup,
+  sync, local search, prompt, plugin-variable, and bridge support tools;
+- live-doc stale-path scan shows source checkout/scaffold references only in
+  compatibility, setup, or development context, and old public choreography
+  tool names only in migration-plan history.
+
+`bun run check:unused` still exits non-zero for broader exported-symbol and
+exported-type hygiene that predates the final readiness pass. It reports no
+unused migration-owned files; that cleanup remains intentionally separate from
+the platform flow kit migration.
+
 ## Sources Reviewed During Initial Migration Analysis
 
 Local repo:

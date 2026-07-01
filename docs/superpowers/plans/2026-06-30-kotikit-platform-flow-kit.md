@@ -1444,7 +1444,7 @@ git commit -m "test: add graph flow smoke coverage"
 
 - Modify as needed based on verification output.
 
-- [ ] **Step 1: Run full verification**
+- [x] **Step 1: Run full verification**
 
 Run:
 
@@ -1467,7 +1467,7 @@ Expected:
   unrelated pre-existing findings;
 - `git diff --check` passes.
 
-- [ ] **Step 2: Inspect public MCP surface**
+- [x] **Step 2: Inspect public MCP surface**
 
 Run a focused registry inspection test or command that prints public tool names.
 
@@ -1485,7 +1485,7 @@ Expected public guided workflow tools:
 - `kotikit_review_figma_target`
 - `kotikit_doctor`
 
-- [ ] **Step 3: Inspect docs for stale user paths**
+- [x] **Step 3: Inspect docs for stale user paths**
 
 Run:
 
@@ -1500,7 +1500,18 @@ Expected:
   REST-backed comments/review;
 - old tool names appear only in migration/deprecation history.
 
-- [ ] **Step 4: Final commit if needed**
+Task 15 implementation note: final verification passed with `bun test` (725
+tests), `bun run typecheck`, `bun run check`, `bun run measure`, and
+`git diff --check`. `docs/TOKENS.md` was updated for the current
+`kotikit_start` create-screen payload. Public MCP registry inspection showed
+the graph facade plus setup, sync, local design-system search, prompt,
+plugin-variable, and bridge support tools. The stale-doc scan found source
+checkout/scaffold references only in setup/development/compatibility contexts
+and old public choreography tool names only in migration-plan history.
+`bun run check:unused` still reports broader exported-symbol/type hygiene but
+no unused migration-owned files.
+
+- [x] **Step 4: Final commit if needed**
 
 ```bash
 git add .

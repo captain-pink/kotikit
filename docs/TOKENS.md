@@ -56,7 +56,7 @@ client, so treat these numbers as regression signals, not exact billing data.
 | `kotikit_config_get` | 607 | 160 |
 | `kotikit_flow_list` | 3,794 | 998 |
 | `kotikit_flow_validate` | 799 | 210 |
-| `kotikit_start` create-screen | 713 | 188 |
+| `kotikit_start` create-screen | 662 | 174 |
 | `kotikit_list_artifacts` all | 86 | 23 |
 | `kotikit_doctor` | 2,029 | 534 |
 | `kotikit_ds_search` | 247 | 65 |
