@@ -12,41 +12,56 @@ Detailed follow-up documents:
 This document captures a proposed complete refactor of kotikit around a smaller
 designer-first core and a LangGraphJS workflow engine.
 
-## Planned Update: UX Quality Contracts
+## Implementation Update: UX Quality Contracts
 
-The first migrated Figma draft exposed three graph-contract gaps that must be
-closed before Kotikit is considered reliable for day-to-day designer use:
+Completed on branch `feature/kotikit-ux-quality-contracts`.
 
-- comment review needs a durable `CommentEvidenceMap/v1` built from Figma REST
-  comment snapshots plus graph apply metadata, because Figma comments are
-  spatial threaded objects and the Plugin API cannot read comments;
-- loading, empty, no-results, error, and permission output needs a
-  `StateMatrix/v1` and state representation gate so table/list states become
-  page or region states instead of loose preview cards;
-- draft components need `DraftComponentLifecycle/v1` so every created draft
-  component is placed in a reserved area and used as an instance in the final
-  screen, or the graph fails with an orphan/overlap finding.
+The first migrated Figma draft exposed three graph-contract gaps: comment
+review needed a durable evidence map, loading/empty/error states were being
+rendered as extra cards, and draft components could be created without a clear
+reuse lifecycle. This slice closes those gaps with typed, graph-persisted UX
+quality contracts:
 
-Reliability remains a top priority for this slice. The plan now also requires
-context durability checks so graph runs resume from persisted state and
-artifacts after assistant restarts, Figma apply waits, comment evidence mapping,
-and approval interrupts without relying on conversation history. Raw Figma,
-comment, and research payloads must be compacted into bounded contracts or
-artifact refs before long-lived graph state continues.
+- `UXEnvelope/v1` and validated pattern packs infer the designer task, screen
+  archetype, data model, edge cases, and reusable UX guidance without
+  hardcoding admin-table defaults into node logic;
+- `StateMatrix/v1` and `StateRepresentation/v1` make loading, empty,
+  no-results, error, and permission states page or region states by default, so
+  table states replace the table region instead of appearing as loose preview
+  cards;
+- `DraftComponentLifecycle/v1` requires every Kotikit-created draft component
+  to live in the reserved draft section, be instantiated in the generated
+  design, and avoid overlapping the final screen;
+- `CommentEvidenceMap/v1` maps Figma REST comment snapshots to Figma node/apply
+  metadata, preserves unmapped comments explicitly, skips resolved comments by
+  default, and stores compact client metadata instead of raw snapshots;
+- context durability and designer recovery contracts keep LangGraph state
+  bounded, store raw payloads as artifacts, survive resume after apply waits and
+  approval interrupts, and show designers a plain-language next action when a
+  run blocks;
+- stale legacy comment-map files were removed after graph-backed comment
+  evidence coverage replaced them.
 
-The execution plan requires every implementation agent to follow
-`docs/coding_guidelines.md`, work test-first with Bun, avoid hardcoded
-screen-specific logic, prefer generic pattern-pack data, and remove stale code
-only after equivalent graph-backed behavior is covered by tests. Blocking
-states must expose designer-friendly recovery actions instead of raw stack
-traces or graph internals.
+Independent review found compactness, generic fallback, draft-overlap, and
+recovery-action issues. Follow-up fixes now prune raw apply/comment payloads
+after compact artifacts exist, keep unknown archetypes on a generic fallback,
+block overlapping draft components, normalize comment `client_meta`, and add
+recommended actions to blocked QA checks.
 
-Implementation on branch `feature/kotikit-ux-quality-contracts` adds typed
-contracts and graph nodes for `StateMatrix`, `CommentEvidenceMap`, and
-`DraftComponentLifecycle`. It also adds context durability and designer
-recovery helpers so long-running flows can resume from compact state while
-blocked states explain the problem, why it matters, and the recommended next
-action in plain language.
+Verification for this slice:
+
+- `bun test` passed 759 tests across 100 files;
+- `bun run typecheck` passed;
+- `bun run check` passed;
+- `bun test e2e/graph` passed the graph smoke suite;
+- targeted UX-quality graph/domain tests passed after review fixes.
+
+`bun run check:unused` still exits non-zero for broader exported-symbol and
+exported-type hygiene. It no longer reports the stale migration-owned comment
+mapping files removed in this slice. A live Figma demo was not run from this
+shell because it requires an active Figma file/session; the offline graph smoke
+coverage exercises the same Admin members flow shape with deterministic fake
+Figma metadata.
 
 ## Implementation Update: Design-To-Code Removed From Core
 

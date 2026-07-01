@@ -3162,7 +3162,7 @@ targeted tests for compact apply/comment state, generic unknown pattern packs,
 draft component overlap blocking, compact comment metadata, and QA recovery
 actions.
 
-- [ ] **Step 10: Final migration doc update**
+- [x] **Step 10: Final migration doc update**
 
 After implementation passes review, update `KOTIKIT_MIGRATION.md` from
 `Planned Update` to:
@@ -3174,7 +3174,7 @@ After implementation passes review, update `KOTIKIT_MIGRATION.md` from
 Include a concise summary of what shipped and the verification commands that
 passed.
 
-- [ ] **Step 11: Final commit if needed**
+- [x] **Step 11: Final commit if needed**
 
 ```bash
 git add KOTIKIT_MIGRATION.md
