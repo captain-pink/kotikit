@@ -77,6 +77,28 @@ describe("ui composition graph nodes", () => {
     });
   });
 
+  it("adds admin data table placement intent to composition parts", async () => {
+    const result = await runNode("ui.buildCompositionContract", {
+      screen: { requiredUiParts: ["page shell", "primary action", "member table"] },
+      uxEnvelope: adminDataTableEnvelope(),
+      fitReport: {
+        exactMatches: [
+          { requestedPart: "page shell", componentKey: "shell-key" },
+          { requestedPart: "primary action", componentKey: "action-key" },
+          { requestedPart: "member table", componentKey: "table-key" },
+        ],
+        substitutes: [],
+        missingComponents: [],
+      },
+    });
+
+    expect(result.statePatch?.uiComposition?.parts).toEqual([
+      expect.objectContaining({ id: "page-shell", placement: "left-sidebar" }),
+      expect.objectContaining({ id: "primary-action", placement: "top-right-action" }),
+      expect.objectContaining({ id: "member-table", placement: "table-body" }),
+    ]);
+  });
+
   it("rejects table/list repeated patterns without a component family or draft component", async () => {
     await expect(
       runNode("ui.buildCompositionContract", {
@@ -423,5 +445,26 @@ function stateMatrix(): NonNullable<KotikitGraphState["stateMatrix"]> {
         sourceRefs: ["https://carbondesignsystem.com/patterns/empty-states-pattern/"],
       },
     ],
+  };
+}
+
+function adminDataTableEnvelope(): NonNullable<KotikitGraphState["uxEnvelope"]> {
+  return {
+    schemaVersion: "UXEnvelope/v1",
+    screenArchetype: "admin-data-table",
+    confidence: "observed",
+    actor: "Admin",
+    primaryGoal: "Manage members",
+    primaryTask: "Review member records",
+    secondaryTasks: ["Filter members"],
+    dataModel: {
+      primaryEntity: "member",
+      expectedVolume: "many",
+      fields: ["name", "status"],
+    },
+    permissions: ["member:read"],
+    edgeCases: ["empty member list"],
+    assumptions: ["Members are shown in a table"],
+    sourceRefs: ["https://example.com/members"],
   };
 }

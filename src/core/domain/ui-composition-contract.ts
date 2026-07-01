@@ -1,5 +1,5 @@
 import { KotikitError } from "../../util/result.js";
-import type { UICompositionContract } from "../schemas/artifact.js";
+import type { UICompositionContract, UXEnvelope } from "../schemas/artifact.js";
 
 type FitMatch = {
   requestedPart?: string;
@@ -29,10 +29,13 @@ type CreatedDraftComponentLike = {
 };
 
 const REPEATED_FAMILY_ROLES = ["container", "header row", "data row", "cell"] as const;
+type UICompositionPart = UICompositionContract["parts"][number];
+type UIPlacement = NonNullable<UICompositionPart["placement"]>;
 
 export function buildUiCompositionContract(input: {
   requiredUiParts: string[];
   neededStates?: string[];
+  screenArchetype?: UXEnvelope["screenArchetype"];
   fitReport?: FitReportLike;
   draftComponentPlan?: DraftComponentPlanLike;
   createdDraftComponents?: CreatedDraftComponentLike[];
@@ -41,15 +44,24 @@ export function buildUiCompositionContract(input: {
   assertRepeatedPatternCoverage(input.fitReport, input.draftComponentPlan, input.neededStates);
 
   const parts = input.requiredUiParts.map((part) => {
+    const id = idFor(part);
+    const role = roleFor(part);
+    const placement = placementFor({
+      id,
+      name: part,
+      role,
+      screenArchetype: input.screenArchetype,
+    });
     const existing = findFit(part, [
       ...(input.fitReport?.exactMatches ?? []),
       ...(input.fitReport?.substitutes ?? []),
     ]);
     if (existing?.componentKey !== undefined) {
       return {
-        id: idFor(part),
+        id,
         name: part,
-        role: roleFor(part),
+        role,
+        ...(placement === undefined ? {} : { placement }),
         source: "existing-component" as const,
         componentKey: existing.componentKey,
       };
@@ -67,9 +79,10 @@ export function buildUiCompositionContract(input: {
         );
       }
       return {
-        id: idFor(part),
+        id,
         name: part,
-        role: roleFor(part),
+        role,
+        ...(placement === undefined ? {} : { placement }),
         source: "draft-component" as const,
         draftComponentId: draft.id,
         componentKey: created.componentKey,
@@ -78,9 +91,10 @@ export function buildUiCompositionContract(input: {
 
     if (input.approvedPrimitiveExceptions?.some((item) => normalize(item) === normalize(part))) {
       return {
-        id: idFor(part),
+        id,
         name: part,
-        role: roleFor(part),
+        role,
+        ...(placement === undefined ? {} : { placement }),
         source: "approved-primitive" as const,
         primitiveReason: "Approved primitive exception for this draft.",
       };
@@ -169,6 +183,26 @@ function roleFor(part: string): string {
   if (normalized.includes("filter") || normalized.includes("toolbar")) return "toolbar";
   if (normalized.includes("row")) return "row";
   return "content";
+}
+
+function placementFor(input: {
+  id: string;
+  name: string;
+  role: string;
+  screenArchetype?: UXEnvelope["screenArchetype"];
+}): UIPlacement | undefined {
+  if (input.screenArchetype !== "admin-data-table") return undefined;
+
+  const text = normalize(`${input.id} ${input.name} ${input.role}`);
+  if (hasAny(text, ["shell", "sidebar", "navigation", "nav"])) return "left-sidebar";
+  if (hasAny(text, ["primary action", "primary-action"])) return "top-right-action";
+  if (hasAny(text, ["toolbar", "filter"])) return "top-bar";
+  if (hasAny(text, ["table", "list", "data display", "data-display"])) return "table-body";
+  return "main-content";
+}
+
+function hasAny(value: string, candidates: string[]): boolean {
+  return candidates.some((candidate) => value.includes(normalize(candidate)));
 }
 
 function idFor(value: string): string {

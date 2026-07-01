@@ -387,6 +387,20 @@ const UICompositionPartSchema = z.strictObject({
   id: z.string().min(1),
   name: z.string().min(1),
   role: z.string().min(1),
+  placement: z
+    .enum([
+      "left-sidebar",
+      "top-bar",
+      "top-right-action",
+      "main-content",
+      "table-body",
+      "center-region",
+      "right-rail",
+      "footer",
+      "modal",
+      "unknown",
+    ])
+    .optional(),
   source: z.enum(["existing-component", "draft-component", "approved-primitive"]),
   componentKey: z.string().min(1).optional(),
   draftComponentId: z.string().min(1).optional(),

@@ -9,6 +9,7 @@ import {
   FigmaTransactionPlanSchema,
 } from "../../schemas/artifact.js";
 import { KotikitGraphStateSchema } from "../../schemas/graph-state.js";
+import { buildCanvasPlan, placementsOverlap, verifyCanvasPlan } from "../canvas-plan.js";
 
 const headerBounds = { x: 0, y: 0, width: 1440, height: 96 };
 const contentBounds = { x: 0, y: 120, width: 1440, height: 720 };
@@ -588,5 +589,63 @@ describe("canvas and figma ledger artifact schemas", () => {
       canvasPlan: { zones: [], placements: [] },
       figmaTransactionPlan: { transactions: [] },
     });
+  });
+
+  it("builds a deterministic non-overlapping canvas plan for drafts and states", () => {
+    const plan = buildCanvasPlan({
+      sectionName: "kotikit / members / 2026-07-01",
+      screenTitle: "Members",
+      screenSize: { width: 1440, height: 900 },
+      states: [
+        { id: "filled", label: "Filled", kind: "filled" },
+        { id: "loading", label: "Loading", kind: "loading" },
+        { id: "empty", label: "Empty", kind: "empty" },
+        { id: "error", label: "Error", kind: "error" },
+        { id: "permission", label: "Permission", kind: "permission" },
+      ],
+      draftComponents: [{ id: "draft-table-row", name: "Draft/Table Row" }],
+    });
+
+    expect(CanvasPlanSchema.parse(plan)).toMatchObject({
+      schemaVersion: "CanvasPlan/v1",
+      section: { name: "kotikit / members / 2026-07-01" },
+      screenSize: { width: 1440, height: 900 },
+      zones: [
+        expect.objectContaining({ id: "zone-draft-components", kind: "draft-components" }),
+        expect.objectContaining({ id: "zone-screen-states", kind: "screen-states" }),
+      ],
+    });
+    expect(plan.strategy.creationOrder).toEqual([
+      "draft-draft-table-row",
+      "state-filled",
+      "state-loading",
+      "state-empty",
+      "state-error",
+      "state-permission",
+    ]);
+    expect(() => verifyCanvasPlan(plan)).not.toThrow();
+
+    plan.placements.forEach((left, leftIndex) => {
+      plan.placements.slice(leftIndex + 1).forEach((right) => {
+        expect(placementsOverlap(left, right, plan.minGap)).toBe(false);
+      });
+    });
+  });
+
+  it("places screen states in a predictable two-column grid", () => {
+    const plan = buildCanvasPlan({
+      sectionName: "kotikit / members / 2026-07-01",
+      screenTitle: "Members",
+      screenSize: { width: 1280, height: 800 },
+      states: [
+        { id: "filled", label: "Filled", kind: "filled" },
+        { id: "loading", label: "Loading", kind: "loading" },
+        { id: "empty", label: "Empty", kind: "empty" },
+        { id: "error", label: "Error", kind: "error" },
+      ],
+      draftComponents: [],
+    });
+
+    expect(plan.placements.map((placement) => placement.bounds.x)).toEqual([560, 2000, 560, 2000]);
   });
 });

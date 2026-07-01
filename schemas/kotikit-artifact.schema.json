@@ -472,6 +472,21 @@
                     "type": "string",
                     "minLength": 1
                   },
+                  "placement": {
+                    "type": "string",
+                    "enum": [
+                      "left-sidebar",
+                      "top-bar",
+                      "top-right-action",
+                      "main-content",
+                      "table-body",
+                      "center-region",
+                      "right-rail",
+                      "footer",
+                      "modal",
+                      "unknown"
+                    ]
+                  },
                   "source": {
                     "type": "string",
                     "enum": ["existing-component", "draft-component", "approved-primitive"]
@@ -2673,6 +2688,21 @@
                   "role": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "placement": {
+                    "type": "string",
+                    "enum": [
+                      "left-sidebar",
+                      "top-bar",
+                      "top-right-action",
+                      "main-content",
+                      "table-body",
+                      "center-region",
+                      "right-rail",
+                      "footer",
+                      "modal",
+                      "unknown"
+                    ]
                   },
                   "source": {
                     "type": "string",
