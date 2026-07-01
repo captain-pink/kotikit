@@ -318,6 +318,36 @@ describe("figma graph nodes", () => {
     });
   });
 
+  it("verifies compact incremental apply evidence against the apply packet", async () => {
+    const apply = await completeTransactionQueue({
+      componentRefs: ["button-key"],
+      variableRefs: ["color.bg", "style-body"],
+    });
+
+    await expect(
+      runNode("figma.verifyDraftInvariants", {
+        figmaTarget: draftTarget(),
+        draftPlan: { applyPacket: incrementalApplyPacket() },
+        applyReport: apply.statePatch?.applyReport,
+      })
+    ).resolves.toEqual({});
+  });
+
+  it("rejects compact incremental apply evidence without required component refs", async () => {
+    const apply = await completeTransactionQueue({
+      componentRefs: [],
+      variableRefs: ["color.bg", "style-body"],
+    });
+
+    await expect(
+      runNode("figma.verifyDraftInvariants", {
+        figmaTarget: draftTarget(),
+        draftPlan: { applyPacket: incrementalApplyPacket() },
+        applyReport: apply.statePatch?.applyReport,
+      })
+    ).rejects.toThrow("missing component ref");
+  });
+
   it("rejects missing or mismatched transaction metadata for an active transaction", async () => {
     await expect(
       runNode("figma.applyTransactionQueue", {
@@ -337,6 +367,43 @@ describe("figma graph nodes", () => {
     ).rejects.toThrow("does not match the active Figma transaction");
   });
 
+  it("requires target metadata for transaction queue apply records", async () => {
+    const baseState = {
+      figmaTarget: draftTarget(),
+      figmaTransactionPlan: singleActiveTransactionPlan(),
+      activeFigmaTransaction: activeTransaction(),
+    };
+    const metadata = applyMetadata();
+
+    await expect(
+      runNode("figma.applyTransactionQueue", {
+        ...baseState,
+        applyMetadata: { ...metadata, fileKey: undefined },
+      })
+    ).rejects.toThrow("different Figma file");
+
+    await expect(
+      runNode("figma.applyTransactionQueue", {
+        ...baseState,
+        applyMetadata: { ...metadata, pageId: undefined },
+      })
+    ).rejects.toThrow("outside the bound draft page");
+
+    await expect(
+      runNode("figma.applyTransactionQueue", {
+        ...baseState,
+        applyMetadata: { ...metadata, sectionName: undefined },
+      })
+    ).rejects.toThrow("outside the kotikit-owned draft section");
+
+    await expect(
+      runNode("figma.applyTransactionQueue", {
+        ...baseState,
+        applyMetadata: { ...metadata, sectionName: "wrong section" },
+      })
+    ).rejects.toThrow("outside the kotikit-owned draft section");
+  });
+
   it("validates transaction apply metadata before appending ledger nodes", async () => {
     const baseState = {
       figmaTarget: draftTarget(),
@@ -348,6 +415,7 @@ describe("figma graph nodes", () => {
       runNode("figma.applyTransactionQueue", {
         ...baseState,
         applyMetadata: {
+          ...targetMetadata(),
           transactionId: "txn-filled",
           bounds: { x: 0, y: 0, width: 1440, height: 900 },
           componentRefs: [],
@@ -361,6 +429,7 @@ describe("figma graph nodes", () => {
       runNode("figma.applyTransactionQueue", {
         ...baseState,
         applyMetadata: {
+          ...targetMetadata(),
           transactionId: "txn-filled",
           figmaNodeId: "9:10",
           bounds: { x: 0, y: 0, width: 0, height: 900 },
@@ -375,6 +444,7 @@ describe("figma graph nodes", () => {
       runNode("figma.applyTransactionQueue", {
         ...baseState,
         applyMetadata: {
+          ...targetMetadata(),
           transactionId: "txn-filled",
           figmaNodeId: "9:10",
           bounds: { x: 0, y: 0, width: 1440, height: 900 },
@@ -461,6 +531,72 @@ function applyPacket(): Record<string, unknown> {
       verifyVariables: true,
       verifyAutoLayout: true,
     },
+  };
+}
+
+function incrementalApplyPacket(): Record<string, unknown> {
+  return {
+    ...applyPacket(),
+    variableBindingPlan: {
+      schemaVersion: "VariableBindingPlan/v1",
+      bindings: [
+        { targetId: "button", property: "fill", source: "variable", name: "color.bg" },
+        { targetId: "button-label", property: "text", source: "style", id: "style-body" },
+        { targetId: "button", property: "radius", source: "approved-literal" },
+      ],
+    },
+    repeatedItems: [{ id: "members", instances: ["not-preserved-by-incremental-report"] }],
+    textTransforms: [{ id: "button-label", transform: "uppercase" }],
+    metadata: {
+      requiresApplyMetadata: true,
+      verifyComponentRefs: true,
+      verifyVariables: true,
+      verifyAutoLayout: true,
+      incrementalTransactions: true,
+    },
+  };
+}
+
+async function completeTransactionQueue(input: {
+  componentRefs: string[];
+  variableRefs: string[];
+}): Promise<NodeOutput> {
+  return runNode("figma.applyTransactionQueue", {
+    figmaTarget: draftTarget(),
+    figmaTransactionPlan: singleActiveTransactionPlan(),
+    activeFigmaTransaction: activeTransaction(),
+    applyMetadata: applyMetadata({
+      componentRefs: input.componentRefs,
+      variableRefs: input.variableRefs,
+    }),
+  });
+}
+
+function applyMetadata(
+  overrides: Partial<{
+    componentRefs: string[];
+    variableRefs: string[];
+    autoLayout: boolean;
+  }> = {}
+): Record<string, unknown> {
+  return {
+    ...targetMetadata(),
+    transactionId: "txn-filled",
+    figmaNodeId: "9:10",
+    figmaNodeName: "Members / Filled",
+    figmaNodeKind: "FRAME",
+    bounds: { x: 560, y: 0, width: 1440, height: 900 },
+    componentRefs: overrides.componentRefs ?? ["button-key"],
+    variableRefs: overrides.variableRefs ?? ["color.bg"],
+    autoLayout: overrides.autoLayout ?? true,
+  };
+}
+
+function targetMetadata(): Record<string, unknown> {
+  return {
+    fileKey: "FILE",
+    pageId: "1:2",
+    sectionName: "kotikit / members / 2026-06-30",
   };
 }
 

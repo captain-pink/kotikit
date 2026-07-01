@@ -111,7 +111,7 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
       }
 
       const metadata = requireTransactionMetadata(active.id, state.applyMetadata);
-      validateOptionalApplyTarget(target, metadata);
+      validateApplyMetadata(target, metadata);
       const ledger = appendLedgerNode(ledgerFrom(state.figmaNodeLedger, target), {
         active,
         metadata,
@@ -523,33 +523,6 @@ function validateApplyMetadata(
   }
 }
 
-function validateOptionalApplyTarget(
-  target: ReturnType<typeof ensureDraftTarget>,
-  metadata: Record<string, unknown>
-): void {
-  const fileKey = stringField(metadata, "fileKey");
-  if (fileKey !== undefined && fileKey !== target.fileKey) {
-    throw new KotikitError(
-      "This applied Figma node belongs to a different Figma file than the bound draft target.",
-      "Open the bound draft file before applying the design."
-    );
-  }
-  const pageId = stringField(metadata, "pageId");
-  if (pageId !== undefined && pageId !== target.pageId) {
-    throw new KotikitError(
-      "This applied Figma node is outside the bound draft page.",
-      "Open the exact bound draft page before applying the design."
-    );
-  }
-  const sectionName = stringField(metadata, "sectionName");
-  if (sectionName !== undefined && sectionName !== draftSectionName(target)) {
-    throw new KotikitError(
-      "This applied Figma node is outside the kotikit-owned draft section.",
-      "Apply the design inside the Section recorded in the design plan."
-    );
-  }
-}
-
 function draftSectionName(target: ReturnType<typeof ensureDraftTarget>): string {
   if (target.section?.name !== undefined) return target.section.name;
   throw new KotikitError(
@@ -563,6 +536,10 @@ function verifyAgainstApplyPacket(
   report: Record<string, unknown>
 ): void {
   if (Object.keys(packet).length === 0) return;
+  if (recordFrom(packet.metadata).incrementalTransactions === true) {
+    verifyIncrementalApplyPacket(packet, report);
+    return;
+  }
   verifyComponentRefs(
     recordArray(recordFrom(packet.uiComposition).parts),
     recordArray(report.nodes)
@@ -584,6 +561,121 @@ function verifyAgainstApplyPacket(
     "text transforms",
     recordArray(packet.textTransforms),
     recordArray(report.textTransforms)
+  );
+}
+
+function verifyIncrementalApplyPacket(
+  packet: Record<string, unknown>,
+  report: Record<string, unknown>
+): void {
+  const nodes = recordArray(report.nodes);
+  const componentRefs = stringSetFromArrays(nodes.map((node) => node.componentRefs));
+  const variableRefs = stringSetFromArrays([
+    ...nodes.map((node) => node.variableRefs),
+    recordArray(report.variableBindings).map((binding) => binding.variableRef),
+  ]);
+
+  verifyIncrementalComponentRefs(recordArray(recordFrom(packet.uiComposition).parts), {
+    componentRefs,
+    nodes,
+  });
+  verifyIncrementalVariableRefs(
+    recordArray(recordFrom(packet.variableBindingPlan).bindings),
+    variableRefs
+  );
+  verifyIncrementalAutoLayout(recordArray(recordFrom(packet.layoutContract).frames), report);
+
+  if (recordArray(report.repeatedItems).length > 0) {
+    verifyExactJson(
+      "repeated item structure",
+      recordArray(packet.repeatedItems),
+      recordArray(report.repeatedItems)
+    );
+  }
+  if (recordArray(report.textTransforms).length > 0) {
+    verifyExactJson(
+      "text transforms",
+      recordArray(packet.textTransforms),
+      recordArray(report.textTransforms)
+    );
+  }
+}
+
+function verifyIncrementalComponentRefs(
+  parts: Record<string, unknown>[],
+  input: { componentRefs: Set<string>; nodes: Record<string, unknown>[] }
+): void {
+  parts.forEach((part) => {
+    const componentKey = stringField(part, "componentKey");
+    if (componentKey !== undefined && !input.componentRefs.has(componentKey)) {
+      throw new KotikitError(
+        `The incremental Figma apply report is missing component ref "${componentKey}".`,
+        "Record compact componentRefs for every design-system or draft component used by the transaction."
+      );
+    }
+
+    const draftComponentId = stringField(part, "draftComponentId");
+    if (
+      draftComponentId !== undefined &&
+      !input.nodes.some((node) => node.draftComponentId === draftComponentId)
+    ) {
+      throw new KotikitError(
+        `The incremental Figma apply report is missing draft component origin "${draftComponentId}".`,
+        "Record draftComponentId on compact report nodes created from kotikit draft components."
+      );
+    }
+  });
+}
+
+function verifyIncrementalVariableRefs(
+  expectedBindings: Record<string, unknown>[],
+  variableRefs: Set<string>
+): void {
+  expectedBindings.forEach((expected) => {
+    if (!requiresIncrementalVariableRef(expected)) return;
+    const expectedRef = stringField(expected, "id") ?? stringField(expected, "name");
+    if (expectedRef === undefined || variableRefs.has(expectedRef)) return;
+    throw new KotikitError(
+      `The incremental Figma apply report is missing variable/style ref "${expectedRef}".`,
+      "Record compact variableRefs for variables and styles used by the transaction."
+    );
+  });
+}
+
+function verifyIncrementalAutoLayout(
+  expectedFrames: Record<string, unknown>[],
+  report: Record<string, unknown>
+): void {
+  if (expectedFrames.length === 0) return;
+  const nodes = recordArray(report.nodes);
+  const layoutFrames = recordArray(report.layoutFrames);
+  const hasAutoLayout =
+    nodes.some((node) => node.autoLayout === true) ||
+    layoutFrames.some((frame) => frame.autoLayout === true);
+  if (hasAutoLayout) return;
+  throw new KotikitError(
+    "The incremental Figma apply report is missing auto-layout proof.",
+    "Record autoLayout: true for created screen, region, draft component, or layout-frame nodes."
+  );
+}
+
+function requiresIncrementalVariableRef(binding: Record<string, unknown>): boolean {
+  return (
+    binding.source === "variable" ||
+    binding.source === "style" ||
+    binding.source === "draft-variable"
+  );
+}
+
+function stringSetFromArrays(values: unknown[]): Set<string> {
+  return new Set(
+    values.flatMap((value) =>
+      typeof value === "string" && value.length > 0
+        ? [value]
+        : Array.isArray(value)
+          ? value.filter((item): item is string => typeof item === "string" && item.length > 0)
+          : []
+    )
   );
 }
 
