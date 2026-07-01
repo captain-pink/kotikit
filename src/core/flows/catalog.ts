@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
+import type { Config } from "../../config/schema.js";
 import { KotikitError } from "../../util/result.js";
 import { computeStableHash } from "../graph/graph-hash.js";
 import { type FlowDefinition, FlowDefinitionSchema } from "../schemas/flow-definition.js";
@@ -16,9 +17,11 @@ const BUILT_IN_FLOW_FILES = [
 ];
 
 export type FlowCatalogConfig = {
+  flowPacks?: Config["flowPacks"];
   projectFlows?: {
     enabled?: boolean;
     directory?: string;
+    allowedCapabilities?: string[];
   };
   extensionFlows?: {
     directory?: string;
@@ -29,6 +32,8 @@ export type FlowCatalogConfig = {
 export type ExtensionFlowAllowlistEntry = {
   id: string;
   source: string;
+  enabled?: boolean;
+  versionOrRef?: string;
   version?: string;
   ref?: string;
   hash: string;
@@ -49,8 +54,12 @@ export async function loadProjectFlows(
   root: string,
   config: FlowCatalogConfig
 ): Promise<FlowDefinition[]> {
-  if (config.projectFlows?.enabled !== true) return [];
-  return readFlowDirectory(config.projectFlows.directory ?? join(root, ".kotikit", "flows"));
+  const policy = projectFlowPolicy(config);
+  if (!policy.enabled) return [];
+  const flows = await readFlowDirectory(
+    config.projectFlows?.directory ?? join(root, ".kotikit", "flows")
+  );
+  return flows.map((flow) => validateProjectFlow(flow, policy.allowedCapabilities));
 }
 
 export async function loadExtensionFlows(
@@ -61,7 +70,7 @@ export async function loadExtensionFlows(
     config.extensionFlows?.directory ?? join(root, ".kotikit", "extensions", "flows")
   );
   if (flows.length === 0) return [];
-  return flows.map((flow) => validateExtensionFlow(flow, config.extensionFlows?.allowlist ?? []));
+  return flows.map((flow) => validateExtensionFlow(flow, extensionAllowlist(config)));
 }
 
 export async function loadFlowCatalog(
@@ -123,16 +132,18 @@ function validateExtensionFlow(
     );
   }
   if (
+    entry.enabled !== true ||
     entry.source.length === 0 ||
     entry.hash.length === 0 ||
-    ((entry.version === undefined || entry.version.length === 0) &&
+    ((entry.versionOrRef === undefined || entry.versionOrRef.length === 0) &&
+      (entry.version === undefined || entry.version.length === 0) &&
       (entry.ref === undefined || entry.ref.length === 0)) ||
     entry.capabilities.length === 0 ||
     entry.capabilities.some((capability) => capability.length === 0)
   ) {
     throw new KotikitError(
       `Extension flow "${flow.id}" has an incomplete allowlist entry.`,
-      "Extension flow allowlists must include source, version or ref, hash, and declared capabilities."
+      "Extension flow allowlists must be enabled and include source, version or ref, hash, and declared capabilities."
     );
   }
   if (entry.hash !== computeStableHash(flow)) {
@@ -153,6 +164,50 @@ function validateExtensionFlow(
     );
   }
   return flow;
+}
+
+function projectFlowPolicy(config: FlowCatalogConfig): {
+  enabled: boolean;
+  allowedCapabilities: string[];
+} {
+  return {
+    enabled: config.flowPacks?.projectFlowsEnabled ?? config.projectFlows?.enabled === true,
+    allowedCapabilities:
+      config.flowPacks?.allowedProjectCapabilities ??
+      config.projectFlows?.allowedCapabilities ??
+      [],
+  };
+}
+
+function validateProjectFlow(flow: FlowDefinition, allowedCapabilities: string[]): FlowDefinition {
+  const forbiddenCapabilities = flow.requiredCapabilities.filter(
+    (capability) => !allowedCapabilities.includes(capability)
+  );
+  if (forbiddenCapabilities.length > 0) {
+    throw new KotikitError(
+      `Project flow "${flow.id}" requires capabilities outside the project allowlist: ${forbiddenCapabilities.join(
+        ", "
+      )}.`,
+      "Add only the capabilities this project flow is trusted to use."
+    );
+  }
+  return flow;
+}
+
+function extensionAllowlist(config: FlowCatalogConfig): ExtensionFlowAllowlistEntry[] {
+  return [
+    ...(config.extensionFlows?.allowlist ?? []),
+    ...(config.flowPacks?.extensions ?? [])
+      .filter((entry) => entry.enabled)
+      .map((entry) => ({
+        id: entry.id,
+        source: entry.source,
+        enabled: true,
+        versionOrRef: entry.versionOrRef,
+        hash: entry.hash,
+        capabilities: entry.capabilities,
+      })),
+  ];
 }
 
 function assertUniqueFlowIds(flows: FlowDefinition[]): void {

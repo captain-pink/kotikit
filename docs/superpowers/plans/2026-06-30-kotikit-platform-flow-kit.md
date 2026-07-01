@@ -1033,7 +1033,7 @@ git commit -m "feat(core): move design review into graph flow"
 - Create: `src/core/flows/test/trust-policy.test.ts`
 - Modify: `docs/modules/config.md`
 
-- [ ] **Step 1: Write failing trust policy tests**
+- [x] **Step 1: Write failing trust policy tests**
 
 Tests:
 
@@ -1043,7 +1043,7 @@ Tests:
 - extension flow hash mismatch is rejected;
 - active run persists graph hash and manifest hash.
 
-- [ ] **Step 2: Extend config schema**
+- [x] **Step 2: Extend config schema**
 
 Add:
 
@@ -1067,11 +1067,20 @@ Default:
 - project flows disabled;
 - no extension packs enabled.
 
-- [ ] **Step 3: Enforce trust policy in compiler/catalog**
+- [x] **Step 3: Enforce trust policy in compiler/catalog**
 
 Project and extension flows must fail closed before execution.
 
-- [ ] **Step 4: Verify**
+Task 10 implementation note: `flowPacks` is now part of config defaults.
+Project-local flows stay disabled by default and must remain inside
+`flowPacks.allowedProjectCapabilities` when enabled. Extension flows must have
+an enabled allowlist entry with `source`, `versionOrRef`, `hash`, and explicit
+capabilities, and are rejected on hash or capability drift. Runtime tests assert
+custom flows cannot omit registry-declared node capabilities, trusted active
+runs persist `manifestHash` and `graphHash`, and real MCP sessions use the
+config-backed flow catalog instead of built-ins only.
+
+- [x] **Step 4: Verify**
 
 Run:
 
@@ -1080,7 +1089,7 @@ bun test src/core/flows/test/trust-policy.test.ts src/config/test
 bun run typecheck
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/config src/core/flows src/core/graph docs/modules/config.md

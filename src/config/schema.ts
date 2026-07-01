@@ -3,6 +3,27 @@ import { KotikitError } from "../util/result.js";
 
 export const CONFIG_SCHEMA_VERSION = 1;
 
+const FlowPackExtensionSchema = z.object({
+  id: z.string().min(1),
+  source: z.string().min(1),
+  versionOrRef: z.string().min(1),
+  hash: z.string().min(1),
+  capabilities: z.array(z.string().min(1)).default([]),
+  enabled: z.boolean().default(false),
+});
+
+const FlowPacksSchema = z
+  .object({
+    projectFlowsEnabled: z.boolean().default(false),
+    allowedProjectCapabilities: z.array(z.string().min(1)).default([]),
+    extensions: z.array(FlowPackExtensionSchema).default([]),
+  })
+  .default({
+    projectFlowsEnabled: false,
+    allowedProjectCapabilities: [],
+    extensions: [],
+  });
+
 export const ConfigSchema = z.object({
   schemaVersion: z
     .number()
@@ -47,6 +68,7 @@ export const ConfigSchema = z.object({
         email: "noreply@anthropic.com",
       },
     }),
+  flowPacks: FlowPacksSchema,
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

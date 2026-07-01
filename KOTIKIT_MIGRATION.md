@@ -140,6 +140,28 @@ resolved comments unless `includeResolved` is requested. Legacy comment/review
 report tools prefer matching graph artifacts before falling back to SQLite
 reports.
 
+## Implementation Update: Flow-Pack Trust Policy
+
+Completed on branch `feature/kotikit-migration`.
+
+The migration now has config-backed trust policy for custom flows:
+
+- project flow packs are disabled by default;
+- enabled project flows must stay inside `flowPacks.allowedProjectCapabilities`;
+- extension flows require an enabled allowlist entry with source,
+  `versionOrRef`, hash, and explicit capabilities;
+- extension manifests fail closed on hash mismatch or capability drift;
+- graph runtime compilation uses manifest-declared capabilities only, so
+  custom flows cannot omit a node capability and have the runtime self-allow it;
+- normal MCP sessions load the config-backed flow catalog, so trusted project
+  and extension flows are visible through the facade and untrusted flows remain
+  hidden;
+- active graph runs persist both `manifestHash` and `graphHash`, so resumed
+  runs can detect changed manifests or node versions.
+
+This keeps built-in flows easy to use while making project and extension flow
+packs opt-in, auditable, and safe for non-technical designers.
+
 ## Sources Reviewed
 
 Local repo:

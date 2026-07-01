@@ -69,7 +69,12 @@ describe("flow catalog", () => {
 
     await expect(loadProjectFlows(root, {})).resolves.toEqual([]);
     await expect(
-      loadProjectFlows(root, { projectFlows: { enabled: true } })
+      loadProjectFlows(root, {
+        projectFlows: {
+          enabled: true,
+          allowedCapabilities: ["designSystem.search.local"],
+        },
+      })
     ).resolves.toMatchObject([{ id: "project-create-screen" }]);
   });
 
@@ -95,6 +100,7 @@ describe("flow catalog", () => {
             {
               id: flow.id,
               source: "local-fixture",
+              enabled: true,
               hash: computeStableHash(flow),
               capabilities: flow.requiredCapabilities,
             },
@@ -109,6 +115,7 @@ describe("flow catalog", () => {
             {
               id: flow.id,
               source: "local-fixture",
+              enabled: true,
               version: "",
               hash: computeStableHash(flow),
               capabilities: flow.requiredCapabilities,
@@ -124,6 +131,7 @@ describe("flow catalog", () => {
             {
               id: flow.id,
               source: "local-fixture",
+              enabled: true,
               ref: "",
               hash: computeStableHash(flow),
               capabilities: flow.requiredCapabilities,
@@ -139,6 +147,7 @@ describe("flow catalog", () => {
             {
               id: flow.id,
               source: "local-fixture",
+              enabled: true,
               version: "1.0.0",
               hash: computeStableHash(flow),
               capabilities: [""],
@@ -154,6 +163,7 @@ describe("flow catalog", () => {
             {
               id: flow.id,
               source: "local-fixture",
+              enabled: true,
               version: "1.0.0",
               hash: computeStableHash(flow),
               capabilities: flow.requiredCapabilities,
@@ -170,12 +180,16 @@ describe("flow catalog", () => {
     await writeExtensionFlow(extension);
 
     const catalog = await loadFlowCatalog(root, {
-      projectFlows: { enabled: true },
+      projectFlows: {
+        enabled: true,
+        allowedCapabilities: ["designSystem.search.local"],
+      },
       extensionFlows: {
         allowlist: [
           {
             id: extension.id,
             source: "local-fixture",
+            enabled: true,
             ref: "main",
             hash: computeStableHash(extension),
             capabilities: extension.requiredCapabilities,

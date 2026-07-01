@@ -311,7 +311,7 @@ function fixtureFlow(): FlowDefinition {
     version: "1.0.0",
     title: "Fixture Flow",
     stateSchema: "KotikitGraphState/v1",
-    requiredCapabilities: ["runtime.fixture"],
+    requiredCapabilities: ["runtime.fixture", "artifact.write"],
     nodes: [
       { id: "start", uses: "fixture.start", params: {} },
       { id: "ask", uses: "fixture.askUser", params: {} },

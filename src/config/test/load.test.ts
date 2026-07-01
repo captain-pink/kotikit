@@ -140,6 +140,31 @@ describe("buildConfig", () => {
     expect(cfg.figma.designSystemFiles[0].key).toBe("abc");
   });
 
+  it("sets flow-pack trust policy when explicitly provided", () => {
+    const cfg = buildConfig({
+      flowPacks: {
+        projectFlowsEnabled: true,
+        allowedProjectCapabilities: ["designSystem.search.local"],
+        extensions: [
+          {
+            id: "extension-polish-screen",
+            source: "local",
+            versionOrRef: "1.0.0",
+            hash: "hash",
+            capabilities: ["designSystem.search.local"],
+            enabled: true,
+          },
+        ],
+      },
+    });
+
+    expect(cfg.flowPacks).toMatchObject({
+      projectFlowsEnabled: true,
+      allowedProjectCapabilities: ["designSystem.search.local"],
+      extensions: [expect.objectContaining({ id: "extension-polish-screen", enabled: true })],
+    });
+  });
+
   it("defaultConfig() keeps the existing Claude Code co-author", () => {
     expect(defaultConfig().git.coAuthor).toEqual({
       name: "Claude Code",

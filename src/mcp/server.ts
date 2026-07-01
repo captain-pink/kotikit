@@ -15,12 +15,14 @@ import {
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { loadConfig } from "../config/load.js";
-import { loadBuiltInFlows } from "../core/flows/catalog.js";
+import { defaultConfig } from "../config/schema.js";
+import { loadFlowCatalog } from "../core/flows/catalog.js";
 import { createGraphRuntime, type GraphRuntime } from "../core/graph/runtime.js";
 import { createBuiltInNodeRegistry } from "../core/nodes/built-in-registry.js";
 import { createArtifactStore } from "../core/runs/artifact-store.js";
 import { createCheckpointStore } from "../core/runs/checkpoint-store.js";
 import { createRunStore } from "../core/runs/run-store.js";
+import type { FlowDefinition } from "../core/schemas/flow-definition.js";
 import { loadDotEnv } from "../util/env.js";
 import { findProjectRoot } from "../util/paths.js";
 import { KotikitError, toolError } from "../util/result.js";
@@ -108,9 +110,10 @@ export function buildServer(options: { root?: string } = {}): {
     loadConfig: () => loadConfig(root),
     bridge,
   };
-  const runtime = createServerGraphRuntime(root);
+  const loadFlows = createServerFlowLoader(root);
+  const runtime = createServerGraphRuntime(root, loadFlows);
 
-  registerFacadeTools(registry, ctx, { runtime });
+  registerFacadeTools(registry, ctx, { runtime, loadFlows });
   registerSpecTools(registry, ctx);
   registerConfigTools(registry, ctx);
   registerFlowTools(registry, ctx);
@@ -153,7 +156,7 @@ export function buildServer(options: { root?: string } = {}): {
 
   server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     try {
-      return await readFacadeResource(request.params.uri, { runtime });
+      return await readFacadeResource(request.params.uri, { runtime, loadFlows });
     } catch (err) {
       throw toMcpRequestError(err);
     }
@@ -173,7 +176,7 @@ export function buildServer(options: { root?: string } = {}): {
 
   server.setRequestHandler(CompleteRequestSchema, async (request) => {
     try {
-      return await completeFacadeArgument(request.params);
+      return await completeFacadeArgument(request.params, { loadFlows });
     } catch (err) {
       throw toMcpRequestError(err);
     }
@@ -182,11 +185,23 @@ export function buildServer(options: { root?: string } = {}): {
   return { server, registry, bridge, runtime };
 }
 
-function createServerGraphRuntime(root: string): FacadeRuntime {
+function createServerFlowLoader(root: string): () => Promise<FlowDefinition[]> {
+  return async () => {
+    const config = await loadConfig(root);
+    return loadFlowCatalog(root, {
+      flowPacks: config?.flowPacks ?? defaultConfig().flowPacks,
+    });
+  };
+}
+
+function createServerGraphRuntime(
+  root: string,
+  loadFlows: () => Promise<FlowDefinition[]>
+): FacadeRuntime {
   const artifactStore = createArtifactStore(root);
   let runtimePromise: Promise<GraphRuntime> | undefined;
   const runtime = async (): Promise<GraphRuntime> => {
-    runtimePromise ??= loadBuiltInFlows().then((flows) =>
+    runtimePromise ??= loadFlows().then((flows) =>
       createGraphRuntime({
         registry: createBuiltInNodeRegistry(),
         flowCatalog: flows,

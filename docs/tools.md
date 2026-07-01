@@ -86,9 +86,11 @@ See also: `kotikit_config_init`, `kotikit_config_get`, `kotikit_doctor`.
 
 Purpose: Initialize or reinitialize `.kotikit/config.json` with design-first
 defaults.
-Input: `{ autoCommit?: boolean; coAuthor?: { name: string; email: string }; figmaFiles?: { key: string; name: string }[] }`
+Input: `{ autoCommit?: boolean; coAuthor?: { name: string; email: string }; figmaFiles?: { key: string; name: string }[]; flowPacks?: { projectFlowsEnabled: boolean; allowedProjectCapabilities: string[]; extensions: { id: string; source: string; versionOrRef: string; hash: string; capabilities: string[]; enabled: boolean }[] } }`
 Output: `{ configPath: string; notes: string[] }`
 Example: "Set kotikit up for this workspace."
+Notes: Custom project and extension flow packs stay disabled unless an explicit
+`flowPacks` trust policy is supplied.
 See also: `kotikit_config_status`, `kotikit_config_get`.
 
 ### kotikit_config_get

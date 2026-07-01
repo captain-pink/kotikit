@@ -1,10 +1,13 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { writeConfig } from "../../../config/load.js";
+import { defaultConfig } from "../../../config/schema.js";
 import type { RuntimeRunResult } from "../../../core/graph/runtime.js";
 import type { Artifact } from "../../../core/schemas/artifact.js";
+import type { FlowDefinition } from "../../../core/schemas/flow-definition.js";
 import type { KotikitGraphState } from "../../../core/schemas/graph-state.js";
 import type { ToolContext } from "../../context.js";
 import { buildServer, type ToolRegistry } from "../../server.js";
@@ -159,6 +162,33 @@ describe("MCP facade tools", () => {
 
     expect(text).not.toContain("graph runtime is not wired");
     expect(text).toContain("runId");
+  });
+
+  it("buildServer exposes trusted project flows in real MCP sessions", async () => {
+    const root = mkProject();
+    const flow = projectFlow();
+    writeProjectFlow(root, flow);
+    await writeConfig(root, {
+      ...defaultConfig(),
+      flowPacks: {
+        projectFlowsEnabled: true,
+        allowedProjectCapabilities: ["designSystem.search.local"],
+        extensions: [],
+      },
+    });
+    const { registry } = buildServer({ root });
+
+    const result = await callTool(registry, "kotikit_flow_list", {});
+    const detail = detailOf<{ flows: { id: string; title: string; nodes?: unknown[] }[] }>(
+      result.content[0]?.text ?? ""
+    );
+    const project = detail.flows.find((candidate) => candidate.id === flow.id);
+
+    expect(project).toMatchObject({
+      id: flow.id,
+      title: flow.title,
+    });
+    expect(project).not.toHaveProperty("nodes");
   });
 
   it("lists compact built-in flow summaries", async () => {
@@ -433,4 +463,33 @@ function mkProject(): string {
   const root = mkdtempSync(join(tmpdir(), "kotikit-facade-"));
   tmpDirs.push(root);
   return root;
+}
+
+function writeProjectFlow(root: string, flow: FlowDefinition): void {
+  const dir = join(root, ".kotikit", "flows");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, `${flow.id}.flow.json`), `${JSON.stringify(flow, null, 2)}\n`);
+}
+
+function projectFlow(): FlowDefinition {
+  return {
+    schemaVersion: 1,
+    id: "project-create-screen",
+    version: "1.0.0",
+    title: "Project Create Screen",
+    description: "Project-specific screen draft flow.",
+    stateSchema: "KotikitGraphState/v1",
+    requiredCapabilities: ["designSystem.search.local"],
+    nodes: [
+      {
+        id: "search",
+        uses: "designSystem.searchLocal",
+        params: {},
+      },
+    ],
+    edges: [],
+    start: "search",
+    end: ["search"],
+    safetyProfile: "project-design-draft",
+  };
 }

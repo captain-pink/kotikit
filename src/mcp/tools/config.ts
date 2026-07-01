@@ -96,6 +96,36 @@ function registerConfigInit(registry: ToolRegistry, ctx: ToolContext): void {
             required: ["key", "name"],
           },
         },
+        flowPacks: {
+          type: "object",
+          description:
+            "Optional explicit trust policy for project and extension flow packs. Defaults keep all custom flow packs disabled.",
+          properties: {
+            projectFlowsEnabled: { type: "boolean" },
+            allowedProjectCapabilities: {
+              type: "array",
+              items: { type: "string" },
+            },
+            extensions: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  id: { type: "string" },
+                  source: { type: "string" },
+                  versionOrRef: { type: "string" },
+                  hash: { type: "string" },
+                  capabilities: {
+                    type: "array",
+                    items: { type: "string" },
+                  },
+                  enabled: { type: "boolean" },
+                },
+                required: ["id", "source", "versionOrRef", "hash", "capabilities", "enabled"],
+              },
+            },
+          },
+        },
       },
     },
   });

@@ -210,13 +210,9 @@ function getFlow(flowCatalog: Map<string, FlowDefinition>, flowId: string): Flow
 }
 
 function compileRuntimeFlow(flow: FlowDefinition, registry: NodeRegistry): CompiledRuntimeFlow {
-  const allowedCapabilities = Array.from(
-    new Set([
-      ...flow.requiredCapabilities,
-      ...flow.nodes.flatMap((node) => registry.get(node.uses).requiredCapabilities),
-    ])
-  );
-  const compiled = compileFlowDefinition(flow, registry, { allowedCapabilities });
+  const compiled = compileFlowDefinition(flow, registry, {
+    allowedCapabilities: flow.requiredCapabilities,
+  });
   const graphHash = computeGraphHash(compiled.graphHashInput);
   return {
     compiled,

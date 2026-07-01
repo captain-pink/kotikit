@@ -21,6 +21,12 @@ The config module owns everything related to `.kotikit/config.json`: the Zod sch
 - `defaults.themes` — string array, default `["light", "dark"]`
 - `git.autoCommit` — boolean, default `true`
 - `git.coAuthor` — `{ name, email }` used for generated commit footers; defaults to Claude Code for backward compatibility
+- `flowPacks.projectFlowsEnabled` — boolean, default `false`; project-local
+  flows are ignored unless this is explicitly enabled
+- `flowPacks.allowedProjectCapabilities` — capability allowlist for enabled
+  project-local flows
+- `flowPacks.extensions` — extension flow-pack allowlist entries containing
+  `{ id, source, versionOrRef, hash, capabilities, enabled }`
 
 **I/O** (`src/config/load.ts`)
 - `loadConfig(root)` — async, returns `Config | null` (null when file absent)
@@ -43,6 +49,16 @@ Figma sync treats project `.env` as the default token source. If `.kotikit/confi
 
 The init wizard (`buildConfig`) is a thin merge layer. It calls `defaultConfig()` to get a clean base, then overlays only the keys the designer actually provided in `InitAnswers`, then runs the result through `ConfigSchema.parse` to guarantee a valid typed object. This means the wizard never needs to know about every field — omitted answers fall back to defaults automatically. Agent-specific wrappers can provide `git.coAuthor` during setup, for example Codex can pass `{ "name": "Codex", "email": "noreply@openai.com" }`, while shared runtime behavior stays agent-neutral.
 
+Flow-pack trust policy is fail-closed. The default config disables project
+flows and enables no extension packs. When `flowPacks.projectFlowsEnabled` is
+true, project flow manifests under `.kotikit/flows` must only require
+capabilities listed in `flowPacks.allowedProjectCapabilities`. The graph
+runtime also requires manifests to declare every registry-declared node
+capability before execution. Extension flows under
+`.kotikit/extensions/flows` require an enabled allowlist entry with a matching
+manifest hash and explicit capabilities, so an updated or tampered flow cannot
+run until the project trust policy is reviewed.
+
 Config JSON uses lazy migration. Existing configs without `schemaVersion` are
 loaded into the latest in-memory shape and are written back with
 `schemaVersion` only when kotikit updates the config. Configs from a future
@@ -51,7 +67,7 @@ does not overwrite unknown settings.
 
 ## When to extend it
 
-- Adding a new top-level config key (e.g. a `review` block) — add the field to `ConfigSchema`, update `defaultConfig`, and add a question to the MCP `kotikit_config_init` tool.
+- Adding a new top-level config key (e.g. a `review` block) — add the field to `ConfigSchema`, update defaults, and add a question to the MCP `kotikit_config_init` tool.
 - Supporting a second secret provider (e.g. AWS Secrets Manager) — extend `resolveSecretImpl` with a new prefix branch and update the spawn injection interface so tests can cover it without hitting a real AWS endpoint.
 - Changing where `.kotikit/` lives — update `configPath` in `src/util/paths.ts` (the config module delegates all path construction there).
 
