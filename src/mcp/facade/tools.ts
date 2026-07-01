@@ -552,6 +552,10 @@ function figmaApplyInputSchema(): Tool["inputSchema"] {
         enum: ["ok", "warned", "failed"],
         description: "Result of the official Figma MCP apply.",
       },
+      transactionId: {
+        type: "string",
+        description: "Active incremental Figma transaction id this metadata records.",
+      },
       note: { type: "string", description: "Optional human-readable note." },
       stepKind: {
         type: "string",
@@ -606,6 +610,31 @@ function figmaApplyInputSchema(): Tool["inputSchema"] {
         type: "string",
         description: "Figma node name created or updated by this step.",
       },
+      bounds: {
+        type: "object",
+        description: "Compact node bounds after apply.",
+        properties: {
+          x: { type: "number" },
+          y: { type: "number" },
+          width: { type: "number" },
+          height: { type: "number" },
+        },
+        required: ["x", "y", "width", "height"],
+      },
+      componentRefs: {
+        type: "array",
+        description: "Compact component keys or node refs used by this transaction.",
+        items: { type: "string" },
+      },
+      variableRefs: {
+        type: "array",
+        description: "Compact variable/style refs used by this transaction.",
+        items: { type: "string" },
+      },
+      autoLayout: {
+        type: "boolean",
+        description: "Whether the applied top-level node uses Figma auto layout.",
+      },
       variableBindings: {
         type: "array",
         description: "Variable/style bindings applied by official Figma MCP.",
@@ -633,6 +662,9 @@ function figmaApplyInputSchema(): Tool["inputSchema"] {
 
 function figmaApplyMetadataFrom(input: Record<string, unknown>): Record<string, unknown> {
   return {
+    ...(stringField(input, "transactionId") !== undefined
+      ? { transactionId: stringField(input, "transactionId") }
+      : {}),
     ...(stringField(input, "figmaFileKey") !== undefined
       ? { fileKey: stringField(input, "figmaFileKey") }
       : {}),
@@ -650,6 +682,9 @@ function figmaApplyMetadataFrom(input: Record<string, unknown>): Record<string, 
         ...(stringField(input, "figmaNodeName") !== undefined
           ? { name: stringField(input, "figmaNodeName") }
           : {}),
+        ...(stringField(input, "figmaNodeKind") !== undefined
+          ? { kind: stringField(input, "figmaNodeKind") }
+          : {}),
         ...(stringField(input, "componentName") !== undefined
           ? { componentName: stringField(input, "componentName") }
           : {}),
@@ -664,6 +699,16 @@ function figmaApplyMetadataFrom(input: Record<string, unknown>): Record<string, 
           : {}),
       },
     ].filter((node) => Object.keys(node).length > 0),
+    ...(boundsFrom(input.bounds) !== undefined ? { bounds: boundsFrom(input.bounds) } : {}),
+    ...(stringArray(input.componentRefs) !== undefined
+      ? { componentRefs: stringArray(input.componentRefs) }
+      : {}),
+    ...(stringArray(input.variableRefs) !== undefined
+      ? { variableRefs: stringArray(input.variableRefs) }
+      : {}),
+    ...(booleanField(input, "autoLayout") !== undefined
+      ? { autoLayout: booleanField(input, "autoLayout") }
+      : {}),
     variableBindings: recordArray(input.variableBindings),
     layoutFrames: recordArray(input.layoutFrames),
     repeatedItems: recordArray(input.repeatedItems),
@@ -689,6 +734,39 @@ function recordArray(value: unknown): Record<string, unknown>[] {
 function stringField(value: Record<string, unknown>, key: string): string | undefined {
   const candidate = value[key];
   return typeof candidate === "string" && candidate.length > 0 ? candidate : undefined;
+}
+
+function booleanField(value: Record<string, unknown>, key: string): boolean | undefined {
+  const candidate = value[key];
+  return typeof candidate === "boolean" ? candidate : undefined;
+}
+
+function boundsFrom(value: unknown):
+  | {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }
+  | undefined {
+  const bounds = recordFrom(value);
+  return typeof bounds.x === "number" &&
+    typeof bounds.y === "number" &&
+    typeof bounds.width === "number" &&
+    typeof bounds.height === "number"
+    ? {
+        x: bounds.x,
+        y: bounds.y,
+        width: bounds.width,
+        height: bounds.height,
+      }
+    : undefined;
+}
+
+function stringArray(value: unknown): string[] | undefined {
+  return Array.isArray(value) && value.every((item) => typeof item === "string" && item.length > 0)
+    ? value
+    : undefined;
 }
 
 function reviewTargetFromInput(input: z.infer<typeof ReviewFigmaTargetInputSchema>): {

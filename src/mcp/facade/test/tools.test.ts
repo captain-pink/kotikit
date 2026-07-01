@@ -234,6 +234,67 @@ describe("MCP facade tools", () => {
     expect(reviewTool?.inputSchema.properties).toHaveProperty("nodeId");
   });
 
+  it("exposes incremental Figma apply metadata in the record tool schema", () => {
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx());
+    const applyTool = registry.tools.find((tool) => tool.name === "kotikit_record_figma_apply");
+
+    expect(applyTool?.inputSchema.properties).toHaveProperty("transactionId");
+    expect(applyTool?.inputSchema.properties).toHaveProperty("bounds");
+    expect(applyTool?.inputSchema.properties).toHaveProperty("componentRefs");
+    expect(applyTool?.inputSchema.properties).toHaveProperty("variableRefs");
+    expect(applyTool?.inputSchema.properties).toHaveProperty("autoLayout");
+  });
+
+  it("records incremental transaction metadata into graph apply metadata", async () => {
+    let applyMetadata: Record<string, unknown> | undefined;
+    const runtime = {
+      ...makeRuntime(),
+      async patchRunState(input): Promise<RuntimeRunResult> {
+        applyMetadata = input.statePatch.applyMetadata as Record<string, unknown>;
+        return {
+          runId: "run-1",
+          status: "waiting-for-figma",
+          state: {
+            ...makeState("waiting-for-figma"),
+            applyMetadata,
+          },
+        };
+      },
+    } satisfies FacadeRuntime;
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx(), { runtime });
+
+    await callTool(registry, "kotikit_record_figma_apply", {
+      runId: "run-1",
+      scope: "members",
+      stepIndex: 0,
+      outcome: "ok",
+      transactionId: "txn-filled",
+      figmaFileKey: "FILE",
+      figmaPageId: "1:2",
+      figmaSectionName: "kotikit / members / 2026-06-30",
+      figmaNodeId: "node-1",
+      figmaNodeName: "Members / Filled",
+      figmaNodeKind: "frame",
+      bounds: { x: 560, y: 0, width: 1440, height: 900 },
+      componentRefs: ["button-key"],
+      variableRefs: ["var-color-primary"],
+      autoLayout: true,
+    });
+
+    expect(applyMetadata).toMatchObject({
+      transactionId: "txn-filled",
+      bounds: { x: 560, y: 0, width: 1440, height: 900 },
+      componentRefs: ["button-key"],
+      variableRefs: ["var-color-primary"],
+      autoLayout: true,
+    });
+    expect(applyMetadata?.nodes).toEqual([
+      expect.objectContaining({ id: "node-1", kind: "frame" }),
+    ]);
+  });
+
   it("starts graph review flows without compatibility review handlers", async () => {
     const config = { ...defaultConfig(), figma: { ...defaultConfig().figma, token: "figd_test" } };
     const runtime = {

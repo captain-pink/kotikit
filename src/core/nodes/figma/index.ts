@@ -2,13 +2,28 @@ import { type JSONType, z } from "zod";
 import { nowIso } from "../../../util/ids.js";
 import { KotikitError } from "../../../util/result.js";
 import { ensureDraftTarget } from "../../adapters/figma/target.js";
+import {
+  markTransactionActive,
+  nextPendingTransaction,
+  recordTransactionMetadata,
+  transactionPlanComplete,
+} from "../../domain/figma-transaction-plan.js";
 import type { NodeDefinition } from "../../graph/node-registry.js";
-import { type Artifact, ArtifactSchemaVersionByType } from "../../schemas/artifact.js";
+import {
+  ActiveFigmaTransactionSchema,
+  type Artifact,
+  ArtifactSchemaVersionByType,
+  BoundsSchema,
+  type FigmaNodeLedger,
+  FigmaNodeLedgerSchema,
+  type FigmaTransactionPlan,
+  FigmaTransactionPlanSchema,
+} from "../../schemas/artifact.js";
 import type { KotikitGraphState } from "../../schemas/graph-state.js";
 
 type RuntimeNodeOutput = {
   statePatch?: Partial<KotikitGraphState>;
-  interrupt?: { status: "waiting-for-figma" };
+  interrupt?: { status: "waiting-for-figma"; resume?: "same-node" | "next-node" };
   artifacts?: Artifact[];
 };
 
@@ -33,6 +48,98 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
     sideEffects: "figma-write",
     requiredCapabilities: ["figma.write.remote"],
     run: async () => ({ interrupt: { status: "waiting-for-figma" } }) satisfies RuntimeNodeOutput,
+  }),
+  node({
+    key: "figma.applyTransactionQueue",
+    kind: "external-action",
+    stateReads: [
+      "figmaTarget",
+      "figmaTransactionPlan",
+      "activeFigmaTransaction",
+      "applyMetadata",
+      "figmaNodeLedger",
+    ],
+    stateWrites: [
+      "figmaTransactionPlan",
+      "activeFigmaTransaction",
+      "figmaNodeLedger",
+      "applyReport",
+      "applyMetadata",
+    ],
+    sideEffects: "figma-write",
+    requiredCapabilities: ["figma.write.remote"],
+    run: async (input) => {
+      const state = graphState(input.state);
+      const target = ensureDraftTarget(state.figmaTarget);
+      const plan = FigmaTransactionPlanSchema.parse(state.figmaTransactionPlan);
+      const active =
+        state.activeFigmaTransaction === undefined
+          ? undefined
+          : ActiveFigmaTransactionSchema.parse(state.activeFigmaTransaction);
+
+      if (active === undefined) {
+        const pending = nextPendingTransaction(plan);
+        if (pending === undefined || pending.status !== "pending") {
+          const ledger = ledgerFrom(state.figmaNodeLedger, target);
+          return {
+            statePatch: { applyReport: applyReportFromLedger(ledger) },
+          } satisfies RuntimeNodeOutput;
+        }
+
+        const activePlan = markTransactionActive(plan, pending.id);
+        return {
+          statePatch: {
+            figmaTransactionPlan: activePlan,
+            activeFigmaTransaction: activeTransactionFrom(pending),
+          },
+          interrupt: { status: "waiting-for-figma", resume: "same-node" },
+        } satisfies RuntimeNodeOutput;
+      }
+
+      const metadata = requireTransactionMetadata(active.id, state.applyMetadata);
+      validateOptionalApplyTarget(target, metadata);
+      const ledger = appendLedgerNode(ledgerFrom(state.figmaNodeLedger, target), {
+        active,
+        metadata,
+        target,
+      });
+      const recordedPlan = recordTransactionMetadata(plan, { transactionId: active.id });
+
+      if (transactionPlanComplete(recordedPlan)) {
+        return {
+          statePatch: {
+            figmaTransactionPlan: recordedPlan,
+            figmaNodeLedger: ledger,
+            activeFigmaTransaction: undefined,
+            applyMetadata: undefined,
+            applyReport: applyReportFromLedger(ledger),
+          },
+        } satisfies RuntimeNodeOutput;
+      }
+
+      const next = nextPendingTransaction(recordedPlan);
+      if (next === undefined || next.status !== "pending") {
+        return {
+          statePatch: {
+            figmaTransactionPlan: recordedPlan,
+            figmaNodeLedger: ledger,
+            activeFigmaTransaction: undefined,
+            applyMetadata: undefined,
+            applyReport: applyReportFromLedger(ledger),
+          },
+        } satisfies RuntimeNodeOutput;
+      }
+      const activePlan = markTransactionActive(recordedPlan, next.id);
+      return {
+        statePatch: {
+          figmaTransactionPlan: activePlan,
+          figmaNodeLedger: ledger,
+          activeFigmaTransaction: activeTransactionFrom(next),
+          applyMetadata: undefined,
+        },
+        interrupt: { status: "waiting-for-figma", resume: "same-node" },
+      } satisfies RuntimeNodeOutput;
+    },
   }),
   node({
     key: "figma.recordApplyMetadata",
@@ -120,6 +227,264 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
   }),
 ];
 
+function requireTransactionMetadata(
+  transactionId: string,
+  value: unknown
+): Record<string, unknown> {
+  const metadata = recordFrom(value);
+  if (Object.keys(metadata).length === 0) {
+    throw new KotikitError(
+      `Record Figma apply metadata for transaction ${transactionId} before continuing.`,
+      "Use kotikit_record_figma_apply after the official Figma MCP write finishes, then continue the same run."
+    );
+  }
+  if (metadata.transactionId !== transactionId) {
+    throw new KotikitError(
+      `The recorded Figma apply metadata does not match the active Figma transaction ${transactionId}.`,
+      "Record metadata for the currently active transaction before continuing the graph."
+    );
+  }
+  return metadata;
+}
+
+function ledgerFrom(value: unknown, target: ReturnType<typeof ensureDraftTarget>): FigmaNodeLedger {
+  if (value !== undefined) return FigmaNodeLedgerSchema.parse(value);
+  return FigmaNodeLedgerSchema.parse({
+    schemaVersion: "FigmaNodeLedger/v1",
+    fileKey: target.fileKey,
+    pageId: target.pageId,
+    sectionName: draftSectionName(target),
+    nodes: [],
+    updatedAt: nowIso(),
+  });
+}
+
+function appendLedgerNode(
+  ledger: FigmaNodeLedger,
+  input: {
+    active: NonNullable<KotikitGraphState["activeFigmaTransaction"]>;
+    metadata: Record<string, unknown>;
+    target: ReturnType<typeof ensureDraftTarget>;
+  }
+): FigmaNodeLedger {
+  const nodeMetadata = recordArray(input.metadata.nodes)[0] ?? {};
+  const nodeId = stringField(input.metadata, "figmaNodeId") ?? stringField(nodeMetadata, "id");
+  if (nodeId === undefined) {
+    throw new KotikitError(
+      `Figma apply metadata for transaction ${input.active.id} is missing the Figma node id.`,
+      "Record figmaNodeId for the top-level node created or updated by this transaction."
+    );
+  }
+
+  const bounds = parseLedgerBounds(input.active.id, input.metadata.bounds);
+  const componentRefs = requiredStringArray(
+    input.active.id,
+    input.metadata.componentRefs,
+    "componentRefs"
+  );
+  const variableRefs = requiredStringArray(
+    input.active.id,
+    input.metadata.variableRefs,
+    "variableRefs"
+  );
+  const autoLayout = booleanField(input.metadata, "autoLayout");
+  if (autoLayout === undefined) {
+    throw new KotikitError(
+      `Figma apply metadata for transaction ${input.active.id} is missing auto layout metadata.`,
+      "Record autoLayout as true or false after applying the transaction in Figma."
+    );
+  }
+  if (requiresAutoLayout(input.active, input.metadata) && autoLayout !== true) {
+    throw new KotikitError(
+      `Figma apply metadata for transaction ${input.active.id} must confirm auto layout.`,
+      "Use Figma auto layout for screen, region, draft component, and layout-frame transactions."
+    );
+  }
+
+  const node = {
+    nodeId,
+    name:
+      stringField(input.metadata, "figmaNodeName") ??
+      stringField(nodeMetadata, "name") ??
+      input.active.label,
+    kind:
+      stringField(input.metadata, "figmaNodeKind") ?? stringField(nodeMetadata, "kind") ?? "FRAME",
+    semanticRole: semanticRoleForTransaction(input.active, input.metadata),
+    transactionId: input.active.id,
+    placementId: input.active.placementId,
+    ...(input.active.stateId === undefined ? {} : { stateId: input.active.stateId }),
+    ...(input.active.draftComponentId === undefined
+      ? {}
+      : { draftComponentId: input.active.draftComponentId }),
+    ...(stringField(input.metadata, "partId") !== undefined
+      ? { partId: stringField(input.metadata, "partId") }
+      : {}),
+    bounds,
+    componentRefs,
+    variableRefs,
+    autoLayout,
+    recordedAt: nowIso(),
+  };
+
+  return FigmaNodeLedgerSchema.parse({
+    schemaVersion: "FigmaNodeLedger/v1",
+    fileKey: stringField(input.metadata, "fileKey") ?? ledger.fileKey ?? input.target.fileKey,
+    pageId: stringField(input.metadata, "pageId") ?? ledger.pageId ?? input.target.pageId,
+    sectionName:
+      stringField(input.metadata, "sectionName") ??
+      ledger.sectionName ??
+      draftSectionName(input.target),
+    nodes: [...ledger.nodes, node],
+    updatedAt: nowIso(),
+  });
+}
+
+function activeTransactionFrom(
+  transaction: FigmaTransactionPlan["transactions"][number]
+): NonNullable<KotikitGraphState["activeFigmaTransaction"]> {
+  return ActiveFigmaTransactionSchema.parse({
+    id: transaction.id,
+    order: transaction.order,
+    kind: transaction.kind,
+    label: transaction.label,
+    placementId: transaction.placementId,
+    ...(transaction.stateId === undefined ? {} : { stateId: transaction.stateId }),
+    ...(transaction.draftComponentId === undefined
+      ? {}
+      : { draftComponentId: transaction.draftComponentId }),
+    requiredMetadata: transaction.requiredMetadata,
+  });
+}
+
+function parseLedgerBounds(
+  transactionId: string,
+  value: unknown
+): FigmaNodeLedger["nodes"][number]["bounds"] {
+  const bounds = recordFrom(value);
+  if (
+    typeof bounds.x !== "number" ||
+    typeof bounds.y !== "number" ||
+    typeof bounds.width !== "number" ||
+    typeof bounds.height !== "number" ||
+    bounds.width <= 0 ||
+    bounds.height <= 0
+  ) {
+    throw new KotikitError(
+      `Figma apply metadata for transaction ${transactionId} must include positive bounds width and height.`,
+      "Record bounds as { x, y, width, height } for the created or updated node."
+    );
+  }
+  return BoundsSchema.parse(bounds);
+}
+
+function requiredStringArray(transactionId: string, value: unknown, field: string): string[] {
+  if (
+    !Array.isArray(value) ||
+    value.some((item) => typeof item !== "string" || item.length === 0)
+  ) {
+    throw new KotikitError(
+      `Figma apply metadata for transaction ${transactionId} must include ${field} as a string array.`,
+      `Record ${field} as an array of compact Figma component or variable references.`
+    );
+  }
+  return value;
+}
+
+function requiresAutoLayout(
+  active: NonNullable<KotikitGraphState["activeFigmaTransaction"]>,
+  metadata: Record<string, unknown>
+): boolean {
+  return (
+    active.kind === "create-screen-state" ||
+    active.kind === "create-region-state" ||
+    active.kind === "create-draft-component" ||
+    stringField(metadata, "semanticRole") === "layout-frame"
+  );
+}
+
+function semanticRoleForTransaction(
+  active: NonNullable<KotikitGraphState["activeFigmaTransaction"]>,
+  metadata: Record<string, unknown>
+): FigmaNodeLedger["nodes"][number]["semanticRole"] {
+  if (stringField(metadata, "semanticRole") === "layout-frame") return "layout-frame";
+  if (active.kind === "create-draft-component") return "draft-component";
+  if (active.kind === "create-screen-state" || active.kind === "create-region-state") {
+    return "screen-state";
+  }
+  return "component-instance";
+}
+
+function applyReportFromLedger(ledger: FigmaNodeLedger): Record<string, unknown> {
+  const nodes = ledger.nodes.map((node) => compactReportNode(node));
+  return {
+    schemaVersion: "FigmaApplyReport/v1",
+    status: "recorded",
+    fileKey: ledger.fileKey,
+    pageId: ledger.pageId,
+    sectionName: ledger.sectionName,
+    nodes,
+    variableBindings: ledger.nodes.flatMap((node) =>
+      node.variableRefs.map((variableRef) => ({
+        targetId: node.nodeId,
+        variableRef,
+        transactionId: node.transactionId,
+      }))
+    ),
+    layoutFrames: nodes
+      .filter((node) => node.autoLayout === true)
+      .map((node) => ({
+        id: node.id,
+        name: node.name,
+        transactionId: node.transactionId,
+        bounds: node.bounds,
+        autoLayout: node.autoLayout,
+      })),
+    repeatedItems: [],
+    textTransforms: [],
+    states: ledger.nodes
+      .filter((node) => node.stateId !== undefined)
+      .map((node) => ({
+        stateId: node.stateId,
+        nodeId: node.nodeId,
+        transactionId: node.transactionId,
+      })),
+    draftComponentInstances: ledger.nodes
+      .filter((node) => node.draftComponentId !== undefined)
+      .map((node) => ({
+        draftComponentId: node.draftComponentId,
+        nodeId: node.nodeId,
+        transactionId: node.transactionId,
+      })),
+    draftComponentPlacements: ledger.nodes
+      .filter((node) => node.draftComponentId !== undefined)
+      .map((node) => ({
+        draftComponentId: node.draftComponentId,
+        nodeId: node.nodeId,
+        sectionName: ledger.sectionName,
+        bounds: node.bounds,
+      })),
+    recordedAt: ledger.updatedAt,
+  };
+}
+
+function compactReportNode(node: FigmaNodeLedger["nodes"][number]): Record<string, unknown> {
+  return {
+    id: node.nodeId,
+    name: node.name,
+    kind: node.kind,
+    semanticRole: node.semanticRole,
+    transactionId: node.transactionId,
+    placementId: node.placementId,
+    ...(node.stateId === undefined ? {} : { stateId: node.stateId }),
+    ...(node.draftComponentId === undefined ? {} : { draftComponentId: node.draftComponentId }),
+    ...(node.partId === undefined ? {} : { partId: node.partId }),
+    bounds: node.bounds,
+    componentRefs: node.componentRefs,
+    variableRefs: node.variableRefs,
+    autoLayout: node.autoLayout,
+  };
+}
+
 function validateApplyMetadata(
   target: ReturnType<typeof ensureDraftTarget>,
   metadata: Record<string, unknown>
@@ -142,6 +507,41 @@ function validateApplyMetadata(
       "Apply the design inside the Section recorded in the design plan."
     );
   }
+}
+
+function validateOptionalApplyTarget(
+  target: ReturnType<typeof ensureDraftTarget>,
+  metadata: Record<string, unknown>
+): void {
+  const fileKey = stringField(metadata, "fileKey");
+  if (fileKey !== undefined && fileKey !== target.fileKey) {
+    throw new KotikitError(
+      "This applied Figma node belongs to a different Figma file than the bound draft target.",
+      "Open the bound draft file before applying the design."
+    );
+  }
+  const pageId = stringField(metadata, "pageId");
+  if (pageId !== undefined && pageId !== target.pageId) {
+    throw new KotikitError(
+      "This applied Figma node is outside the bound draft page.",
+      "Open the exact bound draft page before applying the design."
+    );
+  }
+  const sectionName = stringField(metadata, "sectionName");
+  if (sectionName !== undefined && sectionName !== draftSectionName(target)) {
+    throw new KotikitError(
+      "This applied Figma node is outside the kotikit-owned draft section.",
+      "Apply the design inside the Section recorded in the design plan."
+    );
+  }
+}
+
+function draftSectionName(target: ReturnType<typeof ensureDraftTarget>): string {
+  if (target.section?.name !== undefined) return target.section.name;
+  throw new KotikitError(
+    "The Figma draft page target is missing a kotikit-owned Section.",
+    "Keep generated work inside the section recorded by kotikit."
+  );
 }
 
 function verifyAgainstApplyPacket(
@@ -299,6 +699,16 @@ function recordFrom(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
+}
+
+function stringField(value: Record<string, unknown>, key: string): string | undefined {
+  const candidate = value[key];
+  return typeof candidate === "string" && candidate.length > 0 ? candidate : undefined;
+}
+
+function booleanField(value: Record<string, unknown>, key: string): boolean | undefined {
+  const candidate = value[key];
+  return typeof candidate === "boolean" ? candidate : undefined;
 }
 
 function recordArray(value: unknown): Record<string, unknown>[] {

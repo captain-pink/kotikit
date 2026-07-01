@@ -5,7 +5,7 @@ import { figmaNodeDefinitions } from "../index.js";
 
 type NodeOutput = {
   statePatch?: Partial<KotikitGraphState>;
-  interrupt?: { status: "waiting-for-figma" };
+  interrupt?: { status: "waiting-for-figma"; resume?: "same-node" | "next-node" };
   artifacts?: unknown[];
 };
 type StatePatch = Partial<KotikitGraphState> & Record<string, unknown>;
@@ -183,6 +183,165 @@ describe("figma graph nodes", () => {
       },
     });
   });
+
+  it("starts the next pending transaction and waits for same-node Figma metadata", async () => {
+    const result = await runNode("figma.applyTransactionQueue", {
+      figmaTarget: draftTarget(),
+      figmaTransactionPlan: transactionPlan(),
+    });
+
+    expect(result.interrupt).toEqual({ status: "waiting-for-figma", resume: "same-node" });
+    expect(result.statePatch?.figmaTransactionPlan).toMatchObject({
+      transactions: [
+        expect.objectContaining({ id: "txn-filled", status: "active" }),
+        expect.objectContaining({ id: "txn-empty", status: "pending" }),
+      ],
+    });
+    expect(result.statePatch?.activeFigmaTransaction).toEqual({
+      id: "txn-filled",
+      order: 1,
+      kind: "create-screen-state",
+      label: "Members / Filled",
+      placementId: "state-filled",
+      stateId: "filled",
+      requiredMetadata: ["node-id", "bounds", "auto-layout", "component-refs", "variable-refs"],
+    });
+    expect(result.statePatch?.activeFigmaTransaction).not.toHaveProperty("status");
+  });
+
+  it("records matching active transaction metadata into the ledger and apply report", async () => {
+    const result = await runNode("figma.applyTransactionQueue", {
+      figmaTarget: draftTarget(),
+      figmaTransactionPlan: singleActiveTransactionPlan(),
+      activeFigmaTransaction: activeTransaction(),
+      applyMetadata: {
+        transactionId: "txn-filled",
+        fileKey: "FILE",
+        pageId: "1:2",
+        sectionName: "kotikit / members / 2026-06-30",
+        figmaNodeId: "9:10",
+        figmaNodeName: "Members / Filled",
+        figmaNodeKind: "FRAME",
+        bounds: { x: 560, y: 0, width: 1440, height: 900 },
+        componentRefs: ["button-key"],
+        variableRefs: ["var-color-primary"],
+        autoLayout: true,
+      },
+    });
+
+    expect(result.statePatch?.figmaNodeLedger).toMatchObject({
+      schemaVersion: "FigmaNodeLedger/v1",
+      fileKey: "FILE",
+      pageId: "1:2",
+      sectionName: "kotikit / members / 2026-06-30",
+      nodes: [
+        expect.objectContaining({
+          nodeId: "9:10",
+          name: "Members / Filled",
+          kind: "FRAME",
+          semanticRole: "screen-state",
+          transactionId: "txn-filled",
+          placementId: "state-filled",
+          stateId: "filled",
+          bounds: { x: 560, y: 0, width: 1440, height: 900 },
+          componentRefs: ["button-key"],
+          variableRefs: ["var-color-primary"],
+          autoLayout: true,
+        }),
+      ],
+    });
+    expect(result.statePatch?.figmaTransactionPlan).toMatchObject({
+      transactions: [expect.objectContaining({ id: "txn-filled", status: "recorded" })],
+    });
+    expect(result.statePatch?.activeFigmaTransaction).toBeUndefined();
+    expect(result.statePatch?.applyMetadata).toBeUndefined();
+    expect(result.statePatch?.applyReport).toMatchObject({
+      schemaVersion: "FigmaApplyReport/v1",
+      status: "recorded",
+      fileKey: "FILE",
+      pageId: "1:2",
+      sectionName: "kotikit / members / 2026-06-30",
+      nodes: [
+        expect.objectContaining({
+          id: "9:10",
+          transactionId: "txn-filled",
+          bounds: { x: 560, y: 0, width: 1440, height: 900 },
+          componentRefs: ["button-key"],
+          variableRefs: ["var-color-primary"],
+          autoLayout: true,
+        }),
+      ],
+      layoutFrames: [expect.objectContaining({ id: "9:10", transactionId: "txn-filled" })],
+    });
+  });
+
+  it("rejects missing or mismatched transaction metadata for an active transaction", async () => {
+    await expect(
+      runNode("figma.applyTransactionQueue", {
+        figmaTarget: draftTarget(),
+        figmaTransactionPlan: singleActiveTransactionPlan(),
+        activeFigmaTransaction: activeTransaction(),
+      })
+    ).rejects.toThrow("Record Figma apply metadata for transaction txn-filled");
+
+    await expect(
+      runNode("figma.applyTransactionQueue", {
+        figmaTarget: draftTarget(),
+        figmaTransactionPlan: singleActiveTransactionPlan(),
+        activeFigmaTransaction: activeTransaction(),
+        applyMetadata: { transactionId: "txn-other" },
+      })
+    ).rejects.toThrow("does not match the active Figma transaction");
+  });
+
+  it("validates transaction apply metadata before appending ledger nodes", async () => {
+    const baseState = {
+      figmaTarget: draftTarget(),
+      figmaTransactionPlan: singleActiveTransactionPlan(),
+      activeFigmaTransaction: activeTransaction(),
+    };
+
+    await expect(
+      runNode("figma.applyTransactionQueue", {
+        ...baseState,
+        applyMetadata: {
+          transactionId: "txn-filled",
+          bounds: { x: 0, y: 0, width: 1440, height: 900 },
+          componentRefs: [],
+          variableRefs: [],
+          autoLayout: true,
+        },
+      })
+    ).rejects.toThrow("missing the Figma node id");
+
+    await expect(
+      runNode("figma.applyTransactionQueue", {
+        ...baseState,
+        applyMetadata: {
+          transactionId: "txn-filled",
+          figmaNodeId: "9:10",
+          bounds: { x: 0, y: 0, width: 0, height: 900 },
+          componentRefs: [],
+          variableRefs: [],
+          autoLayout: true,
+        },
+      })
+    ).rejects.toThrow("positive bounds");
+
+    await expect(
+      runNode("figma.applyTransactionQueue", {
+        ...baseState,
+        applyMetadata: {
+          transactionId: "txn-filled",
+          figmaNodeId: "9:10",
+          bounds: { x: 0, y: 0, width: 1440, height: 900 },
+          componentRefs: [],
+          variableRefs: [],
+          autoLayout: false,
+        },
+      })
+    ).rejects.toThrow("auto layout");
+  });
 });
 
 async function runNode(key: string, patch: StatePatch): Promise<NodeOutput> {
@@ -259,5 +418,55 @@ function applyPacket(): Record<string, unknown> {
       verifyVariables: true,
       verifyAutoLayout: true,
     },
+  };
+}
+
+function transactionPlan(): NonNullable<KotikitGraphState["figmaTransactionPlan"]> {
+  return {
+    schemaVersion: "FigmaTransactionPlan/v1",
+    mode: "incremental-official-figma-mcp",
+    transactions: [
+      {
+        id: "txn-filled",
+        order: 1,
+        kind: "create-screen-state",
+        label: "Members / Filled",
+        placementId: "state-filled",
+        stateId: "filled",
+        status: "pending",
+        requiredMetadata: ["node-id", "bounds", "auto-layout", "component-refs", "variable-refs"],
+      },
+      {
+        id: "txn-empty",
+        order: 2,
+        kind: "create-screen-state",
+        label: "Members / Empty",
+        placementId: "state-empty",
+        stateId: "empty",
+        status: "pending",
+        requiredMetadata: ["node-id", "bounds", "auto-layout", "component-refs", "variable-refs"],
+      },
+    ],
+  };
+}
+
+function activeTransaction(): NonNullable<KotikitGraphState["activeFigmaTransaction"]> {
+  const transaction = transactionPlan().transactions[0];
+  if (transaction === undefined) throw new Error("missing transaction fixture");
+  return {
+    id: transaction.id,
+    order: transaction.order,
+    kind: transaction.kind,
+    label: transaction.label,
+    placementId: transaction.placementId,
+    stateId: transaction.stateId,
+    requiredMetadata: transaction.requiredMetadata,
+  };
+}
+
+function singleActiveTransactionPlan(): NonNullable<KotikitGraphState["figmaTransactionPlan"]> {
+  return {
+    ...transactionPlan(),
+    transactions: [{ ...transactionPlan().transactions[0]!, status: "active" }],
   };
 }
