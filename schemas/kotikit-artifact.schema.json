@@ -1631,6 +1631,33 @@
                       "draftComponentId": {
                         "type": "string",
                         "minLength": 1
+                      },
+                      "bounds": {
+                        "type": "object",
+                        "properties": {
+                          "x": {
+                            "type": "number",
+                            "minimum": -1000000,
+                            "maximum": 1000000
+                          },
+                          "y": {
+                            "type": "number",
+                            "minimum": -1000000,
+                            "maximum": 1000000
+                          },
+                          "width": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 100000
+                          },
+                          "height": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 100000
+                          }
+                        },
+                        "required": ["x", "y", "width", "height"],
+                        "additionalProperties": false
                       }
                     },
                     "required": ["nodeId"],
@@ -4619,6 +4646,33 @@
                       "draftComponentId": {
                         "type": "string",
                         "minLength": 1
+                      },
+                      "bounds": {
+                        "type": "object",
+                        "properties": {
+                          "x": {
+                            "type": "number",
+                            "minimum": -1000000,
+                            "maximum": 1000000
+                          },
+                          "y": {
+                            "type": "number",
+                            "minimum": -1000000,
+                            "maximum": 1000000
+                          },
+                          "width": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 100000
+                          },
+                          "height": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 100000
+                          }
+                        },
+                        "required": ["x", "y", "width", "height"],
+                        "additionalProperties": false
                       }
                     },
                     "required": ["nodeId"],
