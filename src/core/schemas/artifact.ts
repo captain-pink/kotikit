@@ -19,6 +19,10 @@ export const ArtifactTypeSchema = z.enum([
   "draft-plan",
   "figma-apply-packet",
   "figma-apply-report",
+  "canvas-plan",
+  "figma-transaction-plan",
+  "figma-node-ledger",
+  "canvas-reconciliation-report",
   "ui-quality-gate-report",
   "comment-evidence-map",
   "review-session",
@@ -44,6 +48,10 @@ export const ArtifactSchemaVersionByType = {
   "draft-plan": "DraftPlan/v1",
   "figma-apply-packet": "FigmaApplyPacket/v1",
   "figma-apply-report": "FigmaApplyReport/v1",
+  "canvas-plan": "CanvasPlan/v1",
+  "figma-transaction-plan": "FigmaTransactionPlan/v1",
+  "figma-node-ledger": "FigmaNodeLedger/v1",
+  "canvas-reconciliation-report": "CanvasReconciliationReport/v1",
   "ui-quality-gate-report": "UIQualityGateReport/v1",
   "comment-evidence-map": "CommentEvidenceMap/v1",
   "review-session": "ReviewSession/v1",
@@ -54,6 +62,140 @@ export const ArtifactSchemaVersionByType = {
 const SourceNodeSchema = z.strictObject({
   key: z.string().min(1),
   version: z.string().min(1),
+});
+
+export const BoundsSchema = z.strictObject({
+  x: z.number(),
+  y: z.number(),
+  width: z.number().positive(),
+  height: z.number().positive(),
+});
+
+const CanvasSectionRefSchema = z.strictObject({
+  fileKey: z.string().min(1).optional(),
+  pageId: z.string().min(1).optional(),
+  name: z.string().min(1),
+});
+
+const CanvasZoneSchema = z.strictObject({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  bounds: BoundsSchema,
+});
+
+const CanvasPlacementSchema = z.strictObject({
+  id: z.string().min(1),
+  zoneId: z.string().min(1),
+  name: z.string().min(1),
+  bounds: BoundsSchema,
+  stateId: z.string().min(1).optional(),
+  draftComponentId: z.string().min(1).optional(),
+  partId: z.string().min(1).optional(),
+});
+
+export const CanvasPlanSchema = z.strictObject({
+  schemaVersion: z.literal("CanvasPlan/v1"),
+  section: CanvasSectionRefSchema,
+  coordinateSpace: z.literal("section-relative"),
+  screenSize: BoundsSchema,
+  minGap: z.number().nonnegative(),
+  zones: z.array(CanvasZoneSchema).min(1),
+  placements: z.array(CanvasPlacementSchema),
+  strategy: z.string().min(1),
+});
+
+const FigmaTransactionKindSchema = z.enum([
+  "create-draft-component",
+  "create-screen-state",
+  "create-region-state",
+  "verify-created-node",
+]);
+
+const FigmaTransactionStatusSchema = z.enum(["pending", "active", "recorded", "failed"]);
+
+const FigmaTransactionMetadataSchema = z.enum([
+  "node-id",
+  "bounds",
+  "auto-layout",
+  "component-refs",
+  "variable-refs",
+]);
+
+const FigmaTransactionSchema = z.strictObject({
+  id: z.string().min(1),
+  order: z.number().int().nonnegative(),
+  kind: FigmaTransactionKindSchema,
+  status: FigmaTransactionStatusSchema,
+  requiredMetadata: z.array(FigmaTransactionMetadataSchema).min(1),
+  dependsOn: z.array(z.string().min(1)).optional(),
+  placementId: z.string().min(1).optional(),
+  stateId: z.string().min(1).optional(),
+  draftComponentId: z.string().min(1).optional(),
+  partId: z.string().min(1).optional(),
+});
+
+export const FigmaTransactionPlanSchema = z.strictObject({
+  schemaVersion: z.literal("FigmaTransactionPlan/v1"),
+  mode: z.literal("incremental-official-figma-mcp"),
+  transactions: z.array(FigmaTransactionSchema).min(1),
+});
+
+const FigmaNodeSemanticRoleSchema = z.enum([
+  "screen-state",
+  "draft-component",
+  "component-instance",
+  "layout-frame",
+  "annotation",
+]);
+
+const JsonObjectSchema = z.record(z.string(), z.json());
+
+const FigmaNodeLedgerEntrySchema = z.strictObject({
+  nodeId: z.string().min(1),
+  name: z.string().min(1),
+  kind: z.string().min(1),
+  semanticRole: FigmaNodeSemanticRoleSchema,
+  transactionId: z.string().min(1),
+  placementId: z.string().min(1),
+  stateId: z.string().min(1).optional(),
+  draftId: z.string().min(1).optional(),
+  draftComponentId: z.string().min(1).optional(),
+  partId: z.string().min(1).optional(),
+  bounds: BoundsSchema,
+  componentRefs: z.array(z.string().min(1)),
+  variableRefs: z.array(z.string().min(1)),
+  autoLayout: JsonObjectSchema,
+  recordedAt: z.string().min(1),
+  updatedAt: z.string().min(1),
+});
+
+export const FigmaNodeLedgerSchema = z.strictObject({
+  schemaVersion: z.literal("FigmaNodeLedger/v1"),
+  fileKey: z.string().min(1),
+  pageId: z.string().min(1),
+  sectionName: z.string().min(1),
+  nodes: z.array(FigmaNodeLedgerEntrySchema),
+});
+
+const CanvasReconciliationNodeSchema = z.strictObject({
+  nodeId: z.string().min(1),
+  status: z.enum(["matched", "moved", "renamed", "missing", "untracked"]),
+  previousName: z.string().min(1).optional(),
+  currentName: z.string().min(1).optional(),
+  previousBounds: BoundsSchema.optional(),
+  currentBounds: BoundsSchema.optional(),
+  transactionId: z.string().min(1).optional(),
+  placementId: z.string().min(1).optional(),
+  stateId: z.string().min(1).optional(),
+});
+
+export const CanvasReconciliationReportSchema = z.strictObject({
+  schemaVersion: z.literal("CanvasReconciliationReport/v1"),
+  fileKey: z.string().min(1),
+  pageId: z.string().min(1),
+  timestamp: z.string().min(1),
+  nodes: z.array(CanvasReconciliationNodeSchema),
+  unmappedCommentsRisk: z.enum(["none", "low", "needs-human"]),
 });
 
 const UICompositionPartSchema = z.strictObject({
@@ -354,6 +496,10 @@ export const ArtifactPayloadSchema = z.union([
   DraftPlanPayloadSchema,
   FigmaApplyPacketPayloadSchema,
   FigmaApplyReportPayloadSchema,
+  CanvasPlanSchema,
+  FigmaTransactionPlanSchema,
+  FigmaNodeLedgerSchema,
+  CanvasReconciliationReportSchema,
   UIQualityGateReportSchema,
   CommentEvidenceMapSchema,
   ReviewSessionPayloadSchema,
@@ -400,6 +546,10 @@ export const ArtifactVariantSchema = z.union([
   createArtifactVariantSchema("draft-plan", DraftPlanPayloadSchema),
   createArtifactVariantSchema("figma-apply-packet", FigmaApplyPacketPayloadSchema),
   createArtifactVariantSchema("figma-apply-report", FigmaApplyReportPayloadSchema),
+  createArtifactVariantSchema("canvas-plan", CanvasPlanSchema),
+  createArtifactVariantSchema("figma-transaction-plan", FigmaTransactionPlanSchema),
+  createArtifactVariantSchema("figma-node-ledger", FigmaNodeLedgerSchema),
+  createArtifactVariantSchema("canvas-reconciliation-report", CanvasReconciliationReportSchema),
   createArtifactVariantSchema("ui-quality-gate-report", UIQualityGateReportSchema),
   createArtifactVariantSchema("comment-evidence-map", CommentEvidenceMapSchema),
   createArtifactVariantSchema("review-session", ReviewSessionPayloadSchema),
@@ -444,5 +594,9 @@ export type LayoutContract = z.infer<typeof LayoutContractSchema>;
 export type VariableBindingPlan = z.infer<typeof VariableBindingPlanSchema>;
 export type DraftComponentPlan = z.infer<typeof DraftComponentPlanSchema>;
 export type DraftComponentLifecycle = z.infer<typeof DraftComponentLifecycleSchema>;
+export type CanvasPlan = z.infer<typeof CanvasPlanSchema>;
+export type FigmaTransactionPlan = z.infer<typeof FigmaTransactionPlanSchema>;
+export type FigmaNodeLedger = z.infer<typeof FigmaNodeLedgerSchema>;
+export type CanvasReconciliationReport = z.infer<typeof CanvasReconciliationReportSchema>;
 export type CommentEvidenceMap = z.infer<typeof CommentEvidenceMapSchema>;
 export type UIQualityGateReport = z.infer<typeof UIQualityGateReportSchema>;
