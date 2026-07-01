@@ -336,7 +336,16 @@ describe("canvas and figma ledger artifact schemas", () => {
     ).toThrow();
   });
 
-  it("rejects duplicate transaction orders and empty required metadata", () => {
+  it("rejects duplicate transaction ids, duplicate orders, and empty required metadata", () => {
+    expect(() =>
+      FigmaTransactionPlanSchema.parse({
+        ...validFigmaTransactionPlan(),
+        transactions: validFigmaTransactionPlan().transactions.map((transaction) => ({
+          ...transaction,
+          id: "duplicate-transaction",
+        })),
+      })
+    ).toThrow();
     expect(() =>
       FigmaTransactionPlanSchema.parse({
         ...validFigmaTransactionPlan(),
