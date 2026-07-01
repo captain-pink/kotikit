@@ -20,6 +20,12 @@ describe("built-in node registry", () => {
     const createScreen = flows.find((flow) => flow.id === "create-screen");
     if (createScreen === undefined) throw new Error("Missing create-screen flow.");
 
+    expect(nodeIndex(createScreen, "ux.buildEnvelope")).toBeLessThan(
+      nodeIndex(createScreen, "ui.buildCompositionContract")
+    );
+    expect(nodeIndex(createScreen, "ux.planStateMatrix")).toBeLessThan(
+      nodeIndex(createScreen, "ui.buildCompositionContract")
+    );
     expect(nodeIndex(createScreen, "draftComponents.planMissing")).toBeLessThan(
       nodeIndex(createScreen, "ui.buildCompositionContract")
     );

@@ -14,6 +14,7 @@ import { memoryNodeDefinitions } from "./memory/index.js";
 import { qaNodeDefinitions } from "./qa/index.js";
 import { reviewNodeDefinitions } from "./review/index.js";
 import { uiCompositionNodeDefinitions } from "./ui-composition/index.js";
+import { uxNodeDefinitions } from "./ux/index.js";
 
 export function createBuiltInNodeRegistry(): NodeRegistry {
   return createNodeRegistry(builtInNodeDefinitions());
@@ -22,6 +23,7 @@ export function createBuiltInNodeRegistry(): NodeRegistry {
 export function builtInNodeDefinitions(): NodeDefinition[] {
   return [
     ...briefNodeDefinitions,
+    ...uxNodeDefinitions,
     ...flowNodeDefinitions,
     ...designSystemNodeDefinitions,
     ...uiCompositionNodeDefinitions,

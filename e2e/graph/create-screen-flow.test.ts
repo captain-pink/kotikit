@@ -28,6 +28,12 @@ describe("create-screen graph flow", () => {
 
       expect(started.status).toBe("waiting-for-user");
       expect(started.state.pendingQuestion?.id).toBe("missing-components");
+      expect(started.state.uxEnvelope).toMatchObject({
+        schemaVersion: "UXEnvelope/v1",
+      });
+      expect(started.state.stateMatrix).toMatchObject({
+        schemaVersion: "StateMatrix/v1",
+      });
 
       const missingResolved = await runtime.answerRun({
         runId: started.runId,
@@ -106,6 +112,12 @@ describe("create-screen graph flow", () => {
 
       expect(started.status).toBe("waiting-for-user");
       expect(started.state.pendingQuestion?.id).toBe("approve-brief");
+      expect(started.state.uxEnvelope).toMatchObject({
+        schemaVersion: "UXEnvelope/v1",
+      });
+      expect(started.state.stateMatrix).toMatchObject({
+        schemaVersion: "StateMatrix/v1",
+      });
 
       const approved = await runtime.answerRun({
         runId: started.runId,

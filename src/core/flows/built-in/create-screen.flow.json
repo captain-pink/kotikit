@@ -7,6 +7,7 @@
   "stateSchema": "KotikitGraphState/v1",
   "requiredCapabilities": [
     "brief.write",
+    "ux.plan",
     "designSystem.search.local",
     "designSystem.fit",
     "figma.target",
@@ -37,6 +38,16 @@
     {
       "id": "infer-screen-blueprint",
       "uses": "brief.inferScreenBlueprint",
+      "params": {}
+    },
+    {
+      "id": "build-ux-envelope",
+      "uses": "ux.buildEnvelope",
+      "params": {}
+    },
+    {
+      "id": "plan-state-matrix",
+      "uses": "ux.planStateMatrix",
       "params": {}
     },
     {
@@ -153,7 +164,9 @@
   "edges": [
     ["classify-intent", "capture-minimal-intent"],
     ["capture-minimal-intent", "infer-screen-blueprint"],
-    ["infer-screen-blueprint", "summarize-brief-for-approval"],
+    ["infer-screen-blueprint", "build-ux-envelope"],
+    ["build-ux-envelope", "plan-state-matrix"],
+    ["plan-state-matrix", "summarize-brief-for-approval"],
     ["summarize-brief-for-approval", "ask-brief-approval"],
     ["ask-brief-approval", "save-approved-brief"],
     ["save-approved-brief", "search-local-design-system"],
