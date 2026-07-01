@@ -342,6 +342,30 @@ describe("canvas and figma ledger artifact schemas", () => {
     ).toThrow();
   });
 
+  it("rejects duplicate canvas creation order entries", () => {
+    expect(() =>
+      CanvasPlanSchema.parse({
+        ...validCanvasPlan(),
+        strategy: {
+          ...validCanvasPlan().strategy,
+          creationOrder: ["placement-content", "placement-content", "placement-header"],
+        },
+      })
+    ).toThrow();
+  });
+
+  it("rejects canvas creation order that omits a placement", () => {
+    expect(() =>
+      CanvasPlanSchema.parse({
+        ...validCanvasPlan(),
+        strategy: {
+          ...validCanvasPlan().strategy,
+          creationOrder: ["placement-content"],
+        },
+      })
+    ).toThrow();
+  });
+
   it("rejects duplicate canvas zone ids", () => {
     expect(() =>
       CanvasPlanSchema.parse({
@@ -505,6 +529,21 @@ describe("canvas and figma ledger artifact schemas", () => {
             ? { ...transaction, requiredMetadata: [] }
             : transaction
         ),
+      })
+    ).toThrow();
+  });
+
+  it("rejects duplicate figma node ledger ids", () => {
+    expect(() =>
+      FigmaNodeLedgerSchema.parse({
+        ...validFigmaNodeLedger(),
+        nodes: [
+          ...validFigmaNodeLedger().nodes,
+          {
+            ...validFigmaNodeLedger().nodes[0],
+            name: "Members filled duplicate",
+          },
+        ],
       })
     ).toThrow();
   });

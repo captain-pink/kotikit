@@ -186,12 +186,32 @@ export const CanvasPlanSchema = z
       }
     });
 
+    const orderedPlacementIds = new Set<string>();
     plan.strategy.creationOrder.forEach((placementId, index) => {
       if (!placementIds.has(placementId)) {
         ctx.addIssue({
           code: "custom",
           path: ["strategy", "creationOrder", index],
           message: `Creation order references unknown placement ${placementId}.`,
+        });
+      }
+
+      if (orderedPlacementIds.has(placementId)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["strategy", "creationOrder", index],
+          message: `Duplicate creation order placement ${placementId}.`,
+        });
+      }
+      orderedPlacementIds.add(placementId);
+    });
+
+    placementIds.forEach((placementId) => {
+      if (!orderedPlacementIds.has(placementId)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["strategy", "creationOrder"],
+          message: `Creation order omits placement ${placementId}.`,
         });
       }
     });
@@ -318,14 +338,29 @@ const FigmaNodeLedgerEntrySchema = z.strictObject({
   recordedAt: IncrementalRefSchema,
 });
 
-export const FigmaNodeLedgerSchema = z.strictObject({
-  schemaVersion: z.literal("FigmaNodeLedger/v1"),
-  fileKey: IncrementalRefSchema,
-  pageId: IncrementalRefSchema,
-  sectionName: IncrementalTextSchema,
-  nodes: z.array(FigmaNodeLedgerEntrySchema).max(INCREMENTAL_ARRAY_MAX),
-  updatedAt: IncrementalRefSchema,
-});
+export const FigmaNodeLedgerSchema = z
+  .strictObject({
+    schemaVersion: z.literal("FigmaNodeLedger/v1"),
+    fileKey: IncrementalRefSchema,
+    pageId: IncrementalRefSchema,
+    sectionName: IncrementalTextSchema,
+    nodes: z.array(FigmaNodeLedgerEntrySchema).max(INCREMENTAL_ARRAY_MAX),
+    updatedAt: IncrementalRefSchema,
+  })
+  .superRefine((ledger, ctx) => {
+    const nodeIds = new Set<string>();
+
+    ledger.nodes.forEach((node, index) => {
+      if (nodeIds.has(node.nodeId)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["nodes", index, "nodeId"],
+          message: `Duplicate ledger node id ${node.nodeId}.`,
+        });
+      }
+      nodeIds.add(node.nodeId);
+    });
+  });
 
 const CanvasReconciliationNodeSchema = z.strictObject({
   nodeId: IncrementalRefSchema,
