@@ -288,6 +288,7 @@ describe("canvas and figma ledger artifact schemas", () => {
           kind: "create-draft-component",
           label: "Create draft table row",
           placementId: "placement-content",
+          draftComponentId: "draft-table-row",
           requiredMetadata: transactionMetadata,
           rawNodeTree: { document: { children: [] } },
         },
@@ -432,6 +433,43 @@ describe("canvas and figma ledger artifact schemas", () => {
               }
             : transaction
         ),
+      })
+    ).toThrow();
+  });
+
+  it("rejects screen-state and region-state transactions without state ids", () => {
+    expect(() =>
+      FigmaTransactionPlanSchema.parse({
+        ...validFigmaTransactionPlan(),
+        transactions: [
+          ...validFigmaTransactionPlan().transactions,
+          {
+            id: "txn-create-screen-state",
+            order: 3,
+            kind: "create-screen-state",
+            label: "Create screen state",
+            placementId: "placement-content",
+            status: "pending",
+            requiredMetadata: transactionMetadata,
+          },
+        ],
+      })
+    ).toThrow();
+    expect(() =>
+      FigmaTransactionPlanSchema.parse({
+        ...validFigmaTransactionPlan(),
+        transactions: [
+          ...validFigmaTransactionPlan().transactions,
+          {
+            id: "txn-create-region-state",
+            order: 3,
+            kind: "create-region-state",
+            label: "Create region state",
+            placementId: "placement-content",
+            status: "pending",
+            requiredMetadata: transactionMetadata,
+          },
+        ],
       })
     ).toThrow();
   });
