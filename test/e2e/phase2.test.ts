@@ -7,12 +7,9 @@ import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { loadConfig, writeConfig } from "../../src/config/load.js";
 import type { ToolContext } from "../../src/mcp/context.js";
 import type { ToolRegistry } from "../../src/mcp/server.js";
-import { registerBrainstormTools } from "../../src/mcp/tools/brainstorm.js";
 import { registerConfigTools } from "../../src/mcp/tools/config.js";
 import { registerDsSearchTools } from "../../src/mcp/tools/ds-search.js";
-import { registerFlowTools } from "../../src/mcp/tools/flow.js";
 import { registerIconsSearchTools } from "../../src/mcp/tools/icons-search.js";
-import { registerSpecTools } from "../../src/mcp/tools/spec.js";
 import { registerSyncTools } from "../../src/mcp/tools/sync.js";
 import { FigmaClient } from "../../src/sync/figma-client.js";
 import { SyncManifestSchema } from "../../src/sync/manifest.js";
@@ -49,9 +46,6 @@ function buildTestServer(
     loadConfig: () => loadConfig(root),
   };
   registerConfigTools(registry, ctx);
-  registerSpecTools(registry, ctx);
-  registerFlowTools(registry, ctx);
-  registerBrainstormTools(registry, ctx);
   registerDsSearchTools(registry, ctx);
   registerIconsSearchTools(registry, ctx);
   registerSyncTools(registry, ctx, { figmaClientFactory });

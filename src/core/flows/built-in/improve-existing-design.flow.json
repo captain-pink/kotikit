@@ -15,11 +15,6 @@
   ],
   "nodes": [
     {
-      "id": "ensure-draft-target",
-      "uses": "figma.ensureDraftTarget",
-      "params": {}
-    },
-    {
       "id": "collect-evidence",
       "uses": "review.collectEvidence",
       "params": {}
@@ -66,7 +61,6 @@
     }
   ],
   "edges": [
-    ["ensure-draft-target", "collect-evidence"],
     ["collect-evidence", "search-local-design-system"],
     ["search-local-design-system", "compare-to-design-system"],
     ["compare-to-design-system", "group-findings"],
@@ -76,7 +70,7 @@
     ["apply-approved-revisions", "run-ui-quality-gate"],
     ["run-ui-quality-gate", "post-revision-qa"]
   ],
-  "start": "ensure-draft-target",
+  "start": "collect-evidence",
   "end": ["post-revision-qa"],
   "safetyProfile": "approved-design-revision"
 }

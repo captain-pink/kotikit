@@ -187,7 +187,7 @@ Requirements:
 - Figma's assistant integration for your assistant installed from inside Figma.
 - A Professional, Organization, or Enterprise Figma account is recommended.
 - A Figma personal access token with file read access if you want local
-  design-system sync or REST-backed comment review.
+  design-system sync or REST-backed design/comment review.
 - A local target workspace or app project where kotikit can write `.kotikit/`,
   `design-system/`, and `.env`.
 
@@ -213,7 +213,7 @@ bun run scaffold:agents -- --target /Users/YOUR_USERNAME/path/to/your-project --
 Figma personal access token is not required for draft creation when your
 assistant is connected through Figma's remote MCP integration. Add a token to
 the target project's `.env` only for local design-system sync or REST-backed
-comment review:
+design/comment review:
 
 ```env
 FIGMA_TOKEN=figd_...your_token_here...
@@ -329,7 +329,5 @@ license is chosen.
 - [docs/development.md](docs/development.md) - repo development workflow.
 - [docs/architecture.md](docs/architecture.md) - system overview.
 - [docs/tools.md](docs/tools.md) - complete MCP tool reference.
-- [docs/agent_workflow.md](docs/agent_workflow.md) - shared Claude/Codex
-  workflow.
 - [docs/coding_guidelines.md](docs/coding_guidelines.md) - engineering style.
 - [docs/TOKENS.md](docs/TOKENS.md) - maintainer token/context budget reference.

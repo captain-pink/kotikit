@@ -53,8 +53,8 @@ root, then writes agent-specific setup:
   preserved.
 - Figma token placeholder: creates `.env` with `FIGMA_TOKEN=` or appends that
   key when `.env` exists without it. This token is for local design-system sync
-  and REST-backed comment review, not for draft creation through Figma remote
-  MCP auth.
+  and REST-backed design/comment review, not for draft creation through Figma
+  remote MCP auth.
 - Co-author metadata: when requested, updates an existing
   `.kotikit/config.json` with `git.coAuthor`.
 

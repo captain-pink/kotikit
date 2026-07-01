@@ -140,6 +140,38 @@ resolved comments unless `includeResolved` is requested. Legacy comment/review
 report tools prefer matching graph artifacts before falling back to SQLite
 reports.
 
+## Implementation Update: Public Choreography Surface Removed
+
+Completed on branch `feature/kotikit-migration`.
+
+The migration now removes the stale public choreography layer and leaves the
+MCP server with one graph facade plus setup, sync, local search, prompt, and
+bridge support tools:
+
+- removed the manual `src/workflow/*` router and tests;
+- removed old public workflow, brainstorm/spec/flow, component-plan,
+  plan-design, design-screen, design-apply, design review/comment, and design
+  memory tool handlers and their stale tests;
+- removed unused migration leftovers for old component-plan files,
+  brainstorm-session storage, empty barrel files, and graph-review compatibility
+  artifact helpers;
+- updated `docs/tools.md`, module docs, scaffolded skills, MCP instructions,
+  and token measurement so live guidance points to `kotikit_start`,
+  `kotikit_answer`, `kotikit_continue`, `kotikit_get_artifact`, and the small
+  facade;
+- kept local design-system sync/search and REST-backed review evidence as
+  token-efficient support adapters;
+- fixed `kotikit_review_figma_target` to collect bounded Figma REST evidence
+  before starting `improve-existing-design`, while the graph no longer requires
+  a safe draft target before evidence collection;
+- made approved review revision application pause for a safe draft target
+  instead of crashing when evidence review started from an existing Figma
+  target.
+
+`bun run check:unused` now reports only broader exported-symbol/type hygiene
+that is outside this stale public surface slice; it no longer reports removed
+choreography files as unused.
+
 ## Implementation Update: Flow-Pack Trust Policy
 
 Completed on branch `feature/kotikit-migration`.
@@ -180,12 +212,13 @@ The migration now has thin plugin wrappers for assistant setup:
   or linked kotikit package;
 - getting-started docs now make plugin installation the preferred path when an
   assistant supports local plugins, while Figma PAT setup is scoped to local
-  design-system sync and REST-backed comment review instead of draft creation.
+  design-system sync and REST-backed design/comment review instead of draft
+  creation.
 
 This keeps setup simpler for non-technical designers while preserving the
 developer-friendly source scaffold during the migration.
 
-## Sources Reviewed
+## Sources Reviewed During Initial Migration Analysis
 
 Local repo:
 
@@ -194,14 +227,15 @@ Local repo:
 - `docs/architecture.md`
 - `docs/workflows.md`
 - `docs/tools.md`
-- `docs/agent_workflow.md`
+- `docs/agent_workflow.md` (removed in the public choreography cleanup)
 - `NEXT_STEPS.md`
 - Core implementation areas under `src/mcp`, `src/workflow`, `src/spec`,
   `src/planning`, `src/sync`, `src/db`, `src/figma`, `src/mcp/bridge`, and the
   removed design-to-code modules
-- Current workflow implementation: `src/workflow/workflow-schema.ts`,
+- Former workflow implementation: `src/workflow/workflow-schema.ts`,
   `src/workflow/workflow-next.ts`, `src/workflow/workflow-store.ts`,
   `src/workflow/workflow-snapshot.ts`, and `src/mcp/tools/workflow.ts`
+  (removed after graph facade coverage landed)
 
 LangGraphJS primary sources:
 

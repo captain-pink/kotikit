@@ -46,9 +46,17 @@ The `inherits` / `overrides` pattern in `ScreenSpec.requirements.responsive` and
 
 The index at `.kotikit/index.json` is a flat JSON array of `IndexEntry` objects. It is updated atomically on every `write*` call. `listScopes` reads only the index, never individual spec files — this makes listing fast even in projects with hundreds of specs. The engine is careful not to overwrite a flow-kind index entry when writing an individual screen spec within that flow: `writeFlowManifest` owns the flow's index record.
 
-Status flows one direction: `"draft"` → `"active"`. The MCP tools that create specs always start in `"draft"`. A separate update path (exposed via `kotikit_spec_update`) sets status to `"active"` once the designer confirms the spec is implementation-ready.
+Status flows one direction: `"draft"` → `"active"`. Graph nodes and internal
+engines that create specs start in `"draft"`. A future graph artifact promotion
+path can set status to `"active"` once the designer confirms the spec is ready.
 
-`figmaTarget` is optional because older specs do not have one and some specs may never be rendered in Figma. Before any Figma design plan is generated, `kotikit_figma_target_bind` writes a `FigmaDraftTarget` to either the specific screen spec or the flow manifest. Screen-level targets win over flow-level targets. The target stores the exact file key, page ID, page URL, draft page name, and kotikit Section metadata used to keep generated work out of production pages.
+`figmaTarget` is optional because older specs do not have one and some specs may
+never be rendered in Figma. Before any Figma draft is generated, graph target
+nodes bind a `FigmaDraftTarget` to the active run and can persist it to the
+specific screen spec or flow manifest when needed. Screen-level targets win over
+flow-level targets. The target stores the exact file key, page ID, page URL,
+draft page name, and kotikit Section metadata used to keep generated work out of
+production pages.
 
 Spec JSON uses lazy migration. Missing `schemaVersion` means the file is a
 legacy but readable artifact. `parseScreenSpec` and `parseFlowManifest`
@@ -62,7 +70,9 @@ safe draft page before planning or applying Figma changes.
 ## When to extend it
 
 - Adding a new field to `ScreenSpec` (e.g. `analytics.eventNames`) — extend `ScreenSpecSchema`, update `newScreenSpec`, bump `SCREEN_SPEC_SCHEMA_VERSION` only if the persisted shape meaningfully changes, and update any tool that reads the spec to handle both old and new shapes.
-- Adding a new Figma target safety property — extend `FigmaDraftTargetSchema`, keep older targets readable through lazy parsing, and update `kotikit_figma_target_bind`, `kotikit_plan_design`, and plugin apply validation together.
+- Adding a new Figma target safety property — extend `FigmaDraftTargetSchema`,
+  keep older targets readable through lazy parsing, and update graph target,
+  draft, and apply metadata validation together.
 - Adding a new scope kind beyond `"screen"` and `"flow"` — extend the `kind` union in `IndexEntry` and add a corresponding engine function following the same read/write/upsert-index pattern.
 - Adding transitions to a single-screen scope — `ScreenSpec` currently carries no transition data; that lives in `FlowManifest`. If single screens need transitions, add a `nextScreenRef` field.
 - Changing the status lifecycle (e.g. adding `"archived"`) — extend the `status` enum in both the schema and the `IndexEntry` type.
@@ -72,5 +82,6 @@ safe draft page before planning or applying Figma changes.
 - [config](./config.md) — `defaults.breakpoints` and `defaults.themes` resolve `"inherits"` values
 - [util](./util.md) — all spec path helpers (`scopeDir`, `screenSpecPath`, `singleSpecPath`, `flowManifestPath`, `indexPath`) live here
 - [git](./git.md) — `autoCommitSpec` stages spec files after every write
-- [mcp](./mcp.md) — `kotikit_spec_create`, `kotikit_flow_create`, `kotikit_spec_update`, `kotikit_spec_list` are the tool wrappers
+- [mcp](./mcp.md) — graph facade tools expose spec-related outputs as
+  artifacts instead of public spec wrappers
 - [migrations](./migrations.md) — lazy JSON migration model

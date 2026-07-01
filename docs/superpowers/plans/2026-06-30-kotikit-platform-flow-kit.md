@@ -1152,8 +1152,8 @@ designer-facing `kotikit` skill. The installable root folder matches the
 manifest name, and plugin setup assumes `kotikit-mcp` is available on `PATH`
 through an installed or linked kotikit package. The source scaffold remains
 available for local development and manual MCP setup, and setup docs now
-position Figma PATs as local sync/comment-review credentials rather than a
-requirement for draft creation through Figma remote MCP auth.
+position Figma PATs as local sync and design/comment review credentials rather
+than a requirement for draft creation through Figma remote MCP auth.
 
 - [ ] **Step 5: Verify**
 
@@ -1184,7 +1184,7 @@ git commit -m "feat(setup): add codex and claude plugin wrappers"
 - Modify: `docs/modules/mcp.md`
 - Modify: `scripts/measure-tokens.ts`
 
-- [ ] **Step 1: Write failing stale-surface tests**
+- [x] **Step 1: Write failing stale-surface tests**
 
 Tests:
 
@@ -1194,11 +1194,11 @@ Tests:
   deprecated;
 - token measurement script no longer measures deleted tools.
 
-- [ ] **Step 2: Remove manual workflow router**
+- [x] **Step 2: Remove manual workflow router**
 
 Delete `src/workflow/*` only after all graph-backed flow tests pass.
 
-- [ ] **Step 3: Remove or internalize old tool files**
+- [x] **Step 3: Remove or internalize old tool files**
 
 Remove public registration for:
 
@@ -1211,7 +1211,7 @@ Remove public registration for:
 
 Keep internal domain engines if graph nodes still call them.
 
-- [ ] **Step 4: Verify no stale imports**
+- [x] **Step 4: Verify no stale imports**
 
 Run:
 
@@ -1222,7 +1222,7 @@ rg "src/workflow|kotikit_workflow_|kotikit_brainstorm_|kotikit_spec_|kotikit_flo
 Expected: only migration-history references and explicit deprecation notes
 remain.
 
-- [ ] **Step 5: Run unused-code check**
+- [x] **Step 5: Run unused-code check**
 
 Run:
 
@@ -1234,7 +1234,7 @@ Expected: inspect report and remove unused graph-migration leftovers that are
 part of this slice. Do not remove unrelated pre-existing unused exports without
 separate approval.
 
-- [ ] **Step 6: Verify**
+- [x] **Step 6: Verify**
 
 Run:
 
@@ -1246,6 +1246,18 @@ bun run measure
 ```
 
 Expected: pass.
+
+Task 12 implementation note: the public MCP surface now exposes only the graph
+facade and support tools. The manual `src/workflow/*` router, old public
+workflow/brainstorm/spec/flow/component-plan/design-plan/design-screen/design
+apply/review/comment/memory handlers, stale tests, and unused migration
+leftovers were removed. Live docs, scaffolded skills, MCP instructions, and
+token measurement now point at graph runs and artifacts. `kotikit_review_figma_target`
+collects bounded REST-backed Figma evidence before starting
+`improve-existing-design`; the graph can review evidence before a safe draft
+target is bound and pauses for target binding before approved revisions are
+applied. `bun run check:unused` still reports unrelated exported-symbol/type
+hygiene, but no Task 12 stale files remain in the unused-file report.
 
 - [ ] **Step 7: Commit**
 
@@ -1511,7 +1523,8 @@ The migration is complete when:
 - Local design-system search remains the primary grounding adapter.
 - Figma remote MCP is used as the default draft creation write path.
 - PAT setup is not required for draft creation happy path.
-- PAT setup remains documented for local sync/search and REST comments/review.
+- PAT setup remains documented for local sync/search and REST-backed
+  design/comment review.
 - Small MCP facade is the main public guided workflow surface.
 - Old tool choreography is removed or explicitly deprecated as wrappers.
 - Codex and Claude plugin wrappers exist and use the shared MCP server.

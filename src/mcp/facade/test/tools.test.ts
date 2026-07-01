@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { writeConfig } from "../../../config/load.js";
-import { defaultConfig } from "../../../config/schema.js";
+import { type Config, defaultConfig } from "../../../config/schema.js";
 import type { RuntimeRunResult } from "../../../core/graph/runtime.js";
 import type { Artifact } from "../../../core/schemas/artifact.js";
 import type { FlowDefinition } from "../../../core/schemas/flow-definition.js";
@@ -15,9 +15,9 @@ import { FACADE_TOOL_NAMES, type FacadeRuntime, registerFacadeTools } from "../t
 
 const makeRegistry = (): ToolRegistry => ({ tools: [] as Tool[], handlers: new Map() });
 
-const makeCtx = (): ToolContext => ({
+const makeCtx = (config: Config | null = null): ToolContext => ({
   root: "/tmp/kotikit-facade-test",
-  loadConfig: async () => null,
+  loadConfig: async () => config,
 });
 
 const tmpDirs: string[] = [];
@@ -144,7 +144,7 @@ describe("MCP facade tools", () => {
     const names = registry.tools.map((tool) => tool.name);
 
     expect(names.slice(0, FACADE_TOOL_NAMES.length)).toEqual([...FACADE_TOOL_NAMES]);
-    expect(names).toContain("kotikit_workflow_start");
+    expect(names).not.toContain("kotikit_workflow_start");
     expect(names.filter((name) => name === "kotikit_doctor")).toHaveLength(1);
   });
 
@@ -226,12 +226,88 @@ describe("MCP facade tools", () => {
     const applyTool = registry.tools.find((tool) => tool.name === "kotikit_record_figma_apply");
     const reviewTool = registry.tools.find((tool) => tool.name === "kotikit_review_figma_target");
 
-    expect(applyTool?.inputSchema.required).toEqual(["scope", "stepIndex", "outcome"]);
+    expect(applyTool?.inputSchema.required).toEqual(["runId", "scope", "stepIndex", "outcome"]);
     expect(applyTool?.inputSchema.properties).toHaveProperty("figmaNodeId");
     expect(applyTool?.inputSchema.properties).toHaveProperty("runId");
     expect(reviewTool?.inputSchema.properties).toHaveProperty("figmaUrl");
     expect(reviewTool?.inputSchema.properties).toHaveProperty("fileKey");
     expect(reviewTool?.inputSchema.properties).toHaveProperty("nodeId");
+  });
+
+  it("starts graph review flows without compatibility review handlers", async () => {
+    const config = { ...defaultConfig(), figma: { ...defaultConfig().figma, token: "figd_test" } };
+    const runtime = {
+      ...makeRuntime(),
+      async startFlow(input): Promise<RuntimeRunResult> {
+        expect(input).toMatchObject({
+          flowId: "improve-existing-design",
+          input: {
+            project: { root: "/tmp/kotikit-facade-test" },
+            review: {
+              target: {
+                source: "figma",
+                fileKey: "FILE",
+                nodeId: "1:2",
+                targetKind: "frame",
+                targetName: "Members",
+                figmaUrl: "https://www.figma.com/design/FILE/review?node-id=1-2",
+              },
+              evidence: {
+                tokenBudget: { maxRegions: 2, returnedRegions: 2, truncatedRegions: 1 },
+                targetSummary: { nodeId: "1:2", name: "Members", type: "FRAME" },
+                regions: [
+                  { nodeId: "1:3", name: "Header", type: "FRAME" },
+                  { nodeId: "1:4", name: "Table", type: "INSTANCE" },
+                ],
+              },
+              brief: {
+                strictness: "standard",
+              },
+            },
+          },
+        });
+        return {
+          runId: "review-run",
+          status: "waiting-for-user",
+          state: {
+            ...makeState("waiting-for-user"),
+            runId: "review-run",
+            flowId: "improve-existing-design",
+          },
+        };
+      },
+    } satisfies FacadeRuntime;
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx(config), {
+      runtime,
+      figmaReviewClientFactory: () => ({
+        getNodes: async () => ({
+          "1:2": {
+            document: {
+              id: "1:2",
+              name: "Members",
+              type: "FRAME",
+              children: [
+                { id: "1:3", name: "Header", type: "FRAME" },
+                { id: "1:4", name: "Table", type: "INSTANCE" },
+                { id: "1:5", name: "Footer", type: "FRAME" },
+              ],
+            },
+          },
+        }),
+      }),
+    });
+
+    const result = await callTool(registry, "kotikit_review_figma_target", {
+      figmaUrl: "https://www.figma.com/design/FILE/App?node-id=1-2",
+      strictness: "standard",
+      maxRegions: 2,
+    });
+    const detail = detailOf<{ runId: string; status: string }>(result.content[0]?.text ?? "");
+
+    expect(result.isError).toBeFalsy();
+    expect(detail.runId).toBe("review-run");
+    expect(detail.status).toBe("waiting-for-user");
   });
 
   it("advertises required nested project root for kotikit_start", () => {

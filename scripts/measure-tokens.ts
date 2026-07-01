@@ -7,8 +7,8 @@
  *
  * Prints a TSV table:
  *   tool                                            bytes   ~tokens
- *   kotikit_spec_list                                 412       108
- *   kotikit_design_get_screen                        1234       325
+ *   kotikit_flow_list                                 412       108
+ *   kotikit_start                                    1234       325
  *   ...
  *
  * Re-run after changing tool payloads. Paste the output into docs/TOKENS.md.
@@ -17,47 +17,15 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import simpleGit from "simple-git";
-import { loadConfig, writeConfig } from "../src/config/load.js";
+import { writeConfig } from "../src/config/load.js";
 import { defaultConfig } from "../src/config/schema.js";
 import { initComponentsDb, upsertComponent } from "../src/db/components-db.js";
 import { openDb } from "../src/db/sqlite.js";
-import type { ToolContext } from "../src/mcp/context.js";
-import type { ToolRegistry } from "../src/mcp/server.js";
-import { registerBrainstormTools } from "../src/mcp/tools/brainstorm.js";
-import { registerConfigTools } from "../src/mcp/tools/config.js";
-import { registerDesignApplyTools } from "../src/mcp/tools/design-apply.js";
-import { registerDesignScreenTools } from "../src/mcp/tools/design-screen.js";
-import { registerDsSearchTools } from "../src/mcp/tools/ds-search.js";
-import { registerFlowTools } from "../src/mcp/tools/flow.js";
-import { registerIconsSearchTools } from "../src/mcp/tools/icons-search.js";
-import { registerPlanDesignTools } from "../src/mcp/tools/plan-design.js";
-import { registerSpecTools } from "../src/mcp/tools/spec.js";
-import { registerSystemPromptTools } from "../src/mcp/tools/system-prompt.js";
-import { registerWorkflowTools } from "../src/mcp/tools/workflow.js";
+import { buildServer, type ToolRegistry } from "../src/mcp/server.js";
 import { componentsDbPath } from "../src/util/paths.js";
 
 type ToolResult = { content: { type: "text"; text: string }[]; isError?: boolean };
-
-function buildRegistry(root: string): ToolRegistry {
-  const tools: Tool[] = [];
-  const handlers = new Map<string, (args: unknown) => Promise<ToolResult>>();
-  const registry: ToolRegistry = { tools, handlers };
-  const ctx: ToolContext = { root, loadConfig: () => loadConfig(root) };
-  registerConfigTools(registry, ctx);
-  registerSpecTools(registry, ctx);
-  registerFlowTools(registry, ctx);
-  registerBrainstormTools(registry, ctx);
-  registerDsSearchTools(registry, ctx);
-  registerIconsSearchTools(registry, ctx);
-  registerPlanDesignTools(registry, ctx);
-  registerDesignScreenTools(registry, ctx);
-  registerDesignApplyTools(registry, ctx);
-  registerSystemPromptTools(registry, ctx);
-  registerWorkflowTools(registry, ctx);
-  return registry;
-}
 
 async function callTool(registry: ToolRegistry, name: string, args: unknown): Promise<ToolResult> {
   const handler = registry.handlers.get(name);
@@ -118,32 +86,6 @@ async function setupFixture(): Promise<string> {
     seedDsComponent(root, name, ["Variant", "Size"]);
   }
 
-  // Seed a single-screen spec via spec_create through the tool
-  const registry = buildRegistry(root);
-  await callTool(registry, "kotikit_spec_create", {
-    allowUnguided: true,
-    draft: {
-      scope: "profile-page",
-      screen: {
-        slug: "profile",
-        title: "Profile Page",
-        description: "User profile screen.",
-        functional: ["Display name and avatar"],
-        states: {
-          default: "Shown",
-          loading: "Spinner",
-          empty: "No data",
-          error: "Error",
-          filled: "Full data",
-        },
-        components: [{ name: "Button" }, { name: "Card" }],
-        acceptanceCriteria: ["renders", "edit button works"],
-      },
-    },
-  });
-  // Design plan for design_get_screen measurement
-  await callTool(registry, "kotikit_plan_design", { scope: "profile-page" });
-
   return root;
 }
 
@@ -175,53 +117,30 @@ async function measure(
 
 async function main(): Promise<void> {
   const root = await setupFixture();
-  const registry = buildRegistry(root);
+  const registry = buildServer({ root }).registry;
 
   const rows: Row[] = [];
 
-  // Phase 1
   rows.push(await measure(registry, "kotikit_config_status", {}));
   rows.push(await measure(registry, "kotikit_config_get", {}));
-  rows.push(
-    await measure(
-      registry,
-      "kotikit_workflow_start",
-      { intent: "create-design", scope: "profile-page" },
-      "kotikit_workflow_start (create-design)"
-    )
-  );
-  rows.push(await measure(registry, "kotikit_workflow_next", {}));
-  rows.push(
-    await measure(
-      registry,
-      "kotikit_workflow_event",
-      { event: "tool-completed", summary: "Measured compact workflow state." },
-      "kotikit_workflow_event (latest summary)"
-    )
-  );
-  rows.push(await measure(registry, "kotikit_spec_list", {}));
-  rows.push(await measure(registry, "kotikit_spec_get", { scope: "profile-page" }));
-  rows.push(
-    await measure(
-      registry,
-      "kotikit_brainstorm_start",
-      { idea: "a profile page" },
-      "kotikit_brainstorm_start (Phase 6 ref)"
-    )
-  );
+  rows.push(await measure(registry, "kotikit_flow_list", {}));
+  rows.push(await measure(registry, "kotikit_flow_validate", { flowId: "create-screen" }));
 
-  // Phase 2
+  const start = await measure(
+    registry,
+    "kotikit_start",
+    { flowId: "create-screen", input: { userIntent: "Create a profile page." } },
+    "kotikit_start (create-screen)"
+  );
+  rows.push(start);
+  rows.push(await measure(registry, "kotikit_list_artifacts", {}, "kotikit_list_artifacts (all)"));
+  rows.push(await measure(registry, "kotikit_doctor", {}));
   rows.push(await measure(registry, "kotikit_ds_search", { query: "but*" }));
+  rows.push(await measure(registry, "kotikit_search_design_system", { query: "but*" }));
   rows.push(await measure(registry, "kotikit_icons_search", { query: "arrow*" }));
   rows.push(
     await measure(registry, "kotikit_ds_get_component", { path: "components/button.json" })
   );
-
-  // Phase 3
-  rows.push(await measure(registry, "kotikit_plan_design", { scope: "profile-page" }));
-  rows.push(await measure(registry, "kotikit_design_get_screen", { scope: "profile-page" }));
-
-  // Phase 4
   rows.push(await measure(registry, "kotikit_get_system_prompt", { kind: "brainstorm" }));
 
   // Print table

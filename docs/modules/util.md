@@ -12,14 +12,11 @@ Core kotikit state:
 - `KOTIKIT_DIR` — the string `".kotikit"`, used when constructing paths manually
 - `configPath(root)` — `.kotikit/config.json`
 - `indexPath(root)` — `.kotikit/index.json`
-- `brainstormSessionsDir(root)` — `.kotikit/brainstorms`
-- `brainstormSessionPath(root, sessionId)` — `.kotikit/brainstorms/<sessionId>.json`
 - `scopeDir(root, scope)` — `.kotikit/specs/<scope>/`
 - `screenSpecPath(root, scope, screenSlug)` — `.kotikit/specs/<scope>/<slug>.spec.json`
 - `singleSpecPath(root, scope)` — `.kotikit/specs/<scope>/spec.json`
 - `flowManifestPath(root, scope)` — `.kotikit/specs/<scope>/flow.json`
 - `designPlanPath(root, scope, screen | null)` — `.kotikit/specs/<scope>/<screen>.design.plan.json`
-- `componentPlanPath(root, scope, screen | null)` — `.kotikit/specs/<scope>/<screen>.component.plan.json`
 - `designApplyLogPath(root, scope, screen | null)` — `.kotikit/specs/<scope>/<screen>.design.apply.log`
 - `designNodeMapPath(root, scope, screen | null)` — `.kotikit/specs/<scope>/<screen>.design.node-map.json`
 - `bridgeConfigPath(root)` — `.kotikit/bridge.json`
@@ -74,7 +71,8 @@ All path helpers are pure functions that take `root` as their first argument and
 - [config](./config.md) — uses `configPath` and `findProjectRoot`
 - [spec](./spec.md) — uses `scopeDir`, `screenSpecPath`, `singleSpecPath`, `flowManifestPath`, `indexPath`
 - [sync](./sync.md) — uses all `design-system/` path helpers and `checkpointPath`
-- [planning](./planning.md) — uses `designPlanPath`, `componentPlanPath`, `designApplyLogPath`
+- [planning](./planning.md) — uses `designPlanPath`, `designApplyLogPath`,
+  and `designNodeMapPath`
 - [db](./db.md) — uses `componentsDbPath`, `iconsDbPath`, `designReviewDbPath`
 - [mcp](./mcp.md) — uses `findProjectRoot`, `bridgeConfigPath`
 - [git](./git.md) — uses `KotikitError` (re-exported from result)

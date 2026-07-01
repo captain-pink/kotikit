@@ -61,29 +61,34 @@ describe("scaffoldAgents", () => {
     expect(skill).toContain("This skill assumes the kotikit MCP server is configured");
     expect(skill).toContain("kotikit_config_status");
     expect(skill).toContain("kotikit_config_init");
+    expect(skill).toContain("kotikit_start");
+    expect(skill).toContain("kotikit_answer");
+    expect(skill).toContain("kotikit_get_artifact");
     expect(skill).toContain("Claude Code");
     expect(skill).toContain("Codex");
     expect(skill).toContain("Do not generate code or scaffold code components");
     expect(skill).toContain("Design-to-code is not part");
-    expect(skill).toContain("Create or refine the Figma design");
-    expect(skill).toContain("kotikit_brainstorm_answer");
-    expect(skill).toContain("kotikit_brainstorm_confirm");
-    expect(skill).toContain("brainstormSessionId");
+    expect(skill).toContain("create or refine the Figma design");
     expect(skill).toContain("target workspace");
     expect(skill).not.toContain("target React project");
     expect(skill).not.toContain("their-react-project");
     expect(skill).not.toContain("Framework. Default to React");
     expect(skill).not.toContain("Generate code");
+    expect(skill).not.toContain("kotikit_workflow_");
+    expect(skill).not.toContain("kotikit_brainstorm_");
+    expect(skill).not.toContain("kotikit_spec_");
     expect(skill).not.toContain("../../../docs");
     expect(skill).not.toContain("docs/agent_workflow");
   });
 
   it("ships a portable focused kotikit design-review skill", () => {
     const skill = currentKotikitSkill("kotikit-design-review");
-    expect(skill).toContain("kotikit_design_review_start");
-    expect(skill).toContain("kotikit_design_review_record");
-    expect(skill).toContain("confirm: true");
+    expect(skill).toContain("kotikit_review_figma_target");
+    expect(skill).toContain("kotikit_get_artifact");
+    expect(skill).toContain("explicit designer approval");
     expect(skill).toContain("Design Director");
+    expect(skill).not.toContain("kotikit_workflow_");
+    expect(skill).not.toContain("kotikit_design_review_start");
     expect(skill).not.toContain("../../../docs");
   });
 

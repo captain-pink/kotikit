@@ -23,20 +23,22 @@ describe("KOTIKIT_MCP_INSTRUCTIONS", () => {
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("never load whole indexes");
   });
 
-  it("requires real brainstorm answers before saving guided specs", () => {
-    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit_brainstorm_answer");
-    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit_brainstorm_confirm");
-    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("brainstormSessionId");
-    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("Do not pass allowUnguided");
+  it("keeps guided work on graph flows instead of removed choreography tools", () => {
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit_start");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit_answer");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("real designer input");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).not.toContain("kotikit_workflow_");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).not.toContain("kotikit_brainstorm_");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).not.toContain("kotikit_spec_");
   });
 
   it("tells agents to ask before planning missing components", () => {
-    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit_component_plan_create");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("missing-component strategy");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("explicit designer approval");
   });
 
   it("requires a bound draft page before Figma design application", () => {
-    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit_figma_target_bind");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit_bind_figma_target");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("page name must contain Draft or Drafts");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit-owned Section");
   });
@@ -45,6 +47,7 @@ describe("KOTIKIT_MCP_INSTRUCTIONS", () => {
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("official Figma MCP");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("use_figma");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("generate_figma_design");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit_get_artifact");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit_record_figma_apply");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("local kotikit plugin only for variable export");
     expect(KOTIKIT_MCP_INSTRUCTIONS).not.toContain("then call kotikit_design_apply_step");

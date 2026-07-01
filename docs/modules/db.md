@@ -66,7 +66,7 @@ evidence can become a preference candidate. Standalone design-quality reviews
 store a bounded target evidence bundle, structured findings, and root-comment
 outbox rows only after the user approves posting. Only promoted
 `design_preferences` are fed back into design context by
-`kotikit_design_get_screen`.
+graph design context.
 
 The DB sets `PRAGMA user_version = 2` on open. The target cache is deliberately
 defensive: rows carry a cache schema version, source fingerprint, and expiry.

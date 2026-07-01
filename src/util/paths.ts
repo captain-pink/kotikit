@@ -27,11 +27,6 @@ export const configPath = (root: string): string => `${root}/.kotikit/config.jso
 
 export const indexPath = (root: string): string => `${root}/.kotikit/index.json`;
 
-export const brainstormSessionsDir = (root: string): string => `${root}/.kotikit/brainstorms`;
-
-export const brainstormSessionPath = (root: string, sessionId: string): string =>
-  `${brainstormSessionsDir(root)}/${sessionId}.json`;
-
 export const scopeDir = (root: string, scope: string): string => `${root}/.kotikit/specs/${scope}`;
 
 export const screenSpecPath = (root: string, scope: string, screenSlug: string): string =>
@@ -48,12 +43,6 @@ export const flowManifestPath = (root: string, scope: string): string =>
  *  Multi-screen → <screen>.design.plan.json. */
 export const designPlanPath = (root: string, scope: string, screen: string | null): string => {
   const name = screen ? `${screen}.design.plan.json` : "design.plan.json";
-  return `${root}/.kotikit/specs/${scope}/${name}`;
-};
-
-/** Path to the component-creation plan that must be completed before a screen can proceed. */
-export const componentPlanPath = (root: string, scope: string, screen: string | null): string => {
-  const name = screen ? `${screen}.component.plan.json` : "component.plan.json";
   return `${root}/.kotikit/specs/${scope}/${name}`;
 };
 

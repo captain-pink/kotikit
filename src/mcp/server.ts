@@ -33,24 +33,13 @@ import { getFacadePrompt, listFacadePrompts } from "./facade/prompts.js";
 import { listFacadeResourceTemplates, readFacadeResource } from "./facade/resources.js";
 import { type FacadeRuntime, registerFacadeTools } from "./facade/tools.js";
 import { KOTIKIT_MCP_INSTRUCTIONS } from "./instructions.js";
-import { registerBrainstormTools } from "./tools/brainstorm.js";
 import { registerBridgeTools } from "./tools/bridge.js";
-import { registerComponentPlanTools } from "./tools/component-plan.js";
 import { registerConfigTools } from "./tools/config.js";
-import { registerDesignApplyTools } from "./tools/design-apply.js";
-import { registerDesignCommentTools } from "./tools/design-comments.js";
-import { registerDesignReviewTools } from "./tools/design-review.js";
-import { registerDesignScreenTools } from "./tools/design-screen.js";
 import { registerDsSearchTools } from "./tools/ds-search.js";
-import { registerFigmaTargetTools } from "./tools/figma-target.js";
-import { registerFlowTools } from "./tools/flow.js";
 import { registerIconsSearchTools } from "./tools/icons-search.js";
-import { registerPlanDesignTools } from "./tools/plan-design.js";
 import { registerPluginVariableTools } from "./tools/plugin-variables.js";
-import { registerSpecTools } from "./tools/spec.js";
 import { registerSyncTools } from "./tools/sync.js";
 import { registerSystemPromptTools } from "./tools/system-prompt.js";
-import { registerWorkflowTools } from "./tools/workflow.js";
 
 /** The return type every tool handler must produce. */
 type ToolResult = {
@@ -114,24 +103,13 @@ export function buildServer(options: { root?: string } = {}): {
   const runtime = createServerGraphRuntime(root, loadFlows);
 
   registerFacadeTools(registry, ctx, { runtime, loadFlows });
-  registerSpecTools(registry, ctx);
   registerConfigTools(registry, ctx);
-  registerFlowTools(registry, ctx);
-  registerBrainstormTools(registry, ctx);
   registerDsSearchTools(registry, ctx);
   registerIconsSearchTools(registry, ctx);
   registerSyncTools(registry, ctx);
-  registerComponentPlanTools(registry, ctx);
-  registerFigmaTargetTools(registry, ctx);
-  registerPlanDesignTools(registry, ctx);
-  registerDesignScreenTools(registry, ctx);
-  registerDesignApplyTools(registry, ctx);
-  registerDesignCommentTools(registry, ctx);
-  registerDesignReviewTools(registry, ctx);
   registerSystemPromptTools(registry, ctx);
   registerPluginVariableTools(registry, ctx);
   registerBridgeTools(registry, ctx);
-  registerWorkflowTools(registry, ctx);
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
 

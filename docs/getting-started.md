@@ -15,7 +15,7 @@ Codex, or another MCP-capable assistant can call the `kotikit_*` MCP tools.
 - A Professional, Organization, or Enterprise Figma account is recommended.
   Free/Starter accounts can hit very low API limits during design-system sync.
 - A Figma personal access token with file read access if you want local
-  design-system sync or REST-backed comment review.
+  design-system sync or REST-backed design/comment review.
 - A published Figma design-system library if you want kotikit to compose new
   drafts from real components.
 - A target workspace/project folder where kotikit can write `.kotikit/`,
@@ -117,15 +117,16 @@ This assistant integration is not the same as the kotikit local Figma plugin:
 Figma personal access token is not required for draft creation when your
 assistant is connected through Figma's remote MCP integration. Create a token
 only when you want kotikit to sync a local design-system index or use
-REST-backed comment review, then put it in the target workspace `.env` file:
+REST-backed design/comment review, then put it in the target workspace `.env`
+file:
 
 ```env
 FIGMA_TOKEN=figd_...your_token_here...
 ```
 
-For design-system sync, file read access is required. For posting review
-comments through REST, `file_comments:write` is required. Comment review needs
-`file_comments:read`.
+For design-system sync and design review evidence, file read access is
+required. For posting review comments through REST, `file_comments:write` is
+required. Comment review needs `file_comments:read`.
 
 For best results, sync a published Figma library rather than an unpublished
 draft file. kotikit may inspect some draft-file data, but Figma drafts can only

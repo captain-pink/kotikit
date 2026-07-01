@@ -1,7 +1,7 @@
 import { KotikitError, toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
-import { BRAINSTORM_SYSTEM_PROMPT } from "./brainstorm.js";
+import { BRAINSTORM_SYSTEM_PROMPT } from "../system-prompts.js";
 
 type SystemPromptKind = "brainstorm";
 

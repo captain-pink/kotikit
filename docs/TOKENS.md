@@ -39,14 +39,13 @@ an agent can accidentally load:
 
 kotikit reduces that risk by keeping long doctrines behind
 `kotikit_get_system_prompt`, returning refs before details where possible,
-using SQLite search instead of dumping indexes, storing only compact workflow
-state instead of replaying history, and paginating expensive responses.
+using SQLite search instead of dumping indexes, storing graph checkpoints and
+artifacts instead of replaying chat history, and paginating expensive responses.
 
 ## Current Measurements
 
 Run `bun run measure` from the repo root to regenerate this table. It builds a
-small deterministic fixture project with three design-system components and one
-single-screen spec.
+small deterministic fixture project with three design-system components.
 
 Token estimate = bytes / 3.8. Real tokenizer output varies by model and MCP
 client, so treat these numbers as regression signals, not exact billing data.
@@ -54,24 +53,17 @@ client, so treat these numbers as regression signals, not exact billing data.
 | tool | bytes | ~tokens |
 | --- | ---: | ---: |
 | `kotikit_config_status` | 210 | 55 |
-| `kotikit_config_get` | 479 | 126 |
-| `kotikit_workflow_start` create-design | 2,041 | 537 |
-| `kotikit_workflow_next` | 2,036 | 536 |
-| `kotikit_workflow_event` latest summary | 2,226 | 586 |
-| `kotikit_spec_list` | 133 | 35 |
-| `kotikit_spec_get` | 1,043 | 274 |
-| `kotikit_brainstorm_start` | 1,442 | 379 |
+| `kotikit_config_get` | 607 | 160 |
+| `kotikit_flow_list` | 3,794 | 998 |
+| `kotikit_flow_validate` | 799 | 210 |
+| `kotikit_start` create-screen | 713 | 188 |
+| `kotikit_list_artifacts` all | 86 | 23 |
+| `kotikit_doctor` | 2,029 | 534 |
 | `kotikit_ds_search` | 247 | 65 |
+| `kotikit_search_design_system` | 247 | 65 |
 | `kotikit_icons_search` | 138 | 36 |
 | `kotikit_ds_get_component` | 599 | 158 |
-| `kotikit_plan_design` blocked fixture response | 217 | 57 |
-| `kotikit_design_get_screen` blocked fixture response | 136 | 36 |
-| `kotikit_get_system_prompt` brainstorm | 2,532 | 666 |
-
-The design-plan rows are intentionally labeled as blocked fixture responses.
-The measurement fixture does not bind a real Figma draft target, so those rows
-verify that blocked responses stay small rather than measuring a full happy
-path design payload.
+| `kotikit_get_system_prompt` brainstorm | 2,549 | 671 |
 
 ## What To Watch
 
@@ -79,10 +71,8 @@ path design payload.
   `kotikit_icons_search` are the expected first step before exact detail reads.
 - `kotikit_get_system_prompt` is a one-time session cost per prompt kind. Do
   not inline long doctrines into every tool response.
-- `kotikit_workflow_start`, `kotikit_workflow_next`, and
-  `kotikit_workflow_event` should stay compact. They are the preferred way for
-  agents to resume because they return the current phase and next allowed
-  tools, not the full history of the task.
+- Graph facade outputs should stay compact. Runs should return ids, pending
+  questions, artifact refs, and errors, not the full graph manifest or history.
 - Local variable bridge responses do not normally enter the assistant context.
   Optimize bridge payloads for latency and plugin reliability first, then
   context size.
@@ -112,6 +102,5 @@ smaller default shape.
 ## Related Docs
 
 - [tools.md](tools.md) - tool reference and approximate response sizes.
-- [agent_workflow.md](agent_workflow.md) - shared agent workflow discipline.
 - [coding_guidelines.md](coding_guidelines.md) - context and performance rules
   for implementation work.

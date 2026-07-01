@@ -64,6 +64,30 @@ describe("dead-code tooling config", () => {
   });
 });
 
+describe("token measurement tooling", () => {
+  it("does not measure removed public choreography tools", () => {
+    const script = readText(join(repoRoot, "scripts", "measure-tokens.ts"));
+    const removedToolFragments = [
+      "kotikit_workflow_",
+      "kotikit_brainstorm_",
+      "kotikit_spec_",
+      "kotikit_flow_create",
+      "kotikit_component_plan_create",
+      "kotikit_figma_target_bind",
+      "kotikit_plan_design",
+      "kotikit_design_get_screen",
+      "kotikit_design_apply_step",
+      "kotikit_design_review_",
+      "kotikit_design_comment_",
+      "kotikit_design_memory_",
+    ];
+
+    for (const fragment of removedToolFragments) {
+      expect(script).not.toContain(fragment);
+    }
+  });
+});
+
 describe("git hook tooling config", () => {
   it("runs staged-file checks and typecheck before commits", () => {
     const preCommit = readText(join(repoRoot, ".husky", "pre-commit"));

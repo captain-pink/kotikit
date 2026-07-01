@@ -2,12 +2,12 @@
 
 ## What it does
 
-The planning module manages regenerable plans that guide an agent through
-component decisions and Figma design application. It owns two plan tracks: the
-component track that records how missing design-system components should be
-resolved, and the design track that describes how to build a screen in Figma
-through the official Figma MCP integration. Plans are written next to their spec
-files inside `.kotikit/specs/<scope>/` and can be regenerated if needed.
+The planning module manages regenerable plans and mapping helpers that guide an
+agent through Figma design application, review evidence, and comment mapping.
+Missing design-system components now move through graph `draftComponentPlan`
+state and artifacts instead of the old standalone component-plan JSON files.
+Disposable design plans are written next to their spec files inside
+`.kotikit/specs/<scope>/` and can be regenerated if needed.
 
 Design-to-code plans are not part of the core planning module.
 
@@ -24,19 +24,8 @@ Design-to-code plans are not part of the core planning module.
 - `readDesignPlan(root, scope, screen | null)` — async; returns `DesignPlan | null`
 - `deleteDesignPlan(root, scope, screen | null)` — async
 
-**Component plans** (`src/planning/component-plan-schema.ts`, `src/planning/component-plan-store.ts`, `src/planning/component-planner.ts`)
-- `ComponentPlan`, `ComponentPlanSchema` — the decision artifact for missing components (version, scope, screen, target, mode, literalFallbackAllowed, requiresHumanReview, steps, createdAt)
-- `ComponentPlanMode` — `"create-draft-components" | "inline-draft"`
-- `ComponentPlanStep` — either `"create-draft-component"` with a `componentSpecRef`, or `"create-inline-draft"` for page-only pieces
-- `ComponentTokenRef` — compact references to existing variables or styles the component decision should use; literals are recorded only after explicit designer approval
-- `parseComponentPlan(raw)` — validates raw JSON, throws `KotikitError` on failure
-- `generateComponentPlan(opts)` — pure; finds unresolved spec components, enforces variable policy, writes the selected component resolution back into the returned spec
-- `writeComponentPlan(root, scope, screen | null, plan)` — async
-- `readComponentPlan(root, scope, screen | null)` — async; returns `ComponentPlan | null`
-- `deleteComponentPlan(root, scope, screen | null)` — async
-
 **Design node maps, review evidence, comments, and preferences** (`src/planning/design-node-map.ts`, `src/planning/design-review.ts`, `src/planning/design-comments.ts`, `src/db/design-review-db.ts`)
-- `DesignNodeMap` — persisted per-screen Figma node map written by `kotikit_design_apply_step` when the official Figma apply path reports node metadata
+- `DesignNodeMap` — persisted per-screen Figma node map written when graph apply metadata records official Figma node metadata
 - `readDesignNodeMap(root, scope, screen | null)` — async; returns `DesignNodeMap | null`
 - `upsertDesignNodeMapEntry(root, scope, screen | null, update)` — async; merges a step's latest target node metadata into the map
 - `collectDesignReviewEvidence(input)` — fetches bounded depth-1 Figma target evidence, limits returned child regions, records a versioned cache row, and returns a temporary screenshot URL when available
@@ -45,32 +34,27 @@ Design-to-code plans are not part of the core planning module.
 
 ## How it works
 
-All plan tracks follow the same lifecycle: an MCP tool generates and writes the
-plan, another tool reads and returns it to the agent, and the agent executes the
-steps through component review or the official Figma apply path. Plans are
-always regenerable from the spec they reference. Design plans are disposable
-work queues; component plans also act as compact decision records because they
-update the spec's component resolution metadata.
+Design plans are disposable work queues generated from the spec they reference.
+Graph flows expose the current planning state as artifacts, then the agent
+executes Figma work through the official Figma MCP path and records results
+through graph apply metadata.
 
-The design plan's steps use a discriminated union on `kind`. Each step kind carries exactly the fields the corresponding Figma operation needs: `define-state-frame` carries dimensions; `apply-auto-layout` carries direction, padding, and spacing; `define-layout-zone` creates a semantic auto-layout container; `place-component` carries the component name, DS key, variant overrides, semantic role, and target zone; `bind-variable` carries the variable name and the CSS property to bind it to. The agent reads the apply packet, executes the work through the official Figma MCP integration, and records the result through `kotikit_design_apply_step`.
+The design plan's steps use a discriminated union on `kind`. Each step kind carries exactly the fields the corresponding Figma operation needs: `define-state-frame` carries dimensions; `apply-auto-layout` carries direction, padding, and spacing; `define-layout-zone` creates a semantic auto-layout container; `place-component` carries the component name, DS key, variant overrides, semantic role, and target zone; `bind-variable` carries the variable name and the CSS property to bind it to. The agent reads the apply packet, executes the work through the official Figma MCP integration, and records the result through graph apply metadata.
 
-Every design plan must include a bound `FigmaDraftTarget`. The target is written to the screen spec or flow manifest by `kotikit_figma_target_bind` after validating the designer-provided page URL. `generateDesignPlan` copies that target into the disposable plan so the agent can verify the official Figma write target, switch to the exact draft page, and create or reuse a Section named `kotikit / <scope> / <screen> / <date>`. All generated frames are parented to that Section, and apply-step logging rejects nodes reported from a different file, page, or Section. This gives Professional-plan teams a branch-free safety boundary for production files.
+Every design plan must include a bound `FigmaDraftTarget`. Graph target nodes validate the designer-provided page URL before draft planning begins. `generateDesignPlan` copies that target into the disposable plan so the agent can verify the official Figma write target, switch to the exact draft page, and create or reuse a Section named `kotikit / <scope> / <screen> / <date>`. All generated frames are parented to that Section, and graph apply metadata rejects nodes reported from a different file, page, or Section. This gives Professional-plan teams a branch-free safety boundary for production files.
 
-The component plan sits before design application. When `kotikit_design_get_screen`
-finds a component that is not in the synced design system, agents must ask the
-designer whether to create reusable draft components or build the pieces inline
-in the current page only. `generateComponentPlan` records that decision in the
-screen spec so later tools do not guess. If synced variables are available, the
-plan captures variable/style references for color and spacing intent. If no
-usable variables exist, the planner blocks with a plugin-sync hint unless the
-designer explicitly approved literal draft values. Kotikit does not create new
-variables in this flow.
+Missing component decisions happen inside graph nodes. When local
+design-system search cannot resolve a needed part, the graph asks the designer
+whether to create reusable draft components or use an approved primitive
+exception, stores that decision in `draftComponentPlan`, and blocks literal
+values unless the designer explicitly approves them. Kotikit does not create
+new variables in this flow.
 
 Design layout is intentionally generic. `generateDesignPlan` does not know about MUI, shadcn, Ant, or a copied local kit. It reads `spec.components[]`, resolves each component to a broad role such as `primary-action`, `search-input`, `filter-control`, `data-display`, `binary-control`, or `destructive-action`, and maps the role to a stable zone such as `header-actions`, `controls`, `content`, `content-toggles`, or `content-actions`. The official Figma apply path then creates those zones with Figma auto-layout and appends imported component instances into the assigned zone. This prevents common failures where unrelated controls, tables, buttons, and switches are all placed into a single stack, while keeping design-system-specific names and variants outside the core planner.
 
 The apply packet tells the assistant to inspect parent sizing through the
 official Figma integration before placing zone frames, then report the created
-node IDs back through `kotikit_design_apply_step`. This is still a layout
+node IDs back through graph apply metadata. This is still a layout
 scaffold, not a visual QA engine: later review/gate passes should check
 overlap, clipping, minimum target size, and responsive state quality.
 
@@ -79,22 +63,34 @@ append-only trail. The optional `design.node-map.json` is a compact, validated
 map from design-plan steps to Figma node IDs. The map also stores the bound
 target, page, and Section metadata so future comment review and refinements can
 prove they are operating inside the approved draft area.
-`kotikit_design_review_comments` uses that map with Figma comment
+Graph review and comment flows use that map with Figma comment
 `client_meta.node_id` values to tell the agent which planned component or frame
 a review comment targets. Comments without node IDs, or comments whose node IDs
 are outside the map, are returned as unmapped rather than inferred from text.
 
-Review results and refinements live in `.kotikit/design-review.db`. Agents record micro-adjustments through `kotikit_design_adjustment_record` instead of expanding specs or prompts with verbose change history. Standalone design-quality reviews start with `kotikit_design_review_start`, which gathers screenshot-led, shallow, bounded Figma evidence instead of loading a whole file tree. The reviewing agent records structured findings with `kotikit_design_review_record`; Figma comments are prepared and posted only after user approval. Repeated feedback can become a design memory candidate; promoted preferences are returned by `kotikit_design_get_screen` as `designPreferences` so future design passes can apply project taste before the same comment appears again.
+Review results and refinements live in `.kotikit/design-review.db`. Graph review
+nodes record micro-adjustments instead of expanding specs or prompts with
+verbose change history. Standalone design-quality reviews gather screenshot-led,
+shallow, bounded Figma evidence instead of loading a whole file tree. Figma
+comments are prepared and posted only after user approval. Repeated feedback can
+become a design memory candidate; promoted preferences are returned by graph
+memory nodes so future design passes can apply project taste before the same
+comment appears again.
 
 ## When to extend it
 
-- Adding a new design step kind (e.g. `"export-asset"`) — add a new variant to `DesignPlanStepSchema` as a discriminated union member with its own Zod schema, then update the official Figma apply guidance and `kotikit_design_apply_step` schema. Keep file/page/Section validation transport-level; individual step handlers should not decide whether a Figma page is safe.
+- Adding a new design step kind (e.g. `"export-asset"`) — add a new variant to `DesignPlanStepSchema` as a discriminated union member with its own Zod schema, then update the official Figma apply guidance and graph apply metadata schema. Keep file/page/Section validation transport-level; individual step handlers should not decide whether a Figma page is safe.
 - Adding a new generic layout role or zone — update `layout-contract.ts`, add planner tests with minimized specs, extend `DesignPlanSchema` enums, and keep the apply guidance semantic rather than design-system-specific.
-- Adding component creation execution — extend the component plan schema only if the existing reusable/inline split cannot describe the new action, then update the official Figma apply flow to consume component plans and keep human review as the completion gate.
+- Adding component creation execution — extend the graph
+  `draftComponentPlan` artifact only if the existing reusable/inline split
+  cannot describe the new action, then update the official Figma apply flow and
+  keep human review as the completion gate.
 - Persisting plan history instead of replacing plans — add an archive move to a `.kotikit/history/` directory; the reader interface stays the same.
 
 ## Related
 
 - [spec](./spec.md) — plans reference specs by scope and screen slug; `ScreenSpec` is the primary input to both generators
-- [util](./util.md) — `designPlanPath`, `componentPlanPath`, and `designNodeMapPath` live here
-- [mcp](./mcp.md) — `kotikit_component_plan_create`, `kotikit_plan_design`, `kotikit_design_apply_step`, and the design review/comment/memory tools are the tool wrappers
+- [util](./util.md) — `designPlanPath`, `designApplyLogPath`, and
+  `designNodeMapPath` live here
+- [mcp](./mcp.md) — graph facade tools expose planning, review, and memory
+  outputs as artifacts instead of public choreography wrappers

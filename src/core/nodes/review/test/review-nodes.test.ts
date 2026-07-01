@@ -62,9 +62,8 @@ describe("review graph nodes", () => {
     });
   });
 
-  it("uses pre-collected review evidence and prepares screen queries for local design-system search", async () => {
+  it("uses pre-collected review evidence without requiring a bound Figma draft target", async () => {
     const result = await runNode("review.collectEvidence", {
-      figmaTarget: draftTarget(),
       review: reviewWithEvidence(),
     });
 
@@ -313,6 +312,32 @@ describe("review graph nodes", () => {
         { targetId: "10:22", property: "fill", source: "variable", name: "color.action" },
       ],
       layoutFrames: [{ id: "10:20", mode: "auto-layout", direction: "vertical" }],
+    });
+  });
+
+  it("pauses for a safe draft target before applying approved revisions", async () => {
+    const result = await runNode("review.applyApprovedRevisions", {
+      answers: { "approve-review-revisions": "apply-approved-revisions" },
+      review: {
+        revisionPlan: {
+          target: { fileKey: "FILE", nodeId: "10:20" },
+          revisions: [
+            {
+              nodeId: "10:22",
+              partName: "Primary action",
+              operation: "preserve-instance-update",
+            },
+          ],
+        },
+      },
+    });
+
+    expect(result.interrupt).toMatchObject({
+      status: "waiting-for-user",
+      pendingQuestion: {
+        id: "bind-review-draft-target",
+        choices: ["target-bound"],
+      },
     });
   });
 

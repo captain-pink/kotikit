@@ -152,7 +152,6 @@ function collectFigmaEvidence(
   review: Record<string, unknown>,
   maxRegions: number
 ): RuntimeNodeOutput {
-  const draftTarget = ensureDraftTarget(state.figmaTarget);
   const existingTarget = recordFrom(review.target);
   const existingEvidence = recordFrom(review.evidence);
   if (Object.keys(existingTarget).length > 0 && Object.keys(existingEvidence).length > 0) {
@@ -169,6 +168,8 @@ function collectFigmaEvidence(
     };
   }
 
+  const draftTarget =
+    state.figmaTarget === undefined ? undefined : ensureDraftTarget(state.figmaTarget);
   const sourceSnapshot = recordFrom(review.sourceSnapshot);
   const snapshotTarget = recordFrom(sourceSnapshot.target);
   if (Object.keys(snapshotTarget).length === 0 && !Array.isArray(sourceSnapshot.regions)) {
@@ -177,8 +178,32 @@ function collectFigmaEvidence(
       "Start from kotikit_review_figma_target or seed kotikit_start with review.target and review.evidence."
     );
   }
-  const nodeId = stringField(snapshotTarget, "nodeId") ?? nodeIdFromUrl(draftTarget.pageUrl);
-  const targetName = stringField(snapshotTarget, "name") ?? draftTarget.pageName;
+  const nodeId =
+    stringField(snapshotTarget, "nodeId") ??
+    stringField(existingTarget, "nodeId") ??
+    (draftTarget === undefined ? undefined : nodeIdFromUrl(draftTarget.pageUrl));
+  if (nodeId === undefined) {
+    throw new KotikitError(
+      "This review flow needs an exact Figma target node.",
+      "Seed review.target.nodeId or bind a draft target before collecting review evidence."
+    );
+  }
+  const fileKey =
+    stringField(snapshotTarget, "fileKey") ??
+    stringField(existingTarget, "fileKey") ??
+    draftTarget?.fileKey;
+  if (fileKey === undefined) {
+    throw new KotikitError(
+      "This review flow needs a Figma file key.",
+      "Seed review.target.fileKey or bind a draft target before collecting review evidence."
+    );
+  }
+  const targetName =
+    stringField(snapshotTarget, "name") ??
+    stringField(snapshotTarget, "targetName") ??
+    stringField(existingTarget, "targetName") ??
+    draftTarget?.pageName ??
+    nodeId;
   const targetType = stringField(snapshotTarget, "type") ?? "CANVAS";
   const regions = recordArray(sourceSnapshot.regions)
     .map(regionSummary)
@@ -187,11 +212,14 @@ function collectFigmaEvidence(
   const childCount = numberField(snapshotTarget, "childCount") ?? regions.length;
   const reviewTarget = {
     source: "figma",
-    fileKey: draftTarget.fileKey,
+    fileKey,
     nodeId,
     targetKind: targetKindFor(targetType),
     targetName,
-    figmaUrl: figmaUrlFor(draftTarget.pageUrl, nodeId),
+    figmaUrl:
+      stringField(snapshotTarget, "figmaUrl") ??
+      stringField(existingTarget, "figmaUrl") ??
+      figmaUrlFor(draftTarget?.pageUrl ?? `https://www.figma.com/design/${fileKey}/review`, nodeId),
   };
   const evidence = {
     collectedAt: nowIso(),
@@ -234,7 +262,7 @@ function collectCommentEvidence(
   if (!Array.isArray(commentSource)) {
     throw new KotikitError(
       "This review-comments flow needs a comment snapshot.",
-      "Read Figma comments with kotikit_design_review_comments or seed kotikit_start with review.commentSnapshot.comments."
+      "Start the review-comments flow with review.commentSnapshot.comments from the graph input."
     );
   }
   const comments = recordArray(commentSource);
@@ -477,6 +505,15 @@ function applyApprovedRevisions(state: KotikitGraphState): RuntimeNodeOutput {
       "The review revisions have not been approved.",
       "Approve the revision plan before applying it to the Figma draft target."
     );
+  }
+  if (state.figmaTarget === undefined) {
+    return {
+      interrupt: createUserInterrupt({
+        id: "bind-review-draft-target",
+        prompt: "Bind a safe Figma draft target before applying approved revisions.",
+        choices: ["target-bound"],
+      }),
+    };
   }
   const draftTarget = ensureDraftTarget(state.figmaTarget);
   const revisionPlan = recordFrom(recordFrom(state.review).revisionPlan);
