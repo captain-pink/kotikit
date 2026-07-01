@@ -2097,7 +2097,7 @@ bun test src/core/domain/test/comment-evidence-map.test.ts
 
 Expected: pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/core/domain/comment-evidence-map.ts src/core/domain/test/comment-evidence-map.test.ts
@@ -2466,7 +2466,7 @@ git commit -m "feat(graph): persist ux quality artifacts"
 - Modify: `e2e/graph/create-screen-flow.test.ts`
 - Modify: `e2e/graph/review-comments-flow.test.ts`
 
-- [ ] **Step 1: Write failing context budget tests**
+- [x] **Step 1: Write failing context budget tests**
 
 Create `src/core/domain/test/context-durability.test.ts`:
 
@@ -2536,7 +2536,7 @@ describe("context durability", () => {
 });
 ```
 
-- [ ] **Step 2: Write failing designer recovery tests**
+- [x] **Step 2: Write failing designer recovery tests**
 
 Create `src/core/domain/test/designer-recovery.test.ts`:
 
@@ -2585,7 +2585,7 @@ describe("designer recovery", () => {
 });
 ```
 
-- [ ] **Step 3: Run failing domain tests**
+- [x] **Step 3: Run failing domain tests**
 
 Run:
 
@@ -2595,7 +2595,7 @@ bun test src/core/domain/test/context-durability.test.ts src/core/domain/test/de
 
 Expected: fail because the domain files do not exist.
 
-- [ ] **Step 4: Implement context durability helpers**
+- [x] **Step 4: Implement context durability helpers**
 
 Create `src/core/domain/context-durability.ts`:
 
@@ -2667,7 +2667,7 @@ export function pruneRawReviewPayloads(review: Record<string, unknown>): Record<
 }
 ```
 
-- [ ] **Step 5: Implement designer recovery helper**
+- [x] **Step 5: Implement designer recovery helper**
 
 Create `src/core/domain/designer-recovery.ts`:
 
@@ -2701,7 +2701,7 @@ export function createDesignerRecovery(
 }
 ```
 
-- [ ] **Step 6: Add runtime budget enforcement**
+- [x] **Step 6: Add runtime budget enforcement**
 
 Modify `src/core/graph/runtime.ts`:
 
@@ -2721,7 +2721,7 @@ In `startFlow`, after building the initial `state`, add:
 assertCompactGraphState(state);
 ```
 
-- [ ] **Step 7: Prune raw comment payloads after mapping**
+- [x] **Step 7: Prune raw comment payloads after mapping**
 
 Modify `src/core/nodes/comments/index.ts`:
 
@@ -2741,7 +2741,7 @@ to:
 review: pruneRawReviewPayloads({ ...review, commentEvidenceMap }),
 ```
 
-- [ ] **Step 8: Write failing graph resume tests**
+- [x] **Step 8: Write failing graph resume tests**
 
 Create `src/core/graph/test/context-durability.test.ts`:
 
@@ -2793,7 +2793,7 @@ describe("context durability", () => {
 Keep this test on the existing smoke fixture for this slice. Do not add a new
 fixture abstraction in this task.
 
-- [ ] **Step 9: Extend e2e resume coverage**
+- [x] **Step 9: Extend e2e resume coverage**
 
 In `e2e/graph/create-screen-flow.test.ts`, add a test that:
 
@@ -2813,7 +2813,7 @@ In `e2e/graph/review-comments-flow.test.ts`, add a test that:
 5. expects the run to continue with the same `runId` and without raw
    `review.commentSnapshot` in state.
 
-- [ ] **Step 10: Run tests**
+- [x] **Step 10: Run tests**
 
 Run:
 
@@ -2823,7 +2823,7 @@ bun test src/core/domain/test/context-durability.test.ts src/core/domain/test/de
 
 Expected: pass.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add src/core/domain/context-durability.ts src/core/domain/designer-recovery.ts src/core/domain/test/context-durability.test.ts src/core/domain/test/designer-recovery.test.ts src/core/graph/runtime.ts src/core/graph/test/context-durability.test.ts src/core/nodes/comments/index.ts e2e/graph/create-screen-flow.test.ts e2e/graph/review-comments-flow.test.ts
@@ -2843,7 +2843,7 @@ git commit -m "feat(graph): enforce context durability"
 - Modify: `docs/troubleshooting.md`
 - Modify: `KOTIKIT_MIGRATION.md`
 
-- [ ] **Step 1: Add docs text scan**
+- [x] **Step 1: Add docs text scan**
 
 If a docs text-scan test exists, extend it. If not, create
 `src/docs/test/ux-quality-docs.test.ts` with:
@@ -2878,7 +2878,7 @@ describe("UX quality docs", () => {
 });
 ```
 
-- [ ] **Step 2: Run failing docs test**
+- [x] **Step 2: Run failing docs test**
 
 Run:
 
@@ -2888,7 +2888,7 @@ bun test src/docs/test/ux-quality-docs.test.ts
 
 Expected: fail until docs mention the new contracts.
 
-- [ ] **Step 3: Update docs**
+- [x] **Step 3: Update docs**
 
 Update docs with these designer-facing points:
 
@@ -2915,7 +2915,7 @@ implementation section named:
 ## Planned Update: UX Quality Contracts
 ```
 
-- [ ] **Step 4: Run docs test**
+- [x] **Step 4: Run docs test**
 
 Run:
 

@@ -41,6 +41,13 @@ only after equivalent graph-backed behavior is covered by tests. Blocking
 states must expose designer-friendly recovery actions instead of raw stack
 traces or graph internals.
 
+Implementation on branch `feature/kotikit-ux-quality-contracts` adds typed
+contracts and graph nodes for `StateMatrix`, `CommentEvidenceMap`, and
+`DraftComponentLifecycle`. It also adds context durability and designer
+recovery helpers so long-running flows can resume from compact state while
+blocked states explain the problem, why it matters, and the recommended next
+action in plain language.
+
 ## Implementation Update: Design-To-Code Removed From Core
 
 Completed on branch `feature/kotikit-migration`.

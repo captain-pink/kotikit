@@ -45,6 +45,21 @@ The assistant should:
 6. Record Figma node metadata back into kotikit.
 7. Let the UI quality gate check common broken-output issues.
 
+## Screen States
+
+Kotikit plans state coverage before it composes the Figma screen. The graph
+stores this as a `StateMatrix`, so filled, loading, empty, no-results, error,
+and permission states are treated as page, region, component, or flow states.
+
+For data tables and lists, loading, empty, and error output should replace the
+affected data region. It should not appear as extra cards below the screen.
+Stable shell regions such as navigation, top bars, and page headers stay in
+place unless the state is explicitly page-level.
+
+Quick mode still works for fast high-fidelity screens. If kotikit can infer the
+screen archetype and design-system fit, it records assumptions and continues.
+It asks only when a decision would change the design outcome or safety boundary.
+
 ## Guided Screen Or Product Flow
 
 Use the guided path when the product shape is not clear yet:
@@ -91,6 +106,11 @@ Reusable draft components are created and validated on the active draft page
 before the main screen composition continues. Literal color, typography,
 spacing, radius, stroke, shadow, or effect values are allowed only after you
 explicitly approve them.
+
+Each draft component is tracked through `DraftComponentLifecycle`: why it was
+created, where it lives, which component key it produced, and which generated
+screen instances use it. Orphan draft components and overlapping draft areas
+should fail QA instead of becoming hidden clutter on the page.
 
 ## Import Variables On Non-Enterprise Figma Plans
 
@@ -140,7 +160,22 @@ Comment review works best when the design was created through kotikit and has
 recorded Figma node metadata. Kotikit maps comments on known nodes back to graph
 artifacts when possible, groups them into decisions, and can prepare replies.
 
+The comment flow uses Figma REST comment snapshots plus saved apply metadata to
+build a compact `CommentEvidenceMap`. Raw comment snapshots are stored as
+artifacts after the evidence map exists, so the graph can resume review without
+keeping large payloads in assistant context.
+
 Kotikit never posts replies or review comments without your approval.
+
+## Recovery And Resume
+
+Kotikit graph runs are designed to resume after assistant restarts, Figma apply
+waits, and approval interrupts. Context durability checks keep graph state
+small enough to reload reliably.
+
+When kotikit blocks, it should use designer recovery language: the problem,
+why it matters for the design, and one recommended next action. Technical
+details stay in artifacts or logs for maintainers.
 
 ## Design Memory
 

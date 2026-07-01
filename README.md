@@ -118,8 +118,14 @@ on stabilizing design creation, review, and design-system use.
 - Component and icon search over the synced design system.
 - Safe Figma draft page binding.
 - Official Figma MCP apply packets for creating draft designs in Figma.
+- `StateMatrix` planning for filled, loading, empty, no-results, error, and
+  permission states before visual composition starts.
+- `DraftComponentLifecycle` checks so draft components are created only for
+  design-system gaps and must be used by the generated screen.
 - Variable import fallback through the plugin for non-Enterprise Figma plans.
 - Browserless Figma comment review.
+- `CommentEvidenceMap` artifacts for REST-backed Figma comment review without
+  large raw comment payloads in graph state.
 - Standalone design-quality review for exact Figma targets.
 - Optional posting of approved review comments back to Figma.
 - Local design memory from repeated review adjustments.
@@ -174,6 +180,10 @@ kotikit is designed to be local-first and conservative:
 - Generated screens are placed inside a kotikit-owned Figma Section.
 - Apply-step logging validates file, page, and Section metadata.
 - Figma review comments are never posted without explicit approval.
+- Graph runs use context durability checks so large raw Figma, comment, and
+  research payloads are stored as artifacts after compact contracts exist.
+- Blocking states use designer recovery text: what happened, why it matters,
+  and the recommended next action.
 
 This does not make kotikit production-safe by itself. It gives the workflow
 clear boundaries while the project is still alpha.
@@ -234,6 +244,8 @@ For the full setup flow, see
   components.
 - Run guided screen, product-flow, review, and comment flows when more context
   or approval is needed.
+- Plan screen states as page, region, component, or flow states instead of
+  loose preview cards.
 - Import variables through the Figma plugin when the REST Variables API is
   unavailable.
 - Review Figma comments without opening a browser.
@@ -269,7 +281,10 @@ review/design sessions focused.
 
 Graph artifacts also keep sessions cheap. The assistant reads one run state or
 artifact when needed instead of loading every previous design decision into
-context.
+context. Context durability keeps long-lived graph state compact by replacing
+raw Figma snapshots, comment snapshots, and research payloads with bounded
+artifacts such as `StateMatrix`, `CommentEvidenceMap`, and
+`DraftComponentLifecycle`.
 
 Most users do not need the detailed token table. It exists mainly for
 maintainers and agent-workflow builders who are checking MCP payload sizes. See
