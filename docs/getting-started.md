@@ -1,19 +1,21 @@
 # Getting Started
 
-This guide gets kotikit connected to a local target project so Claude Code or
-Codex can call the `kotikit_*` MCP tools.
+This guide gets kotikit connected to a local target workspace so Claude Code,
+Codex, or another MCP-capable assistant can call the `kotikit_*` MCP tools.
 
 ## What You Need
 
 - Bun installed locally.
-- A local clone of this repository.
+- A local clone of this repository, or an installed kotikit package that exposes
+  `kotikit-mcp`.
 - Claude Code, Codex, or another MCP-capable assistant.
 - Figma's assistant plugin/integration for your assistant installed from inside
   Figma, for example the Claude Code or Codex integration. This is separate
   from kotikit's local Figma plugin.
 - A Professional, Organization, or Enterprise Figma account is recommended.
   Free/Starter accounts can hit very low API limits during design-system sync.
-- A Figma personal access token with file read access.
+- A Figma personal access token with file read access if you want local
+  design-system sync or REST-backed comment review.
 - A published Figma design-system library if you want kotikit to compose new
   drafts from real components.
 - A target workspace/project folder where kotikit can write `.kotikit/`,
@@ -50,7 +52,23 @@ cd ~/kotikit
 bun install
 ```
 
-## 3. Scaffold Assistant Config
+## 3. Install The Assistant Plugin Wrapper
+
+Use plugin installation when your assistant supports local plugins:
+
+- Codex wrapper: `plugins/codex/kotikit`
+- Claude wrapper: `plugins/claude/kotikit`
+
+Both plugin wrappers launch the shared `kotikit-mcp` server and include a
+designer-facing `kotikit` skill. Plugin installation assumes the kotikit package
+is installed or linked so `kotikit-mcp` is available on `PATH`. After installing
+the wrapper, restart the assistant in your target workspace and check that the
+`kotikit_*` tools are available.
+
+Use `bun run scaffold:agents` for local development, source checkouts, or manual
+MCP setup in a target workspace.
+
+## 4. Scaffold Assistant Config For Source Development
 
 Run this from the kotikit repo. The `--target` path should point to the
 workspace or app project where you want to use kotikit.
@@ -79,7 +97,7 @@ The scaffold writes:
 It preserves unrelated assistant config and skips copied skills with local
 changes.
 
-## 4. Install The Figma Assistant Plugin
+## 5. Install The Figma Assistant Plugin
 
 Open Figma and install the assistant integration for the tool you use, such as
 Claude Code or Codex. Figma now exposes these integrations directly from the
@@ -94,17 +112,19 @@ This assistant integration is not the same as the kotikit local Figma plugin:
 - kotikit's local Figma plugin only exports variables through the local bridge
   when Figma's REST Variables API is unavailable.
 
-## 5. Add Your Figma Token
+## 6. Add Your Figma Token For Local Sync
 
-Create a Figma personal access token in Figma account settings, then put it in
-the target project's `.env` file:
+Figma personal access token is not required for draft creation when your
+assistant is connected through Figma's remote MCP integration. Create a token
+only when you want kotikit to sync a local design-system index or use
+REST-backed comment review, then put it in the target workspace `.env` file:
 
 ```env
 FIGMA_TOKEN=figd_...your_token_here...
 ```
 
 For design-system sync, file read access is required. For posting review
-comments, `file_comments:write` is required. Comment review needs
+comments through REST, `file_comments:write` is required. Comment review needs
 `file_comments:read`.
 
 For best results, sync a published Figma library rather than an unpublished
@@ -116,7 +136,7 @@ Figma's REST Variables API is Enterprise-only. If you need variables or tokens
 on Professional or Organization plans, kotikit will guide you through starting
 the local plugin and exporting variables from the open Figma file.
 
-## 6. Restart The Assistant
+## 7. Restart The Assistant
 
 Restart Claude Code or start a fresh Codex session in the target project.
 

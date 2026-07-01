@@ -366,7 +366,13 @@ export async function scaffoldAgents(
   const targetRoot = resolve(options.targetRoot);
   const kotikitRoot = resolve(options.kotikitRoot);
   const agents = uniqueAgents(options.agents);
-  const result: ScaffoldAgentsResult = { written: [], skipped: [], notes: [] };
+  const result: ScaffoldAgentsResult = {
+    written: [],
+    skipped: [],
+    notes: [
+      "Plugin wrappers are preferred when your assistant supports local plugins and kotikit-mcp is available on PATH; scaffold remains available for source checkouts and manual MCP setup.",
+    ],
+  };
 
   await assertReadableFile(serverPath(kotikitRoot), "kotikit MCP server");
 

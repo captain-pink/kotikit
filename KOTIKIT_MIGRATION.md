@@ -162,6 +162,29 @@ The migration now has config-backed trust policy for custom flows:
 This keeps built-in flows easy to use while making project and extension flow
 packs opt-in, auditable, and safe for non-technical designers.
 
+## Implementation Update: Assistant Plugin Wrappers
+
+Completed on branch `feature/kotikit-migration`.
+
+The migration now has thin plugin wrappers for assistant setup:
+
+- `plugins/codex/kotikit` packages the Codex plugin manifest, `.mcp.json`, and
+  a designer-facing `kotikit` skill;
+- `plugins/claude/kotikit` packages the Claude plugin manifest, `.mcp.json`,
+  and the same designer-facing launch guidance;
+- both wrappers launch the shared agent-neutral `kotikit-mcp` server instead of
+  forking assistant-specific runtime code;
+- the existing `bun run scaffold:agents` source installer remains available for
+  local development, source checkouts, and manual MCP setup;
+- plugin setup assumes `kotikit-mcp` is available on `PATH` through an installed
+  or linked kotikit package;
+- getting-started docs now make plugin installation the preferred path when an
+  assistant supports local plugins, while Figma PAT setup is scoped to local
+  design-system sync and REST-backed comment review instead of draft creation.
+
+This keeps setup simpler for non-technical designers while preserving the
+developer-friendly source scaffold during the migration.
+
 ## Sources Reviewed
 
 Local repo:

@@ -2,10 +2,16 @@
 
 ## What it does
 
-The setup module owns local scaffolding for agent config files. It is not the
-runtime MCP server; it is a developer/onboarding helper that writes the files a
-target workspace or app project needs before Claude Code or Codex can call
-kotikit.
+The setup module owns source-checkout scaffolding for agent config files. It is
+not the runtime MCP server; it is a developer/onboarding helper that writes the
+files a target workspace or app project needs before Claude Code or Codex can
+call kotikit when plugin installation is unavailable or inconvenient.
+
+Assistant plugin wrappers in `plugins/codex/kotikit` and
+`plugins/claude/kotikit` are the preferred setup path when the assistant
+supports local plugins and `kotikit-mcp` is available on `PATH`. The scaffold
+remains the compatibility path for local development, source checkouts, and
+manual MCP setup.
 
 ## Public surface
 
@@ -46,7 +52,9 @@ root, then writes agent-specific setup:
   load the copied skills. Existing command files with local changes are
   preserved.
 - Figma token placeholder: creates `.env` with `FIGMA_TOKEN=` or appends that
-  key when `.env` exists without it.
+  key when `.env` exists without it. This token is for local design-system sync
+  and REST-backed comment review, not for draft creation through Figma remote
+  MCP auth.
 - Co-author metadata: when requested, updates an existing
   `.kotikit/config.json` with `git.coAuthor`.
 

@@ -11,8 +11,10 @@ kotikit uses two Figma integration paths:
 
 ## Personal Access Token
 
-Create a Figma personal access token in Figma account settings and store it in
-the target project's `.env` file:
+Figma personal access token is not required for draft creation when your
+assistant is connected through Figma's remote MCP integration. Create a token
+only when you want local design-system sync or REST-backed comment review, then
+store it in the target workspace `.env` file:
 
 ```env
 FIGMA_TOKEN=figd_...your_token_here...
@@ -20,7 +22,8 @@ FIGMA_TOKEN=figd_...your_token_here...
 
 Recommended scopes:
 
-- File read access for design-system sync and design review evidence.
+- File read access for design-system sync and REST-backed design review
+  evidence.
 - `file_comments:read` for browserless comment review.
 - `file_comments:write` only if you want kotikit to post approved replies or
   review comments.

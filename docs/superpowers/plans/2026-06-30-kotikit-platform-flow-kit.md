@@ -423,7 +423,7 @@ Required APIs:
 Runtime must persist `flowId`, `flowVersion`, `manifestHash`, `graphHash`,
 state schema version, and node versions before executing side effects.
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run:
 
@@ -1100,16 +1100,16 @@ git commit -m "feat(core): add flow pack trust policy"
 
 **Files:**
 
-- Create: `plugins/codex/.codex-plugin/plugin.json`
-- Create: `plugins/codex/skills/kotikit/SKILL.md`
-- Create: `plugins/claude/.claude-plugin/plugin.json`
-- Create: `plugins/claude/skills/kotikit/SKILL.md`
+- Create: `plugins/codex/kotikit/.codex-plugin/plugin.json`
+- Create: `plugins/codex/kotikit/skills/kotikit/SKILL.md`
+- Create: `plugins/claude/kotikit/.claude-plugin/plugin.json`
+- Create: `plugins/claude/kotikit/skills/kotikit/SKILL.md`
 - Create: `plugins/README.md`
 - Create: `src/setup/test/plugin-manifests.test.ts`
 - Modify: `src/setup/scaffold-agents.ts`
 - Modify: `docs/getting-started.md`
 
-- [ ] **Step 1: Write failing plugin manifest tests**
+- [x] **Step 1: Write failing plugin manifest tests**
 
 Tests:
 
@@ -1119,7 +1119,7 @@ Tests:
 - manifests do not hardcode user-specific absolute paths;
 - source installer remains available for local development.
 
-- [ ] **Step 2: Add Codex plugin wrapper**
+- [x] **Step 2: Add Codex plugin wrapper**
 
 Add Codex plugin manifest with:
 
@@ -1128,7 +1128,7 @@ Add Codex plugin manifest with:
 - bundled skill;
 - MCP server config that launches shared `kotikit-mcp`.
 
-- [ ] **Step 3: Add Claude plugin wrapper**
+- [x] **Step 3: Add Claude plugin wrapper**
 
 Add Claude plugin manifest with:
 
@@ -1137,13 +1137,23 @@ Add Claude plugin manifest with:
 - bundled skill;
 - MCP server config that launches shared `kotikit-mcp`.
 
-- [ ] **Step 4: Keep scaffold as compatibility installer**
+- [x] **Step 4: Keep scaffold as compatibility installer**
 
 Update scaffold docs and notes:
 
 - plugins are preferred when available;
 - scaffold remains useful for repo development and manual MCP setup;
 - default setup no longer positions PAT as required for draft creation.
+
+Task 11 implementation note: `plugins/codex/kotikit` and
+`plugins/claude/kotikit` now package thin assistant wrappers around the shared
+`kotikit-mcp` command. Each wrapper contains a plugin manifest, `.mcp.json`, and
+designer-facing `kotikit` skill. The installable root folder matches the
+manifest name, and plugin setup assumes `kotikit-mcp` is available on `PATH`
+through an installed or linked kotikit package. The source scaffold remains
+available for local development and manual MCP setup, and setup docs now
+position Figma PATs as local sync/comment-review credentials rather than a
+requirement for draft creation through Figma remote MCP auth.
 
 - [ ] **Step 5: Verify**
 
@@ -1154,7 +1164,7 @@ bun test src/setup/test/plugin-manifests.test.ts src/setup/test/scaffold-agents.
 bun run typecheck
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add plugins src/setup docs/getting-started.md

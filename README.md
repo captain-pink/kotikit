@@ -123,7 +123,8 @@ on stabilizing design creation, review, and design-system use.
 - Standalone design-quality review for exact Figma targets.
 - Optional posting of approved review comments back to Figma.
 - Local design memory from repeated review adjustments.
-- Assistant scaffold for Claude Code and Codex.
+- Assistant plugin wrappers for Claude Code and Codex, plus source scaffold for
+  local development.
 
 ## What Does Not Work Yet
 
@@ -185,7 +186,8 @@ Requirements:
 - Claude Code, Codex, or another MCP-capable assistant.
 - Figma's assistant integration for your assistant installed from inside Figma.
 - A Professional, Organization, or Enterprise Figma account is recommended.
-- A Figma personal access token with file read access.
+- A Figma personal access token with file read access if you want local
+  design-system sync or REST-backed comment review.
 - A local target workspace or app project where kotikit can write `.kotikit/`,
   `design-system/`, and `.env`.
 
@@ -194,7 +196,12 @@ specs, synced design-system indexes, review memory, assistant config, and your
 Figma token placeholder. For design-only use this can be any scratch workspace;
 it does not need to be an app project.
 
-Minimal setup:
+Preferred setup uses the assistant plugin wrapper in `plugins/codex/kotikit` or
+`plugins/claude/kotikit` when your assistant supports local plugins. This path
+assumes `kotikit-mcp` is available on `PATH` through an installed or linked
+kotikit package.
+
+Source checkout setup:
 
 ```bash
 git clone https://github.com/captain-pink/kotikit.git ~/kotikit
@@ -203,7 +210,10 @@ bun install
 bun run scaffold:agents -- --target /Users/YOUR_USERNAME/path/to/your-project --agents both
 ```
 
-Then add your Figma token to the target project's `.env`:
+Figma personal access token is not required for draft creation when your
+assistant is connected through Figma's remote MCP integration. Add a token to
+the target project's `.env` only for local design-system sync or REST-backed
+comment review:
 
 ```env
 FIGMA_TOKEN=figd_...your_token_here...
