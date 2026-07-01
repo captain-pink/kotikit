@@ -145,7 +145,7 @@ export const UXEnvelopeSchema = z.strictObject({
   sourceRefs: z.array(z.string().url()),
 });
 
-export const StateMatrixStateSchema = z.strictObject({
+const StateMatrixStateSchema = z.strictObject({
   id: z.string().min(1),
   label: z.string().min(1),
   kind: z.enum([

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const DesignerRecoverySchema = z.strictObject({
+const DesignerRecoverySchema = z.strictObject({
   schemaVersion: z.literal("DesignerRecovery/v1"),
   problem: z.string().min(1),
   why: z.string().min(1),

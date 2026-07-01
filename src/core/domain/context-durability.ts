@@ -15,8 +15,8 @@ export type ContextBudgetOptions = {
   maxBytes?: number;
 };
 
-export const DEFAULT_CONTEXT_WARNING_BYTES = 128 * 1024;
-export const DEFAULT_CONTEXT_MAX_BYTES = 256 * 1024;
+const DEFAULT_CONTEXT_WARNING_BYTES = 128 * 1024;
+const DEFAULT_CONTEXT_MAX_BYTES = 256 * 1024;
 
 export function buildContextBudgetReport(input: {
   state: KotikitGraphState;

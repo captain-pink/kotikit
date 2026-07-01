@@ -3,7 +3,7 @@ import adminDataTable from "../ux-pattern-packs/admin-data-table.json" with { ty
 import dashboardSummary from "../ux-pattern-packs/dashboard-summary.json" with { type: "json" };
 import settingsForm from "../ux-pattern-packs/settings-form.json" with { type: "json" };
 
-export const UXPatternPackStateSchema = z.strictObject({
+const UXPatternPackStateSchema = z.strictObject({
   kind: z.enum([
     "filled",
     "loading",
@@ -72,8 +72,8 @@ export type UXPatternPack = z.infer<typeof UXPatternPackSchema>;
 export type UXPatternPackState = z.infer<typeof UXPatternPackStateSchema>;
 
 export const adminDataTablePatternPack = UXPatternPackSchema.parse(adminDataTable);
-export const dashboardSummaryPatternPack = UXPatternPackSchema.parse(dashboardSummary);
-export const settingsFormPatternPack = UXPatternPackSchema.parse(settingsForm);
+const dashboardSummaryPatternPack = UXPatternPackSchema.parse(dashboardSummary);
+const settingsFormPatternPack = UXPatternPackSchema.parse(settingsForm);
 const genericScreenPatternPack = UXPatternPackSchema.parse({
   schemaVersion: "UXPatternPack/v1",
   id: "generic-screen",
