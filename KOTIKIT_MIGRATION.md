@@ -27,10 +27,19 @@ closed before Kotikit is considered reliable for day-to-day designer use:
   component is placed in a reserved area and used as an instance in the final
   screen, or the graph fails with an orphan/overlap finding.
 
+Reliability remains a top priority for this slice. The plan now also requires
+context durability checks so graph runs resume from persisted state and
+artifacts after assistant restarts, Figma apply waits, comment evidence mapping,
+and approval interrupts without relying on conversation history. Raw Figma,
+comment, and research payloads must be compacted into bounded contracts or
+artifact refs before long-lived graph state continues.
+
 The execution plan requires every implementation agent to follow
 `docs/coding_guidelines.md`, work test-first with Bun, avoid hardcoded
 screen-specific logic, prefer generic pattern-pack data, and remove stale code
-only after equivalent graph-backed behavior is covered by tests.
+only after equivalent graph-backed behavior is covered by tests. Blocking
+states must expose designer-friendly recovery actions instead of raw stack
+traces or graph internals.
 
 ## Implementation Update: Design-To-Code Removed From Core
 

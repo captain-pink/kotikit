@@ -125,6 +125,10 @@ Kotikit should be dynamic without being unpredictable.
 - Keep the core generic. Built-in pattern packs are data, not hardcoded logic.
 - Fail closed when Figma evidence, state representation, or draft component
   usage cannot be verified.
+- Preserve the work line through compact checkpointed graph state. Nodes must
+  resume from persisted state and artifacts, not from conversation history.
+- Keep raw Figma, comment, and research payloads out of long-lived graph state
+  once a compact contract artifact has been created.
 
 ## Scope
 
@@ -141,6 +145,9 @@ Kotikit should be dynamic without being unpredictable.
 - Strengthen Figma apply metadata validation.
 - Strengthen QA gates for state representation, orphan draft components,
   draft component overlap, and invalid component usage.
+- Add context durability and resume checks so the graph remains reliable after
+  pauses, process restarts, and human approvals.
+- Add designer recovery contracts for setup, evidence, and QA failures.
 - Update docs and skills for designer-friendly behavior.
 - Remove unused or stale code after equivalent graph-backed paths exist.
 
@@ -192,6 +199,30 @@ the safer default and records the assumption.
 Guided flows can ask for actor, task priority, data size, permissions, and edge
 states. Deep flows can optionally run live research or ask for design-system
 documentation links. Both lanes use the same artifacts and gates as quick mode.
+
+### Progress And Recovery
+
+Kotikit should never require non-technical designers to inspect raw JSON or
+debug graph internals during normal use. Every pause or blocked state should
+explain:
+
+- what happened;
+- what Kotikit needs;
+- one recommended next action;
+- whether the designer can retry, skip, continue with assumptions, or run
+  setup diagnostics.
+
+Examples:
+
+```text
+Kotikit cannot map 2 comments to exact layers.
+Treat them as page-level feedback, or open the comment map artifact.
+```
+
+```text
+The local design-system cache is empty.
+Run design-system sync, or continue with draft components for this screen.
+```
 
 ## Architecture
 
@@ -378,6 +409,58 @@ Built-in packs for this slice:
 Only `admin-data-table` needs full behavior in the first implementation slice.
 The other packs can exist as valid minimal packs so the architecture is generic.
 
+### Context Durability Contract
+
+LangGraph is the reliability boundary for this migration. The graph must keep
+the work line in durable state and artifacts so Kotikit can resume after an
+assistant restart, a Figma apply pause, or a human approval.
+
+Rules:
+
+- Graph state stores compact contracts and artifact refs, not raw Figma trees,
+  full comment exports, or long research dumps.
+- Large or raw data is stored as artifacts and summarized into graph state.
+- Every node reads required inputs from graph state, artifacts, or local stores.
+  Nodes must not rely on previous chat messages.
+- Raw comment snapshots are pruned or replaced with an artifact ref after
+  `CommentEvidenceMap/v1` is built.
+- Live research is disabled in quick mode. Quick mode uses curated pattern
+  packs and records assumptions.
+- Missing evidence blocks with a designer-readable recovery action instead of
+  causing speculative revisions.
+
+Initial size budgets:
+
+- serialized graph state warning budget: 128 KB;
+- serialized graph state hard budget: 256 KB;
+- `UXEnvelope/v1`: 8 KB target budget;
+- `StateMatrix/v1`: 16 KB target budget;
+- `CommentEvidenceMap/v1`: 32 KB target budget after message truncation and
+  unmapped comment summarization;
+- `DraftComponentLifecycle/v1`: 24 KB target budget;
+- raw Figma/comment/research payloads: artifact storage only after compaction.
+
+The implementation should report budget findings in tests and block only when
+the hard graph-state budget is exceeded. Budget values are configuration
+constants, not scattered literals.
+
+### Designer Recovery Contract
+
+Designer-facing recovery is a product requirement, not a logging detail. Any
+blocking graph state should expose a compact recovery model:
+
+- `problem`: plain-language description;
+- `why`: one sentence explaining the risk;
+- `recommendedAction`: the safest next action;
+- `actions`: one to three concrete choices such as retry, sync design system,
+  continue with assumptions, open artifact, or ask designer;
+- `artifactRefs`: relevant artifacts, not raw payloads;
+- `technicalDetailsRef`: optional artifact or log path for technical users.
+
+MCP tool output and docs should prefer this recovery model over raw errors.
+`KotikitError` hints should be written for designers first, with technical
+details hidden behind artifact refs or troubleshooting docs.
+
 ### Graph Changes
 
 #### create-screen
@@ -551,6 +634,12 @@ Required tests:
   region mapping, and unmapped comments;
 - review-comments flow tests proving comments can be collected without a draft
   target and approval is still required before posting;
+- context durability tests proving create-screen and review-comments resume
+  from persisted checkpoints without conversation history;
+- graph-state budget tests proving compact contracts stay bounded and raw
+  snapshots are pruned after compact artifacts exist;
+- designer recovery tests proving blocked states include a plain-language
+  problem, a recommended action, and no stack traces;
 - docs text scans proving old Chrome DevTools comment guidance and state-card
   guidance do not reappear.
 
@@ -580,6 +669,13 @@ The migration slice is complete when:
   node/apply metadata without Chrome DevTools.
 - Unmapped comments remain visible and do not get silently converted into
   guessed revisions.
+- `create-screen` and `review-comments` resume from persisted graph state after
+  UX planning, Figma apply waits, comment evidence mapping, and approval
+  interrupts without relying on conversation history.
+- Graph state remains under the hard context budget, and raw snapshots are
+  pruned or replaced with artifact refs after compact contracts are built.
+- Blocking errors expose designer recovery actions instead of raw stack traces
+  or unstructured JSON.
 - All new behavior is covered by focused Bun tests.
 - Live docs explain the designer-facing behavior without requiring non-technical
   designers to debug graph internals.

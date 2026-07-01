@@ -4,7 +4,7 @@
 
 **Goal:** Add graph-backed UX quality contracts for comment evidence mapping, state-set representation, and draft component lifecycle validation.
 
-**Architecture:** The implementation adds typed Zod contracts, pure domain builders, deterministic LangGraph nodes, flow manifest updates, Figma metadata verification, QA gates, and docs. Pattern-specific UX decisions live in validated pattern-pack data instead of hardcoded node logic.
+**Architecture:** The implementation adds typed Zod contracts, pure domain builders, deterministic LangGraph nodes, flow manifest updates, Figma metadata verification, context durability checks, designer recovery models, QA gates, and docs. Pattern-specific UX decisions live in validated pattern-pack data instead of hardcoded node logic.
 
 **Tech Stack:** Bun, TypeScript strict mode, Zod v4, LangGraphJS runtime wrappers, local Figma REST adapters, existing Kotikit graph facade.
 
@@ -18,6 +18,12 @@
 - Keep changes agent-neutral in core modules.
 - Avoid hardcoding screen-specific behavior in node logic. Use typed pattern
   packs and generic domain functions.
+- Preserve context durability. New graph behavior must resume from persisted
+  state and artifacts without relying on conversation history.
+- Keep graph state compact. Store raw Figma, comment, and research payloads as
+  artifacts once compact contract artifacts exist.
+- Designer-facing blocked states must include a plain-language problem and one
+  recommended next action.
 - Remove stale code once graph-backed replacements are tested.
 - Stage only files touched by the current task.
 - Make atomic Conventional Commits after each completed task.
@@ -31,10 +37,12 @@
   contract.
 - Agent C: draft component lifecycle and Figma/QA gates.
 - Agent D: comment evidence map and review-comments graph.
-- Agent E: docs, stale-code cleanup, full verification, and final review.
+- Agent E: context durability, resume, and designer recovery tests.
+- Agent F: docs, stale-code cleanup, full verification, and final review.
 
 Agents can run A, C, and D in parallel after this plan is approved. Agent B
-depends on Agent A. Agent E depends on all implementation tasks.
+depends on Agent A. Agent E depends on Agents A through D. Agent F depends on
+all implementation tasks.
 
 ## File Map
 
@@ -45,10 +53,15 @@ Create:
 - `src/core/domain/state-representation.ts`
 - `src/core/domain/draft-component-lifecycle.ts`
 - `src/core/domain/comment-evidence-map.ts`
+- `src/core/domain/context-durability.ts`
+- `src/core/domain/designer-recovery.ts`
 - `src/core/domain/test/ux-envelope.test.ts`
 - `src/core/domain/test/state-representation.test.ts`
 - `src/core/domain/test/draft-component-lifecycle.test.ts`
 - `src/core/domain/test/comment-evidence-map.test.ts`
+- `src/core/domain/test/context-durability.test.ts`
+- `src/core/domain/test/designer-recovery.test.ts`
+- `src/core/graph/test/context-durability.test.ts`
 - `src/core/nodes/ux/index.ts`
 - `src/core/nodes/ux/test/ux-nodes.test.ts`
 - `src/core/nodes/comments/index.ts`
@@ -2439,7 +2452,387 @@ git commit -m "feat(graph): persist ux quality artifacts"
 
 ---
 
-## Task 9: Update Designer-Facing Docs
+## Task 9: Add Context Durability, Resume, And Recovery Tests
+
+**Files:**
+
+- Create: `src/core/domain/context-durability.ts`
+- Create: `src/core/domain/designer-recovery.ts`
+- Create: `src/core/domain/test/context-durability.test.ts`
+- Create: `src/core/domain/test/designer-recovery.test.ts`
+- Create: `src/core/graph/test/context-durability.test.ts`
+- Modify: `src/core/graph/runtime.ts`
+- Modify: `src/core/nodes/comments/index.ts`
+- Modify: `e2e/graph/create-screen-flow.test.ts`
+- Modify: `e2e/graph/review-comments-flow.test.ts`
+
+- [ ] **Step 1: Write failing context budget tests**
+
+Create `src/core/domain/test/context-durability.test.ts`:
+
+```ts
+import { describe, expect, it } from "bun:test";
+import { KotikitError } from "../../../util/result.js";
+import {
+  assertCompactGraphState,
+  buildContextBudgetReport,
+  pruneRawReviewPayloads,
+} from "../context-durability.js";
+
+describe("context durability", () => {
+  it("reports serialized graph state size", () => {
+    const report = buildContextBudgetReport({
+      state: {
+        schemaVersion: "KotikitGraphState/v1",
+        runId: "run-1",
+        flowId: "create-screen",
+        flowVersion: "1.0.0",
+        graphHash: "hash",
+        status: "running",
+        project: { root: "/tmp/project" },
+        artifacts: [],
+        errors: [],
+      },
+    });
+
+    expect(report).toMatchObject({
+      schemaVersion: "ContextBudgetReport/v1",
+      status: "passed",
+      serializedBytes: expect.any(Number),
+    });
+  });
+
+  it("blocks graph state above the hard budget", () => {
+    expect(() =>
+      assertCompactGraphState(
+        {
+          schemaVersion: "KotikitGraphState/v1",
+          runId: "run-1",
+          flowId: "create-screen",
+          flowVersion: "1.0.0",
+          graphHash: "hash",
+          status: "running",
+          project: { root: "/tmp/project" },
+          review: { rawPayload: "x".repeat(2_000) },
+          artifacts: [],
+          errors: [],
+        },
+        { warningBytes: 512, maxBytes: 1024 }
+      )
+    ).toThrow(KotikitError);
+  });
+
+  it("prunes raw review snapshots after compact comment evidence exists", () => {
+    expect(
+      pruneRawReviewPayloads({
+        commentSnapshot: { comments: [{ id: "comment-1", message: "Long raw payload" }] },
+        commentEvidenceMap: { schemaVersion: "CommentEvidenceMap/v1" },
+      })
+    ).toEqual({
+      commentEvidenceMap: { schemaVersion: "CommentEvidenceMap/v1" },
+      commentSnapshotRef: "comment-evidence-map",
+    });
+  });
+});
+```
+
+- [ ] **Step 2: Write failing designer recovery tests**
+
+Create `src/core/domain/test/designer-recovery.test.ts`:
+
+```ts
+import { describe, expect, it } from "bun:test";
+import { createDesignerRecovery } from "../designer-recovery.js";
+
+describe("designer recovery", () => {
+  it("creates a plain-language recovery model", () => {
+    expect(
+      createDesignerRecovery({
+        problem: "Kotikit cannot map 2 comments to exact layers.",
+        why: "Guessing targets could apply revisions to the wrong part of the design.",
+        recommendedAction: "Treat them as page-level feedback or open the comment map artifact.",
+        actions: [
+          { id: "page-feedback", label: "Use page-level feedback" },
+          { id: "open-artifact", label: "Open comment map" },
+        ],
+        artifactRefs: ["run-1-comment-evidence-map"],
+      })
+    ).toEqual({
+      schemaVersion: "DesignerRecovery/v1",
+      problem: "Kotikit cannot map 2 comments to exact layers.",
+      why: "Guessing targets could apply revisions to the wrong part of the design.",
+      recommendedAction: "Treat them as page-level feedback or open the comment map artifact.",
+      actions: [
+        { id: "page-feedback", label: "Use page-level feedback" },
+        { id: "open-artifact", label: "Open comment map" },
+      ],
+      artifactRefs: ["run-1-comment-evidence-map"],
+    });
+  });
+
+  it("does not expose stack traces in recovery text", () => {
+    const recovery = createDesignerRecovery({
+      problem: "The local design-system cache is empty.",
+      why: "Kotikit needs component evidence before composing a polished screen.",
+      recommendedAction: "Run design-system sync or continue with draft components.",
+      actions: [{ id: "sync-design-system", label: "Sync design system" }],
+      technicalDetailsRef: "kotikit://runs/run-1",
+    });
+
+    expect(JSON.stringify(recovery)).not.toContain(" at ");
+    expect(recovery.technicalDetailsRef).toBe("kotikit://runs/run-1");
+  });
+});
+```
+
+- [ ] **Step 3: Run failing domain tests**
+
+Run:
+
+```bash
+bun test src/core/domain/test/context-durability.test.ts src/core/domain/test/designer-recovery.test.ts
+```
+
+Expected: fail because the domain files do not exist.
+
+- [ ] **Step 4: Implement context durability helpers**
+
+Create `src/core/domain/context-durability.ts`:
+
+```ts
+import { KotikitError } from "../../util/result.js";
+import type { KotikitGraphState } from "../schemas/graph-state.js";
+
+export type ContextBudgetReport = {
+  schemaVersion: "ContextBudgetReport/v1";
+  status: "passed" | "warning" | "blocked";
+  serializedBytes: number;
+  warningBytes: number;
+  maxBytes: number;
+  findings: string[];
+};
+
+export type ContextBudgetOptions = {
+  warningBytes?: number;
+  maxBytes?: number;
+};
+
+export const DEFAULT_CONTEXT_WARNING_BYTES = 128 * 1024;
+export const DEFAULT_CONTEXT_MAX_BYTES = 256 * 1024;
+
+export function buildContextBudgetReport(input: {
+  state: KotikitGraphState;
+  options?: ContextBudgetOptions;
+}): ContextBudgetReport {
+  const warningBytes = input.options?.warningBytes ?? DEFAULT_CONTEXT_WARNING_BYTES;
+  const maxBytes = input.options?.maxBytes ?? DEFAULT_CONTEXT_MAX_BYTES;
+  const serializedBytes = Buffer.byteLength(JSON.stringify(input.state), "utf8");
+  const findings = [
+    ...(serializedBytes > warningBytes
+      ? [`Graph state is above warning budget: ${serializedBytes} bytes.`]
+      : []),
+    ...(serializedBytes > maxBytes
+      ? [`Graph state is above hard budget: ${serializedBytes} bytes.`]
+      : []),
+  ];
+  return {
+    schemaVersion: "ContextBudgetReport/v1",
+    status: serializedBytes > maxBytes ? "blocked" : serializedBytes > warningBytes ? "warning" : "passed",
+    serializedBytes,
+    warningBytes,
+    maxBytes,
+    findings,
+  };
+}
+
+export function assertCompactGraphState(
+  state: KotikitGraphState,
+  options: ContextBudgetOptions = {}
+): void {
+  const report = buildContextBudgetReport({ state, options });
+  if (report.status !== "blocked") return;
+  throw new KotikitError(
+    "This Kotikit run is carrying too much context to resume reliably.",
+    "Persist raw Figma/comment data as artifacts and keep only compact contracts in graph state."
+  );
+}
+
+export function pruneRawReviewPayloads(review: Record<string, unknown>): Record<string, unknown> {
+  if (review.commentEvidenceMap === undefined) return review;
+  const { commentSnapshot: _commentSnapshot, sourceSnapshot: _sourceSnapshot, ...rest } = review;
+  return {
+    ...rest,
+    commentSnapshotRef: "comment-evidence-map",
+  };
+}
+```
+
+- [ ] **Step 5: Implement designer recovery helper**
+
+Create `src/core/domain/designer-recovery.ts`:
+
+```ts
+import { z } from "zod";
+
+export const DesignerRecoverySchema = z.strictObject({
+  schemaVersion: z.literal("DesignerRecovery/v1"),
+  problem: z.string().min(1),
+  why: z.string().min(1),
+  recommendedAction: z.string().min(1),
+  actions: z.array(
+    z.strictObject({
+      id: z.string().min(1),
+      label: z.string().min(1),
+    })
+  ).min(1).max(3),
+  artifactRefs: z.array(z.string().min(1)).optional(),
+  technicalDetailsRef: z.string().min(1).optional(),
+});
+
+export type DesignerRecovery = z.infer<typeof DesignerRecoverySchema>;
+
+export function createDesignerRecovery(
+  input: Omit<DesignerRecovery, "schemaVersion">
+): DesignerRecovery {
+  return DesignerRecoverySchema.parse({
+    schemaVersion: "DesignerRecovery/v1",
+    ...input,
+  });
+}
+```
+
+- [ ] **Step 6: Add runtime budget enforcement**
+
+Modify `src/core/graph/runtime.ts`:
+
+```ts
+import { assertCompactGraphState } from "../domain/context-durability.js";
+```
+
+In `executeRun`, after `const patchedState = { ...run.state, ...output.statePatch };`, add:
+
+```ts
+assertCompactGraphState(patchedState);
+```
+
+In `startFlow`, after building the initial `state`, add:
+
+```ts
+assertCompactGraphState(state);
+```
+
+- [ ] **Step 7: Prune raw comment payloads after mapping**
+
+Modify `src/core/nodes/comments/index.ts`:
+
+```ts
+import { pruneRawReviewPayloads } from "../../domain/context-durability.js";
+```
+
+Change the `statePatch.review` value in `comments.buildEvidenceMap` from:
+
+```ts
+review: { ...review, commentEvidenceMap },
+```
+
+to:
+
+```ts
+review: pruneRawReviewPayloads({ ...review, commentEvidenceMap }),
+```
+
+- [ ] **Step 8: Write failing graph resume tests**
+
+Create `src/core/graph/test/context-durability.test.ts`:
+
+```ts
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createGraphSmokeFixture, fakeDraftTarget, seedLocalDesignSystem } from "../../../../e2e/graph/fixtures/fake-figma.js";
+
+let root: string;
+
+beforeEach(async () => {
+  root = await mkdtemp(join(tmpdir(), "kotikit-context-durability-"));
+});
+
+afterEach(async () => {
+  await rm(root, { recursive: true, force: true });
+});
+
+describe("context durability", () => {
+  it("resumes create-screen from persisted state after a process-style runtime restart", async () => {
+    seedLocalDesignSystem(root, { includePrimaryAction: false });
+    const first = await createGraphSmokeFixture(root);
+    const started = await first.runtime.startFlow({
+      flowId: "create-screen",
+      input: {
+        project: { root, name: "Smoke Project" },
+        userIntent: "Create Admin members page",
+        figmaTarget: fakeDraftTarget("Draft - Members"),
+      },
+    });
+
+    expect(started.status).toBe("waiting-for-user");
+
+    const second = await createGraphSmokeFixture(root);
+    const resumed = await second.runtime.answerRun({
+      runId: started.runId,
+      answer: "create-draft-components",
+    });
+
+    expect(resumed.runId).toBe(started.runId);
+    expect(resumed.state.runId).toBe(started.runId);
+    expect(JSON.stringify(resumed.state).length).toBeLessThan(256 * 1024);
+  });
+});
+```
+
+Keep this test on the existing smoke fixture for this slice. Do not add a new
+fixture abstraction in this task.
+
+- [ ] **Step 9: Extend e2e resume coverage**
+
+In `e2e/graph/create-screen-flow.test.ts`, add a test that:
+
+1. starts `create-screen`;
+2. answers until `waiting-for-figma`;
+3. patches fake apply metadata;
+4. recreates the runtime with `createGraphSmokeFixture(root)`;
+5. calls `continueRun`;
+6. expects `done`.
+
+In `e2e/graph/review-comments-flow.test.ts`, add a test that:
+
+1. starts `review-comments` from a seeded comment snapshot;
+2. reaches the comment approval interrupt;
+3. recreates the runtime with `createGraphSmokeFixture(root)`;
+4. answers the approval;
+5. expects the run to continue with the same `runId` and without raw
+   `review.commentSnapshot` in state.
+
+- [ ] **Step 10: Run tests**
+
+Run:
+
+```bash
+bun test src/core/domain/test/context-durability.test.ts src/core/domain/test/designer-recovery.test.ts src/core/graph/test/context-durability.test.ts e2e/graph/create-screen-flow.test.ts e2e/graph/review-comments-flow.test.ts
+```
+
+Expected: pass.
+
+- [ ] **Step 11: Commit**
+
+```bash
+git add src/core/domain/context-durability.ts src/core/domain/designer-recovery.ts src/core/domain/test/context-durability.test.ts src/core/domain/test/designer-recovery.test.ts src/core/graph/runtime.ts src/core/graph/test/context-durability.test.ts src/core/nodes/comments/index.ts e2e/graph/create-screen-flow.test.ts e2e/graph/review-comments-flow.test.ts
+git commit -m "feat(graph): enforce context durability"
+```
+
+---
+
+## Task 10: Update Designer-Facing Docs
 
 **Files:**
 
@@ -2479,6 +2872,8 @@ describe("UX quality docs", () => {
     expect(text).toContain("StateMatrix");
     expect(text).toContain("CommentEvidenceMap");
     expect(text).toContain("DraftComponentLifecycle");
+    expect(text).toContain("context durability");
+    expect(text).toContain("designer recovery");
   });
 });
 ```
@@ -2506,6 +2901,12 @@ Update docs with these designer-facing points:
   screens.
 - Designers only need to answer blocking questions; quick mode records
   assumptions.
+- Kotikit can resume graph runs after assistant restarts, Figma apply waits,
+  and approval interrupts.
+- Blocking states explain the problem, why it matters, and the recommended next
+  action in designer-friendly language.
+- Raw Figma, comment, and research payloads are stored as artifacts after
+  compact contracts are built, so normal tool output stays small.
 
 Update `KOTIKIT_MIGRATION.md` with links to this spec and plan and a pending
 implementation section named:
@@ -2533,7 +2934,7 @@ git commit -m "docs: document ux quality contracts"
 
 ---
 
-## Task 10: Stale Code Cleanup
+## Task 11: Stale Code Cleanup
 
 **Files:**
 
@@ -2636,7 +3037,7 @@ git commit -m "docs(core): clarify node map compatibility boundary"
 
 ---
 
-## Task 11: Full Verification And Review
+## Task 12: Full Verification And Review
 
 **Files:**
 
@@ -2725,6 +3126,8 @@ Expected Figma result:
 Use `superpowers:requesting-code-review` for an independent review focused on:
 
 - graph sequencing;
+- checkpoint/resume behavior;
+- graph-state budget enforcement;
 - schema compatibility;
 - non-hardcoded pattern-pack behavior;
 - stale-code cleanup;
@@ -2763,10 +3166,12 @@ git commit -m "docs: record ux quality contract migration"
 
 ## Plan Self-Review Checklist
 
-- Spec coverage: comment evidence map, state matrix, draft lifecycle, designer
-  UX, docs, and stale cleanup each have implementation tasks.
+- Spec coverage: comment evidence map, state matrix, draft lifecycle, context
+  durability, designer recovery, docs, and stale cleanup each have
+  implementation tasks.
 - TDD coverage: every behavior task starts with a failing test.
 - Generic architecture: pattern packs are data; node logic stays generic.
 - Stale cleanup: cleanup happens only after graph replacements are tested.
-- Non-technical designer UX: errors and docs use plain-language recovery.
+- Non-technical designer UX: errors, recovery models, and docs use
+  plain-language recovery.
 - Atomic commits: every task ends with a scoped Conventional Commit.
