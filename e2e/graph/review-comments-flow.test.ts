@@ -29,6 +29,13 @@ describe("review-comments graph flow", () => {
 
     expect(postingPaused.status).toBe("waiting-for-user");
     expect(postingPaused.state.pendingQuestion?.id).toBe("approve-comment-posting");
+    await expect(artifactStore.listArtifacts(postingPaused.runId)).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "comment-evidence-map",
+        }),
+      ])
+    );
     await expect(
       artifactStore.getArtifact(`${postingPaused.runId}-revision-plan`)
     ).resolves.toMatchObject({

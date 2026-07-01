@@ -92,8 +92,11 @@ describe("create-screen graph flow", () => {
       expect(completed.state.artifacts.map((artifact) => artifact.type)).toEqual(
         expect.arrayContaining([
           "design-brief",
+          "ux-envelope",
+          "state-matrix",
           "figma-apply-packet",
           "figma-apply-report",
+          "draft-component-lifecycle",
           "ui-quality-gate-report",
         ])
       );

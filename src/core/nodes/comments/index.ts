@@ -3,10 +3,12 @@ import { nowIso } from "../../../util/ids.js";
 import { KotikitError } from "../../../util/result.js";
 import { buildCommentEvidenceMap } from "../../domain/comment-evidence-map.js";
 import type { NodeDefinition } from "../../graph/node-registry.js";
+import { type Artifact, ArtifactSchemaVersionByType } from "../../schemas/artifact.js";
 import type { KotikitGraphState } from "../../schemas/graph-state.js";
 
 type RuntimeNodeOutput = {
   statePatch?: Partial<KotikitGraphState>;
+  artifacts?: Artifact[];
 };
 
 const EmptyParamsSchema = z.strictObject({});
@@ -48,10 +50,25 @@ export const commentNodeDefinitions: NodeDefinition[] = [
           commentEvidenceMap,
           review: { ...review, commentEvidenceMap },
         },
+        artifacts: [commentEvidenceArtifact(state, commentEvidenceMap)],
       } satisfies RuntimeNodeOutput;
     },
   }),
 ];
+
+function commentEvidenceArtifact(state: KotikitGraphState, payload: Artifact["payload"]): Artifact {
+  const now = nowIso();
+  return {
+    id: `${state.runId}-comment-evidence-map`,
+    runId: state.runId,
+    type: "comment-evidence-map",
+    schemaVersion: ArtifactSchemaVersionByType["comment-evidence-map"],
+    createdAt: now,
+    updatedAt: now,
+    sourceNode: { key: "comments.buildEvidenceMap", version: "1.0.0" },
+    payload,
+  };
+}
 
 function node(
   input: Partial<NodeDefinition> & Pick<NodeDefinition, "key" | "run">

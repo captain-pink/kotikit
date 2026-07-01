@@ -1,12 +1,15 @@
 import { z } from "zod";
+import { nowIso } from "../../../util/ids.js";
 import { KotikitError } from "../../../util/result.js";
 import { buildStateMatrix, buildUxEnvelope } from "../../domain/ux-envelope.js";
 import { selectPatternPack } from "../../domain/ux-pattern-pack.js";
 import type { NodeDefinition } from "../../graph/node-registry.js";
+import { type Artifact, ArtifactSchemaVersionByType } from "../../schemas/artifact.js";
 import type { KotikitGraphState } from "../../schemas/graph-state.js";
 
 type RuntimeNodeOutput = {
   statePatch?: Partial<KotikitGraphState>;
+  artifacts?: Artifact[];
 };
 
 const EmptyParamsSchema = z.strictObject({});
@@ -19,13 +22,20 @@ export const uxNodeDefinitions: NodeDefinition[] = [
     requiredCapabilities: ["ux.plan"],
     run: async (input) => {
       const state = graphState(input.state);
+      const uxEnvelope = buildUxEnvelope({
+        userIntent: state.userIntent ?? "Create a product screen.",
+        screen: screenFrom(state.screen),
+      });
       return {
-        statePatch: {
-          uxEnvelope: buildUxEnvelope({
-            userIntent: state.userIntent ?? "Create a product screen.",
-            screen: screenFrom(state.screen),
+        statePatch: { uxEnvelope },
+        artifacts: [
+          artifactFor({
+            state,
+            key: "ux.buildEnvelope",
+            type: "ux-envelope",
+            payload: uxEnvelope,
           }),
-        },
+        ],
       } satisfies RuntimeNodeOutput;
     },
   }),
@@ -42,17 +52,43 @@ export const uxNodeDefinitions: NodeDefinition[] = [
           "Run ux.buildEnvelope before planning screen states."
         );
       }
+      const stateMatrix = buildStateMatrix({
+        envelope: state.uxEnvelope,
+        patternPack: selectPatternPack(state.uxEnvelope.screenArchetype),
+      });
       return {
-        statePatch: {
-          stateMatrix: buildStateMatrix({
-            envelope: state.uxEnvelope,
-            patternPack: selectPatternPack(state.uxEnvelope.screenArchetype),
+        statePatch: { stateMatrix },
+        artifacts: [
+          artifactFor({
+            state,
+            key: "ux.planStateMatrix",
+            type: "state-matrix",
+            payload: stateMatrix,
           }),
-        },
+        ],
       } satisfies RuntimeNodeOutput;
     },
   }),
 ];
+
+function artifactFor(input: {
+  state: KotikitGraphState;
+  key: string;
+  type: "ux-envelope" | "state-matrix";
+  payload: Artifact["payload"];
+}): Artifact {
+  const now = nowIso();
+  return {
+    id: `${input.state.runId}-${input.type}`,
+    runId: input.state.runId,
+    type: input.type,
+    schemaVersion: ArtifactSchemaVersionByType[input.type],
+    createdAt: now,
+    updatedAt: now,
+    sourceNode: { key: input.key, version: "1.0.0" },
+    payload: input.payload,
+  };
+}
 
 function node(
   input: Partial<NodeDefinition> & Pick<NodeDefinition, "key" | "run">
