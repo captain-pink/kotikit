@@ -18,7 +18,6 @@ Core kotikit state:
 - `flowManifestPath(root, scope)` — `.kotikit/specs/<scope>/flow.json`
 - `designPlanPath(root, scope, screen | null)` — `.kotikit/specs/<scope>/<screen>.design.plan.json`
 - `designApplyLogPath(root, scope, screen | null)` — `.kotikit/specs/<scope>/<screen>.design.apply.log`
-- `designNodeMapPath(root, scope, screen | null)` — `.kotikit/specs/<scope>/<screen>.design.node-map.json`
 - `bridgeConfigPath(root)` — `.kotikit/bridge.json`
 - `designReviewDbPath(root)` — `.kotikit/design-review.db`
 
@@ -71,8 +70,8 @@ All path helpers are pure functions that take `root` as their first argument and
 - [config](./config.md) — uses `configPath` and `findProjectRoot`
 - [spec](./spec.md) — uses `scopeDir`, `screenSpecPath`, `singleSpecPath`, `flowManifestPath`, `indexPath`
 - [sync](./sync.md) — uses all `design-system/` path helpers and `checkpointPath`
-- [planning](./planning.md) — uses `designPlanPath`, `designApplyLogPath`,
-  and `designNodeMapPath`
+- [planning](./planning.md) — uses `designPlanPath` and
+  `designApplyLogPath`
 - [db](./db.md) — uses `componentsDbPath`, `iconsDbPath`, `designReviewDbPath`
 - [mcp](./mcp.md) — uses `findProjectRoot`, `bridgeConfigPath`
 - [git](./git.md) — uses `KotikitError` (re-exported from result)

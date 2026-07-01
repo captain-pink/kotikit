@@ -18,16 +18,20 @@
         "design-brief",
         "screen-model",
         "flow-model",
+        "ux-envelope",
+        "state-matrix",
         "design-system-fit-report",
         "figma-target",
         "ui-composition-contract",
         "layout-contract",
         "variable-binding-plan",
         "draft-component-plan",
+        "draft-component-lifecycle",
         "draft-plan",
         "figma-apply-packet",
         "figma-apply-report",
         "ui-quality-gate-report",
+        "comment-evidence-map",
         "review-session",
         "revision-plan",
         "design-memory-candidate"
@@ -153,6 +157,228 @@
             }
           },
           "required": ["schemaVersion"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "schemaVersion": {
+              "type": "string",
+              "const": "UXEnvelope/v1"
+            },
+            "screenArchetype": {
+              "type": "string",
+              "enum": [
+                "admin-data-table",
+                "dashboard",
+                "settings-form",
+                "detail-page",
+                "creation-flow",
+                "review-workflow",
+                "unknown"
+              ]
+            },
+            "confidence": {
+              "type": "string",
+              "enum": ["observed", "inferred", "low"]
+            },
+            "actor": {
+              "type": "string",
+              "minLength": 1
+            },
+            "primaryGoal": {
+              "type": "string",
+              "minLength": 1
+            },
+            "primaryTask": {
+              "type": "string",
+              "minLength": 1
+            },
+            "secondaryTasks": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "dataModel": {
+              "type": "object",
+              "properties": {
+                "primaryEntity": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "expectedVolume": {
+                  "type": "string",
+                  "enum": ["zero", "one", "few", "many", "unknown"]
+                },
+                "fields": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "required": ["primaryEntity", "expectedVolume", "fields"],
+              "additionalProperties": false
+            },
+            "permissions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "edgeCases": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "assumptions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "sourceRefs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uri"
+              }
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "screenArchetype",
+            "confidence",
+            "actor",
+            "primaryGoal",
+            "primaryTask",
+            "secondaryTasks",
+            "dataModel",
+            "permissions",
+            "edgeCases",
+            "assumptions",
+            "sourceRefs"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "schemaVersion": {
+              "type": "string",
+              "const": "StateMatrix/v1"
+            },
+            "states": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "filled",
+                      "loading",
+                      "empty",
+                      "no-results",
+                      "error",
+                      "permission",
+                      "success",
+                      "custom"
+                    ]
+                  },
+                  "scope": {
+                    "type": "string",
+                    "enum": ["page", "region", "component", "flow"]
+                  },
+                  "affectedRegion": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "persistentRegions": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "replacementBehavior": {
+                    "type": "string",
+                    "enum": [
+                      "same-frame-variant",
+                      "replace-whole-page",
+                      "replace-region-content",
+                      "replace-table-body",
+                      "inline-feedback",
+                      "blocking-dialog"
+                    ]
+                  },
+                  "requiredComponents": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "copy": {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "body": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "primaryAction": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "secondaryAction": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "sourceRefs": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  }
+                },
+                "required": [
+                  "id",
+                  "label",
+                  "kind",
+                  "scope",
+                  "persistentRegions",
+                  "replacementBehavior",
+                  "requiredComponents",
+                  "sourceRefs"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["schemaVersion", "states"],
           "additionalProperties": false
         },
         {
@@ -450,6 +676,125 @@
           "properties": {
             "schemaVersion": {
               "type": "string",
+              "const": "DraftComponentLifecycle/v1"
+            },
+            "sectionName": {
+              "type": "string",
+              "const": "Kotikit Draft Components"
+            },
+            "components": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "draftComponentId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "componentKey": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "componentNodeId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "placement": {
+                    "type": "object",
+                    "properties": {
+                      "pageId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "sectionName": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "x": {
+                        "type": "number"
+                      },
+                      "y": {
+                        "type": "number"
+                      },
+                      "width": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      },
+                      "height": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "requiredInstances": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "actualInstances": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "nodeId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "stateId": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": ["nodeId"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "planned",
+                      "created",
+                      "used",
+                      "unused-approved",
+                      "orphan-blocked",
+                      "overlap-blocked"
+                    ]
+                  },
+                  "promotionNote": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "draftComponentId",
+                  "name",
+                  "reason",
+                  "placement",
+                  "requiredInstances",
+                  "actualInstances",
+                  "status"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["schemaVersion", "sectionName", "components"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "schemaVersion": {
+              "type": "string",
               "const": "DraftPlan/v1"
             },
             "summary": {
@@ -572,6 +917,10 @@
                       "type": "string",
                       "minLength": 1
                     }
+                  },
+                  "recommendedAction": {
+                    "type": "string",
+                    "minLength": 1
                   }
                 },
                 "required": ["id", "name", "status"],
@@ -580,6 +929,143 @@
             }
           },
           "required": ["schemaVersion", "status", "checks"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "schemaVersion": {
+              "type": "string",
+              "const": "CommentEvidenceMap/v1"
+            },
+            "fileKey": {
+              "type": "string",
+              "minLength": 1
+            },
+            "mappedAt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "comments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "commentId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "rootCommentId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "parentId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "orderId": {
+                    "type": "number"
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "author": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "resolvedAt": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "clientMeta": {},
+                  "mappedTarget": {
+                    "type": "object",
+                    "properties": {
+                      "nodeId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "nodeName": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "partId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "stateId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "componentKey": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "draftComponentId": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": ["nodeId"],
+                    "additionalProperties": false
+                  },
+                  "mappingConfidence": {
+                    "type": "string",
+                    "enum": ["exact", "high", "medium", "low", "none"]
+                  },
+                  "mappingStrategy": {
+                    "type": "string",
+                    "enum": [
+                      "node-id",
+                      "parent-thread",
+                      "frame-offset",
+                      "region-overlap",
+                      "nearest-known-target",
+                      "unmapped"
+                    ]
+                  },
+                  "intent": {
+                    "type": "string",
+                    "enum": [
+                      "question",
+                      "bug-usability",
+                      "visual-polish",
+                      "copy-content",
+                      "design-system-mismatch",
+                      "implementation-handoff",
+                      "preference",
+                      "out-of-scope",
+                      "needs-human-clarification"
+                    ]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["actionable", "needs-human", "non-actionable", "resolved"]
+                  }
+                },
+                "required": [
+                  "commentId",
+                  "rootCommentId",
+                  "message",
+                  "mappingConfidence",
+                  "mappingStrategy",
+                  "intent",
+                  "status"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "unmappedCount": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": ["schemaVersion", "fileKey", "mappedAt", "comments", "unmappedCount"],
           "additionalProperties": false
         },
         {
@@ -978,6 +1464,346 @@
             }
           },
           "required": ["schemaVersion"],
+          "additionalProperties": false
+        },
+        "filesystemPath": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "runId",
+        "type",
+        "schemaVersion",
+        "createdAt",
+        "updatedAt",
+        "sourceNode",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "const": "ux-envelope"
+        },
+        "schemaVersion": {
+          "type": "string",
+          "const": "UXEnvelope/v1"
+        },
+        "createdAt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "updatedAt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceNode": {
+          "type": "object",
+          "properties": {
+            "key": {
+              "type": "string",
+              "minLength": 1
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": ["key", "version"],
+          "additionalProperties": false
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "schemaVersion": {
+              "type": "string",
+              "const": "UXEnvelope/v1"
+            },
+            "screenArchetype": {
+              "type": "string",
+              "enum": [
+                "admin-data-table",
+                "dashboard",
+                "settings-form",
+                "detail-page",
+                "creation-flow",
+                "review-workflow",
+                "unknown"
+              ]
+            },
+            "confidence": {
+              "type": "string",
+              "enum": ["observed", "inferred", "low"]
+            },
+            "actor": {
+              "type": "string",
+              "minLength": 1
+            },
+            "primaryGoal": {
+              "type": "string",
+              "minLength": 1
+            },
+            "primaryTask": {
+              "type": "string",
+              "minLength": 1
+            },
+            "secondaryTasks": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "dataModel": {
+              "type": "object",
+              "properties": {
+                "primaryEntity": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "expectedVolume": {
+                  "type": "string",
+                  "enum": ["zero", "one", "few", "many", "unknown"]
+                },
+                "fields": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "required": ["primaryEntity", "expectedVolume", "fields"],
+              "additionalProperties": false
+            },
+            "permissions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "edgeCases": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "assumptions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "sourceRefs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uri"
+              }
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "screenArchetype",
+            "confidence",
+            "actor",
+            "primaryGoal",
+            "primaryTask",
+            "secondaryTasks",
+            "dataModel",
+            "permissions",
+            "edgeCases",
+            "assumptions",
+            "sourceRefs"
+          ],
+          "additionalProperties": false
+        },
+        "filesystemPath": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "runId",
+        "type",
+        "schemaVersion",
+        "createdAt",
+        "updatedAt",
+        "sourceNode",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "const": "state-matrix"
+        },
+        "schemaVersion": {
+          "type": "string",
+          "const": "StateMatrix/v1"
+        },
+        "createdAt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "updatedAt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceNode": {
+          "type": "object",
+          "properties": {
+            "key": {
+              "type": "string",
+              "minLength": 1
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": ["key", "version"],
+          "additionalProperties": false
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "schemaVersion": {
+              "type": "string",
+              "const": "StateMatrix/v1"
+            },
+            "states": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "filled",
+                      "loading",
+                      "empty",
+                      "no-results",
+                      "error",
+                      "permission",
+                      "success",
+                      "custom"
+                    ]
+                  },
+                  "scope": {
+                    "type": "string",
+                    "enum": ["page", "region", "component", "flow"]
+                  },
+                  "affectedRegion": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "persistentRegions": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "replacementBehavior": {
+                    "type": "string",
+                    "enum": [
+                      "same-frame-variant",
+                      "replace-whole-page",
+                      "replace-region-content",
+                      "replace-table-body",
+                      "inline-feedback",
+                      "blocking-dialog"
+                    ]
+                  },
+                  "requiredComponents": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "copy": {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "body": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "primaryAction": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "secondaryAction": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "sourceRefs": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  }
+                },
+                "required": [
+                  "id",
+                  "label",
+                  "kind",
+                  "scope",
+                  "persistentRegions",
+                  "replacementBehavior",
+                  "requiredComponents",
+                  "sourceRefs"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["schemaVersion", "states"],
           "additionalProperties": false
         },
         "filesystemPath": {
@@ -1654,6 +2480,184 @@
         },
         "type": {
           "type": "string",
+          "const": "draft-component-lifecycle"
+        },
+        "schemaVersion": {
+          "type": "string",
+          "const": "DraftComponentLifecycle/v1"
+        },
+        "createdAt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "updatedAt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceNode": {
+          "type": "object",
+          "properties": {
+            "key": {
+              "type": "string",
+              "minLength": 1
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": ["key", "version"],
+          "additionalProperties": false
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "schemaVersion": {
+              "type": "string",
+              "const": "DraftComponentLifecycle/v1"
+            },
+            "sectionName": {
+              "type": "string",
+              "const": "Kotikit Draft Components"
+            },
+            "components": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "draftComponentId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "componentKey": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "componentNodeId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "placement": {
+                    "type": "object",
+                    "properties": {
+                      "pageId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "sectionName": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "x": {
+                        "type": "number"
+                      },
+                      "y": {
+                        "type": "number"
+                      },
+                      "width": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      },
+                      "height": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "requiredInstances": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "actualInstances": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "nodeId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "stateId": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": ["nodeId"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "planned",
+                      "created",
+                      "used",
+                      "unused-approved",
+                      "orphan-blocked",
+                      "overlap-blocked"
+                    ]
+                  },
+                  "promotionNote": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "draftComponentId",
+                  "name",
+                  "reason",
+                  "placement",
+                  "requiredInstances",
+                  "actualInstances",
+                  "status"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["schemaVersion", "sectionName", "components"],
+          "additionalProperties": false
+        },
+        "filesystemPath": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "runId",
+        "type",
+        "schemaVersion",
+        "createdAt",
+        "updatedAt",
+        "sourceNode",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
           "const": "draft-plan"
         },
         "schemaVersion": {
@@ -1987,6 +2991,10 @@
                       "type": "string",
                       "minLength": 1
                     }
+                  },
+                  "recommendedAction": {
+                    "type": "string",
+                    "minLength": 1
                   }
                 },
                 "required": ["id", "name", "status"],
@@ -1995,6 +3003,202 @@
             }
           },
           "required": ["schemaVersion", "status", "checks"],
+          "additionalProperties": false
+        },
+        "filesystemPath": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "runId",
+        "type",
+        "schemaVersion",
+        "createdAt",
+        "updatedAt",
+        "sourceNode",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "const": "comment-evidence-map"
+        },
+        "schemaVersion": {
+          "type": "string",
+          "const": "CommentEvidenceMap/v1"
+        },
+        "createdAt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "updatedAt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceNode": {
+          "type": "object",
+          "properties": {
+            "key": {
+              "type": "string",
+              "minLength": 1
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": ["key", "version"],
+          "additionalProperties": false
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "schemaVersion": {
+              "type": "string",
+              "const": "CommentEvidenceMap/v1"
+            },
+            "fileKey": {
+              "type": "string",
+              "minLength": 1
+            },
+            "mappedAt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "comments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "commentId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "rootCommentId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "parentId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "orderId": {
+                    "type": "number"
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "author": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "resolvedAt": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "clientMeta": {},
+                  "mappedTarget": {
+                    "type": "object",
+                    "properties": {
+                      "nodeId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "nodeName": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "partId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "stateId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "componentKey": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "draftComponentId": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": ["nodeId"],
+                    "additionalProperties": false
+                  },
+                  "mappingConfidence": {
+                    "type": "string",
+                    "enum": ["exact", "high", "medium", "low", "none"]
+                  },
+                  "mappingStrategy": {
+                    "type": "string",
+                    "enum": [
+                      "node-id",
+                      "parent-thread",
+                      "frame-offset",
+                      "region-overlap",
+                      "nearest-known-target",
+                      "unmapped"
+                    ]
+                  },
+                  "intent": {
+                    "type": "string",
+                    "enum": [
+                      "question",
+                      "bug-usability",
+                      "visual-polish",
+                      "copy-content",
+                      "design-system-mismatch",
+                      "implementation-handoff",
+                      "preference",
+                      "out-of-scope",
+                      "needs-human-clarification"
+                    ]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["actionable", "needs-human", "non-actionable", "resolved"]
+                  }
+                },
+                "required": [
+                  "commentId",
+                  "rootCommentId",
+                  "message",
+                  "mappingConfidence",
+                  "mappingStrategy",
+                  "intent",
+                  "status"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "unmappedCount": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": ["schemaVersion", "fileKey", "mappedAt", "comments", "unmappedCount"],
           "additionalProperties": false
         },
         "filesystemPath": {

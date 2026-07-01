@@ -1,10 +1,14 @@
 import { z } from "zod";
 import {
   ArtifactTypeSchema,
+  CommentEvidenceMapSchema,
+  DraftComponentLifecycleSchema,
   DraftComponentPlanSchema,
   LayoutContractSchema,
+  StateMatrixSchema,
   UICompositionContractSchema,
   UIQualityGateReportSchema,
+  UXEnvelopeSchema,
   VariableBindingPlanSchema,
 } from "./artifact.js";
 
@@ -58,10 +62,15 @@ export const KotikitGraphStateSchema = z.strictObject({
   fitReport: z.unknown().optional(),
   figmaTarget: z.unknown().optional(),
   applyMetadata: z.unknown().optional(),
+  uxEnvelope: UXEnvelopeSchema.optional(),
+  stateMatrix: StateMatrixSchema.optional(),
+  commentEvidenceMap: CommentEvidenceMapSchema.optional(),
   uiComposition: UICompositionContractSchema.optional(),
+  stateRepresentation: z.unknown().optional(),
   layoutContract: LayoutContractSchema.optional(),
   variableBindingPlan: VariableBindingPlanSchema.optional(),
   draftComponentPlan: DraftComponentPlanSchema.optional(),
+  draftComponentLifecycle: DraftComponentLifecycleSchema.optional(),
   draftPlan: z.unknown().optional(),
   applyReport: z.unknown().optional(),
   uiQualityGate: UIQualityGateReportSchema.optional(),

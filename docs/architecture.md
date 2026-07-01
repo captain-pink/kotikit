@@ -124,7 +124,7 @@ This gives teams without Figma branches a practical safety boundary.
 - [modules/sync.md](modules/sync.md) - Figma sync, normalization, rate limits,
   and checkpoints.
 - [modules/planning.md](modules/planning.md) - design plans, graph draft
-  component planning, node maps, and review evidence.
+  component planning, apply metadata, and review evidence.
 - [modules/mcp.md](modules/mcp.md) - MCP server, tool registry, and bridge.
 - [modules/workflow.md](modules/workflow.md) - removed legacy workflow module
   and graph-runtime replacement notes.

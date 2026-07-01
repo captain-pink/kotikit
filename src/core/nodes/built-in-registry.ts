@@ -5,6 +5,7 @@ import {
   type NodeRegistry,
 } from "../graph/node-registry.js";
 import { briefNodeDefinitions } from "./brief/index.js";
+import { commentNodeDefinitions } from "./comments/index.js";
 import { designSystemNodeDefinitions } from "./design-system/index.js";
 import { draftNodeDefinitions } from "./draft/index.js";
 import { draftComponentNodeDefinitions } from "./draft-components/index.js";
@@ -14,6 +15,7 @@ import { memoryNodeDefinitions } from "./memory/index.js";
 import { qaNodeDefinitions } from "./qa/index.js";
 import { reviewNodeDefinitions } from "./review/index.js";
 import { uiCompositionNodeDefinitions } from "./ui-composition/index.js";
+import { uxNodeDefinitions } from "./ux/index.js";
 
 export function createBuiltInNodeRegistry(): NodeRegistry {
   return createNodeRegistry(builtInNodeDefinitions());
@@ -22,6 +24,8 @@ export function createBuiltInNodeRegistry(): NodeRegistry {
 export function builtInNodeDefinitions(): NodeDefinition[] {
   return [
     ...briefNodeDefinitions,
+    ...uxNodeDefinitions,
+    ...commentNodeDefinitions,
     ...flowNodeDefinitions,
     ...designSystemNodeDefinitions,
     ...uiCompositionNodeDefinitions,

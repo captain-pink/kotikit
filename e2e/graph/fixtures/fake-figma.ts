@@ -101,34 +101,57 @@ export function fakeApplyMetadataFor(state: KotikitGraphState): Record<string, u
   const uiComposition = recordFrom(state.uiComposition ?? packet.uiComposition);
   const variableBindingPlan = recordFrom(state.variableBindingPlan ?? packet.variableBindingPlan);
   const layoutContract = recordFrom(state.layoutContract ?? packet.layoutContract);
+  const stateRepresentation = recordFrom(state.stateRepresentation);
   const parts = recordArray(uiComposition.parts);
+  const appliedNodes = parts.map((part) => ({
+    id: `node-${String(part.id)}`,
+    partId: part.id,
+    name: part.name,
+    componentName: part.name,
+    componentKey: part.componentKey,
+    draftComponentId: part.draftComponentId,
+    expectedComponentRef: true,
+    width: 320,
+    height: 48,
+    textDirection: "horizontal",
+    mirroredText: false,
+    transform: { scaleX: 1, scaleY: 1 },
+    clippedText: false,
+    detachedInstance: false,
+    overlaps: [],
+    hardcodedComponentImitation: false,
+  }));
 
   return {
     fileKey: target.fileKey,
     pageId: target.pageId,
     sectionName: stringField(recordFrom(target.section), "name"),
-    nodes: parts.map((part) => ({
-      id: `node-${String(part.id)}`,
-      partId: part.id,
-      name: part.name,
-      componentName: part.name,
-      componentKey: part.componentKey,
-      draftComponentId: part.draftComponentId,
-      expectedComponentRef: true,
-      width: 320,
-      height: 48,
-      textDirection: "horizontal",
-      mirroredText: false,
-      transform: { scaleX: 1, scaleY: 1 },
-      clippedText: false,
-      detachedInstance: false,
-      overlaps: [],
-      hardcodedComponentImitation: false,
-    })),
+    nodes: appliedNodes,
     variableBindings: recordArray(variableBindingPlan.bindings),
     layoutFrames: recordArray(layoutContract.frames),
     repeatedItems: recordArray(packet.repeatedItems),
     textTransforms: recordArray(packet.textTransforms),
+    states: recordArray(stateRepresentation.states).map((item) => ({
+      stateId: item.stateId,
+      kind: item.kind,
+      representation: item.representation,
+      persistentRegions: item.persistentRegions,
+      width: 1280,
+      height: 720,
+    })),
+    draftComponentInstances: appliedNodes
+      .filter((node) => typeof node.draftComponentId === "string")
+      .map((node) => ({
+        draftComponentId: node.draftComponentId,
+        nodeId: node.id,
+      })),
+    draftComponentPlacements: recordArray(recordFrom(state.draftPlan).createdDraftComponents).map(
+      (component) => ({
+        draftComponentId: component.id,
+        componentKey: component.componentKey,
+        sectionName: component.sectionName,
+      })
+    ),
   };
 }
 
@@ -193,15 +216,25 @@ export function fakeReviewEvidence(): Record<string, unknown> {
 export function fakeCommentSnapshot(): Record<string, unknown> {
   return {
     commentSnapshot: {
+      fileKey: "FILE_SMOKE",
       comments: [
         {
           id: "comment-1",
           message: "Please tighten the spacing around the primary action.",
-          nodeId: "primary-action",
-          targetName: "Primary Action",
+          client_meta: { node_id: "primary-action" },
           createdAt: "2026-06-30T00:00:00.000Z",
         },
       ],
+      nodeMap: {
+        nodes: [
+          {
+            nodeId: "primary-action",
+            nodeName: "Primary Action",
+            partId: "primary-action",
+            componentKey: "button-primary-key",
+          },
+        ],
+      },
     },
   };
 }

@@ -1,0 +1,91 @@
+{
+  "schemaVersion": "UXPatternPack/v1",
+  "id": "settings-form",
+  "version": "1.0.0",
+  "title": "Settings Form",
+  "appliesTo": ["settings-form"],
+  "intentKeywords": ["settings", "preferences", "profile", "configuration", "form"],
+  "envelopeDefaults": {
+    "confidence": "inferred",
+    "actor": "Product user",
+    "primaryGoal": "Update settings safely",
+    "primaryTask": "Review and save configuration",
+    "secondaryTasks": ["Validate fields", "Undo changes", "Confirm success"],
+    "dataModel": {
+      "primaryEntity": "setting",
+      "expectedVolume": "few",
+      "fields": ["label", "value", "validation", "help text"]
+    },
+    "permissions": ["edit-settings"],
+    "edgeCases": ["filled", "loading", "error", "success", "permission"],
+    "assumptions": [
+      "Settings screens need clear save feedback, validation proximity, and safe recovery."
+    ]
+  },
+  "defaultStates": [
+    {
+      "kind": "filled",
+      "scope": "page",
+      "replacementBehavior": "same-frame-variant",
+      "requiredComponents": ["form fields", "save action", "secondary action"],
+      "sourceRefs": ["https://www.nngroup.com/articles/web-form-design/"]
+    },
+    {
+      "kind": "loading",
+      "scope": "page",
+      "replacementBehavior": "replace-region-content",
+      "requiredComponents": ["form skeleton"],
+      "copy": {
+        "title": "Loading settings"
+      },
+      "sourceRefs": ["https://carbondesignsystem.com/patterns/loading-pattern/"]
+    },
+    {
+      "kind": "error",
+      "scope": "component",
+      "affectedRegion": "form feedback",
+      "replacementBehavior": "inline-feedback",
+      "requiredComponents": ["inline error", "primary action"],
+      "primaryAction": "Retry",
+      "copy": {
+        "title": "Settings could not be saved"
+      },
+      "sourceRefs": ["https://www.nngroup.com/articles/error-message-guidelines/"]
+    },
+    {
+      "kind": "success",
+      "scope": "component",
+      "affectedRegion": "form feedback",
+      "replacementBehavior": "inline-feedback",
+      "requiredComponents": ["success feedback"],
+      "copy": {
+        "title": "Settings saved"
+      },
+      "sourceRefs": ["https://www.nngroup.com/articles/status-notification/"]
+    },
+    {
+      "kind": "permission",
+      "scope": "page",
+      "replacementBehavior": "replace-whole-page",
+      "requiredComponents": ["permission state"],
+      "copy": {
+        "title": "You cannot edit these settings",
+        "body": "Ask an admin for edit access."
+      },
+      "sourceRefs": ["https://www.nngroup.com/articles/error-message-guidelines/"]
+    }
+  ],
+  "componentRoles": ["form field", "help text", "validation message", "save action"],
+  "layoutRules": [
+    "Keep validation and error feedback next to the affected field or form region.",
+    "Keep primary and secondary actions visible near the form completion point."
+  ],
+  "qaRules": [
+    "Validation text must not shift unrelated fields.",
+    "Save success and failure states must have clear proximity to the form action."
+  ],
+  "sourceRefs": [
+    "https://www.nngroup.com/articles/web-form-design/",
+    "https://www.nngroup.com/articles/error-message-guidelines/"
+  ]
+}

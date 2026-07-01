@@ -71,8 +71,23 @@ page URL must:
 - have a page name containing `Draft` or `Drafts`
 
 Generated frames are placed inside a kotikit-owned Section on that page. Later
-apply logs validate the Figma file, page, and Section metadata before updating
-node maps used for comment review.
+apply metadata validates the Figma file, page, and Section before it can be
+used by review and comment evidence flows.
+
+## Comment Evidence
+
+Figma comments are read through the REST API when `file_comments:read` is
+available. Kotikit combines the REST comment snapshot with saved apply metadata
+from generated frames and stores the result as a compact `CommentEvidenceMap`.
+
+That map lets the review graph connect a thread to the nearest known page,
+region, component, or generated node when possible. Comments that cannot be
+mapped safely stay visible as unmapped evidence instead of being guessed.
+
+After the map is built, raw comment snapshots are kept as artifacts and removed
+from long-lived graph state. This supports context durability and lets the run
+resume after approval pauses without requiring the assistant to reread the full
+comment payload.
 
 ## Official Figma Assistant Integration
 
@@ -84,6 +99,12 @@ In Codex-style environments, the relevant official Figma tools are
 `use_figma` for normal Figma writes and `generate_figma_design` only when a
 web page or HTML reference should be captured into Figma. Kotikit still owns
 the spec, design-system search, draft target, apply packet, and audit logging.
+
+Kotikit draft output should use imported design-system component instances,
+design variables, auto layout, and graph-approved draft components. When a
+needed component does not exist, kotikit should create it on the active draft
+page first, track it with `DraftComponentLifecycle`, and then use linked
+instances in the composed screen.
 
 ## Local Kotikit Plugin
 

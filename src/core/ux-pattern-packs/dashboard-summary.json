@@ -1,0 +1,81 @@
+{
+  "schemaVersion": "UXPatternPack/v1",
+  "id": "dashboard-summary",
+  "version": "1.0.0",
+  "title": "Dashboard Summary",
+  "appliesTo": ["dashboard"],
+  "intentKeywords": ["dashboard", "overview", "summary", "analytics", "metrics"],
+  "envelopeDefaults": {
+    "confidence": "inferred",
+    "actor": "Product user",
+    "primaryGoal": "Understand current performance",
+    "primaryTask": "Review key metrics",
+    "secondaryTasks": ["Compare trends", "Inspect alerts", "Open detailed reports"],
+    "dataModel": {
+      "primaryEntity": "metric",
+      "expectedVolume": "few",
+      "fields": ["label", "value", "trend", "period"]
+    },
+    "permissions": [],
+    "edgeCases": ["filled", "loading", "empty", "error"],
+    "assumptions": [
+      "Dashboards should make the highest-priority metric scan path clear before secondary exploration."
+    ]
+  },
+  "defaultStates": [
+    {
+      "kind": "filled",
+      "scope": "page",
+      "replacementBehavior": "same-frame-variant",
+      "requiredComponents": ["metric cards", "trend chart", "activity list"],
+      "sourceRefs": ["https://www.nngroup.com/articles/dashboard-design/"]
+    },
+    {
+      "kind": "loading",
+      "scope": "page",
+      "replacementBehavior": "replace-region-content",
+      "requiredComponents": ["metric skeleton", "chart skeleton"],
+      "copy": {
+        "title": "Loading dashboard"
+      },
+      "sourceRefs": ["https://carbondesignsystem.com/patterns/loading-pattern/"]
+    },
+    {
+      "kind": "empty",
+      "scope": "region",
+      "affectedRegion": "primary metrics",
+      "replacementBehavior": "replace-region-content",
+      "requiredComponents": ["empty state"],
+      "copy": {
+        "title": "No metrics yet",
+        "body": "Connect data to start tracking performance."
+      },
+      "sourceRefs": ["https://carbondesignsystem.com/patterns/empty-states-pattern/"]
+    },
+    {
+      "kind": "error",
+      "scope": "region",
+      "affectedRegion": "primary metrics",
+      "replacementBehavior": "replace-region-content",
+      "requiredComponents": ["inline error", "primary action"],
+      "primaryAction": "Retry",
+      "copy": {
+        "title": "Metrics could not load"
+      },
+      "sourceRefs": ["https://www.nngroup.com/articles/error-message-guidelines/"]
+    }
+  ],
+  "componentRoles": ["metric summary", "chart", "activity list", "alert"],
+  "layoutRules": [
+    "Keep primary metrics above detail-heavy regions.",
+    "Preserve the dashboard scan path across loading and error states."
+  ],
+  "qaRules": [
+    "Primary metrics must remain readable at dashboard density.",
+    "Loading and error states must preserve region proximity."
+  ],
+  "sourceRefs": [
+    "https://www.nngroup.com/articles/dashboard-design/",
+    "https://www.nngroup.com/articles/task-analysis/"
+  ]
+}

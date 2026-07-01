@@ -12,6 +12,24 @@ workflow, brainstorm/spec, component-plan, design-plan, design-apply,
 review/comment, and memory choreography tools have been removed from public
 registration. Use graph flows and artifacts instead.
 
+## Graph Artifacts And UX Quality Contracts
+
+The graph facade keeps designer work resumable by storing durable artifacts
+instead of asking the assistant to remember every previous detail. The main UX
+quality contracts are:
+
+- `StateMatrix`: planned filled, loading, empty, no-results, error, and
+  permission states before visual composition.
+- `CommentEvidenceMap`: REST-backed Figma comment evidence mapped to known
+  pages, regions, components, or generated nodes where possible.
+- `DraftComponentLifecycle`: draft components created for design-system gaps,
+  with required linked instances in the final screen.
+
+Context durability checks keep long-lived graph state compact. Raw Figma,
+comment, and research payloads should move into artifacts after these contracts
+exist. If a flow blocks, designer recovery output should explain the problem,
+why it matters, and the recommended next action.
+
 ## Graph Flow Facade
 
 ### kotikit_flow_list

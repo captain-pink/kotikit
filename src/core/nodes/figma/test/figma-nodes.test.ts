@@ -76,6 +76,9 @@ describe("figma graph nodes", () => {
         layoutFrames: [{ id: "root", mode: "auto-layout", direction: "vertical" }],
         repeatedItems: [{ id: "members", instances: ["row-key"] }],
         textTransforms: [{ id: "email-label", transform: "none" }],
+        states: [{ stateId: "members-loading", representation: "region-state" }],
+        draftComponentInstances: [{ draftComponentId: "draft-email-input", nodeId: "node-1" }],
+        draftComponentPlacements: [{ draftComponentId: "draft-email-input", sectionName: "draft" }],
       },
     });
 
@@ -85,6 +88,11 @@ describe("figma graph nodes", () => {
       layoutFrames: [expect.objectContaining({ id: "root" })],
       repeatedItems: [expect.objectContaining({ id: "members" })],
       textTransforms: [expect.objectContaining({ id: "email-label" })],
+      states: [expect.objectContaining({ stateId: "members-loading" })],
+      draftComponentInstances: [expect.objectContaining({ draftComponentId: "draft-email-input" })],
+      draftComponentPlacements: [
+        expect.objectContaining({ draftComponentId: "draft-email-input" }),
+      ],
     });
   });
 
@@ -154,6 +162,9 @@ describe("figma graph nodes", () => {
         pageId: "1:2",
         sectionName: "kotikit / members / 2026-06-30",
         nodes: [{ id: "node-1", partId: "button", componentKey: "button-key" }],
+        states: [{ stateId: "members-loading", representation: "region-state" }],
+        draftComponentInstances: [{ draftComponentId: "draft-button", nodeId: "node-1" }],
+        draftComponentPlacements: [{ draftComponentId: "draft-button", sectionName: "draft" }],
       },
     });
 
@@ -165,6 +176,9 @@ describe("figma graph nodes", () => {
         data: {
           status: "recorded",
           nodes: [{ id: "node-1", partId: "button", componentKey: "button-key" }],
+          states: [{ stateId: "members-loading", representation: "region-state" }],
+          draftComponentInstances: [{ draftComponentId: "draft-button", nodeId: "node-1" }],
+          draftComponentPlacements: [{ draftComponentId: "draft-button", sectionName: "draft" }],
         },
       },
     });

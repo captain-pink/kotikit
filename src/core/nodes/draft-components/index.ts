@@ -1,14 +1,21 @@
 import { z } from "zod";
+import { nowIso } from "../../../util/ids.js";
 import { KotikitError } from "../../../util/result.js";
 import { ensureDraftTarget } from "../../adapters/figma/target.js";
+import {
+  buildDraftComponentLifecycle,
+  verifyDraftComponentLifecycle,
+} from "../../domain/draft-component-lifecycle.js";
 import { buildDraftComponentPlan } from "../../domain/draft-component-plan.js";
 import { createUserInterrupt } from "../../graph/interrupts.js";
 import type { NodeDefinition } from "../../graph/node-registry.js";
+import { type Artifact, ArtifactSchemaVersionByType } from "../../schemas/artifact.js";
 import type { KotikitGraphState } from "../../schemas/graph-state.js";
 
 type RuntimeNodeOutput = {
   statePatch?: Partial<KotikitGraphState>;
   interrupt?: ReturnType<typeof createUserInterrupt>;
+  artifacts?: Artifact[];
 };
 
 const EmptyParamsSchema = z.strictObject({});
@@ -99,7 +106,53 @@ export const draftComponentNodeDefinitions: NodeDefinition[] = [
       return {} satisfies RuntimeNodeOutput;
     },
   }),
+  node({
+    key: "draftComponents.buildLifecycle",
+    stateReads: ["draftComponentPlan", "draftPlan", "applyReport"],
+    stateWrites: ["draftComponentLifecycle"],
+    run: async (input) => {
+      const state = graphState(input.state);
+      if (state.draftComponentPlan === undefined) return {} satisfies RuntimeNodeOutput;
+      const draftComponentLifecycle = buildDraftComponentLifecycle({
+        plan: state.draftComponentPlan,
+        createdDraftComponents: recordArray(recordFrom(state.draftPlan).createdDraftComponents),
+        appliedInstances: recordArray(recordFrom(state.applyReport).draftComponentInstances),
+        placements: recordArray(recordFrom(state.applyReport).draftComponentPlacements),
+      });
+      return {
+        statePatch: { draftComponentLifecycle },
+        artifacts: [draftComponentLifecycleArtifact(state, draftComponentLifecycle)],
+      } satisfies RuntimeNodeOutput;
+    },
+  }),
+  node({
+    key: "draftComponents.verifyLifecycle",
+    stateReads: ["draftComponentLifecycle"],
+    stateWrites: [],
+    run: async (input) => {
+      const lifecycle = graphState(input.state).draftComponentLifecycle;
+      if (lifecycle !== undefined) verifyDraftComponentLifecycle(lifecycle);
+      return {} satisfies RuntimeNodeOutput;
+    },
+  }),
 ];
+
+function draftComponentLifecycleArtifact(
+  state: KotikitGraphState,
+  payload: Artifact["payload"]
+): Artifact {
+  const now = nowIso();
+  return {
+    id: `${state.runId}-draft-component-lifecycle`,
+    runId: state.runId,
+    type: "draft-component-lifecycle",
+    schemaVersion: ArtifactSchemaVersionByType["draft-component-lifecycle"],
+    createdAt: now,
+    updatedAt: now,
+    sourceNode: { key: "draftComponents.buildLifecycle", version: "1.0.0" },
+    payload,
+  };
+}
 
 function node(
   input: Partial<NodeDefinition> & Pick<NodeDefinition, "key" | "run">

@@ -28,6 +28,12 @@ describe("create-screen graph flow", () => {
 
       expect(started.status).toBe("waiting-for-user");
       expect(started.state.pendingQuestion?.id).toBe("missing-components");
+      expect(started.state.uxEnvelope).toMatchObject({
+        schemaVersion: "UXEnvelope/v1",
+      });
+      expect(started.state.stateMatrix).toMatchObject({
+        schemaVersion: "StateMatrix/v1",
+      });
 
       const missingResolved = await runtime.answerRun({
         runId: started.runId,
@@ -55,6 +61,9 @@ describe("create-screen graph flow", () => {
           componentKey: "draft:draft-secondary-action",
         })
       );
+      expect(waitingForApply.state.stateRepresentation).toMatchObject({
+        schemaVersion: "StateRepresentationContract/v1",
+      });
 
       await expect(
         artifactStore.getArtifact(`${started.runId}-figma-apply-packet`)
@@ -75,12 +84,19 @@ describe("create-screen graph flow", () => {
       const completed = await runtime.continueRun({ runId: started.runId });
 
       expect(completed.status).toBe("done");
+      expect(completed.state.draftComponentLifecycle).toMatchObject({
+        schemaVersion: "DraftComponentLifecycle/v1",
+        components: expect.arrayContaining([expect.objectContaining({ status: "used" })]),
+      });
       expect(completed.state.uiQualityGate?.status).toBe("passed");
       expect(completed.state.artifacts.map((artifact) => artifact.type)).toEqual(
         expect.arrayContaining([
           "design-brief",
+          "ux-envelope",
+          "state-matrix",
           "figma-apply-packet",
           "figma-apply-report",
+          "draft-component-lifecycle",
           "ui-quality-gate-report",
         ])
       );
@@ -106,6 +122,12 @@ describe("create-screen graph flow", () => {
 
       expect(started.status).toBe("waiting-for-user");
       expect(started.state.pendingQuestion?.id).toBe("approve-brief");
+      expect(started.state.uxEnvelope).toMatchObject({
+        schemaVersion: "UXEnvelope/v1",
+      });
+      expect(started.state.stateMatrix).toMatchObject({
+        schemaVersion: "StateMatrix/v1",
+      });
 
       const approved = await runtime.answerRun({
         runId: started.runId,
@@ -119,6 +141,9 @@ describe("create-screen graph flow", () => {
         answer: "approve-draft-only-literals",
       });
       expect(waitingForApply.status).toBe("waiting-for-figma");
+      expect(waitingForApply.state.stateRepresentation).toMatchObject({
+        schemaVersion: "StateRepresentationContract/v1",
+      });
       await expect(
         artifactStore.getArtifact(`${started.runId}-design-brief`)
       ).resolves.toMatchObject({
@@ -145,4 +170,54 @@ describe("create-screen graph flow", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("resumes after Figma apply metadata is patched through a restarted runtime", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kotikit-e2e-create-screen-"));
+    try {
+      seedLocalDesignSystem(root, { includePrimaryAction: false });
+      const first = await createGraphSmokeFixture(root);
+
+      const started = await first.runtime.startFlow({
+        flowId: "create-screen",
+        input: {
+          project: { root, name: "Smoke Project" },
+          userIntent:
+            "Quick high-fidelity profile settings form using existing design-system components.",
+          figmaTarget: fakeDraftTarget("Draft - Restart Settings"),
+        },
+      });
+      const missingResolved = await first.runtime.answerRun({
+        runId: started.runId,
+        answer: "create-draft-components",
+      });
+      const waitingForApply = await first.runtime.answerRun({
+        runId: started.runId,
+        answer: "approve-draft-only-literals",
+      });
+
+      expect(missingResolved.status).toBe("waiting-for-user");
+      expect(waitingForApply.status).toBe("waiting-for-figma");
+
+      await first.runtime.patchRunState({
+        runId: started.runId,
+        statePatch: { applyMetadata: fakeApplyMetadataFor(waitingForApply.state) },
+      });
+
+      const second = await createGraphSmokeFixture(root);
+      const completed = await second.runtime.continueRun({ runId: started.runId });
+
+      expect(completed.runId).toBe(started.runId);
+      expect(completed.status).toBe("done");
+      expect(recordFrom(completed.state).applyMetadata).toBeUndefined();
+      expect(JSON.stringify(completed.state).length).toBeLessThan(256 * 1024);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });
+
+function recordFrom(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}

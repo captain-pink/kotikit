@@ -121,6 +121,88 @@ describe("draft component graph nodes", () => {
       })
     ).rejects.toThrow("component key");
   });
+
+  it("builds draft component lifecycle from created components and applied instances", async () => {
+    const result = await runNode("draftComponents.buildLifecycle", {
+      draftComponentPlan: {
+        schemaVersion: "DraftComponentPlan/v1",
+        sectionName: "Kotikit Draft Components",
+        components: [{ id: "draft-email-input", name: "email input", reason: "Missing input" }],
+      },
+      draftPlan: {
+        createdDraftComponents: [
+          {
+            id: "draft-email-input",
+            name: "email input",
+            componentKey: "draft:draft-email-input",
+          },
+        ],
+      },
+      applyReport: {
+        draftComponentInstances: [{ draftComponentId: "draft-email-input", nodeId: "node-1" }],
+      },
+    });
+
+    expect(result.statePatch?.draftComponentLifecycle).toMatchObject({
+      schemaVersion: "DraftComponentLifecycle/v1",
+      components: [expect.objectContaining({ status: "used" })],
+    });
+  });
+
+  it("marks overlapping draft component placements as blocked", async () => {
+    const result = await runNode("draftComponents.buildLifecycle", {
+      draftComponentPlan: {
+        schemaVersion: "DraftComponentPlan/v1",
+        sectionName: "Kotikit Draft Components",
+        components: [{ id: "draft-email-input", name: "email input", reason: "Missing input" }],
+      },
+      draftPlan: {
+        createdDraftComponents: [
+          {
+            id: "draft-email-input",
+            name: "email input",
+            componentKey: "draft:draft-email-input",
+          },
+        ],
+      },
+      applyReport: {
+        draftComponentInstances: [{ draftComponentId: "draft-email-input", nodeId: "node-1" }],
+        draftComponentPlacements: [
+          {
+            draftComponentId: "draft-email-input",
+            sectionName: "Kotikit Draft Components",
+            overlapsGeneratedScreen: true,
+          },
+        ],
+      },
+    });
+
+    expect(result.statePatch?.draftComponentLifecycle).toMatchObject({
+      components: [expect.objectContaining({ status: "overlap-blocked" })],
+    });
+  });
+
+  it("blocks unused draft components after apply", async () => {
+    await expect(
+      runNode("draftComponents.verifyLifecycle", {
+        draftComponentLifecycle: {
+          schemaVersion: "DraftComponentLifecycle/v1",
+          sectionName: "Kotikit Draft Components",
+          components: [
+            {
+              draftComponentId: "draft-email-input",
+              name: "email input",
+              reason: "Missing input",
+              placement: { sectionName: "Kotikit Draft Components" },
+              requiredInstances: 1,
+              actualInstances: [],
+              status: "orphan-blocked",
+            },
+          ],
+        },
+      })
+    ).rejects.toThrow("not used");
+  });
 });
 
 async function runNode(key: string, patch: StatePatch): Promise<NodeOutput> {

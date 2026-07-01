@@ -1231,7 +1231,7 @@ bun test src/core/nodes/ux/test/ux-nodes.test.ts src/core/nodes/test/built-in-no
 
 Expected: pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/core/nodes/ux src/core/nodes/built-in-registry.ts src/core/flows/built-in/create-screen.flow.json e2e/graph/create-screen-flow.test.ts
@@ -2097,7 +2097,7 @@ bun test src/core/domain/test/comment-evidence-map.test.ts
 
 Expected: pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/core/domain/comment-evidence-map.ts src/core/domain/test/comment-evidence-map.test.ts
@@ -2466,7 +2466,7 @@ git commit -m "feat(graph): persist ux quality artifacts"
 - Modify: `e2e/graph/create-screen-flow.test.ts`
 - Modify: `e2e/graph/review-comments-flow.test.ts`
 
-- [ ] **Step 1: Write failing context budget tests**
+- [x] **Step 1: Write failing context budget tests**
 
 Create `src/core/domain/test/context-durability.test.ts`:
 
@@ -2536,7 +2536,7 @@ describe("context durability", () => {
 });
 ```
 
-- [ ] **Step 2: Write failing designer recovery tests**
+- [x] **Step 2: Write failing designer recovery tests**
 
 Create `src/core/domain/test/designer-recovery.test.ts`:
 
@@ -2585,7 +2585,7 @@ describe("designer recovery", () => {
 });
 ```
 
-- [ ] **Step 3: Run failing domain tests**
+- [x] **Step 3: Run failing domain tests**
 
 Run:
 
@@ -2595,7 +2595,7 @@ bun test src/core/domain/test/context-durability.test.ts src/core/domain/test/de
 
 Expected: fail because the domain files do not exist.
 
-- [ ] **Step 4: Implement context durability helpers**
+- [x] **Step 4: Implement context durability helpers**
 
 Create `src/core/domain/context-durability.ts`:
 
@@ -2667,7 +2667,7 @@ export function pruneRawReviewPayloads(review: Record<string, unknown>): Record<
 }
 ```
 
-- [ ] **Step 5: Implement designer recovery helper**
+- [x] **Step 5: Implement designer recovery helper**
 
 Create `src/core/domain/designer-recovery.ts`:
 
@@ -2701,7 +2701,7 @@ export function createDesignerRecovery(
 }
 ```
 
-- [ ] **Step 6: Add runtime budget enforcement**
+- [x] **Step 6: Add runtime budget enforcement**
 
 Modify `src/core/graph/runtime.ts`:
 
@@ -2721,7 +2721,7 @@ In `startFlow`, after building the initial `state`, add:
 assertCompactGraphState(state);
 ```
 
-- [ ] **Step 7: Prune raw comment payloads after mapping**
+- [x] **Step 7: Prune raw comment payloads after mapping**
 
 Modify `src/core/nodes/comments/index.ts`:
 
@@ -2741,7 +2741,7 @@ to:
 review: pruneRawReviewPayloads({ ...review, commentEvidenceMap }),
 ```
 
-- [ ] **Step 8: Write failing graph resume tests**
+- [x] **Step 8: Write failing graph resume tests**
 
 Create `src/core/graph/test/context-durability.test.ts`:
 
@@ -2793,7 +2793,7 @@ describe("context durability", () => {
 Keep this test on the existing smoke fixture for this slice. Do not add a new
 fixture abstraction in this task.
 
-- [ ] **Step 9: Extend e2e resume coverage**
+- [x] **Step 9: Extend e2e resume coverage**
 
 In `e2e/graph/create-screen-flow.test.ts`, add a test that:
 
@@ -2813,7 +2813,7 @@ In `e2e/graph/review-comments-flow.test.ts`, add a test that:
 5. expects the run to continue with the same `runId` and without raw
    `review.commentSnapshot` in state.
 
-- [ ] **Step 10: Run tests**
+- [x] **Step 10: Run tests**
 
 Run:
 
@@ -2823,7 +2823,7 @@ bun test src/core/domain/test/context-durability.test.ts src/core/domain/test/de
 
 Expected: pass.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add src/core/domain/context-durability.ts src/core/domain/designer-recovery.ts src/core/domain/test/context-durability.test.ts src/core/domain/test/designer-recovery.test.ts src/core/graph/runtime.ts src/core/graph/test/context-durability.test.ts src/core/nodes/comments/index.ts e2e/graph/create-screen-flow.test.ts e2e/graph/review-comments-flow.test.ts
@@ -2843,7 +2843,7 @@ git commit -m "feat(graph): enforce context durability"
 - Modify: `docs/troubleshooting.md`
 - Modify: `KOTIKIT_MIGRATION.md`
 
-- [ ] **Step 1: Add docs text scan**
+- [x] **Step 1: Add docs text scan**
 
 If a docs text-scan test exists, extend it. If not, create
 `src/docs/test/ux-quality-docs.test.ts` with:
@@ -2878,7 +2878,7 @@ describe("UX quality docs", () => {
 });
 ```
 
-- [ ] **Step 2: Run failing docs test**
+- [x] **Step 2: Run failing docs test**
 
 Run:
 
@@ -2888,7 +2888,7 @@ bun test src/docs/test/ux-quality-docs.test.ts
 
 Expected: fail until docs mention the new contracts.
 
-- [ ] **Step 3: Update docs**
+- [x] **Step 3: Update docs**
 
 Update docs with these designer-facing points:
 
@@ -2915,7 +2915,7 @@ implementation section named:
 ## Planned Update: UX Quality Contracts
 ```
 
-- [ ] **Step 4: Run docs test**
+- [x] **Step 4: Run docs test**
 
 Run:
 
@@ -2944,7 +2944,7 @@ git commit -m "docs: document ux quality contracts"
 - Inspect: `src/planning/test/design-node-map.test.ts`
 - Modify or remove only files proven unused by graph-backed replacements.
 
-- [ ] **Step 1: Run Knip**
+- [x] **Step 1: Run Knip**
 
 Run:
 
@@ -2955,7 +2955,7 @@ bun run check:unused
 Expected: Knip may report unused exports or stale files. Save the relevant
 findings in the task notes before editing.
 
-- [ ] **Step 2: Decide what is stale**
+- [x] **Step 2: Decide what is stale**
 
 Keep code only if one of these is true:
 
@@ -2970,7 +2970,7 @@ Remove or migrate code if:
 - It requires Chrome DevTools or manual browser inspection.
 - It stores a node map that is not consumed by graph review or apply metadata.
 
-- [ ] **Step 3: Move reusable tests before deleting code**
+- [x] **Step 3: Move reusable tests before deleting code**
 
 If `src/planning/test/design-comments.test.ts` contains useful mapping cases,
 move those cases into:
@@ -2987,7 +2987,7 @@ bun test src/core/domain/test/comment-evidence-map.test.ts
 
 Expected: pass.
 
-- [ ] **Step 4: Remove stale files**
+- [x] **Step 4: Remove stale files**
 
 Use `git rm` only for files proven stale:
 
@@ -3000,7 +3000,7 @@ old apply metadata into the new comment evidence map. If it remains, add a
 short module comment explaining that it is a compatibility source for graph
 metadata.
 
-- [ ] **Step 5: Run focused tests**
+- [x] **Step 5: Run focused tests**
 
 Run:
 
@@ -3010,7 +3010,7 @@ bun test src/core/domain/test/comment-evidence-map.test.ts src/core/nodes/commen
 
 Expected: pass.
 
-- [ ] **Step 6: Run Knip again**
+- [x] **Step 6: Run Knip again**
 
 Run:
 
@@ -3020,6 +3020,11 @@ bun run check:unused
 
 Expected: no stale files from this migration slice. Broader known cleanup
 candidates may remain if unrelated.
+
+Task note: after cleanup, Knip still reports broader exported-symbol and
+exported-type hygiene outside this migration slice, but no longer reports the
+removed `src/planning/design-comments.ts` or `src/planning/design-node-map.ts`
+files.
 
 - [ ] **Step 7: Commit**
 
@@ -3043,7 +3048,7 @@ git commit -m "docs(core): clarify node map compatibility boundary"
 
 - No planned code files. This task verifies the completed slice.
 
-- [ ] **Step 1: Run targeted graph tests**
+- [x] **Step 1: Run targeted graph tests**
 
 Run:
 
@@ -3053,7 +3058,7 @@ bun test src/core/domain/test/ux-envelope.test.ts src/core/domain/test/state-rep
 
 Expected: pass.
 
-- [ ] **Step 2: Run e2e graph tests**
+- [x] **Step 2: Run e2e graph tests**
 
 Run:
 
@@ -3063,7 +3068,7 @@ bun test e2e/graph
 
 Expected: pass.
 
-- [ ] **Step 3: Run full test suite**
+- [x] **Step 3: Run full test suite**
 
 Run:
 
@@ -3073,7 +3078,7 @@ bun test
 
 Expected: pass.
 
-- [ ] **Step 4: Run typecheck**
+- [x] **Step 4: Run typecheck**
 
 Run:
 
@@ -3083,7 +3088,7 @@ bun run typecheck
 
 Expected: pass.
 
-- [ ] **Step 5: Run local checks**
+- [x] **Step 5: Run local checks**
 
 Run:
 
@@ -3093,7 +3098,7 @@ bun run check
 
 Expected: pass.
 
-- [ ] **Step 6: Run unused check**
+- [x] **Step 6: Run unused check**
 
 Run:
 
@@ -3103,6 +3108,10 @@ bun run check:unused
 
 Expected: no unused files introduced by this migration slice. Any unrelated
 repo-wide findings must be listed in the final handoff.
+
+Task note: `bun run check:unused` still exits non-zero for broader repo-wide
+exported-symbol and exported-type hygiene. It does not report migration-owned
+stale files removed in Task 11.
 
 - [ ] **Step 7: Manual demo in test repo**
 
@@ -3121,7 +3130,11 @@ Expected Figma result:
 - every draft component is used as an instance or the run blocks;
 - QA artifact reports pass.
 
-- [ ] **Step 8: Request code review**
+Task note: not run in this shell session because it requires an active Figma
+file/session. Offline graph smoke coverage for the same Admin members flow
+passed through `bun test e2e/graph`.
+
+- [x] **Step 8: Request code review**
 
 Use `superpowers:requesting-code-review` for an independent review focused on:
 
@@ -3134,7 +3147,7 @@ Use `superpowers:requesting-code-review` for an independent review focused on:
 - designer-facing error messages;
 - tests proving current screenshot regressions cannot return.
 
-- [ ] **Step 9: Fix review findings**
+- [x] **Step 9: Fix review findings**
 
 For each valid finding:
 
@@ -3143,7 +3156,13 @@ For each valid finding:
 3. Run the targeted test.
 4. Commit with a Conventional Commit message.
 
-- [ ] **Step 10: Final migration doc update**
+Task note: independent review found no critical issues and raised compactness,
+generic fallback, draft-overlap, and recovery-action findings. Fixes added
+targeted tests for compact apply/comment state, generic unknown pattern packs,
+draft component overlap blocking, compact comment metadata, and QA recovery
+actions.
+
+- [x] **Step 10: Final migration doc update**
 
 After implementation passes review, update `KOTIKIT_MIGRATION.md` from
 `Planned Update` to:
@@ -3155,7 +3174,7 @@ After implementation passes review, update `KOTIKIT_MIGRATION.md` from
 Include a concise summary of what shipped and the verification commands that
 passed.
 
-- [ ] **Step 11: Final commit if needed**
+- [x] **Step 11: Final commit if needed**
 
 ```bash
 git add KOTIKIT_MIGRATION.md

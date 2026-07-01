@@ -42,6 +42,42 @@ export function runUiQualityGate(input: { nodes: AppliedNode[] }): UIQualityGate
       input.nodes,
       (node) => node.hardcodedComponentImitation === true
     ),
+    check(
+      "state-preview-card",
+      "State preview cards",
+      input.nodes,
+      (node) => node.statePreviewCard === true
+    ),
+    check(
+      "missing-state-frame",
+      "Missing state frame",
+      input.nodes,
+      (node) => node.expectedStateFrame === true && node.stateFrameNodeId === undefined
+    ),
+    check(
+      "state-shell-drift",
+      "State shell drift",
+      input.nodes,
+      (node) => node.stateShellDrift === true
+    ),
+    check(
+      "orphan-draft-component",
+      "Orphan draft component",
+      input.nodes,
+      (node) => node.orphanDraftComponent === true
+    ),
+    check(
+      "draft-component-overlap",
+      "Draft component overlap",
+      input.nodes,
+      (node) => node.draftComponentOverlap === true
+    ),
+    check(
+      "draft-component-detached-use",
+      "Draft component detached use",
+      input.nodes,
+      (node) => node.draftComponentDetachedUse === true
+    ),
   ];
 
   return {
@@ -63,7 +99,29 @@ function check(
     name,
     status: findings.length > 0 ? "blocked" : "passed",
     ...(findings.length > 0 ? { findings } : {}),
+    ...(findings.length > 0 ? { recommendedAction: recommendedActionFor(id) } : {}),
   };
+}
+
+function recommendedActionFor(id: string): string {
+  const actions: Record<string, string> = {
+    "component-refs":
+      "Replace hardcoded layers with design-system or approved draft component instances.",
+    "draft-component-detached-use":
+      "Use linked draft component instances in the generated screen instead of detached copies.",
+    "draft-component-overlap":
+      "Move the draft component into the reserved draft component area before continuing.",
+    "hardcoded-imitation":
+      "Use a real design-system component, an approved draft component, or an explicit primitive exception.",
+    "layout-overlap": "Rebuild the affected region with auto layout so elements no longer overlap.",
+    "missing-state-frame": "Create the required state frame or region state before continuing.",
+    "orphan-draft-component":
+      "Use every created draft component in the screen or remove the unused draft component.",
+    "state-preview-card":
+      "Represent this as a page, region, component, or flow state instead of an extra state card.",
+    "state-shell-drift": "Keep persistent shell regions aligned across related screen states.",
+  };
+  return actions[id] ?? "Fix the blocked UI quality finding before continuing.";
 }
 
 function hasNegativeTransform(node: AppliedNode): boolean {

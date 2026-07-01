@@ -25,9 +25,16 @@ describe("qa graph nodes", () => {
           { id: "detached", detachedInstance: true },
           { id: "overlap", overlaps: ["other"] },
           { id: "hardcoded", hardcodedComponentImitation: true },
+          { id: "state-card", statePreviewCard: true },
+          { id: "missing-state", expectedStateFrame: true },
+          { id: "shell-drift", stateShellDrift: true },
+          { id: "orphan-draft", orphanDraftComponent: true },
+          { id: "draft-overlap", draftComponentOverlap: true },
+          { id: "detached-draft-use", draftComponentDetachedUse: true },
         ],
       },
     });
+    const checks = recordArray(recordFrom(result.statePatch?.uiQualityGate).checks);
 
     expect(result.statePatch?.uiQualityGate).toMatchObject({
       schemaVersion: "UIQualityGateReport/v1",
@@ -37,8 +44,26 @@ describe("qa graph nodes", () => {
         expect.objectContaining({ id: "mirrored-text", status: "blocked" }),
         expect.objectContaining({ id: "component-refs", status: "blocked" }),
         expect.objectContaining({ id: "hardcoded-imitation", status: "blocked" }),
+        expect.objectContaining({ id: "state-preview-card", status: "blocked" }),
+        expect.objectContaining({ id: "missing-state-frame", status: "blocked" }),
+        expect.objectContaining({ id: "state-shell-drift", status: "blocked" }),
+        expect.objectContaining({ id: "orphan-draft-component", status: "blocked" }),
+        expect.objectContaining({ id: "draft-component-overlap", status: "blocked" }),
+        expect.objectContaining({ id: "draft-component-detached-use", status: "blocked" }),
       ]),
     });
+    expect(checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "state-preview-card",
+          recommendedAction: expect.stringContaining("state"),
+        }),
+        expect.objectContaining({
+          id: "draft-component-overlap",
+          recommendedAction: expect.stringContaining("draft component"),
+        }),
+      ])
+    );
   });
 
   it("passes clean apply reports", async () => {
@@ -94,4 +119,19 @@ function state(patch: Partial<KotikitGraphState>): KotikitGraphState {
     errors: [],
     ...patch,
   };
+}
+
+function recordFrom(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function recordArray(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value)
+    ? value.filter(
+        (item): item is Record<string, unknown> =>
+          typeof item === "object" && item !== null && !Array.isArray(item)
+      )
+    : [];
 }

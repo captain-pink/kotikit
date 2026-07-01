@@ -45,6 +45,7 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
       validateApplyMetadata(target, metadata);
       return {
         statePatch: {
+          applyMetadata: undefined,
           applyReport: {
             schemaVersion: "FigmaApplyReport/v1",
             status: "recorded",
@@ -56,6 +57,9 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
             layoutFrames: recordArray(metadata.layoutFrames),
             repeatedItems: recordArray(metadata.repeatedItems),
             textTransforms: recordArray(metadata.textTransforms),
+            states: recordArray(metadata.states),
+            draftComponentInstances: recordArray(metadata.draftComponentInstances),
+            draftComponentPlacements: recordArray(metadata.draftComponentPlacements),
             recordedAt: nowIso(),
           },
         },
@@ -105,6 +109,9 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
             layoutFrames: toJson(recordArray(report.layoutFrames)),
             repeatedItems: toJson(recordArray(report.repeatedItems)),
             textTransforms: toJson(recordArray(report.textTransforms)),
+            states: toJson(recordArray(report.states)),
+            draftComponentInstances: toJson(recordArray(report.draftComponentInstances)),
+            draftComponentPlacements: toJson(recordArray(report.draftComponentPlacements)),
           },
         },
       };
