@@ -127,9 +127,20 @@ export const CanvasPlanSchema = z
     strategy: CanvasPlanStrategySchema,
   })
   .superRefine((plan, ctx) => {
-    const zoneIds = new Set(plan.zones.map((zone) => zone.id));
+    const zoneIds = new Set<string>();
     const placementIds = new Set<string>();
     const transactionIds = new Set<string>();
+
+    plan.zones.forEach((zone, index) => {
+      if (zoneIds.has(zone.id)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["zones", index, "id"],
+          message: `Duplicate zone id ${zone.id}.`,
+        });
+      }
+      zoneIds.add(zone.id);
+    });
 
     plan.placements.forEach((placement, index) => {
       if (!zoneIds.has(placement.parentZoneId)) {
@@ -157,6 +168,22 @@ export const CanvasPlanSchema = z
         });
       }
       transactionIds.add(placement.transactionId);
+
+      if (placement.kind === "screen-state" && placement.stateId === undefined) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["placements", index, "stateId"],
+          message: "Screen-state placements require stateId.",
+        });
+      }
+
+      if (placement.kind === "draft-component" && placement.draftComponentId === undefined) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["placements", index, "draftComponentId"],
+          message: "Draft-component placements require draftComponentId.",
+        });
+      }
     });
 
     plan.strategy.creationOrder.forEach((placementId, index) => {
@@ -187,7 +214,7 @@ const FigmaTransactionMetadataSchema = z.enum([
   "variable-refs",
 ]);
 
-export const ActiveFigmaTransactionSchema = z.strictObject({
+const ActiveFigmaTransactionBaseSchema = z.strictObject({
   id: IncrementalRefSchema,
   order: z.number().int().positive(),
   kind: FigmaTransactionKindSchema,
@@ -197,6 +224,39 @@ export const ActiveFigmaTransactionSchema = z.strictObject({
   draftComponentId: IncrementalRefSchema.optional(),
   requiredMetadata: z.array(FigmaTransactionMetadataSchema).min(1).max(INCREMENTAL_ARRAY_MAX),
 });
+
+function addFigmaTransactionExecutableRefIssues(
+  transaction: z.infer<typeof ActiveFigmaTransactionBaseSchema>,
+  ctx: {
+    addIssue: (issue: { code: "custom"; path: Array<string | number>; message: string }) => void;
+  },
+  path: Array<string | number>
+): void {
+  if (
+    (transaction.kind === "create-screen-state" || transaction.kind === "create-region-state") &&
+    transaction.stateId === undefined
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: [...path, "stateId"],
+      message: `${transaction.kind} transactions require stateId.`,
+    });
+  }
+
+  if (transaction.kind === "create-draft-component" && transaction.draftComponentId === undefined) {
+    ctx.addIssue({
+      code: "custom",
+      path: [...path, "draftComponentId"],
+      message: "create-draft-component transactions require draftComponentId.",
+    });
+  }
+}
+
+export const ActiveFigmaTransactionSchema = ActiveFigmaTransactionBaseSchema.superRefine(
+  (transaction, ctx) => {
+    addFigmaTransactionExecutableRefIssues(transaction, ctx, []);
+  }
+);
 
 const FigmaTransactionSchema = ActiveFigmaTransactionSchema.extend({
   status: FigmaTransactionStatusSchema,

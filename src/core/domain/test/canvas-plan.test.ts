@@ -79,6 +79,7 @@ function validFigmaTransactionPlan() {
         kind: "create-draft-component",
         label: "Create draft table row",
         placementId: "placement-content",
+        draftComponentId: "draft-table-row",
         status: "pending",
         requiredMetadata: transactionMetadata,
       },
@@ -332,6 +333,105 @@ describe("canvas and figma ledger artifact schemas", () => {
           ...validCanvasPlan().strategy,
           creationOrder: ["missing-placement"],
         },
+      })
+    ).toThrow();
+  });
+
+  it("rejects duplicate canvas zone ids", () => {
+    expect(() =>
+      CanvasPlanSchema.parse({
+        ...validCanvasPlan(),
+        zones: validCanvasPlan().zones.map((zone) => ({
+          ...zone,
+          id: "screen-zone",
+        })),
+        placements: validCanvasPlan().placements.map((placement) => ({
+          ...placement,
+          parentZoneId: "screen-zone",
+        })),
+      })
+    ).toThrow();
+  });
+
+  it("rejects screen-state placements without state ids", () => {
+    expect(() =>
+      CanvasPlanSchema.parse({
+        ...validCanvasPlan(),
+        placements: validCanvasPlan().placements.map((placement) =>
+          placement.id === "placement-content"
+            ? {
+                id: placement.id,
+                kind: placement.kind,
+                label: placement.label,
+                bounds: placement.bounds,
+                parentZoneId: placement.parentZoneId,
+                transactionId: placement.transactionId,
+              }
+            : placement
+        ),
+      })
+    ).toThrow();
+  });
+
+  it("rejects draft-component placements without draft component ids", () => {
+    expect(() =>
+      CanvasPlanSchema.parse({
+        ...validCanvasPlan(),
+        placements: [
+          ...validCanvasPlan().placements,
+          {
+            id: "placement-draft",
+            kind: "draft-component",
+            label: "Draft row component",
+            bounds: headerBounds,
+            parentZoneId: "draft-zone",
+            transactionId: "txn-create-draft",
+          },
+        ],
+        strategy: {
+          ...validCanvasPlan().strategy,
+          creationOrder: [...validCanvasPlan().strategy.creationOrder, "placement-draft"],
+        },
+      })
+    ).toThrow();
+  });
+
+  it("rejects active screen-state transactions without state ids", () => {
+    expect(() =>
+      KotikitGraphStateSchema.parse({
+        schemaVersion: "KotikitGraphState/v1",
+        runId: "run-1",
+        flowId: "create-screen",
+        flowVersion: "1.0.0",
+        graphHash: "hash",
+        status: "waiting-for-figma",
+        project: { root: "/tmp/project" },
+        activeFigmaTransaction: {
+          id: "txn-create-screen",
+          order: 1,
+          kind: "create-screen-state",
+          label: "Create screen state",
+          placementId: "placement-content",
+          requiredMetadata: transactionMetadata,
+        },
+        artifacts: [],
+        errors: [],
+      })
+    ).toThrow();
+  });
+
+  it("rejects create-draft-component transactions without draft component ids", () => {
+    expect(() =>
+      FigmaTransactionPlanSchema.parse({
+        ...validFigmaTransactionPlan(),
+        transactions: validFigmaTransactionPlan().transactions.map((transaction) =>
+          transaction.id === "txn-create-draft"
+            ? {
+                ...transaction,
+                draftComponentId: undefined,
+              }
+            : transaction
+        ),
       })
     ).toThrow();
   });
