@@ -6,6 +6,7 @@ import {
 import { KotikitError, toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
+import { withKotikitToolSafety } from "../tool-safety.js";
 
 // ─── Register all ds-search tools ────────────────────────────────────────────
 
@@ -38,7 +39,7 @@ function registerDsSearch(registry: ToolRegistry, ctx: ToolContext): void {
     },
   };
 
-  registry.tools.push(tool);
+  registry.tools.push(withKotikitToolSafety(tool));
 
   registry.handlers.set("kotikit_ds_search", async (args) => {
     try {
@@ -84,7 +85,7 @@ function registerDsGetComponent(registry: ToolRegistry, ctx: ToolContext): void 
     },
   };
 
-  registry.tools.push(tool);
+  registry.tools.push(withKotikitToolSafety(tool));
 
   registry.handlers.set("kotikit_ds_get_component", async (args) => {
     try {

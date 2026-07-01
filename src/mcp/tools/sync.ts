@@ -8,6 +8,7 @@ import type { ProgressEmitter } from "../../sync/progress.js";
 import { KotikitError, toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
+import { withKotikitToolSafety } from "../tool-safety.js";
 
 const SYNC_SOFT_DEADLINE_MS = 45_000;
 
@@ -34,7 +35,7 @@ export function registerSyncTools(
     },
   };
 
-  registry.tools.push(tool);
+  registry.tools.push(withKotikitToolSafety(tool));
 
   registry.handlers.set("kotikit_sync_ds", async (_args) => {
     try {

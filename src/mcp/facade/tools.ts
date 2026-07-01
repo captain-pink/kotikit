@@ -23,6 +23,7 @@ import { resolveFigmaToken } from "../../sync/figma-token.js";
 import { KotikitError, toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
+import { withKotikitToolSafety } from "../tool-safety.js";
 
 export const FACADE_TOOL_NAMES = [
   "kotikit_flow_list",
@@ -484,7 +485,7 @@ export function registerFacadeTools(
 }
 
 function registerTool(registry: ToolRegistry, tool: Tool): void {
-  registry.tools.push(tool);
+  registry.tools.push(withKotikitToolSafety(tool));
 }
 
 function registerDelegateTool(

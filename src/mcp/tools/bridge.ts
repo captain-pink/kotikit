@@ -3,6 +3,7 @@ import { z } from "zod";
 import { KotikitError, toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
+import { withKotikitToolSafety } from "../tool-safety.js";
 
 const BridgeStartArgsSchema = z.object({
   preferredPort: z.number().int().min(1024).max(65535).optional(),
@@ -44,7 +45,11 @@ const bridgeStatusTool: Tool = {
 };
 
 export function registerBridgeTools(registry: ToolRegistry, ctx: ToolContext): void {
-  registry.tools.push(bridgeStartTool, bridgeStopTool, bridgeStatusTool);
+  registry.tools.push(
+    withKotikitToolSafety(bridgeStartTool),
+    withKotikitToolSafety(bridgeStopTool),
+    withKotikitToolSafety(bridgeStatusTool)
+  );
 
   registry.handlers.set("kotikit_bridge_start", async (args) => {
     try {

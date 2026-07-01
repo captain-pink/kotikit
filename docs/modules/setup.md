@@ -37,8 +37,14 @@ root, then writes agent-specific setup:
 - Claude Code: project-scoped `.mcp.json`, preserving existing `mcpServers`
   entries and upserting the `kotikit` server with a long per-tool timeout for
   large Figma syncs.
+- Claude Code settings: project-scoped `.claude/settings.json`, preserving
+  existing permissions and adding exact allow rules only for safe local
+  read-only kotikit MCP tools. It does not add `mcp__kotikit__*`.
 - Codex: `.codex/config.toml`, replacing only the
-  `[mcp_servers.kotikit]` section or appending it if missing.
+  `[mcp_servers.kotikit]` section and its nested kotikit tool policy sections,
+  or appending them if missing. The generated block sets
+  `default_tools_approval_mode = "prompt"` and adds exact
+  `approval_mode = "approve"` sections only for safe local read-only tools.
 - Agent skills: copies the portable `kotikit-auto` and
   `kotikit-design-review` workflows into the target project unless different
   local skills already exist. Claude Code receives `.claude/skills/...` for
@@ -60,6 +66,11 @@ root, then writes agent-specific setup:
 
 All file writes are atomic: write a temp file next to the destination, then
 rename it into place. Existing unrelated config is preserved.
+
+The auto-approved safe tool class is intentionally narrow: local setup status,
+flow/artifact reads, local design-system/icon search, and prompt lookup. Tools
+that write project files, start or stop the bridge, return bridge tokens, call
+Figma, resolve secrets, or mutate graph runs stay prompt-gated.
 
 Claude Code sets `CLAUDE_PROJECT_DIR` when it launches stdio MCP servers.
 Kotikit's root resolver uses that value by default, so a project-scoped

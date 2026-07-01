@@ -220,6 +220,10 @@ bun install
 bun run scaffold:agents -- --target /Users/YOUR_USERNAME/path/to/your-project --agents both
 ```
 
+The scaffold auto-approves only exact safe local read-only kotikit tools in
+Claude Code and Codex. Figma calls, secret reads, bridge control, file writes,
+bridge token status, and graph mutations still ask for approval.
+
 Figma personal access token is not required for draft creation when your
 assistant is connected through Figma's remote MCP integration. Add a token to
 the target project's `.env` only for local design-system sync or REST-backed

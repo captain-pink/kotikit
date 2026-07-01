@@ -12,6 +12,26 @@ workflow, brainstorm/spec, component-plan, design-plan, design-apply,
 review/comment, and memory choreography tools have been removed from public
 registration. Use graph flows and artifacts instead.
 
+## Safe Local Auto-Approvals
+
+Every registered MCP tool carries explicit safety annotations. Source scaffold
+for Codex and Claude Code auto-approves only exact safe local read-only tools:
+
+- `kotikit_flow_list`
+- `kotikit_flow_validate`
+- `kotikit_get_artifact`
+- `kotikit_list_artifacts`
+- `kotikit_search_design_system`
+- `kotikit_ds_search`
+- `kotikit_ds_get_component`
+- `kotikit_icons_search`
+- `kotikit_get_system_prompt`
+- `kotikit_config_status`
+
+The scaffold does not use wildcard approval rules. Tools that write files,
+start or stop the bridge, return bridge tokens, call Figma, resolve secrets,
+post or prepare review state, or mutate graph runs still require user approval.
+
 ## Graph Artifacts And UX Quality Contracts
 
 The graph facade keeps designer work resumable by storing durable artifacts

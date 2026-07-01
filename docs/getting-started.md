@@ -88,6 +88,8 @@ bun run scaffold:agents -- --target /Users/YOUR_USERNAME/path/to/your-project --
 The scaffold writes:
 
 - `.mcp.json` for Claude Code.
+- `.claude/settings.json` permission rules that allow only safe local
+  read-only kotikit tools to run without an extra prompt.
 - `.codex/config.toml` for Codex.
 - Portable `kotikit-auto` and `kotikit-design-review` skills.
 - Claude Code slash command files for `/kotikit-auto` and
@@ -96,6 +98,13 @@ The scaffold writes:
 
 It preserves unrelated assistant config and skips copied skills with local
 changes.
+
+The generated Codex config uses `default_tools_approval_mode = "prompt"` for
+the kotikit MCP server, then approves exact safe tool names such as
+`kotikit_config_status`, `kotikit_ds_search`, and `kotikit_get_artifact`.
+Claude Code receives the equivalent exact `mcp__kotikit__...` allow rules.
+Tools that write files, start or stop the bridge, call Figma, resolve secrets,
+return bridge tokens, or mutate graph runs still require approval.
 
 ## 5. Install The Figma Assistant Plugin
 

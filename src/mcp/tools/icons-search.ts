@@ -3,6 +3,7 @@ import { searchLocalIcons } from "../../core/adapters/design-system/local-index.
 import { KotikitError, toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
+import { withKotikitToolSafety } from "../tool-safety.js";
 
 // ─── Register icons search tools ──────────────────────────────────────────────
 
@@ -37,7 +38,7 @@ function registerIconsSearch(registry: ToolRegistry, ctx: ToolContext): void {
     },
   };
 
-  registry.tools.push(tool);
+  registry.tools.push(withKotikitToolSafety(tool));
 
   registry.handlers.set("kotikit_icons_search", async (args) => {
     try {

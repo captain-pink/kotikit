@@ -1,5 +1,6 @@
 import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import { KOTIKIT_AUTO_APPROVED_TOOL_NAMES } from "../mcp/tool-safety.js";
 
 export type AgentKind = "claude" | "codex";
 export type CoAuthorMode = "auto" | "none" | "claude" | "codex";
@@ -130,8 +131,50 @@ function buildClaudeConfig(existing: string | null, kotikitRoot: string): string
   )}\n`;
 }
 
+function uniqueStrings(values: readonly string[]): string[] {
+  return values.filter((value, index) => values.indexOf(value) === index);
+}
+
+function objectRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+
+function claudeAutoApprovedToolRules(): string[] {
+  return KOTIKIT_AUTO_APPROVED_TOOL_NAMES.map((toolName) => `mcp__kotikit__${toolName}`);
+}
+
+function buildClaudeSettings(existing: string | null): string {
+  const root = objectRecord(existing === null ? {} : JSON.parse(existing));
+  const permissions = objectRecord(root.permissions);
+  return `${JSON.stringify(
+    {
+      ...root,
+      permissions: {
+        ...permissions,
+        allow: uniqueStrings([...stringArray(permissions.allow), ...claudeAutoApprovedToolRules()]),
+      },
+    },
+    null,
+    2
+  )}\n`;
+}
+
 function tomlString(value: string): string {
   return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+function codexAutoApprovalSections(): string[] {
+  return KOTIKIT_AUTO_APPROVED_TOOL_NAMES.flatMap((toolName) => [
+    "",
+    `[mcp_servers.kotikit.tools.${toolName}]`,
+    'approval_mode = "approve"',
+  ]);
 }
 
 function buildCodexBlock(kotikitRoot: string, targetRoot: string): string {
@@ -142,11 +185,18 @@ function buildCodexBlock(kotikitRoot: string, targetRoot: string): string {
     `cwd = ${tomlString(targetRoot)}`,
     `startup_timeout_sec = ${CODEX_STARTUP_TIMEOUT_SEC}`,
     `tool_timeout_sec = ${CODEX_TOOL_TIMEOUT_SEC}`,
+    'default_tools_approval_mode = "prompt"',
+    ...codexAutoApprovalSections(),
   ].join("\n");
 }
 
 function isTomlSection(line: string): boolean {
   return /^\s*\[[^\]]+\]\s*$/.test(line);
+}
+
+function isKotikitCodexSection(line: string): boolean {
+  const trimmed = line.trim();
+  return trimmed === "[mcp_servers.kotikit]" || trimmed.startsWith("[mcp_servers.kotikit.");
 }
 
 export function upsertCodexConfig(
@@ -161,7 +211,9 @@ export function upsertCodexConfig(
   const start = lines.findIndex((line) => line.trim() === "[mcp_servers.kotikit]");
   if (start === -1) return `${lines.join("\n")}\n\n${block}\n`;
 
-  const nextSectionOffset = lines.slice(start + 1).findIndex(isTomlSection);
+  const nextSectionOffset = lines
+    .slice(start + 1)
+    .findIndex((line) => isTomlSection(line) && !isKotikitCodexSection(line));
   const end = nextSectionOffset === -1 ? lines.length : start + 1 + nextSectionOffset;
   return `${[...lines.slice(0, start), ...block.split("\n"), ...lines.slice(end)].join("\n")}\n`;
 }
@@ -201,6 +253,13 @@ async function writeClaudeConfig(
   result.written.push(path);
   result.notes.push(
     `Claude Code project MCP config written to ${path}. Open Claude Code in the target project and approve kotikit if prompted.`
+  );
+
+  const settingsPath = join(targetRoot, ".claude", "settings.json");
+  await writeTextAtomic(settingsPath, buildClaudeSettings(await readTextIfExists(settingsPath)));
+  result.written.push(settingsPath);
+  result.notes.push(
+    `Claude Code safe read-only Kotikit tool permissions written to ${settingsPath}. Mutating, Figma, bridge control, and secret-reading tools still ask before running.`
   );
 
   const legacyPath = join(targetRoot, ".claude", "mcp.json");

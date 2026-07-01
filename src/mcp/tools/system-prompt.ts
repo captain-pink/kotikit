@@ -2,26 +2,29 @@ import { KotikitError, toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
 import { BRAINSTORM_SYSTEM_PROMPT } from "../system-prompts.js";
+import { withKotikitToolSafety } from "../tool-safety.js";
 
 type SystemPromptKind = "brainstorm";
 
 export function registerSystemPromptTools(registry: ToolRegistry, _ctx: ToolContext): void {
-  registry.tools.push({
-    name: "kotikit_get_system_prompt",
-    description:
-      "Fetch a long-form system prompt once per session. Brainstorm tools reference this by kind instead of inlining it.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        kind: {
-          type: "string",
-          enum: ["brainstorm"],
-          description: "Which doctrine to fetch.",
+  registry.tools.push(
+    withKotikitToolSafety({
+      name: "kotikit_get_system_prompt",
+      description:
+        "Fetch a long-form system prompt once per session. Brainstorm tools reference this by kind instead of inlining it.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          kind: {
+            type: "string",
+            enum: ["brainstorm"],
+            description: "Which doctrine to fetch.",
+          },
         },
+        required: ["kind"],
       },
-      required: ["kind"],
-    },
-  });
+    })
+  );
 
   registry.handlers.set("kotikit_get_system_prompt", async (args) => {
     try {
