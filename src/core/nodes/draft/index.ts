@@ -201,7 +201,7 @@ function canvasSectionFrom(state: KotikitGraphState): { name: string; id?: strin
 }
 
 function canvasStatesFrom(state: KotikitGraphState): { id: string; label: string; kind: string }[] {
-  if (state.stateMatrix !== undefined) {
+  if (state.stateMatrix !== undefined && state.stateMatrix.states.length > 0) {
     return state.stateMatrix.states.map((matrixState) => ({
       id: matrixState.id,
       label: matrixState.label,
@@ -214,20 +214,6 @@ function canvasStatesFrom(state: KotikitGraphState): { id: string; label: string
     label,
     kind: slugify(label),
   }));
-}
-
-function transactionSummary(transaction: FigmaTransactionPlan["transactions"][number]): JSONType {
-  return {
-    id: transaction.id,
-    order: transaction.order,
-    kind: transaction.kind,
-    label: transaction.label,
-    placementId: transaction.placementId,
-    ...(transaction.stateId === undefined ? {} : { stateId: transaction.stateId }),
-    ...(transaction.draftComponentId === undefined
-      ? {}
-      : { draftComponentId: transaction.draftComponentId }),
-  };
 }
 
 function buildApplyPacketArtifact(state: KotikitGraphState, packet: FigmaApplyPacket): Artifact {
@@ -266,12 +252,8 @@ function buildApplyPacketArtifact(state: KotikitGraphState, packet: FigmaApplyPa
         layoutFrames: toJson(packet.layoutContract.frames),
         repeatedItems: toJson(packet.repeatedItems),
         textTransforms: toJson(packet.textTransforms),
-        canvasPlan: {
-          sectionName: packet.canvasPlan.section.name,
-          placementCount: packet.canvasPlan.placements.length,
-          zoneCount: packet.canvasPlan.zones.length,
-        },
-        transactions: packet.transactionPlan.transactions.map(transactionSummary),
+        canvasPlanSummary: toJson(packet.canvasPlanSummary),
+        transactionPlanSummary: toJson(packet.transactionPlanSummary),
       },
     },
   };

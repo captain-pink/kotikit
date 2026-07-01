@@ -59,12 +59,31 @@ describe("buildFigmaTransactionPlan", () => {
       })
     ).toThrow(KotikitError);
   });
+
+  it("throws a KotikitError when creation order omits a placement", () => {
+    expect(() =>
+      buildFigmaTransactionPlan({
+        placements,
+        creationOrder: ["draft-table-row"],
+      })
+    ).toThrow(KotikitError);
+  });
+
+  it("throws a KotikitError when creation order duplicates a placement", () => {
+    expect(() =>
+      buildFigmaTransactionPlan({
+        placements,
+        creationOrder: ["draft-table-row", "draft-table-row", "state-filled"],
+      })
+    ).toThrow(KotikitError);
+  });
 });
 
 describe("figma transaction queue state", () => {
   it("marks one transaction recorded and leaves the next transaction pending", () => {
     const plan = buildFigmaTransactionPlan({ placements, creationOrder });
-    const updated = recordTransactionMetadata(plan, { transactionId: "txn-draft-table-row" });
+    const active = markTransactionActive(plan, "txn-draft-table-row");
+    const updated = recordTransactionMetadata(active, { transactionId: "txn-draft-table-row" });
 
     expect(updated.transactions.map((transaction) => transaction.status)).toEqual([
       "recorded",
@@ -85,12 +104,44 @@ describe("figma transaction queue state", () => {
     expect(nextPendingTransaction(updated)?.id).toBe("txn-draft-table-row");
   });
 
+  it("throws when recording metadata for a pending transaction", () => {
+    const plan = buildFigmaTransactionPlan({ placements, creationOrder });
+
+    expect(() => recordTransactionMetadata(plan, { transactionId: "txn-draft-table-row" })).toThrow(
+      KotikitError
+    );
+  });
+
+  it("throws when marking a recorded transaction active", () => {
+    const plan = buildFigmaTransactionPlan({ placements, creationOrder });
+    const active = markTransactionActive(plan, "txn-draft-table-row");
+    const recorded = recordTransactionMetadata(active, { transactionId: "txn-draft-table-row" });
+
+    expect(() => markTransactionActive(recorded, "txn-draft-table-row")).toThrow(KotikitError);
+  });
+
+  it("throws when marking a second transaction active while one is active", () => {
+    const plan = buildFigmaTransactionPlan({ placements, creationOrder });
+    const active = markTransactionActive(plan, "txn-draft-table-row");
+
+    expect(() => markTransactionActive(active, "txn-state-filled")).toThrow(KotikitError);
+  });
+
+  it("returns an active transaction before an earlier pending transaction", () => {
+    const plan = buildFigmaTransactionPlan({ placements, creationOrder });
+    const active = markTransactionActive(plan, "txn-state-filled");
+
+    expect(nextPendingTransaction(active)?.id).toBe("txn-state-filled");
+  });
+
   it("reports complete only when every transaction is recorded", () => {
     const plan = buildFigmaTransactionPlan({ placements, creationOrder });
-    const withDraftRecorded = recordTransactionMetadata(plan, {
+    const withDraftActive = markTransactionActive(plan, "txn-draft-table-row");
+    const withDraftRecorded = recordTransactionMetadata(withDraftActive, {
       transactionId: "txn-draft-table-row",
     });
-    const complete = recordTransactionMetadata(withDraftRecorded, {
+    const withStateActive = markTransactionActive(withDraftRecorded, "txn-state-filled");
+    const complete = recordTransactionMetadata(withStateActive, {
       transactionId: "txn-state-filled",
     });
 

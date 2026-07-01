@@ -20,6 +20,7 @@ export function buildFigmaTransactionPlan(input: {
   placements: CanvasPlan["placements"];
   creationOrder: string[];
 }): FigmaTransactionPlan {
+  assertCreationOrderCoversPlacements(input.placements, input.creationOrder);
   const placementsById = new Map(input.placements.map((placement) => [placement.id, placement]));
   const transactions = input.creationOrder.map((placementId, index): FigmaTransaction => {
     const placement = placementsById.get(placementId);
@@ -42,8 +43,13 @@ export function buildFigmaTransactionPlan(input: {
 export function nextPendingTransaction(
   plan: FigmaTransactionPlan
 ): FigmaTransactionPlan["transactions"][number] | undefined {
+  const active = [...plan.transactions]
+    .filter((transaction) => transaction.status === "active")
+    .sort((left, right) => left.order - right.order)[0];
+  if (active !== undefined) return active;
+
   return [...plan.transactions]
-    .filter((transaction) => transaction.status === "pending" || transaction.status === "active")
+    .filter((transaction) => transaction.status === "pending")
     .sort((left, right) => left.order - right.order)[0];
 }
 
@@ -51,7 +57,22 @@ export function markTransactionActive(
   plan: FigmaTransactionPlan,
   transactionId: string
 ): FigmaTransactionPlan {
-  assertTransactionExists(plan, transactionId);
+  const transaction = findTransactionOrThrow(plan, transactionId);
+  if (transaction.status !== "pending") {
+    throw new KotikitError(
+      `Figma transaction ${transactionId} cannot be marked active from ${transaction.status}.`,
+      "Advance only the next pending Figma transaction."
+    );
+  }
+  const existingActive = plan.transactions.find(
+    (candidate) => candidate.status === "active" && candidate.id !== transactionId
+  );
+  if (existingActive !== undefined) {
+    throw new KotikitError(
+      `Figma transaction ${existingActive.id} is already active.`,
+      "Record or fail the active transaction before starting another Figma transaction."
+    );
+  }
   return updateTransactionStatus(plan, transactionId, "active");
 }
 
@@ -59,7 +80,13 @@ export function recordTransactionMetadata(
   plan: FigmaTransactionPlan,
   metadata: { transactionId: string }
 ): FigmaTransactionPlan {
-  assertTransactionExists(plan, metadata.transactionId);
+  const transaction = findTransactionOrThrow(plan, metadata.transactionId);
+  if (transaction.status !== "active") {
+    throw new KotikitError(
+      `Figma transaction ${metadata.transactionId} cannot record metadata from ${transaction.status}.`,
+      "Mark the pending transaction active before recording Figma metadata."
+    );
+  }
   return updateTransactionStatus(plan, metadata.transactionId, "recorded");
 }
 
@@ -94,13 +121,49 @@ function transactionKindForPlacement(placement: CanvasPlacement): FigmaTransacti
   }
 }
 
-function assertTransactionExists(plan: FigmaTransactionPlan, transactionId: string): void {
-  if (!plan.transactions.some((transaction) => transaction.id === transactionId)) {
+function assertCreationOrderCoversPlacements(
+  placements: CanvasPlan["placements"],
+  creationOrder: string[]
+): void {
+  const placementsById = new Map(placements.map((placement) => [placement.id, placement]));
+  const seenPlacementIds = new Set<string>();
+
+  for (const placementId of creationOrder) {
+    if (!placementsById.has(placementId)) {
+      throw new KotikitError(
+        `Figma transaction plan references unknown canvas placement ${placementId}.`,
+        "Regenerate the canvas plan before building Figma transactions."
+      );
+    }
+    if (seenPlacementIds.has(placementId)) {
+      throw new KotikitError(
+        `Figma transaction plan creation order repeats canvas placement ${placementId}.`,
+        "Keep each canvas placement in the creation order exactly once."
+      );
+    }
+    seenPlacementIds.add(placementId);
+  }
+
+  const omittedPlacement = placements.find((placement) => !seenPlacementIds.has(placement.id));
+  if (omittedPlacement !== undefined) {
     throw new KotikitError(
-      `Figma transaction plan has no transaction ${transactionId}.`,
-      "Refresh the transaction queue before recording Figma metadata."
+      `Figma transaction plan creation order omits canvas placement ${omittedPlacement.id}.`,
+      "Keep each canvas placement in the creation order exactly once."
     );
   }
+}
+
+function findTransactionOrThrow(
+  plan: FigmaTransactionPlan,
+  transactionId: string
+): FigmaTransaction {
+  const transaction = plan.transactions.find((candidate) => candidate.id === transactionId);
+  if (transaction !== undefined) return transaction;
+
+  throw new KotikitError(
+    `Figma transaction plan has no transaction ${transactionId}.`,
+    "Refresh the transaction queue before recording Figma metadata."
+  );
 }
 
 function updateTransactionStatus(

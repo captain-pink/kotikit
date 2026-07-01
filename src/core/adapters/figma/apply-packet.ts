@@ -8,6 +8,27 @@ import type {
   VariableBindingPlan,
 } from "../../schemas/artifact.js";
 
+export type CanvasPlanSummary = {
+  sectionName: string;
+  placementCount: number;
+  zoneCount: number;
+};
+
+export type FigmaTransactionSummary = {
+  id: string;
+  order: number;
+  kind: FigmaTransactionPlan["transactions"][number]["kind"];
+  label: string;
+  placementId: string;
+  stateId?: string;
+  draftComponentId?: string;
+};
+
+export type FigmaTransactionPlanSummary = {
+  transactionCount: number;
+  transactions: FigmaTransactionSummary[];
+};
+
 export type FigmaApplyPacket = {
   schemaVersion: "FigmaApplyPacket/v1";
   mode: "official-figma-mcp";
@@ -16,8 +37,8 @@ export type FigmaApplyPacket = {
   uiComposition: UICompositionContract;
   layoutContract: LayoutContract;
   variableBindingPlan: VariableBindingPlan;
-  canvasPlan: CanvasPlan;
-  transactionPlan: FigmaTransactionPlan;
+  canvasPlanSummary: CanvasPlanSummary;
+  transactionPlanSummary: FigmaTransactionPlanSummary;
   steps: unknown[];
   repeatedItems: unknown[];
   textTransforms: unknown[];
@@ -63,8 +84,8 @@ export function buildFigmaApplyPacket(input: {
     uiComposition: input.uiComposition,
     layoutContract: input.layoutContract,
     variableBindingPlan: input.variableBindingPlan,
-    canvasPlan: input.canvasPlan,
-    transactionPlan: input.transactionPlan,
+    canvasPlanSummary: summarizeCanvasPlan(input.canvasPlan),
+    transactionPlanSummary: summarizeTransactionPlan(input.transactionPlan),
     steps: input.steps ?? [],
     repeatedItems: input.repeatedItems ?? [],
     textTransforms: input.textTransforms ?? [],
@@ -75,5 +96,32 @@ export function buildFigmaApplyPacket(input: {
       verifyAutoLayout: true,
       incrementalTransactions: true,
     },
+  };
+}
+
+function summarizeCanvasPlan(canvasPlan: CanvasPlan): CanvasPlanSummary {
+  return {
+    sectionName: canvasPlan.section.name,
+    placementCount: canvasPlan.placements.length,
+    zoneCount: canvasPlan.zones.length,
+  };
+}
+
+function summarizeTransactionPlan(
+  transactionPlan: FigmaTransactionPlan
+): FigmaTransactionPlanSummary {
+  return {
+    transactionCount: transactionPlan.transactions.length,
+    transactions: transactionPlan.transactions.map((transaction) => ({
+      id: transaction.id,
+      order: transaction.order,
+      kind: transaction.kind,
+      label: transaction.label,
+      placementId: transaction.placementId,
+      ...(transaction.stateId === undefined ? {} : { stateId: transaction.stateId }),
+      ...(transaction.draftComponentId === undefined
+        ? {}
+        : { draftComponentId: transaction.draftComponentId }),
+    })),
   };
 }
