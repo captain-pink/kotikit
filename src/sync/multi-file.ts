@@ -1,9 +1,7 @@
-import type { Database } from "bun:sqlite";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { initComponentsDb, upsertComponent } from "../db/components-db.js";
 import { initIconsDb } from "../db/icons-db.js";
-import { getRegistry, initRegistryDb, upsertRegistryDsRow } from "../db/registry-db.js";
 import { openDb } from "../db/sqlite.js";
 import { nowIso, slugifyComponentName } from "../util/ids.js";
 import {
@@ -11,7 +9,6 @@ import {
   componentsDbPath,
   designSystemDir,
   iconsDbPath,
-  registryDbPath,
   syncReportPath,
 } from "../util/paths.js";
 import {
@@ -53,17 +50,6 @@ export interface SyncReport {
   variableCollisions: { name: string; keptSource: "variable" | "style" }[];
   skipped: { fileKey: string; stage: string; reason: string }[];
   normalizationDiagnostics: NormalizationDiagnostics[];
-  registryUpdates: { added: number; updated: number };
-}
-
-/**
- * Local "added vs updated" classifier — checks for an existing row before
- * delegating the actual write to the canonical upsertRegistryDsRow helper.
- */
-function upsertDsRow(db: Database, input: { name: string; dsPath: string }): "added" | "updated" {
-  const existed = getRegistry(db, "component", input.name) !== null;
-  upsertRegistryDsRow(db, input);
-  return existed ? "updated" : "added";
 }
 
 async function writeComponentJson(root: string, json: ComponentJson): Promise<void> {
@@ -94,8 +80,8 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
   progress.syncStart(files.length);
 
   // Open databases (separate files; both kept open through the whole sync).
-  const componentsDb: Database = openDb(componentsDbPath(root));
-  const iconsDb: Database = openDb(iconsDbPath(root));
+  const componentsDb = openDb(componentsDbPath(root));
+  const iconsDb = openDb(iconsDbPath(root));
   initComponentsDb(componentsDb);
   initIconsDb(iconsDb);
 
@@ -127,12 +113,6 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
   // Conflict tracker: name → { winnerFileKey, losers }
   const conflictByName: Map<string, SyncManifest["conflicts"][number]> = new Map();
 
-  let registryAdded = 0;
-  let registryUpdated = 0;
-
-  const regDb = openDb(registryDbPath(root));
-  initRegistryDb(regDb);
-
   const persistFileResult = async (result: FileResult): Promise<void> => {
     const writesCtx: FileContext = {
       index: files.findIndex((f) => f.key === result.fileKey) + 1,
@@ -140,7 +120,7 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
       name: result.fileName,
     };
     const writesStart = Date.now();
-    progress.stage(writesCtx, "writes", "writing component JSONs + registry rows...");
+    progress.stage(writesCtx, "writes", "writing component JSONs...");
 
     for (const json of result.componentJsons) {
       const prior = writtenByName.get(json.name);
@@ -165,10 +145,6 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
 
       await writeComponentJson(root, json);
       writtenByName.set(json.name, { fileKey: result.fileKey, key: json.key });
-
-      const action = upsertDsRow(regDb, { name: json.name, dsPath: json.path });
-      if (action === "added") registryAdded++;
-      else registryUpdated++;
     }
 
     progress.stageDone(writesCtx, "writes", `${formatMs(Date.now() - writesStart)}`);
@@ -231,7 +207,6 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
     } catch (err) {
       componentsDb.close();
       iconsDb.close();
-      regDb.close();
       if (!(err instanceof SyncPausedError)) {
         await clearCheckpoint(root).catch(() => undefined);
       }
@@ -313,14 +288,12 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
     variableCollisions,
     skipped,
     normalizationDiagnostics,
-    registryUpdates: { added: registryAdded, updated: registryUpdated },
   };
   await writeReport(root, report);
 
   // Close DBs.
   componentsDb.close();
   iconsDb.close();
-  regDb.close();
 
   const totalComponents = fileResults.reduce((sum, r) => sum + r.componentCount, 0);
   const totalIcons = fileResults.reduce((sum, r) => sum + r.iconCount, 0);

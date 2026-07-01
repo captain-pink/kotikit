@@ -2,7 +2,14 @@
 
 ## What it does
 
-The db module wraps `bun:sqlite` with the conventions kotikit uses everywhere: WAL journal mode, normal synchronous writes, foreign key enforcement, and a thin transaction helper. On top of that base it owns four SQLite databases — a full-text-search components store, a full-text-search icons store, a registry that tracks which design system components have been scaffolded into code, and a design review ledger that stores comment review state, standalone design-quality audits, bounded Figma evidence cache rows, and project design preferences — plus the CamelCase token splitter that makes component names searchable by their parts.
+The db module wraps `bun:sqlite` with the conventions kotikit uses everywhere:
+WAL journal mode, normal synchronous writes, foreign key enforcement, and a thin
+transaction helper. On top of that base it owns three SQLite databases: a
+full-text-search components store, a full-text-search icons store, and a design
+review ledger that stores comment review state, standalone design-quality
+reviews, bounded Figma evidence cache rows, and project design preferences. It
+also provides the CamelCase token splitter that makes component names searchable
+by their parts.
 
 ## Public surface
 
@@ -25,18 +32,6 @@ The db module wraps `bun:sqlite` with the conventions kotikit uses everywhere: W
 - `searchIcons(db, queryTerm, limit?)` — FTS5 MATCH search
 - `getIconSvg(db, key)` — retrieve SVG content by Figma key
 - `clearIcons(db)` — test helper
-
-**Registry database** (`src/db/registry-db.ts`)
-- `RegistryKind` — `"screen" | "component"`
-- `RegistryStatus` — `"code-only" | "design-only" | "synced"`
-- `RegistryRow` — `{ kind, name, dsPath, codePath, status }`
-- `initRegistryDb(db)` — idempotent v0 → v1 migration; checks `PRAGMA user_version` and either creates the v1 schema fresh or no-ops
-- `upsertRegistry(db, row)` — generic insert-or-replace by `(kind, name)` PK
-- `getRegistry(db, kind, name)` — point lookup; returns `RegistryRow | null`
-- `searchRegistry(db, opts)` — filter by `{ query?, kind?, status?, limit? }` with positional bindings
-- `clearRegistry(db)` — remove all rows
-- `upsertRegistryDsRow(db, { name, dsPath })` — merge-aware DS component upsert; never clobbers `code_path` on synced rows
-- `listDesignOnlyComponents(db, names?, limit?)` — return component rows with `status="design-only"`, optionally filtered by names allowlist
 
 **Design review database** (`src/db/design-review-db.ts`)
 - `openDesignReviewDb(root)` — open `.kotikit/design-review.db`, initialize tables, and return the review store
@@ -64,10 +59,6 @@ Both `components.db` and `icons.db` use FTS5 virtual tables with the `unicode61 
 
 Because FTS5 virtual tables do not support SQL `INSERT OR REPLACE`, `upsertComponent` and `upsertIcon` use DELETE-then-INSERT within the caller-provided transaction. The `name_tokens` column is denormalized — it stores the original name plus its CamelCase-split parts (`"ButtonGroup"` → `"ButtonGroup Button Group"`), letting the FTS5 engine find `"Button"` when searching for a `ButtonGroup` component. `buildNameTokens` handles acronyms (`"HTTPSConfig"` → `"HTTPSConfig HTTPS Config"`), letter-to-digit transitions, and separator normalization.
 
-The registry schema has two versions. `PRAGMA user_version = 0` is the original baseline: a single `registry` table with `(name TEXT PK, code_path, status)`. Version 1 renames the table, adds the composite `(kind, name)` primary key, and adds the `ds_path` column. The `initRegistryDb` migration is idempotent: it reads `PRAGMA user_version`, creates the v1 schema if `version === 0`, copies existing rows forward as `kind='screen'`, and sets `user_version = 1`. Because bun:sqlite requires `PRAGMA user_version` to be set outside a transaction, the migration commits before issuing the pragma.
-
-`upsertRegistryDsRow` is the only function that understands component lifecycle rules. When the sync runs again on an already-scaffolded component, this function updates `ds_path` without touching `code_path` or status, preserving the `"synced"` label. When a component was `"code-only"` (scaffolded before the DS was synced), it promotes the row to `"synced"` if `code_path` is non-null.
-
 The design review database is intentionally compact. It does not store long
 design-change narratives. Comment-review passes store comment metadata and
 mapping status, each fix stores a short adjustment row, and repeated adjustment
@@ -75,7 +66,7 @@ evidence can become a preference candidate. Standalone design-quality reviews
 store a bounded target evidence bundle, structured findings, and root-comment
 outbox rows only after the user approves posting. Only promoted
 `design_preferences` are fed back into design context by
-`kotikit_design_get_screen`.
+graph design context.
 
 The DB sets `PRAGMA user_version = 2` on open. The target cache is deliberately
 defensive: rows carry a cache schema version, source fingerprint, and expiry.
@@ -85,15 +76,13 @@ truth.
 
 ## When to extend it
 
-- Adding a new indexed field to the components table (e.g. `page_name`) — `initComponentsDb` uses `CREATE VIRTUAL TABLE IF NOT EXISTS`, so you must drop and recreate the table in a new migration step; consider versioning `components.db` the same way the registry is versioned.
+- Adding a new indexed field to the components table (e.g. `page_name`) — `initComponentsDb` uses `CREATE VIRTUAL TABLE IF NOT EXISTS`, so you must drop and recreate the table in a new migration step; consider versioning `components.db` if the schema needs to evolve in place.
 - Supporting partial-match searches (prefix matching) — add `*` to the query term in `searchComponents`; FTS5 supports `term*` prefix queries natively.
-- Adding a new registry status (e.g. `"archived"`) — extend the `CHECK` constraint in the SQL and the `RegistryStatus` TypeScript type, then update `upsertRegistryDsRow` merge logic.
 - Adding a third FTS5 database (e.g. for spec search) — follow the components-db pattern: a single `initXxxDb`, `upsertXxx`, `searchXxx`, and `clearXxx` in their own file; use `openDb` for consistent pragma setup.
 - Adding more review workflow state — extend `design-review-db.ts` with an idempotent schema addition and keep MCP responses paginated or summarized.
 
 ## Related
 
-- [sync](./sync.md) — `initComponentsDb`, `upsertComponent`, `initIconsDb`, `upsertIcon`, `initRegistryDb`, `upsertRegistryDsRow` are all called by the sync orchestrator
-- [codegen](./codegen.md) — the registry is read by the scaffold tool to find `design-only` components
-- [util](./util.md) — `componentsDbPath`, `iconsDbPath`, `registryDbPath`, and `designReviewDbPath` are the canonical path helpers
+- [sync](./sync.md) — `initComponentsDb`, `upsertComponent`, `initIconsDb`, and `upsertIcon` are called by the sync orchestrator
+- [util](./util.md) — `componentsDbPath`, `iconsDbPath`, and `designReviewDbPath` are the canonical path helpers
 - [migrations](./migrations.md) — JSON artifacts are lazy; SQLite migrates on open

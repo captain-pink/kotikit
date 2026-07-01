@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -61,6 +61,94 @@ describe("dead-code tooling config", () => {
     expect(knip.workspaces?.["figma-plugin"]?.project).toEqual(
       expect.arrayContaining(["**/*.{ts,tsx}"])
     );
+  });
+});
+
+describe("token measurement tooling", () => {
+  it("does not measure removed public choreography tools", () => {
+    const script = readText(join(repoRoot, "scripts", "measure-tokens.ts"));
+    const removedToolFragments = [
+      "kotikit_workflow_",
+      "kotikit_brainstorm_",
+      "kotikit_spec_",
+      "kotikit_flow_create",
+      "kotikit_component_plan_create",
+      "kotikit_figma_target_bind",
+      "kotikit_plan_design",
+      "kotikit_design_get_screen",
+      "kotikit_design_apply_step",
+      "kotikit_design_review_",
+      "kotikit_design_comment_",
+      "kotikit_design_memory_",
+    ];
+
+    for (const fragment of removedToolFragments) {
+      expect(script).not.toContain(fragment);
+    }
+  });
+});
+
+describe("live documentation", () => {
+  const liveDocPaths = [
+    "README.md",
+    "docs/architecture.md",
+    "docs/development.md",
+    "docs/figma.md",
+    "docs/getting-started.md",
+    "docs/tools.md",
+    "docs/troubleshooting.md",
+    "docs/workflows.md",
+    ".agents/skills/kotikit-auto/SKILL.md",
+    ".agents/skills/kotikit-design-review/SKILL.md",
+    "plugins/README.md",
+    ...readdirSync(join(repoRoot, "docs", "modules"))
+      .filter((name) => name.endsWith(".md"))
+      .map((name) => `docs/modules/${name}`),
+  ];
+
+  const liveDocs = (): string =>
+    liveDocPaths.map((path) => readText(join(repoRoot, path))).join("\n\n");
+
+  it("describes the graph facade instead of removed choreography tools", () => {
+    const docs = liveDocs();
+    const removedToolFragments = [
+      "kotikit_workflow_",
+      "kotikit_brainstorm_",
+      "kotikit_spec_",
+      "kotikit_flow_create",
+      "kotikit_component_plan_create",
+      "kotikit_figma_target_bind",
+      "kotikit_plan_design",
+      "kotikit_design_get_screen",
+      "kotikit_design_apply_step",
+      "kotikit_design_review_start",
+      "kotikit_design_review_comments",
+    ];
+    const removedWorkflowPhrases = [
+      "workflow controller",
+      "workflow pointer",
+      "next allowed step",
+      "What next? menu",
+    ];
+
+    for (const fragment of [...removedToolFragments, ...removedWorkflowPhrases]) {
+      expect(docs).not.toContain(fragment);
+    }
+
+    expect(docs).toContain("kotikit_start");
+    expect(docs).toContain("kotikit_answer");
+    expect(docs).toContain("kotikit_get_artifact");
+  });
+
+  it("keeps setup and Figma guidance designer-first", () => {
+    const docs = liveDocs();
+
+    expect(docs).toContain("plugins are preferred");
+    expect(docs).toContain("scaffold remains");
+    expect(docs).toContain("not required for draft creation");
+    expect(docs).toContain("REST-backed design/comment review");
+    expect(docs).toContain("primary token-efficient grounding");
+    expect(docs).toContain("Design-to-code is removed from the core workflow");
   });
 });
 

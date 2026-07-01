@@ -1,43 +1,22 @@
 # Workflow Module
 
-The workflow module lets agents resume kotikit tasks without rereading large
-project artifacts or old conversation history.
+The legacy workflow module has been removed from the active core.
 
-## Files
+Kotikit now uses graph-backed flow manifests, graph state, checkpoints, and
+artifacts for resumable designer work. Agents should use the graph facade:
 
-- `src/workflow/workflow-schema.ts` defines workflow sessions, snapshots, and
-  next-action results.
-- `src/workflow/workflow-store.ts` stores `.kotikit/workflows/<id>.json` and
-  `.kotikit/workflows/current.json`.
-- `src/workflow/workflow-snapshot.ts` reads compact project state from config,
-  sync manifests, variables, draft targets, plans, bridge status, and apply
-  logs.
-- `src/workflow/workflow-next.ts` decides the next allowed phase and tool set.
-- `src/mcp/tools/workflow.ts` exposes the workflow controller through MCP.
+- `kotikit_flow_list`
+- `kotikit_start`
+- `kotikit_answer`
+- `kotikit_continue`
+- `kotikit_get_artifact`
+- `kotikit_list_artifacts`
 
-## Invariants
+The old manual phase router stored compact session files and returned static
+next-action guidance. That approach did not hold the work line reliably enough
+for design creation, review, approval, and Figma apply cycles. The graph runtime
+replaces it with explicit nodes, interrupts, persisted checkpoints, artifacts,
+flow hashes, and manifest hashes.
 
-- Sessions store only the latest event summary, not an append-only history.
-- `.kotikit/workflows/` is runtime state and should stay ignored by git.
-- Snapshots must not open SQLite design-system indexes or load component/icon
-  directories.
-- `next.allowedTools` is the source of truth for the next agent action.
-- `next.forbiddenTools` blocks premature design application and experimental
-  code generation in the guided designer workflow.
-- User approvals must be recorded through `kotikit_workflow_event` before the
-  agent posts Figma comments or falls back to literal values.
-
-## Token Efficiency
-
-The snapshot reader deliberately checks small files only:
-
-- `.kotikit/config.json`
-- `.kotikit/specs/<scope>/*` for the active target
-- `design-system/manifest.json`
-- `design-system/.sync-report.json`
-- `design-system/.sync-checkpoint.json`
-- `design-system/variables.json`
-- `.kotikit/bridge.json` through the bridge manager
-
-Do not add broad directory scans or database reads to this module unless the
-decision cannot be made from compact state.
+Do not add new code to this module. New resumable behavior belongs in graph
+nodes, flow manifests, runtime stores, or facade tools.

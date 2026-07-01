@@ -32,16 +32,17 @@ official Figma MCP integration instead of kotikit's local plugin.
 The target project owns:
 
 - `.kotikit/config.json`
-- `.kotikit/workflows/*`
+- `.kotikit/runs/*`
+- `.kotikit/artifacts/*`
 - `.kotikit/specs/*`
 - `.kotikit/index.json`
-- `.kotikit/registry.db`
 - `.kotikit/design-review.db`
 - `.kotikit/bridge.json` when a bridge is running
 
-Specs and plans are JSON. Review state and memory live in SQLite.
-Workflow sessions are compact JSON pointers to the current task; they keep only
-the latest decision summary so agents can resume without loading old history.
+Specs, graph runs, and graph artifacts are JSON. Review state and memory live
+in SQLite. Runs persist flow ids, graph hashes, node versions, status, and
+state; artifacts hold compact contracts such as briefs, fit reports, apply
+packets, review sessions, revision plans, and QA reports.
 
 ### Design-System Indexes
 
@@ -62,7 +63,7 @@ when needed.
 Figma design creation uses the official Figma assistant integration. Kotikit
 generates a bounded apply packet, the assistant writes through official Figma
 tools, then reports applied node metadata back to kotikit with
-`kotikit_design_apply_step`.
+`kotikit_record_figma_apply`.
 
 The local plugin bridge is used only for exporting variables through the Plugin
 API when REST variables are unavailable. Search, comments, design review, and
@@ -84,39 +85,34 @@ Figma design creation is fail-closed:
 1. A user provides an exact Figma draft page URL.
 2. kotikit verifies that it points to a page node.
 3. The page name must contain `Draft` or `Drafts`.
-4. Design plans copy that target.
+4. Graph draft nodes copy that target.
 5. The official Figma integration creates or reuses a kotikit-owned Section.
-6. Apply-step reporting validates file, page, and Section metadata.
+6. Apply metadata reporting validates file, page, and Section metadata.
 
 This gives teams without Figma branches a practical safety boundary.
 
 ## Core Data Flow
 
-1. **Spec**  
-   The assistant brainstorms with the user and writes a screen spec or flow
-   manifest under `.kotikit/specs`.
+1. **Graph flow**
+   The assistant starts a built-in or trusted flow and follows graph
+   interrupts, checkpoints, and artifacts.
 
-2. **Workflow control**  
-   The assistant asks `kotikit_workflow_start` or `kotikit_workflow_next` what
-   phase is currently allowed. The controller reads only compact state files and
-   returns the next action.
-
-3. **Design-system sync**  
+2. **Design-system sync**
    Figma published-library metadata is normalized into local component and icon
    indexes.
 
-4. **Design plan**  
-   The planner turns a saved spec plus design-system references into semantic
-   Figma plan steps.
+3. **Draft planning**
+   Graph nodes turn intent, local design-system evidence, draft components, and
+   variables into an apply-packet artifact.
 
-5. **Official Figma apply**  
+4. **Official Figma apply**
    The assistant uses the official Figma integration to apply the plan and
    reports results back to kotikit.
 
-6. **Review**  
+5. **Review**
    Comments and design-quality findings are stored in `design-review.db`.
 
-7. **Memory**  
+6. **Memory**
    Repeated feedback can become a local design preference used in future design
    passes.
 
@@ -127,13 +123,12 @@ This gives teams without Figma branches a practical safety boundary.
 - [modules/spec.md](modules/spec.md) - screen specs, flow manifests, and index.
 - [modules/sync.md](modules/sync.md) - Figma sync, normalization, rate limits,
   and checkpoints.
-- [modules/planning.md](modules/planning.md) - code plans, design plans,
-  component plans, node maps, and review evidence.
+- [modules/planning.md](modules/planning.md) - design plans, graph draft
+  component planning, node maps, and review evidence.
 - [modules/mcp.md](modules/mcp.md) - MCP server, tool registry, and bridge.
-- [modules/workflow.md](modules/workflow.md) - compact workflow controller,
-  snapshots, and next-action decisions.
+- [modules/workflow.md](modules/workflow.md) - removed legacy workflow module
+  and graph-runtime replacement notes.
 - [modules/db.md](modules/db.md) - SQLite stores and migrations.
 - [modules/git.md](modules/git.md) - local auto-commit helpers.
-- [modules/codegen.md](modules/codegen.md) - experimental design-to-code track.
 - [modules/util.md](modules/util.md) - path, ID, env, and result helpers.
 - [modules/migrations.md](modules/migrations.md) - lazy JSON migration model.

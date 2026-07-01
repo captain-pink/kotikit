@@ -1515,7 +1515,7 @@ class SqliteDesignReviewStore implements DesignReviewStore {
     if (result.changes === 0) {
       throw new KotikitError(
         `No design preference candidate found for ${input.key}.`,
-        "List candidates with kotikit_design_memory_candidates before dismissing one."
+        "Review the active memory artifacts before dismissing a candidate."
       );
     }
     const row = this.db

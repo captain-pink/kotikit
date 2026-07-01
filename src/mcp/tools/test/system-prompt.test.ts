@@ -30,17 +30,13 @@ function parseToolDetail(result: { content: { text?: string }[] }): unknown {
 }
 
 describe("kotikit_get_system_prompt", () => {
-  it("kind=react returns the React doctrine with the quality bar sentence", async () => {
+  it("kind=react returns a friendly error because design-to-code is removed", async () => {
     const registry = makeRegistry();
     registerSystemPromptTools(registry, makeCtx());
     const result = await callTool(registry, "kotikit_get_system_prompt", { kind: "react" });
-    expect(result.isError).toBeFalsy();
-    const detail = parseToolDetail(result) as { prompt: string; kind: string };
-    expect(detail.kind).toBe("react");
-    expect(detail.prompt.toLowerCase()).toContain(
-      "any developer or designer could build this identically from the spec alone"
-    );
-    expect(detail.prompt).toContain("TypeScript strict");
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain("Unknown system prompt kind");
+    expect(result.content[0]?.text).toContain("brainstorm");
   });
 
   it("kind=brainstorm returns the brainstorm doctrine", async () => {
@@ -54,13 +50,13 @@ describe("kotikit_get_system_prompt", () => {
     );
   });
 
-  it("kind=scaffold returns the React doctrine (shared with implement_code)", async () => {
+  it("kind=scaffold returns a friendly error because component scaffolding is removed", async () => {
     const registry = makeRegistry();
     registerSystemPromptTools(registry, makeCtx());
     const result = await callTool(registry, "kotikit_get_system_prompt", { kind: "scaffold" });
-    const detail = parseToolDetail(result) as { prompt: string; kind: string };
-    expect(detail.kind).toBe("scaffold");
-    expect(detail.prompt).toContain("TypeScript strict");
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain("Unknown system prompt kind");
+    expect(result.content[0]?.text).toContain("brainstorm");
   });
 
   it("unknown kind returns a friendly error", async () => {
@@ -74,7 +70,7 @@ describe("kotikit_get_system_prompt", () => {
   it("response includes version: '1'", async () => {
     const registry = makeRegistry();
     registerSystemPromptTools(registry, makeCtx());
-    const result = await callTool(registry, "kotikit_get_system_prompt", { kind: "react" });
+    const result = await callTool(registry, "kotikit_get_system_prompt", { kind: "brainstorm" });
     const detail = parseToolDetail(result) as { version: string };
     expect(detail.version).toBe("1");
   });

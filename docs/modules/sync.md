@@ -2,7 +2,13 @@
 
 ## What it does
 
-The sync module owns everything needed to pull a Figma design system into a local snapshot: the `FigmaClient` that speaks the Figma REST API with rate limiting and exponential backoff, the checkpoint system that lets an interrupted sync resume from where it left off, the multi-file orchestrator that merges components and variables across N Figma files, and the registry writeback that tracks which DS components have code counterparts. After a sync, every non-icon component has a JSON file on disk and a row in the registry database.
+The sync module owns everything needed to pull a Figma design system into a
+local snapshot: the `FigmaClient` that speaks the Figma REST API with rate
+limiting and exponential backoff, the checkpoint system that lets an
+interrupted sync resume from where it left off, and the multi-file orchestrator
+that merges components and variables across N Figma files. After a sync, every
+non-icon component has a JSON file on disk and searchable rows in the local
+component and icon indexes.
 
 ## Public surface
 
@@ -38,7 +44,7 @@ The sync module owns everything needed to pull a Figma design system into a loca
 **Multi-file orchestrator** (`src/sync/multi-file.ts`)
 - `syncAllFiles(opts)` — drives N files in order, merges outputs, writes all artifacts
 - `SyncAllOpts` — `{ root, files, client }`
-- `SyncReport` — `{ ranAt, files[], conflicts[], variableCollisions[], skipped[], normalizationDiagnostics[], registryUpdates }`
+- `SyncReport` — `{ ranAt, files[], conflicts[], variableCollisions[], skipped[], normalizationDiagnostics[] }`
 
 **Checkpoint** (`src/sync/checkpoint.ts`)
 - `Checkpoint`, `FileCheckpoint`, `CheckpointStage`
@@ -78,31 +84,29 @@ The sync module owns everything needed to pull a Figma design system into a loca
 
 **Normalization handles different published-library shapes.** Published Figma libraries do not all look the same through the API. Some publish clean component-set metadata, while others return every variant child as a separate published component and only expose its logical set through `containing_frame.containingComponentSet`. `normalizePublishedDesignSystem` groups rows by `component_set_id`, `containingComponentSet.nodeId`, `containingStateGroup.nodeId`, or standalone component ID, then emits one canonical `ComponentJson` per logical component. Component-set metadata is indexed by both published key and node ID. When Figma omits variant definitions, the normalizer fetches the component-set node details; if those are still missing, it infers variant axes from child names like `Size=md, Type=Fill`.
 
-**Icon normalization is group-aware.** Icons can be represented as standalone components, variant children, or component sets on pages with decorative names such as `↪️ Icons`. Icon detection checks the page and component name, then classifies the whole logical group as icons when any child has an icon signal. Icon rows stay in `icons.db`; non-icons become component JSON and registry rows.
+**Icon normalization is group-aware.** Icons can be represented as standalone components, variant children, or component sets on pages with decorative names such as `Icons`. Icon detection checks the page and component name, then classifies the whole logical group as icons when any child has an icon signal. Icon rows stay in `icons.db`; non-icons become component JSON files and component-index rows.
 
 **Adaptive Figma pacing.** The Figma API applies different limits depending on account type, token permissions, endpoint tier, and current usage. Kotikit therefore does not assume a fixed free/pro plan limit. The default client uses `createAdaptiveLimiter`: it begins at `KOTIKIT_FIGMA_INITIAL_MIN_TIME_MS` or 1000 ms between request starts, keeps concurrency at 1, records every 429 as a slowdown signal, honors `Retry-After` as a temporary pause, and cautiously lowers the delay again after sustained success. This keeps professional accounts from being permanently throttled by free-tier defaults while still letting free or low-limit tokens converge to a safe pace. Operators can raise the initial/floor values for stricter environments or lower the floor for trusted high-limit tokens, but normal local sync should leave the defaults unset.
 
-Figma token resolution is shared by sync and comment review. Kotikit loads the target project's `.env` before constructing a Figma client. If `config.figma.token` is omitted or empty, it resolves `${FIGMA_TOKEN}` by default. If `config.figma.token` is present, that explicit value wins and may be a plain token, `${OTHER_ENV_VAR}`, or an `op://` secret reference. `.env` loading does not replace non-empty shell values, but it does refresh empty placeholders such as the scaffolded `FIGMA_TOKEN=` line so users can paste a token and retry in the same assistant session.
+Figma token resolution is shared by sync, design review, and comment review. Kotikit loads the target project's `.env` before constructing a Figma client. If `config.figma.token` is omitted or empty, it resolves `${FIGMA_TOKEN}` by default. If `config.figma.token` is present, that explicit value wins and may be a plain token, `${OTHER_ENV_VAR}`, or an `op://` secret reference. `.env` loading does not replace non-empty shell values, but it does refresh empty placeholders such as the scaffolded `FIGMA_TOKEN=` line so users can paste a token and retry in the same assistant session.
 
-`kotikit_design_review_comments` uses the same adaptive client as sync. Comments are a different Figma endpoint tier from files/components, so the limiter remains endpoint-agnostic: it honors 429s and `Retry-After` dynamically instead of assuming a particular Professional, Organization, or Enterprise quota.
+Graph review and comment flows use the same adaptive client as sync. Comments are a different Figma endpoint tier from files/components, so the limiter remains endpoint-agnostic: it honors 429s and `Retry-After` dynamically instead of assuming a particular Professional, Organization, or Enterprise quota.
 
 `syncAllFiles` runs files in the order declared in `config.figma.designSystemFiles`. This order is intentional: later files win on component-name collision. When two files publish a component with the same name, the later file's `ComponentJson` overwrites the earlier one on disk and in `components.db`, and the conflict is recorded in `SyncManifest.conflicts`. Variable collisions follow the same last-wins rule.
 
-Component rows are seeded into `components.db` as soon as published component metadata is available, before the slower `node_details` stage. Stage 7 overwrites those rows with enriched prop data after node details arrive. Icon rows, component JSON files, and registry rows are persisted after each file finishes, before `fileDone` is emitted and before the checkpoint marks that file as `done`. This avoids a long final write batch and makes resumed sync safer: a file is only marked complete after its component artifacts and registry rows are durable. At the start of a fresh per-file sync, kotikit deletes only that file's old component/icon rows so stale design-system entries do not survive a re-sync. Variables and the final manifest are still written at the end because their collision rules depend on the full configured file order.
+Component rows are seeded into `components.db` as soon as published component metadata is available, before the slower `node_details` stage. Stage 7 overwrites those rows with enriched prop data after node details arrive. Icon rows and component JSON files are persisted after each file finishes, before `fileDone` is emitted and before the checkpoint marks that file as `done`. This avoids a long final write batch and makes resumed sync safer: a file is only marked complete after its component artifacts are durable. At the start of a fresh per-file sync, kotikit deletes only that file's old component/icon rows so stale design-system entries do not survive a re-sync. Variables and the final manifest are still written at the end because their collision rules depend on the full configured file order.
 
 The sync report includes `normalizationDiagnostics` for every fully normalized file. Agents should use this compact report to understand whether Figma omitted component-set metadata, variants were inferred from child names, names collided, or too many groups were classified as icons before reading component JSON files.
-
-The registry writeback uses `upsertRegistryDsRow`, a merge-aware function that never clobbers `code_path` on an already-synced row. The rules are: no existing row → insert as `design-only`; existing `design-only` → update `ds_path`; existing `synced` → update `ds_path`, keep `code_path` and status; existing `code-only` → update `ds_path` and promote to `synced` if `code_path` is non-null. This ensures that a re-sync after a component is scaffolded does not reset its registry status.
 
 ## When to extend it
 
 - Supporting a new Figma API endpoint (e.g. `/v1/files/:key/variables/published`) — add a method to `FigmaClient`, handle 403 gracefully, and include it as a new stage in `syncOneFile` only when it belongs to design-system sync.
 - Changing the collision resolution strategy — edit the `writtenByName` map logic in `syncAllFiles` (currently last-file-wins; could become first-file-wins or explicit priority list).
 - Adding a new artifact type beyond per-component JSON (e.g. a style token file) — add a stage to `syncOneFile` and a write call in the post-loop section of `syncAllFiles`.
-- Supporting non-Figma design tools — replace `FigmaClient` with a different client behind the same interface and write a new `syncOneFile` pipeline; the multi-file orchestrator, checkpoint, and registry writeback layers are tool-agnostic.
+- Supporting non-Figma design tools — replace `FigmaClient` with a different client behind the same interface and write a new `syncOneFile` pipeline; the multi-file orchestrator and checkpoint layers are tool-agnostic.
 
 ## Related
 
-- [db](./db.md) — `initComponentsDb`, `upsertComponent`, `initIconsDb`, `upsertIcon`, `initRegistryDb`, `upsertRegistryDsRow` are called by the orchestrator
-- [util](./util.md) — `componentsDbPath`, `iconsDbPath`, `registryDbPath`, `componentJsonPath`, `checkpointPath`, `syncReportPath` are all path helpers
+- [db](./db.md) — `initComponentsDb`, `upsertComponent`, `initIconsDb`, and `upsertIcon` are called by the orchestrator
+- [util](./util.md) — `componentsDbPath`, `iconsDbPath`, `componentJsonPath`, `checkpointPath`, and `syncReportPath` are path helpers
 - [mcp](./mcp.md) — `kotikit_sync_ds` is the MCP tool that invokes `syncAllFiles`

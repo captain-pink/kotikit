@@ -25,50 +25,58 @@ The mcp module is the boundary between kotikit's engines and the AI model. It ow
 - `clearBridgeConfig(root)` — remove `bridge.json` on server shutdown
 - `createBridgeManager({ registry, root })` — own the bridge lifecycle for the current MCP process, including plugin preflight, manifest port patching, idempotent start, port fallback, status, stop, and stale config cleanup
 
-**Tool registrars** (each in `src/mcp/tools/<name>.ts`)
+**Tool registrars** (each in `src/mcp/tools/<name>.ts` or
+`src/mcp/facade/<name>.ts`)
 
 See [docs/tools.md](../tools.md) for the complete cheat-sheet. The tools are
 grouped here by product area:
 
-- Setup and specs: `kotikit_config_status`, `kotikit_config_init`, `kotikit_config_get`, `kotikit_spec_create`, `kotikit_spec_get`, `kotikit_spec_list`, `kotikit_spec_update`, `kotikit_flow_create`, `kotikit_brainstorm_start`, `kotikit_brainstorm_answer`, `kotikit_brainstorm_confirm`, `kotikit_brainstorm_assess`
-- Design-system sync and search: `kotikit_sync_ds`, `kotikit_sync_plugin_variables`, `kotikit_ds_search`, `kotikit_ds_get_component`, `kotikit_icons_search`
-- Experimental implementation: `kotikit_plan_code`, `kotikit_implement_code_start`, `kotikit_implement_code_save`, `kotikit_implement_code_gate`, `kotikit_registry_search`, `kotikit_scaffold_start`, `kotikit_scaffold_save`
-- Variable bridge and design creation: `kotikit_bridge_start`, `kotikit_bridge_stop`, `kotikit_bridge_status`, `kotikit_figma_target_bind`, `kotikit_component_plan_create`, `kotikit_plan_design`, `kotikit_design_get_screen`, `kotikit_design_apply_step`
-- Design review, comments, and memory: `kotikit_design_review_comments`, `kotikit_design_adjustment_record`, `kotikit_design_review_report`, `kotikit_design_comment_reply_prepare`, `kotikit_design_comment_reply_post`, `kotikit_design_memory_candidates`, `kotikit_design_memory_promote`, `kotikit_design_memory_dismiss`, `kotikit_design_memory_update`, `kotikit_design_memory_search`, `kotikit_design_review_start`, `kotikit_design_review_record`, `kotikit_design_review_get`, `kotikit_design_review_comment_prepare`, `kotikit_design_review_comment_post`
-- Audit, prompts, and diagnostics: `kotikit_audit`, `kotikit_get_system_prompt`, `kotikit_doctor`
+- Graph facade: `kotikit_flow_list`, `kotikit_flow_validate`,
+  `kotikit_start`, `kotikit_answer`, `kotikit_continue`,
+  `kotikit_bind_figma_target`, `kotikit_get_artifact`,
+  `kotikit_list_artifacts`, `kotikit_search_design_system`,
+  `kotikit_record_figma_apply`, `kotikit_review_figma_target`, and
+  `kotikit_doctor`.
+- Setup: `kotikit_config_status`, `kotikit_config_init`,
+  `kotikit_config_get`.
+- Local design-system support: `kotikit_sync_ds`,
+  `kotikit_sync_plugin_variables`, `kotikit_ds_search`,
+  `kotikit_ds_get_component`, and `kotikit_icons_search`.
+- Local plugin bridge and prompt support: `kotikit_bridge_start`,
+  `kotikit_bridge_stop`, `kotikit_bridge_status`, and
+  `kotikit_get_system_prompt`.
 
-Implementation and scaffolding tools are currently experimental. They stay
-registered so engineering work can continue, but guided designer flows should
-prefer specs, design-system sync, Figma design creation/refinement, and comment
-review.
+Design-to-code tools are not registered in the core MCP server. Code planning,
+implementation, scaffold, registry, and code/design audit flows can return
+later only as isolated extensions after the design workflow is stable.
 
 ## How it works
 
 `buildServer` is the single composition root. It constructs one `ToolRegistry` object, finds the project root via `findProjectRoot()`, builds a `ToolContext`, then calls each `register*` function with both. Each registrar pushes one or more `Tool` objects (the MCP JSON Schema description) onto `registry.tools` and one handler function per tool onto `registry.handlers`. The server's `CallToolRequestSchema` handler is a single dispatcher: it looks up the tool name in `handlers`, calls the handler, and lets `toolError` convert any thrown error into a safe MCP error response.
 
-The server also exposes `KOTIKIT_MCP_INSTRUCTIONS` during MCP initialization. These instructions are agent-neutral and front-load the workflow: ask `kotikit_workflow_start` or `kotikit_workflow_next` for the next allowed action, translate tool JSON into plain language, fetch long system prompts by reference, search design-system indexes before reading exact files, keep user-facing errors friendly, and treat kotikit as design-first until design-to-code returns in a later version.
+The server also exposes `KOTIKIT_MCP_INSTRUCTIONS` during MCP initialization.
+These instructions are agent-neutral and front-load the graph facade: choose a
+flow, start it, answer human-in-the-loop prompts, continue when external work
+is complete, read artifacts by id, translate tool JSON into plain language,
+fetch long system prompts by reference, search design-system indexes before
+reading exact files, keep user-facing errors friendly, and keep kotikit focused
+on design creation and review.
 
 The stdio transport is the normal agent path. Claude Code, Codex, and other
-MCP clients use it for setup, specs, sync, planning, design review, and official
+MCP clients use it for setup, sync, graph flow execution, review, and official
 Figma apply coordination. The WebSocket bridge reuses the same handler map, but
-it is reserved for the local Figma plugin's variable-export fallback. Workflow
-tools return compact current state rather than history. Browserless Figma
-comment review uses the REST API path: `kotikit_design_review_comments` reads
-comments, maps them through the local node map written by apply-step results,
-and stores compact review state in `.kotikit/design-review.db`. Standalone
-design-quality review uses `kotikit_design_review_start` to gather bounded
-shallow Figma evidence, then stores agent-authored findings and optional
-approved root comments in the same review DB.
+it is reserved for the local Figma plugin's variable-export fallback. Graph
+runs store compact current state, checkpoints, and artifacts rather than a
+manual workflow history.
 
 Figma design creation is fail-closed around explicit draft targets. The agent
-first calls `kotikit_figma_target_bind` with the designer's exact Figma draft
-page URL. The tool verifies the URL points to a page node, the page name
-contains `Draft` or `Drafts`, and the target is saved in the screen spec or
-flow manifest. `kotikit_plan_design` refuses to build a design plan until that
-target exists. The assistant then uses the official Figma integration to switch
-to the bound page and create or reuse a kotikit-owned Section for the generated
-screen. `kotikit_design_apply_step` validates reported file, page, and Section
-metadata before updating comment-review maps.
+first binds a safe draft target through `kotikit_bind_figma_target` on the
+active graph run. The graph validates the page target, requires a page name
+containing `Draft` or `Drafts`, and writes generated nodes inside a
+kotikit-owned Section. `kotikit_record_figma_apply` records official Figma MCP
+apply metadata back into the run so graph QA nodes can validate file, page,
+Section, component, variable, layout, repeated-item, and text-transform
+metadata.
 
 The bridge binds to `127.0.0.1` only and requires a per-session token on the WebSocket upgrade URL query string. The `/handshake` endpoint is unauthenticated and returns project metadata so the Figma plugin can display the connected project name before asking for a token. When the bridge starts, it writes `BridgeConfig` to `.kotikit/bridge.json` atomically; on SIGINT/SIGTERM it removes that file so a stale config cannot mislead a future session.
 
@@ -86,5 +94,5 @@ The bridge transport is opt-in and can be started in two ways. Normal users ask 
 
 - [config](./config.md) — `ToolContext.loadConfig` wraps `loadConfig` from the config module
 - [util](./util.md) — `findProjectRoot` is called at server startup; `bridgeConfigPath` is the bridge config path helper
-- [spec](./spec.md), [sync](./sync.md), [codegen](./codegen.md), [planning](./planning.md), [db](./db.md), [git](./git.md) — all module engines are invoked from tool handler functions
+- [spec](./spec.md), [sync](./sync.md), [planning](./planning.md), [db](./db.md), [git](./git.md) — module engines are invoked from tool handler functions
 - [tools](../tools.md) — complete MCP tool cheat-sheet

@@ -1,0 +1,32 @@
+{
+  "name": "kotikit",
+  "version": "0.1.0",
+  "description": "Designer-first Figma flow kit for creating, improving, and reviewing UI with local design-system grounding.",
+  "author": {
+    "name": "Kotikit",
+    "url": "https://github.com/captain-pink/kotikit"
+  },
+  "homepage": "https://github.com/captain-pink/kotikit",
+  "repository": "https://github.com/captain-pink/kotikit",
+  "license": "MIT",
+  "keywords": ["figma", "ux", "ui", "design-system", "mcp"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Kotikit",
+    "shortDescription": "Create and review Figma drafts with local design-system context.",
+    "longDescription": "Kotikit helps UX/UI designers create high-fidelity Figma drafts, improve existing designs, review comments, and sync local design-system context through one shared MCP server.",
+    "developerName": "Kotikit",
+    "category": "Creativity",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "websiteURL": "https://github.com/captain-pink/kotikit",
+    "privacyPolicyURL": "https://github.com/captain-pink/kotikit",
+    "termsOfServiceURL": "https://github.com/captain-pink/kotikit",
+    "defaultPrompt": [
+      "kotikit:auto",
+      "Create a high-fidelity Figma screen",
+      "kotikit:design-review"
+    ],
+    "brandColor": "#2563EB"
+  }
+}

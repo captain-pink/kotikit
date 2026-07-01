@@ -1,636 +1,174 @@
 # kotikit MCP Tools
 
-Tools exposed by the kotikit MCP server, organized by what they do.
-Each tool name is what the agent calls; the "Example" line shows how to trigger it from your conversation.
+Tools exposed by the kotikit MCP server, organized by the current
+designer-first graph facade plus support utilities.
 
-Token costs are approximate response sizes measured against a small fixture project (3 DS components, 1 screen). Re-measure for your project with `bun run measure`. See [TOKENS.md](./TOKENS.md) for optimization strategies.
+Token costs are approximate response sizes measured against a small fixture
+project. Re-measure with `bun run measure` after payload changes. See
+[TOKENS.md](./TOKENS.md) for context-budget notes.
 
-Tools marked **⚠** return more than ~1000 tokens by default — call them deliberately.
+Design-to-code tools are not part of the core MCP surface. The older manual
+workflow, brainstorm/spec, component-plan, design-plan, design-apply,
+review/comment, and memory choreography tools have been removed from public
+registration. Use graph flows and artifacts instead.
 
----
+## Graph Flow Facade
+
+### kotikit_flow_list
+
+Purpose: List compact built-in and loaded flow summaries.
+Input: `{}`
+Output: `{ flows: { id; version; title; requiredCapabilities; safetyProfile }[] }`
+
+### kotikit_flow_validate
+
+Purpose: Validate a built-in, project, or extension flow manifest before
+execution.
+Input: `{ flowId?: string; flow?: object }`
+Output: `{ valid: boolean; flow }`
+
+### kotikit_start
+
+Purpose: Start a graph-backed designer flow.
+Input: `{ flowId: string; input?: { userIntent?: string; figmaTarget?: object; review?: object; designSystem?: object; project?: { root: string; name?: string } } }`
+Output: `{ runId; status; pendingQuestion?; artifacts; errors }`
+
+### kotikit_answer
+
+Purpose: Resume a run paused for a designer decision.
+Input: `{ runId: string; answer: string }`
+Output: `{ runId; status; pendingQuestion?; artifacts; errors }`
+
+### kotikit_continue
+
+Purpose: Continue a run after an external action such as Figma apply metadata
+recording.
+Input: `{ runId: string }`
+Output: `{ runId; status; pendingQuestion?; artifacts; errors }`
+
+### kotikit_bind_figma_target
+
+Purpose: Bind a safe Figma draft target object into an active graph run.
+Input: `{ runId: string; target: object }`
+Output: `{ runId; status; pendingQuestion?; artifacts; errors }`
+
+### kotikit_get_artifact
+
+Purpose: Read one compact graph artifact by id.
+Input: `{ artifactId: string }`
+Output: `{ artifact }`
+
+### kotikit_list_artifacts
+
+Purpose: List artifacts for one run, or all artifacts when supported.
+Input: `{ runId?: string }`
+Output: `{ artifacts: Artifact[] }`
+
+### kotikit_search_design_system
+
+Purpose: Search the local design-system mirror with the token-efficient index.
+Input: `{ query: string; limit?: number }`
+Output: compact component refs.
+
+### kotikit_record_figma_apply
+
+Purpose: Record official Figma MCP apply metadata into the active graph run.
+Input: `{ runId: string; scope: string; stepIndex: number; outcome: "ok" | "warned" | "failed"; figmaFileKey?; figmaPageId?; figmaSectionName?; figmaNodeId?; figmaNodeName?; partId?; draftComponentId?; componentName?; dsKey?; variableBindings?; layoutFrames?; repeatedItems?; textTransforms? }`
+Output: `{ runId; status; pendingQuestion?; artifacts; errors }`
+
+### kotikit_review_figma_target
+
+Purpose: Fetch bounded REST-backed evidence for an exact Figma target, then
+start the built-in improve-existing-design graph flow.
+Input: `{ figmaUrl?: string; fileKey?: string; nodeId?: string; scope?: string; screen?: string; surfaceType?: string; audience?: string; primaryUserGoal?: string; reviewGoal?: string; strictness?: "quick" | "standard" | "deep"; notes?: string; maxRegions?: number }`
+Output: `{ runId; status; pendingQuestion?; artifacts; errors }`
+Requires `FIGMA_TOKEN` or `config.figma.token` with file-read access.
+
+### kotikit_doctor
+
+Purpose: Diagnose local setup, design-system state, bridge status, and schema
+versions.
+Input: `{}`
+Output: `{ ok: boolean; root: string; checks; nextSteps }`
 
 ## Setup
 
 ### kotikit_config_status
 
-Purpose: Check whether kotikit is initialized in this project and whether required gate tools are installed.
+Purpose: Check whether kotikit is initialized in this project and surface
+configuration gaps.
 Input: `{}`
-Output: `{ initialized: boolean; isGitRepo: boolean; missing: string[]; gates?: { ok: boolean; missing: { hint: string }[] } }`
-Token cost: ~72.
-Example: "Check if kotikit is set up here."
-See also: `kotikit_config_init`, `kotikit_config_get`.
-
----
+Output: `{ initialized: boolean; isGitRepo: boolean; missing: string[] }`
 
 ### kotikit_config_init
 
-Purpose: Initialize or reinitialize the kotikit config file with project settings and optional Figma connection.
-Input: `{ framework?: "react"; codeComponentsDir?: string; tests?: boolean; autoCommit?: boolean; coAuthor?: { name: string; email: string }; figmaFiles?: { key: string; name: string }[] }`
+Purpose: Initialize or reinitialize `.kotikit/config.json` with design-first
+defaults.
+Input: `{ autoCommit?: boolean; coAuthor?: { name: string; email: string }; figmaFiles?: { key: string; name: string }[]; flowPacks?: object }`
 Output: `{ configPath: string; notes: string[] }`
-Token cost: ~150.
-Example: "Set kotikit up for this workspace using the design-first defaults."
-See also: `kotikit_config_status`, `kotikit_config_get`.
-
----
 
 ### kotikit_config_get
 
 Purpose: Read the current kotikit config without exposing raw secret values.
 Input: `{}`
-Output: Full `KotikitConfig` object with `figma.token` replaced by `"<resolved from env>"`.
-Token cost: ~133.
-Example: "Show me my kotikit config."
-See also: `kotikit_config_status`, `kotikit_config_init`.
+Output: `KotikitConfig` with secret values masked.
 
----
-
-### kotikit_doctor
-
-Purpose: Diagnose local kotikit setup across config, git, schema versions, Figma token resolution, design-system artifacts, stale sync checkpoints, code gates, and bridge state.
-Input: `{}`
-Output: `{ ok: boolean; root: string; checks: { id, label, status, message, hint?, details? }[]; nextSteps: string[] }`
-Token cost: ~300.
-Example: "Run kotikit doctor for this project."
-See also: `kotikit_config_status`, `kotikit_sync_ds`.
-
----
-
-## Workflow controller
-
-These tools help agents resume kotikit work without reading old history or
-large generated artifacts. They return a compact `next` object with
-`phase`, `nextAction`, `allowedTools`, `forbiddenTools`, and small refs.
-
-### kotikit_workflow_start
-
-Purpose: Start or restart a compact workflow session for setup, design-system sync, spec creation, Figma design creation, comment review, or design-quality review.
-Input: `{ intent: "setup" | "sync-design-system" | "create-spec" | "create-design" | "review-comments" | "design-review"; scope?: string; screen?: string | null; idea?: string; figmaUrl?: string }`
-Output: `{ session: WorkflowSession; snapshot: WorkflowSnapshot; next: WorkflowNextResult }`
-Token cost: ~300.
-Example: "Start kotikit auto for a Members admin page."
-See also: `kotikit_workflow_next`, `kotikit_workflow_event`.
-
----
-
-### kotikit_workflow_status
-
-Purpose: Read the compact current workflow state and next recommended action.
-Input: `{ workflowId?: string }`
-Output: `{ session: WorkflowSession; snapshot: WorkflowSnapshot; next: WorkflowNextResult }`
-Token cost: ~300.
-Example: "Where did kotikit leave off?"
-See also: `kotikit_workflow_next`.
-
----
-
-### kotikit_workflow_next
-
-Purpose: Return the next allowed kotikit action for the current workflow.
-Input: `{ workflowId?: string }`
-Output: `{ session: WorkflowSession; snapshot: WorkflowSnapshot; next: WorkflowNextResult }`
-Token cost: ~300.
-Example: "Continue the current kotikit task."
-See also: `kotikit_workflow_start`, `kotikit_workflow_event`.
-
----
-
-### kotikit_workflow_event
-
-Purpose: Record one compact workflow event or user decision. Stores only the latest summary; it does not append a long history.
-Input: `{ workflowId?: string; event: "user-approved-literal-fallback" | "user-approved-comment-posting" | "user-selected-component-mode" | "user-confirmed-component-review" | "user-provided-target" | "tool-completed" | "tool-failed"; summary: string }`
-Output: `{ session: WorkflowSession; snapshot: WorkflowSnapshot; next: WorkflowNextResult }`
-Token cost: ~300.
-Example: "Record that the designer approved posting comments to Figma."
-See also: `kotikit_workflow_next`.
-
----
-
-## Specs
-
-### kotikit_brainstorm_start
-
-Purpose: Start a brainstorm session for a screen or flow, returning a coverage checklist and opening questions tailored to the idea.
-Input: `{ idea: string; scope?: string }`
-Output: `{ sessionId: string; scope: string; status: "inProgress"; classification: "singleScreen" | "multiScreen"; coverageChecklist: DimensionKey[]; openDimensions: DimensionKey[]; nextQuestion: { dimension, text }; systemPromptRef: "brainstorm"; systemPrompt: string; firstQuestions: string[]; qualityBar: string }`
-Token cost: ~261.
-Example: "I want to build a checkout flow — help me think through it."
-See also: `kotikit_brainstorm_answer`, `kotikit_brainstorm_confirm`, `kotikit_get_system_prompt`.
-
----
-
-### kotikit_brainstorm_assess
-
-Purpose: Legacy coverage helper. Prefer `kotikit_brainstorm_answer` for guided workflows because it records actual answer evidence.
-Input: `{ scope: string; coverage: Record<DimensionKey, "covered" | "open">; notes?: string }`
-Output: `{ status: "keepGoing"; openDimensions: DimensionKey[]; suggestedQuestions: string[] }` or `{ status: "readyToSave"; draftTemplate: SingleDraft | FlowDraft }`
-Token cost: ~300–400.
-Example: _(legacy helper for older agent flows)_
-See also: `kotikit_brainstorm_start`, `kotikit_brainstorm_answer`, `kotikit_brainstorm_confirm`.
-
----
-
-### kotikit_brainstorm_answer
-
-Purpose: Record the designer's actual answer for one brainstorm dimension and return the next open question.
-Input: `{ sessionId: string; dimension: DimensionKey; answer: string }`
-Output: `{ status: "inProgress" | "readyForConfirmation"; sessionId: string; answeredDimensions: DimensionKey[]; openDimensions: DimensionKey[]; nextQuestion?: { dimension, text } }`
-Token cost: ~180.
-Example: _(called after the designer answers each brainstorm question)_
-See also: `kotikit_brainstorm_start`, `kotikit_brainstorm_confirm`.
-
----
-
-### kotikit_brainstorm_confirm
-
-Purpose: Mark a fully answered brainstorm as confirmed by the designer before saving a spec or flow.
-Input: `{ sessionId: string; summary: string }`
-Output: `{ status: "completed"; sessionId: string; scope: string; classification: "singleScreen" | "multiScreen" }`
-Token cost: ~100.
-Example: _(called after the designer confirms the plain-language summary)_
-See also: `kotikit_spec_create`, `kotikit_flow_create`.
-
----
-
-### kotikit_spec_create
-
-Purpose: Create a new screen spec (single or multi-screen flow) from a brainstorm draft and optionally auto-commit it.
-Input: `{ draft: FlowDraft | SingleDraft; scope?: string; brainstormSessionId?: string; allowUnguided?: boolean }`
-Output: `{ paths: string[] }`
-Token cost: ~200.
-Example: "Save the spec we just discussed."
-Notes: guided designer workflows must pass a completed `brainstormSessionId`. `allowUnguided` is only for explicit advanced imports, migrations, or tests.
-See also: `kotikit_brainstorm_confirm`, `kotikit_flow_create`, `kotikit_spec_get`, `kotikit_spec_list`.
-
----
-
-### kotikit_spec_get
-
-Purpose: Read a single screen spec or a flow manifest by scope and optional screen slug.
-Input: `{ scope: string; screen?: string }`
-Output: Full `ScreenSpec` object (title, description, requirements, states, acceptanceCriteria, metadata).
-Token cost: ~268.
-Example: "Show me the login screen spec."
-See also: `kotikit_spec_list`, `kotikit_spec_update`.
-
----
-
-### kotikit_spec_list
-
-Purpose: List all known specs and flows without reading their full bodies.
-Input: `{}`
-Output: Plain-text list of scope entries: `{ title, kind, status, screens[] }[]`.
-Token cost: ~35.
-Example: "What specs do I have so far?"
-See also: `kotikit_spec_get`, `kotikit_spec_create`.
-
----
-
-### kotikit_spec_update
-
-Purpose: Patch mutable fields of an existing screen spec; immutable fields (`id`, `type`) are rejected.
-Input: `{ scope: string; screen?: string; patch: Partial<ScreenSpec> }`
-Output: Confirmation string with updated title and commit message.
-Token cost: ~150.
-Example: "Update the profile screen spec — the empty state should say 'Nothing here yet'."
-See also: `kotikit_spec_get`, `kotikit_spec_list`.
-
----
-
-### kotikit_flow_create
-
-Purpose: Create a complete multi-screen flow — writes the flow manifest and all screen specs in one atomic commit.
-Input: `{ draft: FlowDraft; brainstormSessionId?: string; allowUnguided?: boolean }`
-Output: `{ manifestPath: string; screenCount: number }`
-Token cost: ~250.
-Example: "Save the onboarding flow with all three screens."
-Notes: guided designer workflows must pass a completed `brainstormSessionId`. `allowUnguided` is only for explicit advanced imports, migrations, or tests.
-See also: `kotikit_brainstorm_confirm`, `kotikit_spec_create`, `kotikit_spec_get`.
-
----
-
-## Design system sync
+## Local Design-System Support
 
 ### kotikit_sync_ds
 
-Purpose: Pull the latest design system from Figma into the local search index and registry.
-Input: `{}`
-Output: `{ files: { fileKey, componentCount, iconCount }[]; conflicts: string[]; normalizationDiagnostics: NormalizationDiagnostics[] }` plus a human-readable summary.
-Token cost: ~200 response (large side-effect: writes all DS JSON to disk).
-Example: "Sync my design system from Figma."
-See also: `kotikit_sync_plugin_variables`, `kotikit_ds_search`, `kotikit_ds_get_component`, `kotikit_icons_search`.
-
----
-
-### kotikit_sync_plugin_variables
-
-Purpose: Import variables exported by the kotikit Figma plugin from the currently open Figma file into `design-system/variables.json`.
-Input: `{ payload: PluginVariablesPayload }` where the payload is generated by the plugin, not handwritten.
-Output: `{ imported, totalEntries, collisions, variablesPath, source? }` plus a short summary.
-Token cost: ~120.
-Example: _(called by the Figma plugin after the designer clicks "Sync Variables From Open File")_
-Notes: use this when `kotikit_sync_ds` reports that Figma's REST Variables API requires Enterprise. The designer should open the source design-system file in Figma, start the bridge, connect the plugin, and click the variables sync button.
-See also: `kotikit_sync_ds`, `kotikit_doctor`.
-
----
+Purpose: Pull published Figma design-system data into the local search index.
+Input: `{ dryRun?: boolean; files?: { key: string; name: string }[] }`
+Output: sync summary, manifest updates, and conflict warnings.
 
 ### kotikit_ds_search
 
-Purpose: Search the local design system mirror for components by name using FTS5 match expressions.
+Purpose: Search the local component index directly.
 Input: `{ query: string; limit?: number }`
-Output: `{ results: { name: string; key: string; path: string; fileKey: string }[] }`
-Token cost: ~65.
-Example: "Find components matching 'button' in my design system."
-See also: `kotikit_ds_get_component`, `kotikit_sync_ds`.
-
----
+Output: compact refs with component names, keys, file keys, and paths.
 
 ### kotikit_ds_get_component
 
-Purpose: Read the full `ComponentJson` for a single DS component by its relative path.
+Purpose: Read exactly one synced component JSON by path.
 Input: `{ path: string }`
-Output: Full `ComponentJson` (name, key, optional componentSetKey, variants, properties, slots, description, updatedAt). The `key` is the importable component key; `componentSetKey` is logical set metadata when available.
-Token cost: ~158.
-Example: "Get the full JSON for the Button component."
-See also: `kotikit_ds_search`, `kotikit_design_get_screen`.
-
----
+Output: component JSON.
 
 ### kotikit_icons_search
 
-Purpose: Search the icon index by name; SVG payloads are omitted by default to keep results small.
+Purpose: Search the local icon index.
 Input: `{ query: string; limit?: number; includeSvg?: boolean }`
-Output: `{ results: { name: string; key: string; signal: string; fileKey: string; svg?: string }[] }`
-Token cost: ~36.
-Example: "Find icons matching 'arrow right' in my design system."
-See also: `kotikit_ds_search`, `kotikit_sync_ds`.
+Output: compact icon refs; SVG is returned only when requested.
 
----
+### kotikit_sync_plugin_variables
 
-## Experimental code track
+Purpose: Import variables exported by the local Figma plugin when REST
+variables are unavailable.
+Input: `{ payload: object }`
+Output: imported variable count and conflict details.
 
-These tools are retained for internal experiments and future design-to-code
-work. They are not part of the guided `/kotikit-auto` or `kotikit:auto`
-designer workflow yet. Agents should not call them for designers unless a
-developer explicitly opts into experimental implementation work.
-
-### kotikit_plan_code
-
-Purpose: Generate and save the ephemeral per-screen code plan (component name, step list, DS refs) for a spec.
-Input: `{ scope: string; screen?: string }`
-Output: `{ planPath: string; plan: { componentName, steps, dsComponentRefs, testPath } }`
-Token cost: ~593.
-Example: "Generate a code plan for the login screen."
-See also: `kotikit_implement_code_start`, `kotikit_spec_get`.
-
----
-
-### kotikit_implement_code_start ⚠
-
-Purpose: Gather the full context bundle an agent needs to write React code for one screen — spec, plan, DS refs, gate environment, and test scaffold.
-Input: `{ scope: string; screen?: string; expand?: boolean }`
-Output (default `expand: false`): `{ componentName, targetPath, testPath, systemPromptRef: "react", screenContext, spec, flow?, config, registryHits, componentRefs: { name, path, key }[], testScaffold, plan }`
-Output (`expand: true`): Same but with `dsComponents: Record<string, ComponentJson>` instead of `componentRefs`.
-Token cost: ~1405 (default) / ~1686 (expand: true) ⚠.
-Example: "Start implementing the login screen."
-See also: `kotikit_implement_code_save`, `kotikit_implement_code_gate`, `kotikit_get_system_prompt`, `kotikit_ds_get_component`.
-
----
-
-### kotikit_implement_code_save
-
-Purpose: Write generated component files, run quality gates (tsc, eslint, prettier, vitest), commit on success, and upsert the registry.
-Input: `{ scope: string; screen?: string; files: { path: string; content: string }[] }`
-Output (gates pass): `{ report: GateRunReport; commit: CommitResult; paths: string[] }`
-Output (gates fail): `isError: true` with gate report and file paths for the next iteration.
-Token cost: ~200–500 depending on gate failure detail.
-Example: "Save the login screen component I just wrote."
-See also: `kotikit_implement_code_start`, `kotikit_implement_code_gate`.
-
----
-
-### kotikit_implement_code_gate
-
-Purpose: Re-run quality gates on already-written generated files without re-saving content.
-Input: `{ scope: string; screen?: string; only?: ("tsc" | "eslint" | "prettier" | "vitest")[] }`
-Output: `{ report: GateRunReport }` or `isError: true` with formatted gate report.
-Token cost: ~150.
-Example: "Re-run the type check on the login screen."
-See also: `kotikit_implement_code_save`.
-
----
-
-### kotikit_scaffold_start ⚠
-
-Purpose: Gather experimental scaffolding context for DS components — returns component skeletons, DS JSON, and target paths, paginated.
-Input: `{ names?: string[]; pageSize?: number; cursor?: string; compact?: boolean; expand?: boolean }`
-Output: `{ components: { name, kebabName, targetPath, storyPath?, dsJson, scaffoldShape }[]; nextCursor?: string; hasMore: boolean; totalRemaining: number; systemPromptRef: "react"; hasStorybook: boolean; skipped: { name, reason }[]; testFramework: string }`
-Token cost: ~1366 (default compact, pageSize 3) / ~1506 (expand: true) ⚠.
-Example: "Scaffold my Button, Card, and Input components."
-See also: `kotikit_scaffold_save`, `kotikit_get_system_prompt`, `kotikit_registry_search`.
-
----
-
-### kotikit_scaffold_save
-
-Purpose: Write refined scaffold files for a batch of DS components, run gates once across the batch, commit, and mark each component `synced` in the registry.
-Input: `{ files: { path: string; content: string }[] }`
-Output (gates pass): `{ report: GateRunReport; commit: CommitResult; paths: string[] }`
-Output (gates fail): `isError: true` with gate report.
-Token cost: ~250.
-Example: "Save the scaffolded Button and Card components."
-See also: `kotikit_scaffold_start`, `kotikit_registry_search`.
-
----
-
-### kotikit_registry_search
-
-Purpose: Search the kotikit component registry by name prefix, sync status, and/or kind.
-Input: `{ query?: string; status?: "code-only" | "design-only" | "synced"; kind?: "screen" | "component"; limit?: number }`
-Output: `{ results: { name, kind, status, dsPath, codePath, createdAt, updatedAt }[] }`
-Token cost: ~172.
-Example: "Which components are design-only?"
-See also: `kotikit_scaffold_start`, `kotikit_audit`.
-
----
-
-## Design track (official Figma MCP + kotikit audit)
-
-### kotikit_bridge_start
-
-Purpose: Prepare the local kotikit plugin if needed, patch its manifest for the selected localhost port, start the local bridge from the running kotikit MCP process, and return the pasteable plugin URL. Use this for variable fallback, not normal design application.
-Input: `{ preferredPort?: number }`
-Output: `{ running, staleConfig, projectRoot, projectName, port, url, startedAt }` plus a designer-facing summary.
-Token cost: ~90.
-Example: "Start the kotikit Figma plugin bridge."
-See also: `kotikit_bridge_stop`, `kotikit_bridge_status`.
-
----
-
-### kotikit_bridge_stop
-
-Purpose: Stop the Figma plugin bridge owned by the current kotikit MCP process and clear `.kotikit/bridge.json`.
-Input: `{}`
-Output: `{ stopped, clearedConfig }`
-Token cost: ~30.
-Example: "Stop the kotikit Figma plugin bridge."
-See also: `kotikit_bridge_start`, `kotikit_bridge_status`.
-
----
-
-### kotikit_bridge_status
-
-Purpose: Report whether the current kotikit MCP process owns a running Figma plugin bridge, and whether stale bridge config exists.
-Input: `{}`
-Output: `{ running, staleConfig, projectRoot, projectName, port?, url?, startedAt? }`
-Token cost: ~70.
-Example: "Is the Figma plugin bridge running?"
-See also: `kotikit_bridge_start`, `kotikit_doctor`.
-
----
-
-### kotikit_plan_design
-
-Purpose: Generate and save the per-screen design plan from a spec and its bound Figma draft target. The assistant applies this plan through the official Figma MCP integration.
-Input: `{ scope: string; screen?: string }`
-Output: `{ planPath: string; plan: { target, pageName, steps: DesignStep[] }; commit: CommitResult }`
-Token cost: ~981.
-Example: "Generate a design plan for the checkout screen."
-Notes: The spec or flow must first be bound to an exact Figma page with `kotikit_figma_target_bind`. The page name must contain `Draft` or `Drafts`.
-See also: `kotikit_figma_target_bind`, `kotikit_design_get_screen`, `kotikit_spec_get`.
-
----
-
-### kotikit_figma_target_bind
-
-Purpose: Bind a saved spec, screen, or flow to one exact Figma draft page before design creation.
-Input: `{ scope: string; screen?: string; pageUrl: string }`
-Output: `{ target: FigmaDraftTarget; paths: string[]; commit: CommitResult }` plus a designer-facing summary.
-Token cost: ~150 plus one Figma node lookup.
-Example: "Use this Figma Draft page for the Members screen: https://www.figma.com/design/...?...node-id=..."
-Notes: `pageUrl` must include `node-id` for a Figma page node, not a child frame. The page name must contain `Draft` or `Drafts`; kotikit will not bind production pages.
-See also: `kotikit_plan_design`, `kotikit_design_get_screen`.
-
----
-
-### kotikit_component_plan_create
-
-Purpose: Record how missing screen components should be handled before Figma design creation continues.
-Input: `{ scope: string; screen?: string; components?: string[]; mode: "create-draft-components" | "inline-draft"; allowLiteralFallback?: boolean }`
-Output: `{ planPath: string; specPath: string; plan: ComponentPlan; commit: CommitResult }`
-Token cost: ~300-700 depending on missing component count.
-Example: "The Members screen is missing a status toggle. Plan reusable draft components first."
-Notes: Use this only after the designer chooses whether missing components should become reusable draft components or page-only inline pieces. If variables are unavailable, sync variables through the Figma plugin first; pass `allowLiteralFallback` only after explicit designer approval.
-See also: `kotikit_design_get_screen`, `kotikit_sync_plugin_variables`.
-
----
-
-### kotikit_design_get_screen ⚠
-
-Purpose: Fetch the official Figma MCP apply packet for one screen: design plan, spec, optional flow manifest, bound target, DS component bundle, design preferences, and audit instructions.
-Input: `{ scope: string; screen?: string }`
-Output: `{ applyMode: "official-figma-mcp"; applyInstructions: string[]; plan: DesignPlan; spec: ScreenSpec; flow?: FlowManifest; target: FigmaDraftTarget; dsComponents: Record<string, ComponentJson>; skipped: { name, reason }[] }`
-Token cost: ~1513 ⚠.
-Example: "Get the design context for the profile screen."
-Notes: Legacy design plans without a bound target are blocked. Bind the draft page and regenerate the design plan before applying it in Figma.
-See also: `kotikit_figma_target_bind`, `kotikit_plan_design`, `kotikit_design_apply_step`.
-
----
-
-### kotikit_design_apply_step
-
-Purpose: Record that the official Figma MCP apply path created or updated a design plan step. Appends to an audit log and, when Figma node metadata is provided, updates the screen's `design.node-map.json` for later comment mapping.
-Input: `{ scope: string; screen?: string; stepIndex: number; outcome: "ok" | "warned" | "failed"; note?: string; stepKind?: DesignStepKind; state?: string; componentName?: string; dsKey?: string; figmaFileKey?: string; figmaPageId?: string; figmaPageName?: string; figmaPageUrl?: string; figmaSectionId?: string; figmaSectionName?: string; figmaNodeId?: string; figmaNodeKind?: "page" | "frame" | "instance" | "node"; figmaNodeName?: string }`
-Output: `{ line: string }` — the raw JSON line written to the log.
-Token cost: ~60.
-Example: _(called by the assistant after official Figma writes, not directly by the designer)_
-Notes: `DesignStepKind` includes `define-state-frame`, `apply-auto-layout`, `define-layout-zone`, `place-component`, and `bind-variable`. When node metadata is provided, the tool validates the reported file, page, and kotikit Section against the bound draft target before updating the node map.
-See also: `kotikit_design_get_screen`, `kotikit_plan_design`.
-
----
-
-### kotikit_design_review_comments
-
-Purpose: Fetch Figma comments through the REST API and map them to applied design-plan nodes using the local `design.node-map.json` when available.
-Input: `{ scope?: string; screen?: string; fileKey?: string; includeResolved?: boolean; limit?: number }`
-Output: `{ sessionId, fileKey, scope?, screen?, hasNodeMap, totalFetched, skippedResolved, mapped, unmapped, truncated }`
-Token cost: depends on comment count; defaults to 25 mapped and 25 unmapped comments returned.
-Example: "Read Figma review comments for the Members screen."
-See also: `kotikit_design_apply_step`, `kotikit_plan_design`.
-
----
-
-### kotikit_design_adjustment_record
-
-Purpose: Record a compact design adjustment made during a review pass and optionally attach evidence for a reusable design preference.
-Input: `{ sessionId?: string; scope?: string; screen?: string; fileKey?: string; commentId?: string; nodeId?: string; category: "spacing" | "density" | "typography" | "hierarchy" | "color" | "component" | "interaction" | "copy" | "responsive" | "layout" | "other"; summary: string; preferenceKey?: string; preferenceSummary?: string }`
-Output: `{ adjustment }`
-Token cost: ~100.
-Example: "Record that I made the Members table denser for comment c1."
-See also: `kotikit_design_review_report`, `kotikit_design_memory_candidates`.
-
----
-
-### kotikit_design_review_report
-
-Purpose: Return a compact report for a review session: comment statuses, adjustments, and pending replies.
-Input: `{ sessionId?: string; scope?: string; screen?: string; limit?: number }`
-Output: `{ session, summary, comments, adjustments, pendingReplies }`
-Token cost: depends on `limit`; defaults to 25 rows per section.
-Example: "Show the latest design review report for Members."
-See also: `kotikit_design_review_comments`, `kotikit_design_adjustment_record`.
-
----
-
-### kotikit_design_comment_reply_prepare
-
-Purpose: Prepare pending Figma replies for fixed comments without posting them.
-Input: `{ sessionId?: string; fileKey?: string; commentIds?: string[]; message?: string }`
-Output: `{ replies }`
-Token cost: ~120 plus reply count.
-Example: "Prepare replies for all fixed comments in this review pass."
-See also: `kotikit_design_comment_reply_post`.
-
----
-
-### kotikit_design_comment_reply_post
-
-Purpose: Post pending prepared Figma replies. Requires a token with `file_comments:write`.
-Input: `{ sessionId?: string; fileKey?: string; outboxIds?: string[]; limit?: number }`
-Output: `{ posted, failed }`
-Token cost: ~120 plus posted/failed count.
-Example: "Post the prepared replies for fixed comments."
-See also: `kotikit_design_comment_reply_prepare`.
-
----
-
-### kotikit_design_review_start
-
-Purpose: Start a standalone design-quality review for an exact Figma page, section, frame, or component. Returns bounded evidence: shallow target summary, limited child regions, and a temporary Figma image URL when available.
-Input: `{ figmaUrl?: string; fileKey?: string; nodeId?: string; scope?: string; screen?: string; surfaceType?: string; audience?: string; primaryUserGoal?: string; reviewGoal?: string; strictness?: "quick" | "standard" | "deep"; notes?: string; maxRegions?: number }`
-Output: `{ sessionId, target, evidence, next }`
-Token cost: bounded by `maxRegions`; defaults to 8 shallow regions and does not load the full Figma tree.
-Example: "Review this Figma section like a design director: https://www.figma.com/design/...?...node-id=..."
-See also: `kotikit_design_review_record`, `kotikit_design_review_get`.
-
----
-
-### kotikit_design_review_record
-
-Purpose: Persist structured findings produced by the agent's design review.
-Input: `{ sessionId: string; findings: Array<{ category, severity, confidence, title, observation, rationale, recommendation, nodeId?, region?, commentable, suggestedComment? }> }`
-Output: `{ findings }`
-Token cost: depends on finding count; keep broad strategy notes concise and mark them `commentable: false`.
-Example: "Record these review findings for the Members screen."
-See also: `kotikit_design_review_start`, `kotikit_design_review_comment_prepare`.
-
----
-
-### kotikit_design_review_get
-
-Purpose: Return a compact standalone design-review report with findings and pending Figma comment outbox rows.
-Input: `{ sessionId?: string; fileKey?: string; limit?: number }`
-Output: `{ session, summary, findings, pendingComments }`
-Token cost: depends on `limit`; defaults to 25.
-Example: "Show the latest design-quality review report."
-See also: `kotikit_design_review_record`.
-
----
-
-### kotikit_design_review_comment_prepare
-
-Purpose: Prepare pending root Figma comments for commentable design-review findings without posting them.
-Input: `{ sessionId: string; findingIds?: string[]; limit?: number }`
-Output: `{ comments }`
-Token cost: depends on comment count; defaults to at most 12.
-Example: "Prepare Figma comments for the high-severity findings."
-See also: `kotikit_design_review_comment_post`.
-
----
-
-### kotikit_design_review_comment_post
-
-Purpose: Post prepared design-review comments to Figma. Requires `confirm: true` after explicit user approval and a token with `file_comments:write`.
-Input: `{ sessionId?: string; fileKey?: string; outboxIds?: string[]; limit?: number; confirm: true }`
-Output: `{ posted, failed }`
-Token cost: small; Figma API calls are serialized through the same adaptive client and exponential backoff used by design-system sync.
-Example: "Post the approved review comments to Figma."
-See also: `kotikit_design_review_comment_prepare`.
-
----
-
-### kotikit_design_memory_candidates
-
-Purpose: List repeated design feedback patterns that may become project design preferences.
-Input: `{ status?: "candidate" | "promoted" | "dismissed"; limit?: number }`
-Output: `{ candidates }`
-Token cost: depends on `limit`; defaults to 25.
-Example: "Show design memory candidates from recent review fixes."
-See also: `kotikit_design_memory_promote`, `kotikit_design_memory_dismiss`, `kotikit_design_memory_search`.
-
----
-
-### kotikit_design_memory_promote
-
-Purpose: Promote a repeated feedback candidate into an active project design preference.
-Input: `{ candidateKey: string; scope?: string; rule?: string }`
-Output: `{ preference }`
-Token cost: ~100.
-Example: "Promote `tables.density.compact_rows` for the Members scope."
-See also: `kotikit_design_memory_candidates`, `kotikit_design_memory_update`.
-
----
-
-### kotikit_design_memory_dismiss
-
-Purpose: Dismiss a repeated feedback candidate that should not become a project design preference.
-Input: `{ candidateKey: string }`
-Output: `{ candidate }`
-Token cost: ~100.
-Example: "Dismiss the roomy sections preference candidate."
-See also: `kotikit_design_memory_candidates`.
-
----
-
-### kotikit_design_memory_update
-
-Purpose: Edit, reactivate, or deactivate an existing project design preference.
-Input: `{ preferenceKey: string; rule?: string; scope?: string | null; status?: "active" | "inactive" }`
-Output: `{ preference }`
-Token cost: ~100.
-Example: "Deactivate the compact rows preference for now."
-See also: `kotikit_design_memory_promote`, `kotikit_design_memory_search`.
-
----
-
-### kotikit_design_memory_search
-
-Purpose: Search active project design preferences for the current design task.
-Input: `{ scope?: string; category?: "spacing" | "density" | "typography" | "hierarchy" | "color" | "component" | "interaction" | "copy" | "responsive" | "layout" | "other"; query?: string; limit?: number }`
-Output: `{ preferences }`
-Token cost: depends on `limit`; defaults to 25.
-Example: "Find active density preferences for this screen."
-See also: `kotikit_design_get_screen`.
-
----
-
-## Audit + utility
-
-### kotikit_audit
-
-Purpose: Walk the registry and classify every component as `synced-ok`, `synced-mismatched`, `design-only`, or `code-only`, writing a report to `.kotikit/audit-report.json`.
-Input: `{}`
-Output: `{ reportPath: string; report: AuditReport }` where `AuditReport = { version: 1; ranAt: string; summary: { syncedOk, syncedMismatched, designOnly, codeOnly }; entries: AuditEntry[] }`.
-Token cost: ~261.
-Example: "Audit my design system — are code and design still in sync?"
-See also: `kotikit_registry_search`, `kotikit_sync_ds`.
-
----
+## Prompts And Bridge
 
 ### kotikit_get_system_prompt
 
-Purpose: Fetch a long-form system prompt once per session so that `implement_code_start`, `scaffold_start`, and `brainstorm_start` can reference it by kind instead of inlining it on every call.
-Input: `{ kind: "react" | "brainstorm" | "scaffold" }`
-Output: `{ prompt: string; kind: "react" | "brainstorm" | "scaffold"; version: "1" }`
-Token cost: ~458 (react / scaffold) / ~666 (brainstorm).
-Example: "Fetch the React adapter prompt."
-See also: `kotikit_implement_code_start`, `kotikit_scaffold_start`, `kotikit_brainstorm_start`.
+Purpose: Fetch long prompt doctrine by reference.
+Input: `{ kind: "brainstorm" }`
+Output: prompt text.
+
+### kotikit_bridge_start
+
+Purpose: Start the local WebSocket bridge used by the kotikit Figma plugin for
+variable export.
+Input: `{ preferredPort?: number }`
+Output: pasteable bridge URL and status.
+
+### kotikit_bridge_stop
+
+Purpose: Stop the in-process local plugin bridge.
+Input: `{}`
+Output: bridge status.
+
+### kotikit_bridge_status
+
+Purpose: Report active or stale local plugin bridge state.
+Input: `{}`
+Output: bridge status.

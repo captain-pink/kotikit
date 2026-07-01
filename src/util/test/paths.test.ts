@@ -5,9 +5,6 @@ import { join } from "node:path";
 import {
   bridgeConfigPath,
   checkpointPath,
-  codeComponentDir,
-  codeComponentFile,
-  codePlanPath,
   componentJsonPath,
   componentsDbPath,
   configPath,
@@ -19,13 +16,9 @@ import {
   findProjectRoot,
   iconsDbPath,
   manifestPath,
-  registryDbPath,
   screenSpecPath,
   singleSpecPath,
   syncReportPath,
-  uiComponentFile,
-  uiDir,
-  uiStoryFile,
   variablesJsonPath,
 } from "../paths";
 
@@ -143,62 +136,6 @@ describe("paths", () => {
 
     it("syncReportPath returns root/design-system/.sync-report.json", () => {
       expect(syncReportPath("/tmp/proj")).toBe("/tmp/proj/design-system/.sync-report.json");
-    });
-  });
-
-  describe("Phase 3 path helpers", () => {
-    it("codePlanPath with screenSlug returns <scope>/<slug>.code.plan.json", () => {
-      expect(codePlanPath("/tmp/proj", "checkout-flow", "cart")).toBe(
-        "/tmp/proj/.kotikit/specs/checkout-flow/cart.code.plan.json"
-      );
-    });
-
-    it("codePlanPath with null screenSlug returns <scope>/code.plan.json", () => {
-      expect(codePlanPath("/tmp/proj", "profile-page", null)).toBe(
-        "/tmp/proj/.kotikit/specs/profile-page/code.plan.json"
-      );
-    });
-
-    it("registryDbPath returns .kotikit/registry.db", () => {
-      expect(registryDbPath("/tmp/proj")).toBe("/tmp/proj/.kotikit/registry.db");
-    });
-
-    it("codeComponentDir returns <root>/<codeComponentsDir>/<scope>", () => {
-      expect(codeComponentDir("/tmp/proj", "src/components", "checkout-flow")).toBe(
-        "/tmp/proj/src/components/checkout-flow"
-      );
-    });
-
-    it("codeComponentFile returns full path to component file", () => {
-      expect(codeComponentFile("/tmp/proj", "src/components", "checkout-flow", "Cart.tsx")).toBe(
-        "/tmp/proj/src/components/checkout-flow/Cart.tsx"
-      );
-    });
-  });
-
-  describe("UI scaffold paths (Phase 4)", () => {
-    it("uiDir returns <codeComponentsDir>/ui", () => {
-      expect(uiDir("/tmp/proj", "src/components")).toBe("/tmp/proj/src/components/ui");
-    });
-
-    it("uiComponentFile returns <codeComponentsDir>/ui/<kebab>.tsx", () => {
-      expect(uiComponentFile("/tmp/proj", "src/components", "button")).toBe(
-        "/tmp/proj/src/components/ui/button.tsx"
-      );
-      expect(uiComponentFile("/tmp/proj", "src/components", "pie-chart-3d")).toBe(
-        "/tmp/proj/src/components/ui/pie-chart-3d.tsx"
-      );
-    });
-
-    it("uiStoryFile returns <codeComponentsDir>/ui/<kebab>.stories.tsx", () => {
-      expect(uiStoryFile("/tmp/proj", "src/components", "button")).toBe(
-        "/tmp/proj/src/components/ui/button.stories.tsx"
-      );
-    });
-
-    it("works with a non-default codeComponentsDir", () => {
-      expect(uiDir("/proj", "app/ui")).toBe("/proj/app/ui/ui");
-      expect(uiComponentFile("/proj", "app/ui", "card")).toBe("/proj/app/ui/ui/card.tsx");
     });
   });
 

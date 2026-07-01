@@ -2,13 +2,10 @@ import type { Config } from "./schema";
 import { defaultConfig, parseConfig } from "./schema";
 
 export interface InitAnswers {
-  framework?: "react";
-  codeComponentsDir?: string;
-  tests?: boolean;
-  testFramework?: "vitest" | "none";
   autoCommit?: boolean;
   coAuthor?: Config["git"]["coAuthor"];
   figmaFiles?: { key: string; name: string }[];
+  flowPacks?: Config["flowPacks"];
 }
 
 /**
@@ -23,18 +20,12 @@ export function buildConfig(answers: InitAnswers): Config {
       ...base.figma,
       designSystemFiles: answers.figmaFiles ?? base.figma.designSystemFiles,
     },
-    project: {
-      ...base.project,
-      framework: answers.framework ?? base.project.framework,
-      codeComponentsDir: answers.codeComponentsDir ?? base.project.codeComponentsDir,
-      tests: answers.tests ?? base.project.tests,
-      testFramework: answers.testFramework ?? base.project.testFramework,
-    },
     defaults: base.defaults,
     git: {
       ...base.git,
       autoCommit: answers.autoCommit ?? base.git.autoCommit,
       coAuthor: answers.coAuthor ?? base.git.coAuthor,
     },
+    flowPacks: answers.flowPacks ?? base.flowPacks,
   });
 }

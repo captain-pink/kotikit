@@ -7,8 +7,7 @@ system.
 
 AI can generate screens quickly, but product design is not just drawing boxes.
 A useful UX/UI draft still needs product judgment, real components, edge
-states, review loops, and a path toward implementation that does not break the
-system.
+states, review loops, and a stable design workflow.
 
 kotikit is an experimental local-first toolkit for product designers, founders,
 PMs, and teams who want to move from idea to Figma prototype faster without
@@ -65,10 +64,10 @@ what they need, then let an agent use real Figma libraries, safe draft targets,
 review comments, and local project memory to create something inspectable in
 minutes.
 
-The long-term goal is a safer path from product idea to Figma prototype and,
-later, to implementation in frameworks like React. The current focus is the
-design side: make the draft useful, reviewable, and grounded in the team's real
-system before code generation becomes part of the guided workflow.
+The long-term goal is a safer path from product idea to Figma prototype. The
+current focus is deliberately design-only: make the draft useful, reviewable,
+and grounded in the team's real system before considering implementation
+extensions again.
 
 ## Status
 
@@ -94,8 +93,8 @@ It is not a mature open-source project yet:
   output.
 - Use it for experiments, copies, drafts, and controlled Figma files first.
 
-Design-to-code is intentionally not part of the guided workflow yet. kotikit is
-currently focused on stabilizing design creation, review, and design-system use.
+Design-to-code is removed from the core workflow. kotikit is currently focused
+on stabilizing design creation, review, and design-system use.
 
 ## Who It Is For
 
@@ -124,11 +123,13 @@ currently focused on stabilizing design creation, review, and design-system use.
 - Standalone design-quality review for exact Figma targets.
 - Optional posting of approved review comments back to Figma.
 - Local design memory from repeated review adjustments.
-- Assistant scaffold for Claude Code and Codex.
+- Assistant plugin wrappers for Claude Code and Codex, plus source scaffold for
+  local development.
 
 ## What Does Not Work Yet
 
-- Guided design-to-code is disabled.
+- Design-to-code, component scaffolding, implementation gates, and generated
+  code registries are not part of the core.
 - There is no polished npm, Homebrew, or global installer.
 - The Figma plugin is functional but still young.
 - The review workflow is useful, but not a replacement for a senior designer.
@@ -142,11 +143,11 @@ kotikit has four main pieces:
 1. **MCP server**  
    Claude Code, Codex, and other MCP clients call `kotikit_*` tools.
 
-2. **Local project state and workflow control**  
-   Specs, config, compact workflow state, design review state, design memory,
-   and bridge state live in the target project under `.kotikit`. The workflow
-   controller tells the assistant the next allowed step so it can resume
-   without rereading old history.
+2. **Local project state and graph runs**
+   Config, trusted flow runs, graph artifacts, design review state, design
+   memory, and bridge state live in the target project under `.kotikit`. Graph
+   checkpoints and artifacts let the assistant resume from explicit run state
+   instead of reconstructing old chat history.
 
 3. **Design-system indexes**  
    Figma components, icons, styles, and variables are synced into
@@ -185,17 +186,22 @@ Requirements:
 - Claude Code, Codex, or another MCP-capable assistant.
 - Figma's assistant integration for your assistant installed from inside Figma.
 - A Professional, Organization, or Enterprise Figma account is recommended.
-- A Figma personal access token with file read access.
+- A Figma personal access token with file read access if you want local
+  design-system sync or REST-backed design/comment review.
 - A local target workspace or app project where kotikit can write `.kotikit/`,
   `design-system/`, and `.env`.
 
 Why a local target workspace? kotikit needs a normal folder to store local
 specs, synced design-system indexes, review memory, assistant config, and your
-Figma token placeholder. For design-only use this can be a scratch workspace. A
-clean React/Vite app is recommended right now only because the future
-design-to-code path and experimental code tools are React-only.
+Figma token placeholder. For design-only use this can be any scratch workspace;
+it does not need to be an app project.
 
-Minimal setup:
+Preferred setup uses the assistant plugin wrapper in `plugins/codex/kotikit` or
+`plugins/claude/kotikit` when your assistant supports local plugins. This path
+assumes `kotikit-mcp` is available on `PATH` through an installed or linked
+kotikit package.
+
+Source checkout setup:
 
 ```bash
 git clone https://github.com/captain-pink/kotikit.git ~/kotikit
@@ -204,7 +210,10 @@ bun install
 bun run scaffold:agents -- --target /Users/YOUR_USERNAME/path/to/your-project --agents both
 ```
 
-Then add your Figma token to the target project's `.env`:
+Figma personal access token is not required for draft creation when your
+assistant is connected through Figma's remote MCP integration. Add a token to
+the target project's `.env` only for local design-system sync or REST-backed
+design/comment review:
 
 ```env
 FIGMA_TOKEN=figd_...your_token_here...
@@ -221,7 +230,10 @@ For the full setup flow, see
 ## Common Workflows
 
 - Sync a published Figma design system.
-- Create or refine a Figma draft from a saved spec.
+- Create a quick high-fidelity Figma draft from existing design-system
+  components.
+- Run guided screen, product-flow, review, and comment flows when more context
+  or approval is needed.
 - Import variables through the Figma plugin when the REST Variables API is
   unavailable.
 - Review Figma comments without opening a browser.
@@ -251,12 +263,13 @@ integration setup, draft page rules, and variable fallback details.
 ## Keeping Sessions Cheap
 
 kotikit avoids dumping whole design systems into the assistant context. The
-normal pattern is: search first, fetch exact component details second, and keep
+normal pattern is: use the local design-system cache as the primary token-efficient grounding
+source, search first, fetch exact component details second, and keep
 review/design sessions focused.
 
-The workflow controller also keeps sessions cheap. It stores only the current
-task pointer and latest decision summary, then returns a compact next action
-instead of asking the assistant to reconstruct the whole project timeline.
+Graph artifacts also keep sessions cheap. The assistant reads one run state or
+artifact when needed instead of loading every previous design decision into
+context.
 
 Most users do not need the detailed token table. It exists mainly for
 maintainers and agent-workflow builders who are checking MCP payload sizes. See
@@ -277,14 +290,15 @@ Later:
 - Production-quality installer.
 - Richer design-review reporting.
 - Broader design-system normalizer fixture corpus.
-- Design-to-code after design creation is stable.
+- Optional implementation extensions can be reconsidered after design creation
+  is stable.
 
 Not promised:
 
 - Hosted cloud service.
 - Public plugin marketplace distribution.
 - Public contribution process.
-- Production design-to-code.
+- Production design-to-code in the core.
 
 More detail lives in [NEXT_STEPS.md](NEXT_STEPS.md).
 
@@ -319,7 +333,5 @@ license is chosen.
 - [docs/development.md](docs/development.md) - repo development workflow.
 - [docs/architecture.md](docs/architecture.md) - system overview.
 - [docs/tools.md](docs/tools.md) - complete MCP tool reference.
-- [docs/agent_workflow.md](docs/agent_workflow.md) - shared Claude/Codex
-  workflow.
 - [docs/coding_guidelines.md](docs/coding_guidelines.md) - engineering style.
 - [docs/TOKENS.md](docs/TOKENS.md) - maintainer token/context budget reference.

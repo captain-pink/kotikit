@@ -10,21 +10,10 @@ Sorted from highest leverage downward within each section.
 AI coding assistants have conversation budgets; today's defaults are conservative but there's room to go further.
 
 - **MCP protocol `cache_control` markers** — when Anthropic ships caching for tool results, retrofit kotikit responses to mark static prefixes as cached. See `docs/TOKENS.md` for current limits.
-- **Tool-call streaming for large bundles** — return scaffold components one-by-one over a streaming JSON-RPC instead of paginated round-trips.
+- **Tool-call streaming for large design payloads** — return large review or apply context progressively instead of forcing a single large response.
 - **Session-aware deduplication** — kotikit remembers what it sent each agent session and avoids re-sending the same DS component JSON twice.
 - **Per-user token budget enforcement** — refuse tool calls that would exceed a configured per-call token limit; surface as a friendly error with the suggested compact/pageSize override.
 - **Compress payloads via shared schema references** — when responses repeat structural keys, deflate using a session-scoped schema id.
-
-## Code track
-
-The React adapter ships and is exercised, but the boundary it implies hasn't been validated.
-
-- **Vue and Svelte adapters** behind the same `Adapter` interface — confirms the boundary holds, validates `qualityGates()` and `verifyEnvironment()` for non-React toolchains.
-- **Custom adapter slot in `config.json`** so projects can ship their own adapter (e.g. native React Native, Solid).
-- **Per-project quality profile** — WCAG-AAA, performance budgets, custom ESLint rules — configured in `config.project.quality`.
-- **Server-side rendering profile** for Next.js + React Server Components — different `use client` rules, different test scaffolds.
-- **Codemod-driven migrations** — when shadcn ships a breaking change, kotikit can apply a codemod across `<codeComponentsDir>/ui/`.
-- **Auto-fix mode for gate failures** — `implement_code_save` retries with one auto-fix pass (e.g. add missing `aria-label`) before failing the gate.
 
 ## Design track
 
@@ -70,16 +59,6 @@ payloads.
 - **Component-set import evaluation** — investigate whether importing component sets directly is reliable enough to support. Until then, keep storing concrete component keys as `ComponentJson.key` and component-set keys as metadata.
 - **Schema-drift guardrails** — add tests for unknown Figma property types and new/extra API fields so future Figma changes degrade with warnings instead of breaking sync.
 
-## Audit
-
-The variant-name diff catches most renames. Richer signals are deferred.
-
-- **Prop-type comparison** — not just variant names; verify `disabled?: boolean` matches the DS's BOOLEAN property of the same name.
-- **Runtime audit via Chrome DevTools MCP composition** — open the scaffolded story in a real browser, screenshot, compare against Figma component thumbnail.
-- **Audit auto-runs as a pre-commit hook** — fail commits that introduce drift.
-- **Audit-fix flow** — "I'd like to reconcile the Card mismatch — kotikit, do it" → kotikit regenerates code or updates DS spec, asks for confirmation, commits.
-- **Cross-file collision audit** — find DS components with the same name across configured Figma files (already surfaced in `manifest.json.conflicts[]`; promote to the audit report).
-
 ## Documentation + onboarding
 
 The public README now links to focused setup, workflow, Figma, troubleshooting,
@@ -87,7 +66,7 @@ development, and architecture docs. The remaining onboarding work is about
 making the first run easier for non-engineers.
 
 - **Production-quality agent autoinstaller** — build on the local MVP `bun run scaffold:agents` command. Add interactive prompts, dry-run/diff output, explicit overwrite confirmation, backup/rollback notes, stronger existing-config conflict handling, cross-platform path validation, and a smoke check that starts the MCP server and calls `kotikit_config_status`.
-- **Published `create-kotikit` package** — ship a `bunx create-kotikit` / `npx create-kotikit` flow that detects the target React project, configures Claude Code, Codex, or both, installs or links the Codex skill, handles `.env` safely, and prints exact restart/verification steps.
+- **Published `create-kotikit` package** — ship a `bunx create-kotikit` / `npx create-kotikit` flow that configures a target workspace for Claude Code, Codex, or both, installs or links the Codex skill, handles `.env` safely, and prints exact restart/verification steps.
 - **Video walkthrough of the first hour** — recorded once, evergreen.
 - **Per-tool examples that include real Figma file links** — readers can fork and run the exact flow.
 - **Per-spec / per-flow templates** — "I want to build a SaaS dashboard" pre-seeds a flow with common screens.
@@ -97,10 +76,9 @@ making the first run easier for non-engineers.
 The single-direction spec → Figma draft workflow is the stable path today;
 eventually it may expand into broader automation.
 
-- **Code → Figma reverse path** — V2+ explicit. Requires a Figma plugin that mutates the file, which the current plugin doesn't do.
-- **Headless mode for CI** — drop the MCP server, expose a CLI that runs sync + audit + gates in one shot.
+- **Headless mode for CI** — drop the MCP server, expose a CLI that runs design-system sync, doctor checks, and design-review reports in one shot.
 - **Multi-project / monorepo config inheritance** — root config + per-package overrides.
-- **Expand the `kotikit` CLI** — the CLI now has `kotikit doctor` and `kotikit mcp`; add terminal-first routine ops such as `kotikit sync`, `kotikit audit`, and CI-friendly JSON output.
+- **Expand the `kotikit` CLI** — the CLI now has `kotikit doctor` and `kotikit mcp`; add terminal-first routine ops such as `kotikit sync`, review export, and CI-friendly JSON output.
 - **Backend / data layer integration** — currently kotikit stops at the UI; future work could wire spec acceptance criteria into typed API contracts.
 - **Replace SQLite with a single shared database** for multi-project setups.
 

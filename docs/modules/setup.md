@@ -2,10 +2,16 @@
 
 ## What it does
 
-The setup module owns local scaffolding for agent config files. It is not the
-runtime MCP server; it is a developer/onboarding helper that writes the files a
-target workspace or app project needs before Claude Code or Codex can call
-kotikit.
+The setup module owns source-checkout scaffolding for agent config files. It is
+not the runtime MCP server; it is a developer/onboarding helper that writes the
+files a target workspace or app project needs before Claude Code or Codex can
+call kotikit when plugin installation is unavailable or inconvenient.
+
+Assistant plugin wrappers in `plugins/codex/kotikit` and
+`plugins/claude/kotikit` are the preferred setup path when the assistant
+supports local plugins and `kotikit-mcp` is available on `PATH`. The scaffold
+remains the compatibility path for local development, source checkouts, and
+manual MCP setup.
 
 ## Public surface
 
@@ -23,11 +29,10 @@ kotikit.
 ## How it works
 
 The scaffold command resolves two roots: the target workspace/project and the
-kotikit repository. The target does not have to be a React app for design-only
-work; React only matters for the experimental implementation tools because the
-current code adapter is React-only. The scaffold verifies that
-`src/mcp/server.ts` exists in the kotikit root, then writes agent-specific
-setup:
+kotikit repository. The target can be any local workspace where kotikit may
+write `.kotikit/`, `design-system/`, and `.env`; it does not need to be an app
+project. The scaffold verifies that `src/mcp/server.ts` exists in the kotikit
+root, then writes agent-specific setup:
 
 - Claude Code: project-scoped `.mcp.json`, preserving existing `mcpServers`
   entries and upserting the `kotikit` server with a long per-tool timeout for
@@ -47,7 +52,9 @@ setup:
   load the copied skills. Existing command files with local changes are
   preserved.
 - Figma token placeholder: creates `.env` with `FIGMA_TOKEN=` or appends that
-  key when `.env` exists without it.
+  key when `.env` exists without it. This token is for local design-system sync
+  and REST-backed design/comment review, not for draft creation through Figma
+  remote MCP auth.
 - Co-author metadata: when requested, updates an existing
   `.kotikit/config.json` with `git.coAuthor`.
 

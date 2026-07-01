@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ToolContext } from "../../context";
@@ -130,70 +130,32 @@ describe("kotikit_config_status", () => {
     expect(detail.gates).toBeUndefined();
   });
 
-  it("config_status after init with no gate binaries: gates.ok === false", async () => {
-    // Init without seeding any binaries in node_modules/.bin
+  it("config_status after init has no code gates field", async () => {
     await call("kotikit_config_init", {});
     const result = await call("kotikit_config_status", {});
     expect(result.isError).toBeUndefined();
-    const detail = getDetailJson(result) as { gates: { ok: boolean; missing: { gate: string }[] } };
-    expect(detail.gates).toBeDefined();
-    expect(detail.gates.ok).toBe(false);
-    const gateNames = (detail.gates.missing as { gate: string }[]).map((m) => m.gate);
-    expect(gateNames).toContain("tsc");
-    expect(gateNames).toContain("eslint");
-    expect(gateNames).toContain("prettier");
-    expect(gateNames).toContain("vitest");
-  });
-
-  it("config_status after init with testFramework=none: vitest not in missing", async () => {
-    await call("kotikit_config_init", { testFramework: "none" });
-    const result = await call("kotikit_config_status", {});
-    expect(result.isError).toBeUndefined();
-    const detail = getDetailJson(result) as { gates: { ok: boolean; missing: { gate: string }[] } };
-    expect(detail.gates).toBeDefined();
-    expect(detail.gates.ok).toBe(false);
-    const gateNames = (detail.gates.missing as { gate: string }[]).map((m) => m.gate);
-    expect(gateNames).not.toContain("vitest");
-  });
-
-  it("config_status after init with all binaries present: gates.ok === true", async () => {
-    await call("kotikit_config_init", {});
-    // Seed all required binaries (default testFramework: "vitest")
-    const binDir = join(tmp, "node_modules", ".bin");
-    mkdirSync(binDir, { recursive: true });
-    for (const tool of ["tsc", "eslint", "prettier", "vitest"]) {
-      writeFileSync(join(binDir, tool), "#!/bin/sh\n");
-    }
-    const result = await call("kotikit_config_status", {});
-    expect(result.isError).toBeUndefined();
-    const detail = getDetailJson(result) as { gates: { ok: boolean; missing: unknown[] } };
-    expect(detail.gates).toBeDefined();
-    expect(detail.gates.ok).toBe(true);
-    expect(detail.gates.missing).toEqual([]);
+    const detail = getDetailJson(result) as { gates?: unknown };
+    expect(detail.gates).toBeUndefined();
   });
 });
 
 // ─── kotikit_config_init ──────────────────────────────────────────────────────
 
 describe("kotikit_config_init", () => {
-  it("writes config with tests: false when specified", async () => {
-    const result = await call("kotikit_config_init", { tests: false });
-    expect(result.isError).toBeUndefined();
-
-    // Verify by reading back via config_get
-    const getResult = await call("kotikit_config_get", {});
-    expect(getResult.isError).toBeUndefined();
-    const text = getText(getResult);
-    expect(text).toContain('"tests": false');
-  });
-
-  it("all other fields use defaults when only tests is specified", async () => {
-    await call("kotikit_config_init", { tests: false });
+  it("ignores removed code-generation options", async () => {
+    await call("kotikit_config_init", {
+      framework: "react",
+      codeComponentsDir: "app/ui",
+      tests: false,
+      testFramework: "none",
+    });
     const getResult = await call("kotikit_config_get", {});
     const text = getText(getResult);
-    expect(text).toContain('"framework": "react"');
+    expect(text).not.toContain('"framework"');
+    expect(text).not.toContain('"codeComponentsDir"');
+    expect(text).not.toContain('"tests"');
+    expect(text).not.toContain('"testFramework"');
     expect(text).toContain('"autoCommit": true');
-    expect(text).toContain('"tests": false');
   });
 
   it("returns success message and configPath", async () => {

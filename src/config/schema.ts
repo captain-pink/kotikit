@@ -3,6 +3,27 @@ import { KotikitError } from "../util/result.js";
 
 export const CONFIG_SCHEMA_VERSION = 1;
 
+const FlowPackExtensionSchema = z.object({
+  id: z.string().min(1),
+  source: z.string().min(1),
+  versionOrRef: z.string().min(1),
+  hash: z.string().min(1),
+  capabilities: z.array(z.string().min(1)).default([]),
+  enabled: z.boolean().default(false),
+});
+
+const FlowPacksSchema = z
+  .object({
+    projectFlowsEnabled: z.boolean().default(false),
+    allowedProjectCapabilities: z.array(z.string().min(1)).default([]),
+    extensions: z.array(FlowPackExtensionSchema).default([]),
+  })
+  .default({
+    projectFlowsEnabled: false,
+    allowedProjectCapabilities: [],
+    extensions: [],
+  });
+
 export const ConfigSchema = z.object({
   schemaVersion: z
     .number()
@@ -23,12 +44,6 @@ export const ConfigSchema = z.object({
         .default([]),
     })
     .default({ designSystemFiles: [] }),
-  project: z.object({
-    framework: z.enum(["react"]).default("react"),
-    codeComponentsDir: z.string().default("src/components"),
-    tests: z.boolean().default(true),
-    testFramework: z.enum(["vitest", "none"]).default("vitest"),
-  }),
   defaults: z.object({
     breakpoints: z.array(z.number().int().positive()).default([375, 768, 1024, 1440]),
     themes: z.array(z.string()).default(["light", "dark"]),
@@ -53,6 +68,7 @@ export const ConfigSchema = z.object({
         email: "noreply@anthropic.com",
       },
     }),
+  flowPacks: FlowPacksSchema,
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -61,12 +77,6 @@ export type Config = z.infer<typeof ConfigSchema>;
 export function defaultConfig(): Config {
   return ConfigSchema.parse({
     schemaVersion: CONFIG_SCHEMA_VERSION,
-    project: {
-      framework: "react",
-      codeComponentsDir: "src/components",
-      tests: true,
-      testFramework: "vitest",
-    },
     defaults: {
       breakpoints: [375, 768, 1024, 1440],
       themes: ["light", "dark"],

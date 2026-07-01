@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 1,
+  "id": "create-screen",
+  "version": "1.0.0",
+  "title": "Create Screen",
+  "description": "Create one high-fidelity Figma screen from intent, existing artifacts, and the local design-system cache.",
+  "stateSchema": "KotikitGraphState/v1",
+  "requiredCapabilities": [
+    "brief.write",
+    "designSystem.search.local",
+    "designSystem.fit",
+    "figma.target",
+    "draft.compile",
+    "figma.write.remote",
+    "qa.run",
+    "draftComponents.write"
+  ],
+  "nodes": [
+    {
+      "id": "classify-intent",
+      "uses": "brief.classifyIntent",
+      "params": {
+        "lanes": ["quick", "guided", "deep"],
+        "quickHighFidelity": {
+          "skipFullBriefApprovalWhen": "sufficient-intent-and-low-risk",
+          "recordsAssumptions": true
+        }
+      }
+    },
+    {
+      "id": "capture-minimal-intent",
+      "uses": "brief.captureMinimalIntent",
+      "params": {
+        "lane": "adaptive"
+      }
+    },
+    {
+      "id": "infer-screen-blueprint",
+      "uses": "brief.inferScreenBlueprint",
+      "params": {}
+    },
+    {
+      "id": "summarize-brief-for-approval",
+      "uses": "brief.summarizeForApproval",
+      "params": {}
+    },
+    {
+      "id": "ask-brief-approval",
+      "uses": "brief.askApproval",
+      "params": {}
+    },
+    {
+      "id": "save-approved-brief",
+      "uses": "brief.saveApproved",
+      "params": {}
+    },
+    {
+      "id": "search-local-design-system",
+      "uses": "designSystem.searchLocal",
+      "params": {}
+    },
+    {
+      "id": "build-fit-report",
+      "uses": "designSystem.buildFitReport",
+      "params": {}
+    },
+    {
+      "id": "ask-missing-component-decision",
+      "uses": "designSystem.askMissingComponentDecision",
+      "params": {}
+    },
+    {
+      "id": "plan-missing-components",
+      "uses": "draftComponents.planMissing",
+      "params": {}
+    },
+    {
+      "id": "ensure-draft-target",
+      "uses": "figma.ensureDraftTarget",
+      "params": {}
+    },
+    {
+      "id": "create-draft-components",
+      "uses": "draftComponents.createOnDraftPage",
+      "params": {}
+    },
+    {
+      "id": "validate-draft-components",
+      "uses": "draftComponents.validateCreated",
+      "params": {}
+    },
+    {
+      "id": "build-ui-composition-contract",
+      "uses": "ui.buildCompositionContract",
+      "params": {}
+    },
+    {
+      "id": "build-layout-contract",
+      "uses": "ui.buildLayoutContract",
+      "params": {}
+    },
+    {
+      "id": "build-variable-binding-plan",
+      "uses": "ui.buildVariableBindingPlan",
+      "params": {}
+    },
+    {
+      "id": "validate-no-hardcoded-imitation",
+      "uses": "ui.validateNoHardcodedImitation",
+      "params": {}
+    },
+    {
+      "id": "compile-high-fidelity-draft",
+      "uses": "draft.compileHighFidelityDraft",
+      "params": {}
+    },
+    {
+      "id": "build-figma-apply-packet",
+      "uses": "draft.buildFigmaApplyPacket",
+      "params": {}
+    },
+    {
+      "id": "wait-for-apply-metadata",
+      "uses": "figma.waitForApplyMetadata",
+      "params": {}
+    },
+    {
+      "id": "record-apply-metadata",
+      "uses": "figma.recordApplyMetadata",
+      "params": {}
+    },
+    {
+      "id": "verify-draft-invariants",
+      "uses": "figma.verifyDraftInvariants",
+      "params": {}
+    },
+    {
+      "id": "save-apply-report",
+      "uses": "figma.saveApplyReport",
+      "params": {}
+    },
+    {
+      "id": "run-ui-quality-gate",
+      "uses": "qa.runUiQualityGate",
+      "params": {}
+    },
+    {
+      "id": "post-draft-qa",
+      "uses": "qa.postDraftQa",
+      "params": {}
+    }
+  ],
+  "edges": [
+    ["classify-intent", "capture-minimal-intent"],
+    ["capture-minimal-intent", "infer-screen-blueprint"],
+    ["infer-screen-blueprint", "summarize-brief-for-approval"],
+    ["summarize-brief-for-approval", "ask-brief-approval"],
+    ["ask-brief-approval", "save-approved-brief"],
+    ["save-approved-brief", "search-local-design-system"],
+    ["search-local-design-system", "build-fit-report"],
+    ["build-fit-report", "ask-missing-component-decision"],
+    ["ask-missing-component-decision", "plan-missing-components"],
+    ["plan-missing-components", "ensure-draft-target"],
+    ["ensure-draft-target", "create-draft-components"],
+    ["create-draft-components", "validate-draft-components"],
+    ["validate-draft-components", "build-ui-composition-contract"],
+    ["build-ui-composition-contract", "build-layout-contract"],
+    ["build-layout-contract", "build-variable-binding-plan"],
+    ["build-variable-binding-plan", "validate-no-hardcoded-imitation"],
+    ["validate-no-hardcoded-imitation", "compile-high-fidelity-draft"],
+    ["compile-high-fidelity-draft", "build-figma-apply-packet"],
+    ["build-figma-apply-packet", "wait-for-apply-metadata"],
+    ["wait-for-apply-metadata", "record-apply-metadata"],
+    ["record-apply-metadata", "verify-draft-invariants"],
+    ["verify-draft-invariants", "save-apply-report"],
+    ["save-apply-report", "run-ui-quality-gate"],
+    ["run-ui-quality-gate", "post-draft-qa"]
+  ],
+  "start": "classify-intent",
+  "end": ["post-draft-qa"],
+  "safetyProfile": "standard-design-draft"
+}

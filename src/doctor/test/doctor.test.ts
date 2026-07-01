@@ -39,7 +39,6 @@ describe("runKotikitDoctor", () => {
 
     const report = await runKotikitDoctor(root, {
       isGitRepo: async () => false,
-      verifyGates: async () => ({ ok: true, missing: [] }),
     });
 
     expect(report.ok).toBe(false);
@@ -49,7 +48,7 @@ describe("runKotikitDoctor", () => {
     );
   });
 
-  it("passes with config, token, design-system artifacts, gates, and bridge config", async () => {
+  it("passes with config, token, design-system artifacts, and bridge config", async () => {
     const root = mkTmp();
     const config = defaultConfig();
     config.figma.designSystemFiles = [{ key: "fig-file", name: "DS" }];
@@ -73,7 +72,6 @@ describe("runKotikitDoctor", () => {
 
     const report = await runKotikitDoctor(root, {
       isGitRepo: async () => true,
-      verifyGates: async () => ({ ok: true, missing: [] }),
     });
 
     expect(report.ok).toBe(true);
@@ -82,7 +80,7 @@ describe("runKotikitDoctor", () => {
     expect(report.checks.find((check) => check.id === "design-system")?.status).toBe("ok");
   });
 
-  it("warns about resumable sync checkpoints and missing gates", async () => {
+  it("warns about resumable sync checkpoints", async () => {
     const root = mkTmp();
     const config = defaultConfig();
     await writeConfig(root, config);
@@ -94,17 +92,11 @@ describe("runKotikitDoctor", () => {
 
     const report = await runKotikitDoctor(root, {
       isGitRepo: async () => true,
-      verifyGates: async () => ({
-        ok: false,
-        missing: [{ gate: "tsc", hint: "Install TypeScript." }],
-      }),
     });
 
     expect(report.ok).toBe(true);
     expect(report.checks.find((check) => check.id === "sync-checkpoint")?.status).toBe("warn");
-    expect(report.checks.find((check) => check.id === "gates")?.hint).toContain(
-      "Install TypeScript"
-    );
+    expect(report.checks.find((check) => check.id === "gates")).toBeUndefined();
   });
 
   it("warns about legacy readable artifacts without failing doctor", async () => {
@@ -120,7 +112,6 @@ describe("runKotikitDoctor", () => {
 
     const report = await runKotikitDoctor(root, {
       isGitRepo: async () => true,
-      verifyGates: async () => ({ ok: true, missing: [] }),
     });
     const check = report.checks.find((item) => item.id === "schema-versions");
 

@@ -68,15 +68,16 @@ boring, precise at boundaries, easy to test, and hard to misuse.
 - Keep MCP handlers thin. They should parse inputs, call module engines, and
   format tool results.
 - Put deterministic business logic in modules under `src/spec`, `src/sync`,
-  `src/codegen`, `src/planning`, `src/db`, `src/git`, or `src/util`.
+  `src/planning`, `src/db`, `src/git`, or `src/util`.
 - Prefer pure planner/formatter functions where possible, then wrap them with
   I/O at the edge.
 - Reuse local helpers such as `toolText`, `toolError`, `openDb`, path helpers,
   config parsing, and schema constructors.
 - Do not add a new dependency until the standard library, Bun, or existing
   local helpers are insufficient.
-- Keep framework-specific code behind adapters. React-specific behavior belongs
-  in the React adapter, not in generic MCP or planning code.
+- Keep implementation-framework behavior out of core modules. If
+  design-to-code returns later, it should live behind an extension boundary,
+  not in generic MCP or planning code.
 - Keep transport-specific behavior at the transport layer. Tool handlers should
   not know whether the caller is stdio MCP, the WebSocket bridge, Claude Code,
   or Codex.
@@ -87,7 +88,7 @@ boring, precise at boundaries, easy to test, and hard to misuse.
 - Follow TDD for new behavior and regressions.
 - Prefer focused unit tests for pure functions and parser behavior.
 - Use integration-style tool tests for MCP handlers, filesystem writes,
-  registry updates, gates, and commits.
+  design-system indexes, review storage, and commits.
 - Seed temporary projects under the OS temp directory and clean them up in
   `afterEach`.
 - Stub external binaries or gate runners in tests unless the test explicitly
