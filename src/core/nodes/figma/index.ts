@@ -72,25 +72,39 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
       const state = graphState(input.state);
       const target = ensureDraftTarget(state.figmaTarget);
       const plan = FigmaTransactionPlanSchema.parse(state.figmaTransactionPlan);
-      const active =
+      const persistedActive =
         state.activeFigmaTransaction === undefined
           ? undefined
           : ActiveFigmaTransactionSchema.parse(state.activeFigmaTransaction);
+      const queued = nextPendingTransaction(plan);
+      const active =
+        persistedActive ??
+        (queued?.status === "active" ? activeTransactionFrom(queued) : undefined);
+
+      if (
+        persistedActive === undefined &&
+        queued?.status === "active" &&
+        state.applyMetadata === undefined
+      ) {
+        return {
+          statePatch: { activeFigmaTransaction: activeTransactionFrom(queued) },
+          interrupt: { status: "waiting-for-figma", resume: "same-node" },
+        } satisfies RuntimeNodeOutput;
+      }
 
       if (active === undefined) {
-        const pending = nextPendingTransaction(plan);
-        if (pending === undefined || pending.status !== "pending") {
+        if (queued === undefined || queued.status !== "pending") {
           const ledger = ledgerFrom(state.figmaNodeLedger, target);
           return {
             statePatch: { applyReport: applyReportFromLedger(ledger) },
           } satisfies RuntimeNodeOutput;
         }
 
-        const activePlan = markTransactionActive(plan, pending.id);
+        const activePlan = markTransactionActive(plan, queued.id);
         return {
           statePatch: {
             figmaTransactionPlan: activePlan,
-            activeFigmaTransaction: activeTransactionFrom(pending),
+            activeFigmaTransaction: activeTransactionFrom(queued),
           },
           interrupt: { status: "waiting-for-figma", resume: "same-node" },
         } satisfies RuntimeNodeOutput;

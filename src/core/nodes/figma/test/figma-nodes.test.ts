@@ -209,6 +209,49 @@ describe("figma graph nodes", () => {
     expect(result.statePatch?.activeFigmaTransaction).not.toHaveProperty("status");
   });
 
+  it("recovers a plan-level active transaction without completing unfinished work", async () => {
+    const result = await runNode("figma.applyTransactionQueue", {
+      figmaTarget: draftTarget(),
+      figmaTransactionPlan: singleActiveTransactionPlan(),
+    });
+
+    expect(result.interrupt).toEqual({ status: "waiting-for-figma", resume: "same-node" });
+    expect(result.statePatch?.activeFigmaTransaction).toEqual(activeTransaction());
+    expect(result.statePatch?.activeFigmaTransaction).not.toHaveProperty("status");
+    expect(result.statePatch?.applyReport).toBeUndefined();
+  });
+
+  it("records metadata for a recovered plan-level active transaction", async () => {
+    const result = await runNode("figma.applyTransactionQueue", {
+      figmaTarget: draftTarget(),
+      figmaTransactionPlan: singleActiveTransactionPlan(),
+      applyMetadata: {
+        transactionId: "txn-filled",
+        fileKey: "FILE",
+        pageId: "1:2",
+        sectionName: "kotikit / members / 2026-06-30",
+        figmaNodeId: "9:10",
+        figmaNodeName: "Members / Filled",
+        figmaNodeKind: "FRAME",
+        bounds: { x: 560, y: 0, width: 1440, height: 900 },
+        componentRefs: ["button-key"],
+        variableRefs: ["var-color-primary"],
+        autoLayout: true,
+      },
+    });
+
+    expect(result.interrupt).toBeUndefined();
+    expect(result.statePatch?.figmaTransactionPlan).toMatchObject({
+      transactions: [expect.objectContaining({ id: "txn-filled", status: "recorded" })],
+    });
+    expect(result.statePatch?.activeFigmaTransaction).toBeUndefined();
+    expect(result.statePatch?.applyReport).toMatchObject({
+      schemaVersion: "FigmaApplyReport/v1",
+      status: "recorded",
+      nodes: [expect.objectContaining({ id: "9:10", transactionId: "txn-filled" })],
+    });
+  });
+
   it("records matching active transaction metadata into the ledger and apply report", async () => {
     const result = await runNode("figma.applyTransactionQueue", {
       figmaTarget: draftTarget(),
@@ -467,6 +510,6 @@ function activeTransaction(): NonNullable<KotikitGraphState["activeFigmaTransact
 function singleActiveTransactionPlan(): NonNullable<KotikitGraphState["figmaTransactionPlan"]> {
   return {
     ...transactionPlan(),
-    transactions: [{ ...transactionPlan().transactions[0]!, status: "active" }],
+    transactions: [{ ...activeTransaction(), status: "active" }],
   };
 }
