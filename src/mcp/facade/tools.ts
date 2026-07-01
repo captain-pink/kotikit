@@ -66,6 +66,8 @@ const StartInputSchema = z.strictObject({
       project: RuntimeProjectInputSchema.optional(),
       userIntent: z.string().min(1).optional(),
       figmaTarget: z.unknown().optional(),
+      review: z.unknown().optional(),
+      designSystem: z.unknown().optional(),
     })
     .optional(),
 });
@@ -161,6 +163,14 @@ export function registerFacadeTools(
               type: "object",
               description: "Safe Figma draft target object to seed into the graph run.",
             },
+            review: {
+              type: "object",
+              description: "Optional pre-collected review target, evidence, or comment snapshot.",
+            },
+            designSystem: {
+              type: "object",
+              description: "Optional pre-seeded design-system search results.",
+            },
             project: {
               type: "object",
               properties: {
@@ -188,6 +198,10 @@ export function registerFacadeTools(
         ...(input.input?.figmaTarget === undefined
           ? {}
           : { figmaTarget: ensureDraftTarget(input.input.figmaTarget) }),
+        ...(input.input?.review === undefined ? {} : { review: input.input.review }),
+        ...(input.input?.designSystem === undefined
+          ? {}
+          : { designSystem: input.input.designSystem }),
       };
       return toolText(
         `Started ${input.flowId}.`,

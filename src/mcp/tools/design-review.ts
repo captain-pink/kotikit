@@ -12,6 +12,7 @@ import type { FigmaComment } from "../../sync/figma-types.js";
 import { KotikitError, toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
+import { findMatchingGraphReviewArtifact, graphReviewArtifactDetail } from "./review-artifacts.js";
 
 export interface FigmaDesignReviewClient extends DesignReviewEvidenceClient {
   postComment?(
@@ -226,6 +227,16 @@ export function registerDesignReviewTools(
           sessionId: session.sessionId,
           target,
           evidence,
+          graphFacade: {
+            preferredTool: "kotikit_start",
+            flowId: "improve-existing-design",
+            input: {
+              review: {
+                target,
+                evidence,
+              },
+            },
+          },
           next: "Use the design-review rubric, then call kotikit_design_review_record with structured findings.",
         });
       } catch (err) {
@@ -278,6 +289,10 @@ export function registerDesignReviewTools(
     async (args) => {
       try {
         const input = ReviewGetInputSchema.parse(args);
+        const graphArtifact = await findMatchingGraphReviewArtifact(ctx.root, input);
+        if (graphArtifact !== null) {
+          return toolText("Graph review artifact.", graphReviewArtifactDetail(graphArtifact));
+        }
         const report = openDesignReviewDb(ctx.root).getDesignAuditReport(input);
         return toolText("Design review audit report.", report);
       } catch (err) {

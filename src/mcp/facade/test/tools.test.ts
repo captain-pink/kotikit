@@ -265,6 +265,42 @@ describe("MCP facade tools", () => {
     expect(startInput?.state.figmaTarget).toMatchObject({ pageName: "Draft - Members" });
   });
 
+  it("starts review flows with seeded review and design-system context", async () => {
+    let captured: unknown;
+    const runtime = {
+      ...makeRuntime(),
+      async startFlow(input): Promise<RuntimeRunResult> {
+        captured = input.input;
+        return {
+          runId: "run-1",
+          status: "running",
+          state: {
+            ...makeState("running"),
+            review: input.input.review,
+            designSystem: input.input.designSystem,
+          },
+        };
+      },
+    } satisfies FacadeRuntime;
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx(), { runtime });
+
+    const result = await callTool(registry, "kotikit_start", {
+      flowId: "improve-existing-design",
+      input: {
+        figmaTarget: draftTarget(),
+        review: { target: { fileKey: "FILE", nodeId: "1:2" }, evidence: { regions: [] } },
+        designSystem: { components: [{ name: "Button", key: "button-key" }] },
+      },
+    });
+
+    expect(result.isError).toBeFalsy();
+    expect(captured).toMatchObject({
+      review: { target: { fileKey: "FILE", nodeId: "1:2" } },
+      designSystem: { components: [{ name: "Button", key: "button-key" }] },
+    });
+  });
+
   it("binds a Figma draft target into an active graph run", async () => {
     let patchedTarget: unknown;
     const runtime = {

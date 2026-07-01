@@ -89,6 +89,40 @@ describe("built-in node registry", () => {
 
     expect(productFlow.nodes.map((node) => node.uses)).not.toContain("qa.runUiQualityGate");
   });
+
+  it("grounds improve-existing-design in local design-system evidence before comparison", async () => {
+    const flows = await loadBuiltInFlows();
+    const improve = flows.find((flow) => flow.id === "improve-existing-design");
+    if (improve === undefined) throw new Error("Missing improve-existing-design flow.");
+
+    expect(nodeIndex(improve, "review.collectEvidence")).toBeLessThan(
+      nodeIndex(improve, "designSystem.searchLocal")
+    );
+    expect(nodeIndex(improve, "designSystem.searchLocal")).toBeLessThan(
+      nodeIndex(improve, "review.compareToDesignSystem")
+    );
+  });
+
+  it("saves review comment sessions and prepares comments only after approval", async () => {
+    const flows = await loadBuiltInFlows();
+    const reviewComments = flows.find((flow) => flow.id === "review-comments");
+    if (reviewComments === undefined) throw new Error("Missing review-comments flow.");
+    const approvalNode = reviewComments.nodes.find((node) => node.uses === "review.askApproval");
+
+    expect(nodeIndex(reviewComments, "review.askApproval")).toBeLessThan(
+      nodeIndex(reviewComments, "review.saveSession")
+    );
+    expect(nodeIndex(reviewComments, "review.saveSession")).toBeLessThan(
+      nodeIndex(reviewComments, "review.prepareApprovedComments")
+    );
+    expect(nodeIndex(reviewComments, "review.prepareApprovedComments")).toBeLessThan(
+      nodeIndex(reviewComments, "memory.detectPreferenceCandidate")
+    );
+    expect(approvalNode?.params).toMatchObject({
+      requiresRevisionApproval: false,
+      requiresCommentApproval: true,
+    });
+  });
 });
 
 function nodeIndex(

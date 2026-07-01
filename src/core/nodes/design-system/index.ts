@@ -119,6 +119,9 @@ export function createDesignSystemNodeDefinitions(
       run: async (input) => {
         const state = graphState(input.state);
         const params = SearchLocalParamsSchema.parse(input.params);
+        const current = designSystemFrom(state.designSystem);
+        const seededComponents = arrayFrom<LocalComponentRef>(current.components);
+        const seededVariables = arrayFrom<LocalVariableRef>(current.variables);
         const root = state.project.root;
         const queries = designSystemQueries(state);
         const first = searchLocalComponents(root, queries[0] ?? state.userIntent ?? "button", {
@@ -130,15 +133,16 @@ export function createDesignSystemNodeDefinitions(
             statePatch: {
               designSystem: {
                 source: "local-cache",
-                setupRequired: true,
-                setupAction: first.setupAction,
-                components: [],
-              },
+                setupRequired: seededComponents.length === 0,
+                ...(seededComponents.length === 0 ? { setupAction: first.setupAction } : {}),
+                components: seededComponents,
+                ...(seededVariables.length > 0 ? { variables: seededVariables } : {}),
+              } satisfies DesignSystemSearchState,
             },
           } satisfies RuntimeNodeOutput;
         }
 
-        const components = uniqueComponents([
+        const localComponents = uniqueComponents([
           ...first.results,
           ...queries
             .slice(1)
@@ -147,7 +151,9 @@ export function createDesignSystemNodeDefinitions(
                 searchLocalComponents(root, query, { limit: params.limitPerQuery ?? 8 }).results
             ),
         ]);
-        const variables = localVariableRefs(root);
+        const components = uniqueComponents([...localComponents, ...seededComponents]);
+        const localVariables = localVariableRefs(root);
+        const variables = uniqueVariables([...localVariables, ...seededVariables]);
 
         return {
           statePatch: {
@@ -547,6 +553,15 @@ function uniqueComponents(components: LocalComponentRef[]): LocalComponentRef[] 
   const byKey = new Map<string, LocalComponentRef>();
   components.forEach((component) => {
     if (!byKey.has(component.key)) byKey.set(component.key, component);
+  });
+  return Array.from(byKey.values());
+}
+
+function uniqueVariables(variables: LocalVariableRef[]): LocalVariableRef[] {
+  const byKey = new Map<string, LocalVariableRef>();
+  variables.forEach((variable) => {
+    const key = variable.id ?? variable.key ?? `${variable.kind}:${variable.name}`;
+    if (!byKey.has(key)) byKey.set(key, variable);
   });
   return Array.from(byKey.values());
 }

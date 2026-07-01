@@ -5,6 +5,8 @@ import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { writeConfig } from "../../../config/load.js";
 import { defaultConfig } from "../../../config/schema.js";
+import { createArtifactStore } from "../../../core/runs/artifact-store.js";
+import type { Artifact } from "../../../core/schemas/artifact.js";
 import { upsertDesignNodeMapEntry } from "../../../planning/design-node-map.js";
 import type { FigmaComment } from "../../../sync/figma-types.js";
 import type { ToolContext } from "../../context.js";
@@ -93,11 +95,29 @@ describe("kotikit_design_review_comments", () => {
     const detail = detailFrom(result) as {
       sessionId: string;
       mapped: { target: { componentName: string } }[];
+      graphFacade?: {
+        preferredTool: string;
+        flowId: string;
+        input: {
+          review: { commentSnapshot: { comments: { nodeId?: string; message: string }[] } };
+        };
+      };
     };
 
     expect(result.isError).toBeFalsy();
     expect(detail.sessionId).toBeString();
     expect(detail.mapped[0]?.target.componentName).toBe("Button");
+    expect(detail.graphFacade).toMatchObject({
+      preferredTool: "kotikit_start",
+      flowId: "review-comments",
+      input: {
+        review: {
+          commentSnapshot: {
+            comments: [{ nodeId: "node-1", message: "Use the primary action" }],
+          },
+        },
+      },
+    });
   });
 
   it("can fetch comments for a file key without a local node map", async () => {
@@ -120,6 +140,45 @@ describe("kotikit_design_review_comments", () => {
 
     expect(result.isError).toBeFalsy();
     expect(detail.unmapped[0]?.nodeId).toBe("outside-node");
+  });
+
+  it("does not seed resolved comments into graph review snapshots by default", async () => {
+    const root = mkTmp();
+    const cfg = defaultConfig();
+    cfg.figma.token = "plain-token";
+    await writeConfig(root, cfg);
+
+    const registry = makeRegistry();
+    registerDesignCommentTools(registry, makeCtx(root, cfg), {
+      figmaClientFactory: () => ({
+        getComments: async () => [
+          comment({ id: "comment-open", message: "Open issue" }),
+          comment({
+            id: "comment-resolved",
+            message: "Already fixed",
+            resolved_at: "2026-06-18T00:00:00Z",
+          }),
+        ],
+      }),
+    });
+
+    const result = await callTool(registry, "kotikit_design_review_comments", {
+      fileKey: "fig-file",
+    });
+    const detail = detailFrom(result) as {
+      skippedResolved: number;
+      graphFacade: {
+        input: {
+          review: { commentSnapshot: { comments: { commentId: string; message: string }[] } };
+        };
+      };
+    };
+
+    expect(result.isError).toBeFalsy();
+    expect(detail.skippedResolved).toBe(1);
+    expect(detail.graphFacade.input.review.commentSnapshot.comments).toEqual([
+      { commentId: "comment-open", message: "Open issue" },
+    ]);
   });
 
   it("loads FIGMA_TOKEN from project .env", async () => {
@@ -242,6 +301,45 @@ describe("kotikit_design_review_comments", () => {
     expect((detailFrom(candidates) as { candidates: { key: string }[] }).candidates[0]?.key).toBe(
       "tables.density.compact_rows"
     );
+  });
+
+  it("prefers matching graph review artifacts for review reports", async () => {
+    const root = mkTmp();
+    const cfg = defaultConfig();
+    await writeConfig(root, cfg);
+    await createArtifactStore(root).writeArtifact(
+      graphReviewArtifact({
+        id: "review-session-artifact",
+        runId: "run-comments",
+        type: "review-session",
+        data: {
+          sessionId: "graph-comment-session",
+          scope: "members",
+          screen: "list",
+          fileKey: "fig-file",
+        },
+      })
+    );
+    const registry = makeRegistry();
+    registerDesignCommentTools(registry, makeCtx(root, cfg));
+
+    const result = await callTool(registry, "kotikit_design_review_report", {
+      sessionId: "graph-comment-session",
+      scope: "members",
+      screen: "list",
+    });
+    const detail = detailFrom(result) as {
+      graphFacade?: { preferredTool: string; artifactId: string; runId: string };
+      artifact?: { id: string };
+    };
+
+    expect(result.isError).toBeFalsy();
+    expect(detail.graphFacade).toEqual({
+      preferredTool: "kotikit_get_artifact",
+      artifactId: "review-session-artifact",
+      runId: "run-comments",
+    });
+    expect(detail.artifact?.id).toBe("review-session-artifact");
   });
 
   it("clusters repeated adjustments into candidates without explicit preference keys", async () => {
@@ -380,11 +478,33 @@ describe("kotikit_design_review_comments", () => {
     });
     const posted = await callTool(registry, "kotikit_design_comment_reply_post", {
       sessionId,
+      confirm: true,
     });
 
     expect((detailFrom(prepared) as { replies: unknown[] }).replies).toHaveLength(1);
     expect((detailFrom(posted) as { posted: unknown[] }).posted).toHaveLength(1);
     expect(postedCommentId).toBe("comment-1");
+  });
+
+  it("refuses to post comment replies without explicit confirmation", async () => {
+    const root = mkTmp();
+    const cfg = defaultConfig();
+    cfg.figma.token = "plain-token";
+    await writeConfig(root, cfg);
+    const registry = makeRegistry();
+    registerDesignCommentTools(registry, makeCtx(root, cfg), {
+      figmaClientFactory: () => ({
+        getComments: async () => [comment({})],
+        postComment: async () => comment({ id: "reply-1" }),
+      }),
+    });
+
+    const result = await callTool(registry, "kotikit_design_comment_reply_post", {
+      sessionId: "session-1",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain("explicit confirmation");
   });
 
   it("promotes and searches active design preferences", async () => {
@@ -434,3 +554,26 @@ describe("kotikit_design_review_comments", () => {
     );
   });
 });
+
+function graphReviewArtifact(input: {
+  id: string;
+  runId: string;
+  type: "revision-plan" | "review-session";
+  data: Record<string, unknown>;
+}): Artifact {
+  const schemaVersion = input.type === "revision-plan" ? "RevisionPlan/v1" : "ReviewSession/v1";
+  return {
+    id: input.id,
+    runId: input.runId,
+    type: input.type,
+    schemaVersion,
+    createdAt: "2026-06-30T00:00:00.000Z",
+    updatedAt: "2026-06-30T00:00:00.000Z",
+    sourceNode: { key: "review.createRevisionPlan", version: "1.0.0" },
+    payload: {
+      schemaVersion,
+      summary: "Graph review artifact",
+      data: input.data as Record<string, never>,
+    },
+  };
+}

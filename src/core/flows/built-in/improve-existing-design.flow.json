@@ -25,6 +25,11 @@
       "params": {}
     },
     {
+      "id": "search-local-design-system",
+      "uses": "designSystem.searchLocal",
+      "params": {}
+    },
+    {
       "id": "compare-to-design-system",
       "uses": "review.compareToDesignSystem",
       "params": {}
@@ -37,21 +42,6 @@
     {
       "id": "create-revision-plan",
       "uses": "review.createRevisionPlan",
-      "params": {}
-    },
-    {
-      "id": "build-ui-composition-contract",
-      "uses": "ui.buildCompositionContract",
-      "params": {}
-    },
-    {
-      "id": "build-layout-contract",
-      "uses": "ui.buildLayoutContract",
-      "params": {}
-    },
-    {
-      "id": "build-variable-binding-plan",
-      "uses": "ui.buildVariableBindingPlan",
       "params": {}
     },
     {
@@ -77,13 +67,11 @@
   ],
   "edges": [
     ["ensure-draft-target", "collect-evidence"],
-    ["collect-evidence", "compare-to-design-system"],
+    ["collect-evidence", "search-local-design-system"],
+    ["search-local-design-system", "compare-to-design-system"],
     ["compare-to-design-system", "group-findings"],
     ["group-findings", "create-revision-plan"],
-    ["create-revision-plan", "build-ui-composition-contract"],
-    ["build-ui-composition-contract", "build-layout-contract"],
-    ["build-layout-contract", "build-variable-binding-plan"],
-    ["build-variable-binding-plan", "ask-revision-approval"],
+    ["create-revision-plan", "ask-revision-approval"],
     ["ask-revision-approval", "apply-approved-revisions"],
     ["apply-approved-revisions", "run-ui-quality-gate"],
     ["run-ui-quality-gate", "post-revision-qa"]

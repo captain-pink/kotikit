@@ -98,6 +98,48 @@ target, plan, and apply tool removal stays with the facade cleanup and stale-cod
 removal tasks because the old compatibility handlers are intentionally thin
 bridges while the graph facade owns runtime execution.
 
+## Implementation Update: Review And Memory Graph Nodes
+
+Completed on branch `feature/kotikit-migration`.
+
+The migration now has graph-backed review and memory primitives:
+
+- `review.collectEvidence` builds bounded Figma-target or comment evidence in
+  graph state;
+- `review.compareToDesignSystem` compares exact target regions to the local
+  design-system index and emits fit reports plus review findings;
+- `review.groupFindings` groups findings by theme and severity;
+- `review.createRevisionPlan` saves a revision-plan artifact that preserves
+  component instance keys, draft-component origins, variable/style bindings,
+  and layout metadata instead of replacing reviewed UI with hardcoded layers;
+- `review.askApproval` pauses before approved revisions and can also pause
+  before comment posting or memory promotion, with comment-only flows able to
+  skip revision-apply approval;
+- `review.applyApprovedRevisions` records safe Figma draft/update metadata for
+  QA only after explicit approval;
+- `review.saveSession` can persist graph review sessions into the existing
+  local design-review SQLite database and emit review-session artifacts;
+- `review.prepareApprovedComments` consumes the explicit comment-posting
+  approval and prepares pending Figma comments in the existing review DB;
+- `memory.detectPreferenceCandidate`, `memory.askPromotionApproval`, and
+  `memory.promotePreference` use the existing local design-review database for
+  candidate detection and promotion, with explicit approval before writing
+  active project memory.
+
+The built-in `improve-existing-design` flow now routes approved revisions
+directly into apply metadata and the UI quality gate instead of detouring
+through screen composition nodes. Seeded design-system context is preserved
+when local cache lookup has no results, so pre-collected exact matches do not
+turn into false missing-component findings. The built-in `review-comments` flow
+now uses separate comment posting approval, memory detection, memory approval,
+and promotion nodes after comment evidence is gathered. `kotikit_start` can
+seed pre-collected review evidence, comment snapshots, and design-system
+context into graph state, so legacy review/comment fetch tools now return
+graph-facade input payloads for new graph runs. Comment snapshots exclude
+resolved comments unless `includeResolved` is requested. Legacy comment/review
+report tools prefer matching graph artifacts before falling back to SQLite
+reports.
+
 ## Sources Reviewed
 
 Local repo:
@@ -890,15 +932,19 @@ Interrupts:
 ```text
 load_target_or_node_map
   -> gather_comments_or_target_evidence
+  -> compare_to_design_system_if_target_review
   -> group_findings
   -> create_revision_plan
-  -> ask_reply_or_memory_approval
-  -> record_preferences
+  -> ask_revision_or_comment_approval
+  -> detect_preference_candidate
+  -> ask_memory_approval
+  -> promote_preference
   -> done
 ```
 
 Interrupts:
 
+- Ask before applying revisions.
 - Ask before posting comments.
 - Ask before promoting repeated feedback to memory.
 

@@ -5,6 +5,8 @@ import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { writeConfig } from "../../../config/load.js";
 import { defaultConfig } from "../../../config/schema.js";
+import { createArtifactStore } from "../../../core/runs/artifact-store.js";
+import type { Artifact } from "../../../core/schemas/artifact.js";
 import type { FigmaComment, FigmaNode } from "../../../sync/figma-types.js";
 import type { ToolContext } from "../../context.js";
 import type { ToolRegistry } from "../../server.js";
@@ -86,6 +88,11 @@ describe("design review MCP tools", () => {
       sessionId: string;
       target: { targetName: string };
       evidence: { tokenBudget: { returnedRegions: number; truncatedRegions: number } };
+      graphFacade?: {
+        preferredTool: string;
+        flowId: string;
+        input: { review: { target: { targetName: string }; evidence: unknown } };
+      };
     };
 
     expect(result.isError).toBeFalsy();
@@ -93,6 +100,16 @@ describe("design review MCP tools", () => {
     expect(detail.target.targetName).toBe("Members");
     expect(detail.evidence.tokenBudget.returnedRegions).toBe(2);
     expect(detail.evidence.tokenBudget.truncatedRegions).toBe(1);
+    expect(detail.graphFacade).toMatchObject({
+      preferredTool: "kotikit_start",
+      flowId: "improve-existing-design",
+      input: {
+        review: {
+          target: { targetName: "Members" },
+        },
+      },
+    });
+    expect(detail.graphFacade?.input.review.evidence).toBeDefined();
   });
 
   it("records findings and returns a compact audit report", async () => {
@@ -134,6 +151,44 @@ describe("design review MCP tools", () => {
 
     expect((detailFrom(recorded) as { findings: unknown[] }).findings).toHaveLength(1);
     expect((detailFrom(report) as { summary: { high: number } }).summary.high).toBe(1);
+  });
+
+  it("prefers matching graph review artifacts for audit reports", async () => {
+    const root = mkTmp();
+    const cfg = defaultConfig();
+    await writeConfig(root, cfg);
+    await createArtifactStore(root).writeArtifact(
+      graphReviewArtifact({
+        id: "revision-plan-1",
+        runId: "run-review",
+        type: "revision-plan",
+        data: {
+          sessionId: "graph-session",
+          fileKey: "fig-file",
+          nodeId: "12:34",
+          target: { fileKey: "fig-file", nodeId: "12:34" },
+          revisions: [{ nodeId: "12:34", partName: "Actions" }],
+        },
+      })
+    );
+    const registry = makeRegistry();
+    registerDesignReviewTools(registry, makeCtx(root, cfg));
+
+    const result = await callTool(registry, "kotikit_design_review_get", {
+      sessionId: "graph-session",
+    });
+    const detail = detailFrom(result) as {
+      graphFacade?: { preferredTool: string; artifactId: string; runId: string };
+      artifact?: { id: string };
+    };
+
+    expect(result.isError).toBeFalsy();
+    expect(detail.graphFacade).toEqual({
+      preferredTool: "kotikit_get_artifact",
+      artifactId: "revision-plan-1",
+      runId: "run-review",
+    });
+    expect(detail.artifact?.id).toBe("revision-plan-1");
   });
 
   it("prepares and posts approved Figma comments for recorded findings", async () => {
@@ -224,3 +279,26 @@ describe("design review MCP tools", () => {
     expect(result.content[0]?.text).toContain("confirm");
   });
 });
+
+function graphReviewArtifact(input: {
+  id: string;
+  runId: string;
+  type: "revision-plan" | "review-session";
+  data: Record<string, unknown>;
+}): Artifact {
+  const schemaVersion = input.type === "revision-plan" ? "RevisionPlan/v1" : "ReviewSession/v1";
+  return {
+    id: input.id,
+    runId: input.runId,
+    type: input.type,
+    schemaVersion,
+    createdAt: "2026-06-30T00:00:00.000Z",
+    updatedAt: "2026-06-30T00:00:00.000Z",
+    sourceNode: { key: "review.createRevisionPlan", version: "1.0.0" },
+    payload: {
+      schemaVersion,
+      summary: "Graph review artifact",
+      data: input.data as Record<string, never>,
+    },
+  };
+}

@@ -315,8 +315,12 @@ with `runId` for graph runs so apply metadata is patched into graph state before
 Purpose: Fetch Figma comments and map them to applied design-plan nodes when a
 node map exists.
 Input: `{ scope?: string; screen?: string; fileKey?: string; includeResolved?: boolean; limit?: number }`
-Output: `{ sessionId; fileKey; scope?; screen?; hasNodeMap; totalFetched; skippedResolved; mapped; unmapped; truncated }`
+Output: `{ sessionId; fileKey; scope?; screen?; hasNodeMap; totalFetched; skippedResolved; mapped; unmapped; truncated; graphFacade }`
 Example: "Read Figma review comments for the Members screen."
+Notes: Prefer the graph facade for new runs:
+`kotikit_start({ flowId: "review-comments", input })` using the returned
+`graphFacade.input.review.commentSnapshot`. Resolved comments are excluded
+from the graph snapshot unless `includeResolved: true` is passed.
 
 ### kotikit_design_adjustment_record
 
@@ -329,7 +333,8 @@ Example: "Record that I made the Members table denser."
 
 Purpose: Return a compact report for a comment-review session.
 Input: `{ sessionId?: string; scope?: string; screen?: string; limit?: number }`
-Output: `{ session; summary; comments; adjustments; pendingReplies }`
+Output: `{ session; summary; comments; adjustments; pendingReplies }`, or
+`{ graphFacade; artifact }` when a matching graph review artifact exists.
 Example: "Show the latest design review report."
 
 ### kotikit_design_comment_reply_prepare
@@ -342,18 +347,22 @@ Example: "Prepare replies for fixed comments."
 ### kotikit_design_comment_reply_post
 
 Purpose: Post prepared replies after explicit approval.
-Input: `{ sessionId?: string; fileKey?: string; outboxIds?: string[]; limit?: number }`
+Input: `{ sessionId?: string; fileKey?: string; outboxIds?: string[]; limit?: number; confirm: true }`
 Output: `{ posted; failed }`
 Example: "Post the prepared replies."
-Notes: Requires a token with `file_comments:write`.
+Notes: Requires explicit `confirm: true` and a token with
+`file_comments:write`.
 
 ### kotikit_design_review_start
 
 Purpose: Start a standalone design-quality review for an exact Figma page,
 section, frame, or component.
 Input: `{ figmaUrl?: string; fileKey?: string; nodeId?: string; scope?: string; screen?: string; surfaceType?: string; audience?: string; primaryUserGoal?: string; reviewGoal?: string; strictness?: "quick" | "standard" | "deep"; notes?: string; maxRegions?: number }`
-Output: `{ sessionId; target; evidence; next }`
+Output: `{ sessionId; target; evidence; graphFacade; next }`
 Example: "Review this Figma section like a design director."
+Notes: Prefer the graph facade for new runs:
+`kotikit_start({ flowId: "improve-existing-design", input })` using the
+returned `graphFacade.input.review` and a safe Figma draft target.
 
 ### kotikit_design_review_record
 
@@ -366,7 +375,8 @@ Example: "Record these review findings."
 
 Purpose: Return a compact standalone design-review report.
 Input: `{ sessionId?: string; fileKey?: string; limit?: number }`
-Output: `{ session; summary; findings; pendingComments }`
+Output: `{ session; summary; findings; pendingComments }`, or
+`{ graphFacade; artifact }` when a matching graph review artifact exists.
 Example: "Show the latest design-quality review report."
 
 ### kotikit_design_review_comment_prepare

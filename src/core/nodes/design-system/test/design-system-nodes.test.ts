@@ -118,6 +118,55 @@ describe("design-system graph nodes", () => {
     });
   });
 
+  it("merges seeded variables with synced local variables", async () => {
+    const root = mkProject();
+    seedComponents(root, [{ name: "Button", key: "button-key", props: "" }]);
+    writeVariables(root);
+
+    const result = await runNode(
+      "designSystem.searchLocal",
+      {
+        ...state(root),
+        screen: { requiredUiParts: ["button"], repeatedPatterns: [] },
+        designSystem: {
+          variables: [
+            { id: "var-radius-small", name: "Radius/Small", kind: "number", source: "seeded" },
+          ],
+        },
+      },
+      {}
+    );
+
+    expect(result.statePatch?.designSystem).toMatchObject({
+      variables: expect.arrayContaining([
+        expect.objectContaining({ name: "Color/Primary", kind: "color" }),
+        expect.objectContaining({ name: "Radius/Small", kind: "number" }),
+      ]),
+    });
+  });
+
+  it("preserves seeded design-system components when the local cache is missing", async () => {
+    const root = mkProject();
+
+    const result = await runNode(
+      "designSystem.searchLocal",
+      {
+        ...state(root),
+        screen: { requiredUiParts: ["status chip"], repeatedPatterns: [] },
+        designSystem: {
+          source: "seeded-context",
+          components: [{ name: "Status chip", key: "chip-key", fileKey: "seeded-file" }],
+        },
+      },
+      {}
+    );
+
+    expect(result.statePatch?.designSystem).toMatchObject({
+      setupRequired: false,
+      components: [expect.objectContaining({ name: "Status chip", key: "chip-key" })],
+    });
+  });
+
   it("builds a fit report with exact matches, substitutes, gaps, variables, and patterns", async () => {
     const root = mkProject();
     const stateWithDesignSystem = {

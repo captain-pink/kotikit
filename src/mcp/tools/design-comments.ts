@@ -10,6 +10,7 @@ import type { FigmaComment } from "../../sync/figma-types.js";
 import { KotikitError, toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
+import { findMatchingGraphReviewArtifact, graphReviewArtifactDetail } from "./review-artifacts.js";
 
 export interface FigmaCommentsClient {
   getComments(fileKey: string, opts?: { asMarkdown?: boolean }): Promise<FigmaComment[]>;
@@ -79,6 +80,7 @@ const ReplyPostInputSchema = z.object({
   fileKey: z.string().optional(),
   outboxIds: z.array(z.string()).optional(),
   limit: z.number().int().positive().max(50).optional().default(10),
+  confirm: z.literal(true),
 });
 
 const MemoryCandidatesInputSchema = z.object({
@@ -152,6 +154,19 @@ const reviewCommentInputs = (
     };
   });
 };
+
+const graphCommentSnapshot = (comments: ReviewCommentInput[]): Record<string, unknown>[] =>
+  comments.map((comment) => ({
+    commentId: comment.commentId,
+    message: comment.message,
+    ...(comment.nodeId !== undefined ? { nodeId: comment.nodeId } : {}),
+    ...(typeof comment.target === "object" &&
+    comment.target !== null &&
+    "nodeName" in comment.target &&
+    typeof comment.target.nodeName === "string"
+      ? { targetName: comment.target.nodeName }
+      : {}),
+  }));
 
 const registerTool = (
   registry: ToolRegistry,
@@ -234,6 +249,10 @@ export function registerDesignCommentTools(
       const mappedAll = mapCommentsToDesignNodes(comments, nodeMap, {
         includeResolved: true,
       });
+      const reviewableComments = comments.filter(
+        (comment) => input.includeResolved || !comment.resolved_at
+      );
+      const commentRows = reviewCommentInputs(reviewableComments, mappedAll, { fileKey });
       const store = openDesignReviewDb(ctx.root);
       const session = store.recordReviewSession({
         ...(input.scope !== undefined ? { scope: input.scope } : {}),
@@ -243,7 +262,7 @@ export function registerDesignCommentTools(
         mappedCount: mapped.mapped.length,
         unmappedCount: mapped.unmapped.length,
         skippedResolved: mapped.skippedResolved,
-        comments: reviewCommentInputs(comments, mappedAll, { fileKey }),
+        comments: commentRows,
       });
       const detail = {
         sessionId: session.sessionId,
@@ -258,6 +277,17 @@ export function registerDesignCommentTools(
         truncated: {
           mapped: Math.max(0, mapped.mapped.length - input.limit),
           unmapped: Math.max(0, mapped.unmapped.length - input.limit),
+        },
+        graphFacade: {
+          preferredTool: "kotikit_start",
+          flowId: "review-comments",
+          input: {
+            review: {
+              commentSnapshot: {
+                comments: graphCommentSnapshot(commentRows),
+              },
+            },
+          },
         },
       };
 
@@ -325,6 +355,10 @@ export function registerDesignCommentTools(
     async (args) => {
       try {
         const input = ReviewReportInputSchema.parse(args);
+        const graphArtifact = await findMatchingGraphReviewArtifact(ctx.root, input);
+        if (graphArtifact !== null) {
+          return toolText("Graph review artifact.", graphReviewArtifactDetail(graphArtifact));
+        }
         const report = openDesignReviewDb(ctx.root).getReviewReport(input);
         return toolText("Design review report.", report);
       } catch (err) {
@@ -375,12 +409,24 @@ export function registerDesignCommentTools(
           fileKey: { type: "string" },
           outboxIds: { type: "array", items: { type: "string" } },
           limit: { type: "number" },
+          confirm: {
+            type: "boolean",
+            description: "Must be true after the user approves posting replies.",
+          },
         },
+        required: ["confirm"],
       },
     },
     async (args) => {
       try {
-        const input = ReplyPostInputSchema.parse(args);
+        const parsed = ReplyPostInputSchema.safeParse(args);
+        if (!parsed.success) {
+          throw new KotikitError(
+            "I need explicit confirmation before posting Figma comment replies.",
+            "Ask the designer if they want these replies posted, then call this tool with confirm: true."
+          );
+        }
+        const input = parsed.data;
         const store = openDesignReviewDb(ctx.root);
         const pending = store
           .listPendingReplies({

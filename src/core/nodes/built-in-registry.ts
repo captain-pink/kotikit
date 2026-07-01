@@ -10,7 +10,9 @@ import { draftNodeDefinitions } from "./draft/index.js";
 import { draftComponentNodeDefinitions } from "./draft-components/index.js";
 import { figmaNodeDefinitions } from "./figma/index.js";
 import { flowNodeDefinitions } from "./flow/index.js";
+import { memoryNodeDefinitions } from "./memory/index.js";
 import { qaNodeDefinitions } from "./qa/index.js";
+import { reviewNodeDefinitions } from "./review/index.js";
 import { uiCompositionNodeDefinitions } from "./ui-composition/index.js";
 
 export function createBuiltInNodeRegistry(): NodeRegistry {
@@ -27,6 +29,8 @@ export function builtInNodeDefinitions(): NodeDefinition[] {
     ...draftNodeDefinitions,
     ...figmaNodeDefinitions,
     ...qaNodeDefinitions,
+    ...reviewNodeDefinitions,
+    ...memoryNodeDefinitions,
     ...futureNodeStubs,
   ];
 }
@@ -35,13 +39,6 @@ const futureNodeStubs: NodeDefinition[] = [
   stub("setup.runDoctor", ["setup.doctor"]),
   stub("setup.detectFigmaRemoteMcp", ["setup.detect"]),
   stub("setup.detectLocalCache", ["setup.detect"]),
-  stub("review.collectEvidence", ["review.write"]),
-  stub("review.compareToDesignSystem", ["review.write"]),
-  stub("review.groupFindings", ["review.write"]),
-  stub("review.createRevisionPlan", ["review.write"]),
-  stub("review.askApproval", ["review.write"]),
-  stub("review.applyApprovedRevisions", ["figma.write.remote"]),
-  stub("memory.promotePreference", ["memory.write"]),
 ];
 
 function stub(key: string, capabilities: string[]): NodeDefinition {

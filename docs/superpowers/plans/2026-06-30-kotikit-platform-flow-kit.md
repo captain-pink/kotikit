@@ -342,7 +342,7 @@ bun run typecheck
 
 Expected: pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/core/graph src/core/schemas
@@ -641,7 +641,7 @@ bun run typecheck
 
 Expected: pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/mcp/facade src/mcp/server.ts src/mcp/instructions.ts docs/development.md
@@ -792,7 +792,7 @@ bun test src/core/adapters/design-system src/core/nodes/design-system src/sync/t
 bun run typecheck
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/core/adapters/design-system src/core/nodes/design-system src/mcp/tools/ds-search.ts src/mcp/tools/icons-search.ts src/sync
@@ -937,13 +937,18 @@ git commit -m "feat(core): add ui contract draft creation nodes"
 - Create: `src/core/nodes/review/test/review-nodes.test.ts`
 - Create: `src/core/nodes/memory/index.ts`
 - Create: `src/core/nodes/memory/test/memory-nodes.test.ts`
-- Modify: `src/planning/design-comments.ts`
-- Modify: `src/planning/design-review.ts`
-- Modify: `src/db/design-review-db.ts`
+- Create: `src/mcp/tools/review-artifacts.ts`
+- Modify: `src/core/graph/runtime.ts`
+- Modify: `src/core/flows/built-in/improve-existing-design.flow.json`
+- Modify: `src/core/flows/built-in/review-comments.flow.json`
+- Modify: `src/core/nodes/built-in-registry.ts`
+- Modify: `src/mcp/facade/tools.ts`
 - Modify: `src/mcp/tools/design-comments.ts`
 - Modify: `src/mcp/tools/design-review.ts`
+- Modify: `KOTIKIT_MIGRATION.md`
+- Modify: `docs/tools.md`
 
-- [ ] **Step 1: Write failing review tests**
+- [x] **Step 1: Write failing review tests**
 
 Tests:
 
@@ -959,7 +964,7 @@ Tests:
 - comment posting pauses for explicit approval;
 - memory promotion pauses for explicit approval.
 
-- [ ] **Step 2: Implement review nodes**
+- [x] **Step 2: Implement review nodes**
 
 Implement:
 
@@ -971,7 +976,7 @@ Implement:
 - `review.applyApprovedRevisions`
 - `review.saveSession`
 
-- [ ] **Step 3: Implement memory nodes**
+- [x] **Step 3: Implement memory nodes**
 
 Implement:
 
@@ -982,24 +987,38 @@ Implement:
 Memory promotion must write to the existing local design-review database or a
 clearly versioned successor store.
 
-- [ ] **Step 4: Add compatibility wrappers**
+- [x] **Step 4: Add compatibility wrappers**
 
 Old comment/review tools should delegate to the review graph where possible or
 read graph artifacts.
 
-- [ ] **Step 5: Verify**
+Task 9 implementation note: `improve-existing-design` now gathers bounded
+review evidence, compares it to the local design-system index while preserving
+seeded design-system context, saves a revision-plan artifact, pauses for
+approval, records approved revision apply metadata, then runs the UI quality
+gate. `review-comments` now gathers comment evidence from a seeded comment
+snapshot, skips revision-apply approval, pauses before comment posting, saves
+the review session, prepares approved comments in the existing review DB,
+detects a DB-backed memory candidate, pauses before memory promotion, and
+promotes only after explicit approval. Legacy comment/review report tools read
+matching graph review artifacts before falling back to existing design-review
+SQLite reports, while legacy fetch/start tools include graph-facade hints with
+seed input for `kotikit_start` and exclude resolved comments from graph seeds
+unless `includeResolved` is requested.
+
+- [x] **Step 5: Verify**
 
 Run:
 
 ```bash
-bun test src/core/nodes/review src/core/nodes/memory src/planning/test/design-comments.test.ts src/planning/test/design-review.test.ts src/db/test/design-review-db.test.ts
+bun test src/core/nodes/review src/core/nodes/memory src/planning/test/design-comments.test.ts src/planning/test/design-review.test.ts src/db/test/design-review-db.test.ts src/mcp/facade/test/tools.test.ts src/mcp/tools/test/design-review.test.ts src/mcp/tools/test/design-comments.test.ts
 bun run typecheck
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
-git add src/core/nodes/review src/core/nodes/memory src/planning src/db/design-review-db.ts src/mcp/tools/design-comments.ts src/mcp/tools/design-review.ts
+git add KOTIKIT_MIGRATION.md docs/superpowers/plans/2026-06-30-kotikit-platform-flow-kit.md docs/tools.md src/core/graph/runtime.ts src/core/flows/built-in/improve-existing-design.flow.json src/core/flows/built-in/review-comments.flow.json src/core/nodes/built-in-registry.ts src/core/nodes/review src/core/nodes/memory src/core/nodes/test/built-in-node-registry.test.ts src/mcp/facade/tools.ts src/mcp/facade/test/tools.test.ts src/mcp/tools/design-comments.ts src/mcp/tools/design-review.ts src/mcp/tools/review-artifacts.ts src/mcp/tools/test/design-comments.test.ts src/mcp/tools/test/design-review.test.ts
 git commit -m "feat(core): move design review into graph flow"
 ```
 
