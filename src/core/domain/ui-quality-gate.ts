@@ -88,6 +88,7 @@ export function runUiQualityGate(input: {
     checkCanvasZoneMembership(input.nodes, input.canvasPlan),
     checkIconRefs(input.nodes, input.iconRequirements ?? [], input.iconRefs ?? []),
     checkScreenStateAutoLayout(input.nodes),
+    checkScreenshotReview(input.nodes),
     checkMissingTransactionMetadata(input.nodes),
   ];
 
@@ -219,6 +220,17 @@ function checkScreenStateAutoLayout(nodes: AppliedNode[]): UIQualityGateReport["
   );
 }
 
+function checkScreenshotReview(nodes: AppliedNode[]): UIQualityGateReport["checks"][number] {
+  const findings = nodes
+    .filter((node) => node.semanticRole === "screen-state")
+    .flatMap((node) => {
+      const id = String(node.id ?? "unknown");
+      if (node.screenshotReviewed !== true) return [`${id} has no screenshot review`];
+      return stringArray(node.screenshotFindings).map((finding) => `${id}: ${finding}`);
+    });
+  return checkResult("screenshot-review", "Screenshot review", findings);
+}
+
 function topLevelCanvasNodes(nodes: AppliedNode[]): AppliedNode[] {
   return nodes.filter((node) =>
     ["screen-state", "draft-component"].includes(String(node.semanticRole ?? ""))
@@ -293,6 +305,8 @@ function recommendedActionFor(id: string): string {
       "Represent this as a page, region, component, or flow state instead of an extra state card.",
     "state-shell-drift": "Keep persistent shell regions aligned across related screen states.",
     "screen-state-auto-layout": "Rebuild the screen state as an auto-layout frame.",
+    "screenshot-review":
+      "Take a screenshot of the generated screen state, inspect visible layout issues, and repair any findings before continuing.",
     "transaction-metadata": "Record transactionId and placementId for every generated node.",
   };
   return actions[id] ?? "Fix the blocked UI quality finding before continuing.";

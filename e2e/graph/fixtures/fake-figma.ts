@@ -127,6 +127,7 @@ export function fakeTransactionMetadataFor(state: KotikitGraphState): Record<str
     (candidate) => candidate.id === active.placementId
   );
   const bounds = boundsForActive(placement);
+  const visibleTransaction = isVisibleTransaction(active);
   return {
     transactionId,
     fileKey: stringField(target, "fileKey"),
@@ -140,6 +141,7 @@ export function fakeTransactionMetadataFor(state: KotikitGraphState): Record<str
     componentRefs: componentRefsForActive(state),
     variableRefs: variableRefsFrom(state),
     autoLayout: true,
+    ...(visibleTransaction ? { screenshotReviewed: true, screenshotFindings: [] } : {}),
     nodes: compactChildNodesForActive(state, active, bounds),
   };
 }
@@ -196,6 +198,11 @@ function compactChildNodesForActive(
     variableRefs: variableRefsFrom(state),
     autoLayout: true,
   }));
+}
+
+function isVisibleTransaction(active: Record<string, unknown>): boolean {
+  const kind = stringField(active, "kind");
+  return kind === "create-screen-state" || kind === "create-region-state";
 }
 
 function boundsForActive(placement: Record<string, unknown> | undefined): Record<string, unknown> {

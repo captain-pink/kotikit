@@ -80,7 +80,14 @@ describe("brief nodes", () => {
     expect(result.statePatch?.screen).toMatchObject({
       schemaVersion: "ScreenModel/v1",
       title: "Members Table",
-      requiredUiParts: expect.arrayContaining(["data table", "toolbar", "primary action"]),
+      requiredUiParts: expect.arrayContaining([
+        "data table",
+        "toolbar",
+        "primary action",
+        "row avatar",
+        "status badge",
+        "row action menu",
+      ]),
       repeatedPatterns: expect.arrayContaining(["table rows"]),
       regions: {
         tables: expect.arrayContaining(["members"]),

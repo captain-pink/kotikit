@@ -95,11 +95,15 @@ as draft components on the same draft page.
 Each active Figma transaction creates exactly one screen state or region state
 at the bounds from the canvas plan. After each write, record transactionId,
 node id, bounds, component refs, component source, variable refs, required icon
-refs, auto-layout metadata, and a compact `evidenceSnapshot` from the applied
-root node with `kotikit_record_figma_apply`, then continue the run. The evidence
-snapshot should be scanner-derived from actual Figma nodes and include visible
-component instances, local design-system component/icon keys, bounds, layout
-mode, visibility, opacity, and compact layout metrics. Newly created local
+refs, auto-layout metadata, screenshot review status, and a compact
+`evidenceSnapshot` from the applied root node with
+`kotikit_record_figma_apply`, then continue the run. The evidence snapshot
+should be scanner-derived from actual Figma nodes and include visible component
+instances, local design-system component/icon keys, bounds, layout mode,
+visibility, opacity, and compact layout metrics. Take a screenshot after
+placing visible DS components, inspect it for overlap, clipped or mirrored
+text, broken component internals, and layout drift, then record
+`screenshotReviewed: true` plus any `screenshotFindings`. Newly created local
 components do not count as existing design-system reuse.
 
 ## Figma Comment Feedback

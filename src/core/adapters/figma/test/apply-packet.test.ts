@@ -86,6 +86,37 @@ describe("buildFigmaApplyPacket", () => {
 
     expect(packet.iconRequirements).toEqual([]);
   });
+
+  it("requires lightweight screenshot review for visible Figma transactions", () => {
+    const packet = buildFigmaApplyPacket({
+      target: draftTarget(),
+      screenTitle: "Members",
+      uiComposition: {
+        schemaVersion: "UICompositionContract/v1",
+        parts: [
+          {
+            id: "search-input",
+            name: "Search members",
+            role: "search",
+            placement: "top-bar",
+            source: "existing-component",
+            componentKey: "search-key",
+          },
+        ],
+      },
+      layoutContract: layoutContract(),
+      variableBindingPlan: variableBindingPlan(),
+      canvasPlan: canvasPlan(),
+      transactionPlan: transactionPlan(),
+    });
+
+    expect(packet.visualReview).toMatchObject({
+      required: true,
+      method: "screenshot",
+      instructions: expect.stringContaining("screenshot"),
+    });
+    expect(packet.metadata).toMatchObject({ requiresScreenshotReview: true });
+  });
 });
 
 function draftTarget(): FigmaDraftTarget {

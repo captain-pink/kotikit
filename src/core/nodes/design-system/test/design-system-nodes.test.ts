@@ -3,9 +3,15 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { initComponentsDb, upsertComponent } from "../../../../db/components-db.js";
+import { initIconsDb, upsertIcon } from "../../../../db/icons-db.js";
 import { openDb } from "../../../../db/sqlite.js";
 import { nowIso } from "../../../../util/ids.js";
-import { componentJsonPath, componentsDbPath, variablesJsonPath } from "../../../../util/paths.js";
+import {
+  componentJsonPath,
+  componentsDbPath,
+  iconsDbPath,
+  variablesJsonPath,
+} from "../../../../util/paths.js";
 import { loadBuiltInFlows } from "../../../flows/catalog.js";
 import { compileFlowDefinition } from "../../../graph/compiler.js";
 import { createNodeRegistry } from "../../../graph/node-registry.js";
@@ -55,6 +61,63 @@ describe("design-system graph nodes", () => {
       components: expect.arrayContaining([
         expect.objectContaining({ name: "Button", key: "button-key" }),
         expect.objectContaining({ name: "Data Table", key: "table-key" }),
+      ]),
+    });
+  });
+
+  it("searches local component and icon primitives from pattern and state requirements", async () => {
+    const root = mkProject();
+    seedComponents(root, [
+      { name: "Search", key: "search-key", props: "" },
+      { name: "Data Table", key: "table-key", props: "" },
+      { name: "Pagination", key: "pagination-key", props: "" },
+      { name: "Button", key: "button-key", props: "" },
+      { name: "Avatar", key: "avatar-key", props: "" },
+      { name: "Badge", key: "badge-key", props: "" },
+      { name: "Select", key: "select-key", props: "" },
+      { name: "Nav Item", key: "nav-item-key", props: "" },
+      { name: "Alert", key: "alert-key", props: "" },
+      { name: "Empty State", key: "empty-state-key", props: "" },
+    ]);
+    seedIcons(root, [
+      { name: "Icon/Search", key: "icon-search-key" },
+      { name: "Icon/Filter", key: "icon-filter-key" },
+      { name: "Icon/Plus", key: "icon-plus-key" },
+      { name: "Icon/Alert", key: "icon-alert-key" },
+      { name: "Icon/Lock", key: "icon-lock-key" },
+    ]);
+
+    const result = await runNode(
+      "designSystem.searchLocal",
+      {
+        ...state(root),
+        userIntent: "Create an admin members table page",
+        uxEnvelope: adminDataTableEnvelope(),
+        screen: {
+          requiredUiParts: ["search", "data table", "pagination"],
+          repeatedPatterns: ["table rows"],
+        },
+        stateMatrix: adminStateMatrix(),
+      },
+      {}
+    );
+
+    expect(result.statePatch?.designSystem).toMatchObject({
+      components: expect.arrayContaining([
+        expect.objectContaining({ name: "Button", key: "button-key" }),
+        expect.objectContaining({ name: "Avatar", key: "avatar-key" }),
+        expect.objectContaining({ name: "Badge", key: "badge-key" }),
+        expect.objectContaining({ name: "Select", key: "select-key" }),
+        expect.objectContaining({ name: "Nav Item", key: "nav-item-key" }),
+        expect.objectContaining({ name: "Alert", key: "alert-key" }),
+        expect.objectContaining({ name: "Empty State", key: "empty-state-key" }),
+      ]),
+      icons: expect.arrayContaining([
+        expect.objectContaining({ name: "Icon/Search", key: "icon-search-key" }),
+        expect.objectContaining({ name: "Icon/Filter", key: "icon-filter-key" }),
+        expect.objectContaining({ name: "Icon/Plus", key: "icon-plus-key" }),
+        expect.objectContaining({ name: "Icon/Alert", key: "icon-alert-key" }),
+        expect.objectContaining({ name: "Icon/Lock", key: "icon-lock-key" }),
       ]),
     });
   });
@@ -230,6 +293,52 @@ describe("design-system graph nodes", () => {
         expect.objectContaining({ pattern: "form", status: "gap" }),
       ])
     );
+  });
+
+  it("adds local icon matches to the fit report for planned UI affordances", async () => {
+    const result = await runNode(
+      "designSystem.buildFitReport",
+      {
+        ...state(mkProject()),
+        screen: { requiredUiParts: ["search", "primary action", "inline error"] },
+        designSystem: {
+          source: "local-cache",
+          setupRequired: false,
+          components: [
+            { name: "Search", path: "components/search.json", key: "search-key", fileKey: "f" },
+            { name: "Button", path: "components/button.json", key: "button-key", fileKey: "f" },
+            { name: "Alert", path: "components/alert.json", key: "alert-key", fileKey: "f" },
+          ],
+          icons: [
+            { name: "Icon/Search", key: "icon-search-key", signal: "slash", fileKey: "f" },
+            { name: "Icon/Plus", key: "icon-plus-key", signal: "slash", fileKey: "f" },
+            { name: "Icon/Alert", key: "icon-alert-key", signal: "slash", fileKey: "f" },
+          ],
+          variables: [{ name: "Color/Primary", kind: "color" }],
+        },
+      },
+      {}
+    );
+
+    expect(result.statePatch?.fitReport).toMatchObject({
+      iconMatches: expect.arrayContaining([
+        expect.objectContaining({
+          requestedPart: "search",
+          semantic: "search",
+          iconKey: "icon-search-key",
+        }),
+        expect.objectContaining({
+          requestedPart: "primary action",
+          semantic: "primary-action",
+          iconKey: "icon-plus-key",
+        }),
+        expect.objectContaining({
+          requestedPart: "inline error",
+          semantic: "error",
+          iconKey: "icon-alert-key",
+        }),
+      ]),
+    });
   });
 
   it("classifies close repeated-pattern matches as wrap candidates instead of exact or missing", async () => {
@@ -631,6 +740,91 @@ function seedComponents(
     );
   });
   db.close();
+}
+
+function seedIcons(root: string, icons: { name: string; key: string }[]): void {
+  const db = openDb(iconsDbPath(root));
+  initIconsDb(db);
+  icons.forEach((icon) => {
+    upsertIcon(db, { name: icon.name, key: icon.key, signal: "slash", fileKey: "file-icons" });
+  });
+  db.close();
+}
+
+function adminDataTableEnvelope(): NonNullable<KotikitGraphState["uxEnvelope"]> {
+  return {
+    schemaVersion: "UXEnvelope/v1",
+    screenArchetype: "admin-data-table",
+    confidence: "observed",
+    actor: "Workspace admin",
+    primaryGoal: "Manage members",
+    primaryTask: "Manage members",
+    secondaryTasks: ["Search members", "Filter members"],
+    dataModel: {
+      primaryEntity: "member",
+      expectedVolume: "many",
+      fields: ["name", "email", "role", "status", "last active"],
+    },
+    permissions: ["invite-member"],
+    edgeCases: ["filled", "loading", "empty", "error", "permission"],
+    assumptions: ["Members are managed from a table."],
+    sourceRefs: ["https://example.com/admin"],
+  };
+}
+
+function adminStateMatrix(): NonNullable<KotikitGraphState["stateMatrix"]> {
+  return {
+    schemaVersion: "StateMatrix/v1",
+    states: [
+      {
+        id: "members-filled",
+        label: "Filled",
+        kind: "filled",
+        scope: "region",
+        affectedRegion: "members table",
+        persistentRegions: ["sidebar", "top bar"],
+        replacementBehavior: "same-frame-variant",
+        requiredComponents: ["table", "pagination"],
+        sourceRefs: ["https://example.com/table"],
+      },
+      {
+        id: "members-empty",
+        label: "No members yet",
+        kind: "empty",
+        scope: "region",
+        affectedRegion: "members table",
+        persistentRegions: ["sidebar", "top bar"],
+        replacementBehavior: "replace-region-content",
+        requiredComponents: ["empty state", "primary action"],
+        primaryAction: "Invite member",
+        sourceRefs: ["https://example.com/empty"],
+      },
+      {
+        id: "members-error",
+        label: "Members could not load",
+        kind: "error",
+        scope: "region",
+        affectedRegion: "members table",
+        persistentRegions: ["sidebar", "top bar"],
+        replacementBehavior: "replace-region-content",
+        requiredComponents: ["inline error", "secondary action"],
+        primaryAction: "Retry",
+        sourceRefs: ["https://example.com/error"],
+      },
+      {
+        id: "members-permission",
+        label: "You do not have access",
+        kind: "permission",
+        scope: "page",
+        affectedRegion: "main content",
+        persistentRegions: ["sidebar", "top bar"],
+        replacementBehavior: "replace-whole-page",
+        requiredComponents: ["permission state", "secondary action"],
+        secondaryAction: "Request access",
+        sourceRefs: ["https://example.com/permission"],
+      },
+    ],
+  };
 }
 
 function writeVariables(root: string): void {

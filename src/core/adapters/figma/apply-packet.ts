@@ -47,8 +47,14 @@ export type FigmaApplyPacket = {
   steps: unknown[];
   repeatedItems: unknown[];
   textTransforms: unknown[];
+  visualReview: {
+    required: true;
+    method: "screenshot";
+    instructions: string;
+  };
   metadata: {
     requiresApplyMetadata: true;
+    requiresScreenshotReview: true;
     verifyComponentRefs: true;
     verifyActualComponentInstances: true;
     verifyIcons: true;
@@ -109,8 +115,15 @@ export function buildFigmaApplyPacket(input: {
     steps: input.steps ?? [],
     repeatedItems: input.repeatedItems ?? [],
     textTransforms: input.textTransforms ?? [],
+    visualReview: {
+      required: true,
+      method: "screenshot",
+      instructions:
+        "After each visible Figma transaction, take a screenshot of the applied root frame and inspect it for overlap, clipped or mirrored text, broken component instances, and layout drift before recording metadata.",
+    },
     metadata: {
       requiresApplyMetadata: true,
+      requiresScreenshotReview: true,
       verifyComponentRefs: true,
       verifyActualComponentInstances: true,
       verifyIcons: true,

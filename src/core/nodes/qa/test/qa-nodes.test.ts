@@ -140,6 +140,91 @@ describe("qa graph nodes", () => {
     });
   });
 
+  it("blocks screen-state frames that were not reviewed from a screenshot", async () => {
+    const result = await runNode("qa.runUiQualityGate", {
+      applyReport: {
+        schemaVersion: "FigmaApplyReport/v1",
+        nodes: [
+          {
+            id: "state-filled",
+            semanticRole: "screen-state",
+            transactionId: "txn-filled",
+            placementId: "state-filled",
+            bounds: { x: 0, y: 0, width: 1440, height: 900 },
+            autoLayout: true,
+            overlaps: [],
+          },
+        ],
+      },
+    });
+
+    expect(result.statePatch?.uiQualityGate).toMatchObject({
+      status: "blocked",
+      checks: expect.arrayContaining([
+        expect.objectContaining({ id: "screenshot-review", status: "blocked" }),
+      ]),
+    });
+  });
+
+  it("passes screenshot-reviewed screen-state frames", async () => {
+    const result = await runNode("qa.runUiQualityGate", {
+      applyReport: {
+        schemaVersion: "FigmaApplyReport/v1",
+        nodes: [
+          {
+            id: "state-filled",
+            semanticRole: "screen-state",
+            transactionId: "txn-filled",
+            placementId: "state-filled",
+            bounds: { x: 0, y: 0, width: 1440, height: 900 },
+            autoLayout: true,
+            screenshotReviewed: true,
+            overlaps: [],
+          },
+        ],
+      },
+    });
+
+    expect(result.statePatch?.uiQualityGate).toMatchObject({
+      status: "passed",
+      checks: expect.arrayContaining([
+        expect.objectContaining({ id: "screenshot-review", status: "passed" }),
+      ]),
+    });
+  });
+
+  it("blocks screenshot-reviewed frames with visible screenshot findings", async () => {
+    const result = await runNode("qa.runUiQualityGate", {
+      applyReport: {
+        schemaVersion: "FigmaApplyReport/v1",
+        nodes: [
+          {
+            id: "state-filled",
+            semanticRole: "screen-state",
+            transactionId: "txn-filled",
+            placementId: "state-filled",
+            bounds: { x: 0, y: 0, width: 1440, height: 900 },
+            autoLayout: true,
+            screenshotReviewed: true,
+            screenshotFindings: ["search component overlaps table header"],
+            overlaps: [],
+          },
+        ],
+      },
+    });
+
+    expect(result.statePatch?.uiQualityGate).toMatchObject({
+      status: "blocked",
+      checks: expect.arrayContaining([
+        expect.objectContaining({
+          id: "screenshot-review",
+          status: "blocked",
+          findings: ["state-filled: search component overlaps table header"],
+        }),
+      ]),
+    });
+  });
+
   it("blocks applied nodes without transaction placement metadata", async () => {
     const result = await runNode("qa.runUiQualityGate", {
       applyReport: {

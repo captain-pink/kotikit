@@ -15,6 +15,8 @@ const REQUIRED_METADATA = [
   "variable-refs",
 ] as const;
 
+const VISIBLE_TRANSACTION_METADATA = ["screenshot-review"] as const;
+
 type CanvasPlacement = CanvasPlan["placements"][number];
 type FigmaTransaction = FigmaTransactionPlan["transactions"][number];
 
@@ -97,10 +99,11 @@ export function transactionPlanComplete(plan: FigmaTransactionPlan): boolean {
 }
 
 function transactionFromPlacement(placement: CanvasPlacement, order: number): FigmaTransaction {
+  const kind = transactionKindForPlacement(placement);
   return {
     id: placement.transactionId,
     order,
-    kind: transactionKindForPlacement(placement),
+    kind,
     label: placement.label,
     placementId: placement.id,
     ...(placement.stateId === undefined ? {} : { stateId: placement.stateId }),
@@ -108,8 +111,17 @@ function transactionFromPlacement(placement: CanvasPlacement, order: number): Fi
       ? {}
       : { draftComponentId: placement.draftComponentId }),
     status: "pending",
-    requiredMetadata: [...REQUIRED_METADATA],
+    requiredMetadata: metadataForTransactionKind(kind),
   };
+}
+
+function metadataForTransactionKind(
+  kind: FigmaTransaction["kind"]
+): FigmaTransaction["requiredMetadata"] {
+  if (kind === "create-screen-state" || kind === "create-region-state") {
+    return [...REQUIRED_METADATA, ...VISIBLE_TRANSACTION_METADATA];
+  }
+  return [...REQUIRED_METADATA];
 }
 
 function transactionKindForPlacement(placement: CanvasPlacement): FigmaTransaction["kind"] {

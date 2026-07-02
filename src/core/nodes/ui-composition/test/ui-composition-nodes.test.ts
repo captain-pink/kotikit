@@ -90,6 +90,57 @@ describe("ui composition graph nodes", () => {
     });
   });
 
+  it("attaches local icon affordances from the fit report to composition parts", async () => {
+    const result = await runNode("ui.buildCompositionContract", {
+      screen: { requiredUiParts: ["search", "primary action"] },
+      fitReport: {
+        exactMatches: [
+          { requestedPart: "search", componentKey: "search-key" },
+          { requestedPart: "primary action", componentKey: "button-key" },
+        ],
+        iconMatches: [
+          {
+            requestedPart: "search",
+            semantic: "search",
+            iconKey: "icon-search-key",
+            iconName: "Icon/Search",
+          },
+          {
+            requestedPart: "primary action",
+            semantic: "primary-action",
+            iconKey: "icon-plus-key",
+            iconName: "Icon/Plus",
+          },
+        ],
+      },
+    });
+
+    expect(result.statePatch?.uiComposition?.parts).toEqual([
+      expect.objectContaining({
+        id: "search",
+        iconAffordances: [
+          expect.objectContaining({
+            id: "search-icon",
+            semantic: "search",
+            source: "local-design-system",
+            iconKey: "icon-search-key",
+          }),
+        ],
+      }),
+      expect.objectContaining({
+        id: "primary-action",
+        iconAffordances: [
+          expect.objectContaining({
+            id: "primary-action-icon",
+            semantic: "primary-action",
+            source: "local-design-system",
+            iconKey: "icon-plus-key",
+          }),
+        ],
+      }),
+    ]);
+  });
+
   it("uses wrap candidate component refs as existing component coverage", async () => {
     const result = await runNode("ui.buildCompositionContract", {
       screen: { requiredUiParts: ["member table"], repeatedPatterns: ["table"] },

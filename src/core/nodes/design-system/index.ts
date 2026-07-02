@@ -8,8 +8,11 @@ import {
   getLocalVariables,
   type LocalCacheSetupAction,
   type LocalComponentRef,
+  type LocalIconRef,
   searchLocalComponents,
+  searchLocalIcons,
 } from "../../adapters/design-system/local-index.js";
+import { selectPatternPack } from "../../domain/ux-pattern-pack.js";
 import { createUserInterrupt } from "../../graph/interrupts.js";
 import type { NodeDefinition } from "../../graph/node-registry.js";
 import { type Artifact, ArtifactSchemaVersionByType } from "../../schemas/artifact.js";
@@ -24,6 +27,7 @@ type DesignSystemSearchState = {
   setupRequired: boolean;
   setupAction?: LocalCacheSetupAction;
   components: LocalComponentRef[];
+  icons?: LocalIconRef[];
   remote?: {
     status: "skipped" | "ready" | "not-configured";
     results?: unknown[];
@@ -48,6 +52,7 @@ type FitReport = {
   wrapCandidates: WrapCandidate[];
   missingComponents: FitGap[];
   approvedPrimitiveExceptions?: string[];
+  iconMatches: IconMatch[];
   variableGaps: VariableGap[];
   repeatedPatterns: PatternFit[];
 };
@@ -71,6 +76,14 @@ type FitGap = {
 
 type VariableGap = {
   kind: "color" | "text" | "effect" | "number" | "spacing";
+  reason: string;
+};
+
+type IconMatch = {
+  requestedPart: string;
+  semantic: string;
+  iconName: string;
+  iconKey: string;
   reason: string;
 };
 
@@ -130,6 +143,7 @@ export function createDesignSystemNodeDefinitions(
         const params = SearchLocalParamsSchema.parse(input.params);
         const current = designSystemFrom(state.designSystem);
         const seededComponents = arrayFrom<LocalComponentRef>(current.components);
+        const seededIcons = arrayFrom<LocalIconRef>(current.icons);
         const seededVariables = arrayFrom<LocalVariableRef>(current.variables);
         const root = state.project.root;
         const queries = designSystemQueries(state);
@@ -145,6 +159,7 @@ export function createDesignSystemNodeDefinitions(
                 setupRequired: seededComponents.length === 0,
                 ...(seededComponents.length === 0 ? { setupAction: first.setupAction } : {}),
                 components: seededComponents,
+                ...(seededIcons.length > 0 ? { icons: seededIcons } : {}),
                 ...(seededVariables.length > 0 ? { variables: seededVariables } : {}),
               } satisfies DesignSystemSearchState,
             },
@@ -160,6 +175,10 @@ export function createDesignSystemNodeDefinitions(
                 searchLocalComponents(root, query, { limit: params.limitPerQuery ?? 8 }).results
             ),
         ]);
+        const localIcons = uniqueIcons([
+          ...localIconsForQueries(root, iconQueries(state), params.limitPerQuery ?? 8),
+          ...seededIcons,
+        ]);
         const components = uniqueComponents([...localComponents, ...seededComponents]);
         const localVariables = localVariableRefs(root);
         const variables = uniqueVariables([...localVariables, ...seededVariables]);
@@ -170,6 +189,7 @@ export function createDesignSystemNodeDefinitions(
               source: "local-cache",
               setupRequired: false,
               components,
+              ...(localIcons.length > 0 ? { icons: localIcons } : {}),
               ...(variables.length > 0 ? { variables } : {}),
             } satisfies DesignSystemSearchState,
           },
@@ -369,6 +389,7 @@ function node(
 function buildFitReport(state: KotikitGraphState): FitReport {
   const designSystem = designSystemFrom(state.designSystem);
   const components = designSystem.components ?? [];
+  const icons = designSystem.icons ?? [];
   const parts = meaningfulParts(state);
   const repeatedPatterns = repeatedPatternsFrom(state);
   const fit = parts.reduce(
@@ -394,6 +415,7 @@ function buildFitReport(state: KotikitGraphState): FitReport {
     }
   );
   const patternFits = repeatedPatterns.map((pattern) => patternFit(pattern, components));
+  const iconMatches = iconMatchesForParts(parts, icons);
   const variableGaps = variableGapsFrom(designSystem.variables);
   const summary = `${fit.exactMatches.length} exact match(es), ${fit.substitutes.length} substitute(s), ${fit.wrapCandidates.length} wrap candidate(s), ${fit.missingComponents.length} missing component(s).`;
 
@@ -406,6 +428,7 @@ function buildFitReport(state: KotikitGraphState): FitReport {
     wrapCandidates: fit.wrapCandidates,
     missingComponents: fit.missingComponents,
     variableGaps,
+    iconMatches,
     repeatedPatterns: patternFits,
   };
 }
@@ -420,6 +443,19 @@ function localVariableRefs(root: string): LocalVariableRef[] {
     ...(entry.id !== undefined ? { id: entry.id } : {}),
     ...(entry.key !== undefined ? { key: entry.key } : {}),
   }));
+}
+
+function localIconsForQueries(
+  root: string,
+  queries: string[],
+  limitPerQuery: number
+): LocalIconRef[] {
+  return uniqueIcons(
+    queries.flatMap((query) => {
+      const result = searchLocalIcons(root, query, { limit: Math.min(limitPerQuery, 5) });
+      return result.status === "ready" ? result.results : [];
+    })
+  );
 }
 
 function bestComponentForPart(
@@ -467,6 +503,7 @@ function componentFitScore(part: string, componentName: string): number {
   const partTokens = tokenSet(part);
   const componentTokens = tokenSet(componentName);
   if (componentTokens.some((token) => partTokens.includes(token))) return 100;
+  if (semanticAliasesForPart(part).some((token) => componentTokens.includes(token))) return 95;
   if (partTokens.includes("table") && componentTokens.includes("data")) return 90;
   if (partTokens.includes("filter") && componentTokens.includes("toolbar")) return 80;
   return 0;
@@ -548,7 +585,7 @@ function designSystemQueries(state: KotikitGraphState): string[] {
   const parts = [...meaningfulParts(state), ...repeatedPatternsFrom(state)];
   const tokens = parts.flatMap((part) => [part, ...knownRoleTokens(part)]).filter(Boolean);
   const fallback = state.userIntent === undefined ? [] : knownRoleTokens(state.userIntent);
-  return uniqueStrings([...tokens, ...fallback]);
+  return uniqueStrings([...tokens, ...fallback, ...semanticCompanionParts(state)]);
 }
 
 function meaningfulParts(state: KotikitGraphState): string[] {
@@ -558,7 +595,27 @@ function meaningfulParts(state: KotikitGraphState): string[] {
   const flowParts = recordArray(flowModel.screens).flatMap((item) =>
     stringArray(recordFrom(item).requiredUiParts)
   );
-  return uniqueStrings([...screenParts, ...flowParts]);
+  return uniqueStrings([
+    ...screenParts,
+    ...flowParts,
+    ...patternPackParts(state),
+    ...stateParts(state),
+  ]);
+}
+
+function patternPackParts(state: KotikitGraphState): string[] {
+  const archetype = recordFrom(state.uxEnvelope).screenArchetype;
+  if (typeof archetype !== "string") return [];
+  return selectPatternPack(archetype).componentRoles;
+}
+
+function stateParts(state: KotikitGraphState): string[] {
+  return recordArray(recordFrom(state.stateMatrix).states).flatMap((item) => [
+    ...stringArray(item.requiredComponents),
+    ...optionalString(item.primaryAction),
+    ...optionalString(item.secondaryAction),
+    ...optionalString(item.affectedRegion),
+  ]);
 }
 
 function screenRegions(screen: Record<string, unknown>): string[] {
@@ -594,7 +651,117 @@ function knownRoleTokens(value: string): string[] {
     tokens.includes("filter") || tokens.includes("toolbar") ? "toolbar" : undefined,
     tokens.includes("tab") ? "tabs" : undefined,
     tokens.includes("badge") || tokens.includes("status") ? "badge" : undefined,
+    tokens.includes("avatar") || tokens.includes("member") || tokens.includes("user")
+      ? "avatar"
+      : undefined,
+    tokens.includes("nav") || tokens.includes("navigation") || tokens.includes("sidebar")
+      ? "nav item"
+      : undefined,
+    tokens.includes("select") || tokens.includes("dropdown") ? "select" : undefined,
+    tokens.includes("empty") ? "empty state" : undefined,
+    tokens.includes("error") || tokens.includes("alert") || tokens.includes("permission")
+      ? "alert"
+      : undefined,
   ].filter((token): token is string => token !== undefined);
+}
+
+function semanticCompanionParts(state: KotikitGraphState): string[] {
+  const parts = meaningfulParts(state);
+  const dataModel = recordFrom(recordFrom(state.uxEnvelope).dataModel);
+  const fields = stringArray(dataModel.fields);
+  const primaryEntity = typeof dataModel.primaryEntity === "string" ? dataModel.primaryEntity : "";
+  const roleParts = parts.flatMap((part) => {
+    const tokens = tokenSet(part);
+    return [
+      tokens.includes("action") ? "button" : undefined,
+      tokens.includes("toolbar") || tokens.includes("filter") ? "select" : undefined,
+      tokens.includes("toolbar") || tokens.includes("filter") ? "combobox" : undefined,
+      tokens.includes("navigation") || tokens.includes("sidebar") ? "nav item" : undefined,
+      tokens.includes("table") ? "checkbox" : undefined,
+      tokens.includes("table") ? "menu" : undefined,
+      tokens.includes("empty") ? "empty state" : undefined,
+      tokens.includes("error") || tokens.includes("permission") ? "alert" : undefined,
+    ].filter((item): item is string => item !== undefined);
+  });
+  const entityParts = [
+    hasAny(`${primaryEntity} ${fields.join(" ")}`, ["member", "user", "person", "contact"])
+      ? "avatar"
+      : undefined,
+    fields.some((field) => hasAny(field, ["status", "role", "state"])) ? "badge" : undefined,
+  ].filter((item): item is string => item !== undefined);
+  return uniqueStrings([...roleParts, ...entityParts]);
+}
+
+function iconQueries(state: KotikitGraphState): string[] {
+  return uniqueStrings(
+    [...meaningfulParts(state), ...semanticCompanionParts(state)]
+      .flatMap(iconSemanticsForPart)
+      .flatMap(iconSearchTokens)
+  );
+}
+
+function iconMatchesForParts(parts: string[], icons: LocalIconRef[]): IconMatch[] {
+  return parts.flatMap((part) => {
+    const semantic = iconSemanticsForPart(part)[0];
+    if (semantic === undefined) return [];
+    const icon = bestIconForSemantic(semantic, icons);
+    if (icon === undefined) return [];
+    return [
+      {
+        requestedPart: part,
+        semantic,
+        iconName: icon.name,
+        iconKey: icon.key,
+        reason: "Local design-system icon matches the planned UI affordance.",
+      },
+    ];
+  });
+}
+
+function bestIconForSemantic(semantic: string, icons: LocalIconRef[]): LocalIconRef | undefined {
+  const queries = iconSearchTokens(semantic);
+  return icons
+    .map((icon) => ({
+      icon,
+      score: tokenSet(icon.name).some((token) => queries.includes(token)) ? 1 : 0,
+    }))
+    .filter((candidate) => candidate.score > 0)
+    .sort((a, b) => a.icon.name.localeCompare(b.icon.name))[0]?.icon;
+}
+
+function iconSemanticsForPart(part: string): string[] {
+  const tokens = tokenSet(part);
+  return [
+    tokens.includes("search") ? "search" : undefined,
+    tokens.includes("filter") || tokens.includes("select") || tokens.includes("toolbar")
+      ? "filter"
+      : undefined,
+    tokens.includes("primary") || tokens.includes("action") ? "primary-action" : undefined,
+    tokens.includes("error") || tokens.includes("alert") ? "error" : undefined,
+    tokens.includes("permission") || tokens.includes("access") ? "lock" : undefined,
+    tokens.includes("menu") || tokens.includes("overflow") || tokens.includes("more")
+      ? "more"
+      : undefined,
+  ].filter((item): item is string => item !== undefined);
+}
+
+function iconSearchTokens(semantic: string): string[] {
+  if (semantic === "primary-action") return ["plus", "add", "create", "new"];
+  if (semantic === "error") return ["alert", "error", "warning"];
+  if (semantic === "lock") return ["lock", "permission", "access"];
+  if (semantic === "more") return ["more", "menu", "overflow"];
+  return [semantic];
+}
+
+function semanticAliasesForPart(part: string): string[] {
+  const tokens = tokenSet(part);
+  return [
+    tokens.includes("action") ? "button" : undefined,
+    tokens.includes("error") ? "alert" : undefined,
+    tokens.includes("permission") || tokens.includes("access") ? "alert" : undefined,
+    tokens.includes("navigation") ? "nav" : undefined,
+    tokens.includes("row") && tokens.includes("action") ? "menu" : undefined,
+  ].filter((item): item is string => item !== undefined);
 }
 
 function fitReportRefs(report: FitReport): string[] {
@@ -607,6 +774,7 @@ function fitReportRefs(report: FitReport): string[] {
       (match) => `wrap: ${match.requestedPart} -> ${match.componentKey}`
     ),
     ...report.missingComponents.map((gap) => `missing: ${gap.requestedPart}`),
+    ...report.iconMatches.map((match) => `icon: ${match.requestedPart} -> ${match.iconKey}`),
   ];
 }
 
@@ -625,12 +793,14 @@ function reusePlanPayload(report: FitReport): Artifact["payload"] {
         (match) => `wrap: ${match.requestedPart} -> ${match.componentKey}`
       ),
       ...report.missingComponents.map((gap) => `draft: ${gap.requestedPart}`),
+      ...report.iconMatches.map((match) => `icon: ${match.requestedPart} -> ${match.iconKey}`),
     ],
     data: {
       exactMatches: report.exactMatches.length,
       substitutes: report.substitutes.length,
       wrapCandidates: report.wrapCandidates.length,
       missingComponents: report.missingComponents.length,
+      iconMatches: report.iconMatches.length,
     },
   };
 }
@@ -721,6 +891,7 @@ function fitReportFrom(value: unknown): FitReport {
       substitutes: [],
       wrapCandidates: [],
       missingComponents: [],
+      iconMatches: [],
       variableGaps: [],
       repeatedPatterns: [],
     };
@@ -735,6 +906,7 @@ function fitReportFrom(value: unknown): FitReport {
     missingComponents: arrayFrom<FitGap>(value.missingComponents),
     approvedPrimitiveExceptions: stringArray(value.approvedPrimitiveExceptions),
     variableGaps: arrayFrom<VariableGap>(value.variableGaps),
+    iconMatches: arrayFrom<IconMatch>(value.iconMatches),
     repeatedPatterns: arrayFrom<PatternFit>(value.repeatedPatterns),
   };
 }
@@ -756,8 +928,27 @@ function uniqueVariables(variables: LocalVariableRef[]): LocalVariableRef[] {
   return Array.from(byKey.values());
 }
 
+function uniqueIcons(icons: LocalIconRef[]): LocalIconRef[] {
+  const byKey = new Map<string, LocalIconRef>();
+  icons.forEach((icon) => {
+    if (!byKey.has(icon.key)) byKey.set(icon.key, icon);
+  });
+  return Array.from(byKey.values());
+}
+
 function uniqueStrings(values: string[]): string[] {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+}
+
+function hasAny(value: string, candidates: string[]): boolean {
+  const tokens = tokenSet(value);
+  return candidates.some((candidate) =>
+    tokenSet(candidate).some((token) => tokens.includes(token))
+  );
+}
+
+function optionalString(value: unknown): string[] {
+  return typeof value === "string" && value.trim().length > 0 ? [value] : [];
 }
 
 function tokenSet(value: string): string[] {

@@ -147,7 +147,7 @@ Output: compact component refs.
 ### kotikit_record_figma_apply
 
 Purpose: Record official Figma MCP apply metadata into the active graph run.
-Input: `{ runId: string; scope: string; stepIndex: number; outcome: "ok" | "warned" | "failed"; transactionId: string; figmaFileKey?; figmaPageId?; figmaSectionName?; figmaNodeId?; figmaNodeKind?; figmaNodeName?; bounds?; componentRefs?; componentKey?; componentSource?; variableRefs?; iconRefs?; iconKey?; iconPlaceholder?; representation?; autoLayout?; nodes?; partId?; draftComponentId?; componentName?; dsKey?; variableBindings?; layoutFrames?; repeatedItems?; textTransforms?; evidenceSnapshot? }`
+Input: `{ runId: string; scope: string; stepIndex: number; outcome: "ok" | "warned" | "failed"; transactionId: string; figmaFileKey?; figmaPageId?; figmaSectionName?; figmaNodeId?; figmaNodeKind?; figmaNodeName?; bounds?; componentRefs?; componentKey?; componentSource?; variableRefs?; iconRefs?; iconKey?; iconPlaceholder?; representation?; autoLayout?; screenshotReviewed?; screenshotFindings?; nodes?; partId?; draftComponentId?; componentName?; dsKey?; variableBindings?; layoutFrames?; repeatedItems?; textTransforms?; evidenceSnapshot? }`
 Output: `{ runId; status; activeFigmaTransaction?; figmaTransactionProgress?; pendingQuestion?; artifacts; errors }`
 
 Use this after applying the active incremental Figma transaction. Do not record
@@ -161,6 +161,9 @@ include a compact `evidenceSnapshot` gathered from the applied Figma root node:
 visible component instances, local design-system component/icon keys,
 auto-layout mode, bounds, visibility, opacity, and layout metrics. Newly
 created local components do not satisfy existing design-system reuse.
+Take a screenshot after visible DS component placement, inspect it, record
+`screenshotReviewed: true`, and include visible issues in
+`screenshotFindings`.
 
 ### kotikit_doctor
 

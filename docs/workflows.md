@@ -44,7 +44,8 @@ The assistant should:
 5. Read the apply-packet artifact and active Figma transaction.
 6. Use the official Figma assistant integration to apply one screen state or
    region state at the canvas plan bounds.
-7. Record Figma node metadata back into kotikit.
+7. Scan the applied root node, take a screenshot, and repair visible layout
+   issues before recording metadata back into kotikit.
 8. Continue the run and repeat one screen state at a time until the transaction
    queue is complete.
 9. Let the UI quality gate check common broken-output issues.
@@ -56,6 +57,10 @@ work during composition. After the design is visible, the assistant should ask
 whether you want those missing reusable parts extracted into draft components on
 the same draft page. Each generated node is placed by the canvas plan and
 recorded in the node ledger so future recovery and QA have real evidence.
+Design-system components must be the actual visible UI, not hidden or
+low-opacity proof layers. If evidence fails, the active transaction remains
+repairable so the assistant should fix the current frame instead of starting a
+new run or section.
 
 ### Manual QA For Generated Figma Drafts
 
@@ -70,6 +75,8 @@ After kotikit creates a draft, verify:
 - important controls use design-system component instances;
 - required icons come from the local design-system icon index, not placeholders;
 - variables/styles are bound where available;
+- screen-state frames were reviewed from a screenshot after visible component
+  placement;
 - all frames stay editable and selectable without manual cleanup.
 
 ## Screen States

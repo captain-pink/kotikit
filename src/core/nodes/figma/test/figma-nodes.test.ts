@@ -511,6 +511,7 @@ describe("figma graph nodes", () => {
         "component-source",
         "icon-refs",
         "variable-refs",
+        "screenshot-review",
       ],
     });
     expect(result.statePatch?.activeFigmaTransaction).not.toHaveProperty("status");
@@ -676,6 +677,7 @@ describe("figma graph nodes", () => {
           "component-source",
           "icon-refs",
           "variable-refs",
+          "screenshot-review",
         ],
       },
       applyMetadata: {
@@ -747,6 +749,7 @@ describe("figma graph nodes", () => {
           "component-source",
           "icon-refs",
           "variable-refs",
+          "screenshot-review",
         ],
       },
       applyMetadata: {
@@ -864,6 +867,29 @@ describe("figma graph nodes", () => {
         applyReport: apply.statePatch?.applyReport,
       })
     ).resolves.toEqual({});
+  });
+
+  it("rejects proof-node evidence before recording the active transaction", async () => {
+    await expect(
+      runNode("figma.applyTransactionQueue", {
+        figmaTarget: draftTarget(),
+        figmaTransactionPlan: singleActiveTransactionPlan(),
+        activeFigmaTransaction: activeTransaction(),
+        draftPlan: { applyPacket: incrementalApplyPacket() },
+        applyMetadata: applyMetadata({
+          componentRefs: ["button-key"],
+          variableRefs: ["color.bg", "style-body"],
+          evidenceSnapshot: evidenceSnapshot({
+            partNode: {
+              nodeType: "FRAME",
+              isInstance: false,
+              mainComponentKey: undefined,
+              source: "primitive",
+            },
+          }),
+        }),
+      })
+    ).rejects.toThrow("expected an existing local design-system component");
   });
 
   it("accepts variable key proof for incremental variable bindings", async () => {
@@ -1314,6 +1340,7 @@ function transactionPlan(): NonNullable<KotikitGraphState["figmaTransactionPlan"
           "component-source",
           "icon-refs",
           "variable-refs",
+          "screenshot-review",
         ],
       },
       {
@@ -1332,6 +1359,7 @@ function transactionPlan(): NonNullable<KotikitGraphState["figmaTransactionPlan"
           "component-source",
           "icon-refs",
           "variable-refs",
+          "screenshot-review",
         ],
       },
     ],

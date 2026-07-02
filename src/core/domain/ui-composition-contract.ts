@@ -7,6 +7,13 @@ type FitMatch = {
   componentName?: string;
 };
 
+type IconMatch = {
+  requestedPart?: string;
+  semantic?: string;
+  iconName?: string;
+  iconKey?: string;
+};
+
 type FitGap = {
   requestedPart?: string;
 };
@@ -16,6 +23,7 @@ type FitReportLike = {
   substitutes?: FitMatch[];
   wrapCandidates?: FitMatch[];
   missingComponents?: FitGap[];
+  iconMatches?: IconMatch[];
   repeatedPatterns?: { pattern?: string; status?: string }[];
 };
 
@@ -31,6 +39,7 @@ type CreatedDraftComponentLike = {
 
 type UICompositionPart = UICompositionContract["parts"][number];
 type UIPlacement = NonNullable<UICompositionPart["placement"]>;
+type UIIconAffordance = NonNullable<UICompositionPart["iconAffordances"]>[number];
 
 export function buildUiCompositionContract(input: {
   requiredUiParts: string[];
@@ -44,6 +53,7 @@ export function buildUiCompositionContract(input: {
   const parts = input.requiredUiParts.map((part) => {
     const id = idFor(part);
     const role = roleFor(part);
+    const iconAffordances = iconAffordancesForPart(part, input.fitReport?.iconMatches);
     const placement = placementFor({
       id,
       name: part,
@@ -63,6 +73,7 @@ export function buildUiCompositionContract(input: {
         ...(placement === undefined ? {} : { placement }),
         source: "existing-component" as const,
         componentKey: existing.componentKey,
+        ...(iconAffordances.length === 0 ? {} : { iconAffordances }),
       };
     }
 
@@ -85,6 +96,7 @@ export function buildUiCompositionContract(input: {
         source: "draft-component" as const,
         draftComponentId: draft.id,
         componentKey: created.componentKey,
+        ...(iconAffordances.length === 0 ? {} : { iconAffordances }),
       };
     }
 
@@ -96,6 +108,7 @@ export function buildUiCompositionContract(input: {
         ...(placement === undefined ? {} : { placement }),
         source: "approved-primitive" as const,
         primitiveReason: "Approved primitive exception for this draft.",
+        ...(iconAffordances.length === 0 ? {} : { iconAffordances }),
       };
     }
 
@@ -106,6 +119,7 @@ export function buildUiCompositionContract(input: {
       ...(placement === undefined ? {} : { placement }),
       source: "screen-draft" as const,
       extractionCandidate: true,
+      ...(iconAffordances.length === 0 ? {} : { iconAffordances }),
     };
   });
 
@@ -133,6 +147,29 @@ export function assertNoHardcodedImitation(input: { draftPlan?: unknown }): void
 
 function findFit(part: string, matches: FitMatch[] | undefined): FitMatch | undefined {
   return matches?.find((match) => normalize(match.requestedPart) === normalize(part));
+}
+
+function iconAffordancesForPart(
+  part: string,
+  matches: IconMatch[] | undefined
+): UIIconAffordance[] {
+  return (matches ?? [])
+    .filter((match) => normalize(match.requestedPart) === normalize(part))
+    .flatMap((match) => {
+      if (match.semantic === undefined || match.iconKey === undefined) return [];
+      const id = `${idFor(part)}-icon`;
+      return [
+        {
+          id,
+          semantic: match.semantic,
+          source: "local-design-system" as const,
+          iconKey: match.iconKey,
+          ...(match.iconName === undefined ? {} : { iconName: match.iconName }),
+          required: true,
+          reason: "Use the local design-system icon planned for this UI affordance.",
+        },
+      ];
+    });
 }
 
 function roleFor(part: string): string {

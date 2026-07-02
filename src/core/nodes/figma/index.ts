@@ -60,6 +60,7 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
       "applyMetadata",
       "figmaEvidenceSnapshots",
       "figmaNodeLedger",
+      "draftPlan",
     ],
     stateWrites: [
       "figmaTransactionPlan",
@@ -115,15 +116,20 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
 
       const metadata = requireTransactionMetadata(active.id, state.applyMetadata);
       validateApplyMetadata(target, metadata);
+      const evidenceSnapshots = appendEvidenceSnapshot(
+        recordArray(state.figmaEvidenceSnapshots),
+        metadata.evidenceSnapshot
+      );
+      verifyTransactionEvidenceBeforeRecord({
+        active,
+        packet: recordFrom(recordFrom(state.draftPlan).applyPacket),
+        evidenceSnapshots,
+      });
       const ledger = appendLedgerNode(ledgerFrom(state.figmaNodeLedger, target), {
         active,
         metadata,
         target,
       });
-      const evidenceSnapshots = appendEvidenceSnapshot(
-        recordArray(state.figmaEvidenceSnapshots),
-        metadata.evidenceSnapshot
-      );
       const recordedPlan = recordTransactionMetadata(plan, { transactionId: active.id });
 
       if (transactionPlanComplete(recordedPlan)) {
@@ -366,6 +372,22 @@ function appendLedgerNode(
       ? {}
       : { iconPlaceholder: booleanField(input.metadata, "iconPlaceholder") }),
     autoLayout,
+    ...(booleanField(input.metadata, "screenshotReviewed") === undefined
+      ? {}
+      : { screenshotReviewed: booleanField(input.metadata, "screenshotReviewed") }),
+    ...(optionalStringArray(
+      input.active.id,
+      input.metadata.screenshotFindings,
+      "screenshotFindings"
+    ).length === 0
+      ? {}
+      : {
+          screenshotFindings: optionalStringArray(
+            input.active.id,
+            input.metadata.screenshotFindings,
+            "screenshotFindings"
+          ),
+        }),
     recordedAt,
   };
   const childNodes = childLedgerNodesFromMetadata(input, {
@@ -384,6 +406,21 @@ function appendLedgerNode(
       draftSectionName(input.target),
     nodes: [...ledger.nodes, node, ...childNodes],
     updatedAt,
+  });
+}
+
+function verifyTransactionEvidenceBeforeRecord(input: {
+  active: NonNullable<KotikitGraphState["activeFigmaTransaction"]>;
+  packet: Record<string, unknown>;
+  evidenceSnapshots: Record<string, unknown>[];
+}): void {
+  if (input.active.kind !== "create-screen-state" && input.active.kind !== "create-region-state") {
+    return;
+  }
+  if (Object.keys(input.packet).length === 0 || input.evidenceSnapshots.length === 0) return;
+  verifyFigmaEvidenceAgainstApplyPacket({
+    packet: input.packet,
+    evidenceSnapshots: input.evidenceSnapshots,
   });
 }
 
@@ -449,6 +486,22 @@ function childLedgerNodesFromMetadata(
           ? {}
           : { iconPlaceholder: booleanField(nodeMetadata, "iconPlaceholder") }),
         autoLayout: booleanField(nodeMetadata, "autoLayout") ?? false,
+        ...(booleanField(nodeMetadata, "screenshotReviewed") === undefined
+          ? {}
+          : { screenshotReviewed: booleanField(nodeMetadata, "screenshotReviewed") }),
+        ...(optionalStringArray(
+          input.active.id,
+          nodeMetadata.screenshotFindings,
+          "screenshotFindings"
+        ).length === 0
+          ? {}
+          : {
+              screenshotFindings: optionalStringArray(
+                input.active.id,
+                nodeMetadata.screenshotFindings,
+                "screenshotFindings"
+              ),
+            }),
         recordedAt: parent.recordedAt,
       },
     ];
@@ -671,6 +724,12 @@ function compactReportNode(node: FigmaNodeLedger["nodes"][number]): Record<strin
     ...(node.iconKey === undefined ? {} : { iconKey: node.iconKey }),
     ...(node.iconPlaceholder === undefined ? {} : { iconPlaceholder: node.iconPlaceholder }),
     autoLayout: node.autoLayout,
+    ...(node.screenshotReviewed === undefined
+      ? {}
+      : { screenshotReviewed: node.screenshotReviewed }),
+    ...(node.screenshotFindings === undefined
+      ? {}
+      : { screenshotFindings: node.screenshotFindings }),
   };
 }
 

@@ -97,14 +97,19 @@ When applying a kotikit draft in Figma:
 - After the write, scan the applied root node and include compact evidence for
   visible component instances, local DS component/icon keys, layout mode,
   bounds, visibility, opacity, and layout metrics.
+- Take a screenshot of the applied root frame after placing or changing visible
+  design-system components. Inspect it for overlap, clipped or mirrored text,
+  broken component internals, and layout drift.
 - Record `transactionId`, node id, Figma node type, bounds, component refs or
   componentKey, component source, variable refs, required icon refs,
-  auto-layout metadata, and `evidenceSnapshot` with
-  `kotikit_record_figma_apply`.
+  auto-layout metadata, `screenshotReviewed: true`, any
+  `screenshotFindings`, and `evidenceSnapshot` with `kotikit_record_figma_apply`.
 - Continue the run and repeat until kotikit reports no active Figma
   transaction.
 - Do not create every state on the canvas in one operation.
 - Do not create draft components before composing the actual screen or flow.
+- Do not add visible or low-opacity proof nodes. If evidence fails, repair the
+  same active transaction by using the planned DS component as the real UI.
 - Newly created local components do not count as existing design-system reuse.
   Existing DS reuse means a visible instance whose main component key came from
   the pre-run local design-system search result.

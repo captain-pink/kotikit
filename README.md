@@ -125,6 +125,8 @@ on stabilizing fast screen creation and design-system use.
 - Compose-first Figma drafting that uses local design-system components, icons,
   variables, and auto layout before asking about optional draft component
   extraction.
+- Compact evidence and screenshot-review gates that reject proof overlays and
+  visible layout corruption before final QA.
 - Variable import fallback through the plugin for non-Enterprise Figma plans.
 - Final design-system usage reports after QA so teams can see reused
   components, screen-draft parts, optional draft components, icons, and

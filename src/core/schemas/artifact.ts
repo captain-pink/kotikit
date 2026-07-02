@@ -249,6 +249,7 @@ const FigmaTransactionMetadataSchema = z.enum([
   "component-source",
   "icon-refs",
   "variable-refs",
+  "screenshot-review",
 ]);
 
 const ActiveFigmaTransactionBaseSchema = z.strictObject({
@@ -361,6 +362,8 @@ const FigmaNodeLedgerEntrySchema = z.strictObject({
   iconKey: IncrementalRefSchema.optional(),
   iconPlaceholder: z.boolean().optional(),
   autoLayout: z.boolean(),
+  screenshotReviewed: z.boolean().optional(),
+  screenshotFindings: z.array(IncrementalTextSchema).max(INCREMENTAL_ARRAY_MAX).optional(),
   recordedAt: IncrementalRefSchema,
 });
 

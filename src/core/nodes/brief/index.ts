@@ -425,7 +425,18 @@ function inferScreenBlueprint(
     "page shell",
     "content heading",
     "primary action",
-    ...(isTable ? ["toolbar", "search", "filters", "data table", "pagination"] : []),
+    ...(isTable
+      ? [
+          "toolbar",
+          "search",
+          "filters",
+          "data table",
+          "pagination",
+          "row avatar",
+          "status badge",
+          "row action menu",
+        ]
+      : []),
     ...(isForm ? ["form fields", "secondary action"] : []),
     ...(isList ? ["list container", "list item"] : []),
   ]);

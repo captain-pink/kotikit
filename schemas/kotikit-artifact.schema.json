@@ -1426,7 +1426,8 @@
                         "component-refs",
                         "component-source",
                         "icon-refs",
-                        "variable-refs"
+                        "variable-refs",
+                        "screenshot-review"
                       ]
                     }
                   },
@@ -1606,6 +1607,18 @@
                   },
                   "autoLayout": {
                     "type": "boolean"
+                  },
+                  "screenshotReviewed": {
+                    "type": "boolean"
+                  },
+                  "screenshotFindings": {
+                    "maxItems": 500,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    }
                   },
                   "recordedAt": {
                     "type": "string",
@@ -4587,7 +4600,8 @@
                         "component-refs",
                         "component-source",
                         "icon-refs",
-                        "variable-refs"
+                        "variable-refs",
+                        "screenshot-review"
                       ]
                     }
                   },
@@ -4826,6 +4840,18 @@
                   },
                   "autoLayout": {
                     "type": "boolean"
+                  },
+                  "screenshotReviewed": {
+                    "type": "boolean"
+                  },
+                  "screenshotFindings": {
+                    "maxItems": 500,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    }
                   },
                   "recordedAt": {
                     "type": "string",
