@@ -14,6 +14,7 @@ interface CliOptions {
   coAuthorMode: CoAuthorMode;
   ensureEnv: boolean;
   installSkills: boolean;
+  preserveSkills: boolean;
   help: boolean;
 }
 
@@ -39,6 +40,7 @@ function parseArgs(argv: string[], defaults: { cwd: string; kotikitRoot: string 
     coAuthorMode: "auto",
     ensureEnv: true,
     installSkills: true,
+    preserveSkills: false,
     help: false,
   };
 
@@ -61,6 +63,10 @@ function parseArgs(argv: string[], defaults: { cwd: string; kotikitRoot: string 
     }
     if (arg === "--no-skill") {
       opts.installSkills = false;
+      return;
+    }
+    if (arg === "--preserve-skills") {
+      opts.preserveSkills = true;
       return;
     }
     if (arg === "--target") {
@@ -110,6 +116,7 @@ function helpText(): string {
     "  --co-author auto|none|claude|codex       Update existing .kotikit/config.json co-author. Default: auto.",
     "  --no-env                                Do not create or append FIGMA_TOKEN= in .env.",
     "  --no-skill                              Do not install kotikit skills into the target project.",
+    "  --preserve-skills                       Keep changed copied skills instead of backing them up and refreshing.",
     "  --help                                  Show this help.",
   ].join("\n");
 }
@@ -138,6 +145,7 @@ async function main(): Promise<void> {
     coAuthorMode: opts.coAuthorMode,
     ensureEnv: opts.ensureEnv,
     installSkills: opts.installSkills,
+    preserveSkills: opts.preserveSkills,
   });
 
   console.log("kotikit agent scaffold complete.");

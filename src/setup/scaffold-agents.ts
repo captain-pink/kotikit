@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { KOTIKIT_AUTO_APPROVED_TOOL_NAMES } from "../mcp/tool-safety.js";
@@ -12,6 +13,7 @@ export interface ScaffoldAgentsOptions {
   coAuthorMode?: CoAuthorMode;
   ensureEnv?: boolean;
   installSkills?: boolean;
+  preserveSkills?: boolean;
   /** @deprecated Use installSkills. Kept for existing scaffold callers. */
   installCodexSkill?: boolean;
 }
@@ -322,6 +324,19 @@ function agentLabel(agent: AgentKind): string {
   return agent === "claude" ? "Claude Code" : "Codex";
 }
 
+function skillBackupPath(targetRoot: string, agent: AgentKind, name: KotikitSkillName): string {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  return join(
+    targetRoot,
+    ".kotikit",
+    "backups",
+    "scaffold",
+    agent,
+    name,
+    `SKILL-${timestamp}-${randomUUID()}.md`
+  );
+}
+
 function isOutdatedKotikitAutoSkill(existing: string): boolean {
   return (
     existing.includes("../../../docs/agent_workflow.md") ||
@@ -334,7 +349,8 @@ async function installKotikitSkill(
   targetRoot: string,
   kotikitRoot: string,
   agent: AgentKind,
-  name: KotikitSkillName
+  name: KotikitSkillName,
+  preserveSkills: boolean
 ): Promise<void> {
   const sourcePath = kotikitSkillSourcePath(kotikitRoot, name);
   const targetPath = kotikitSkillTargetPath(targetRoot, agent, name);
@@ -344,15 +360,21 @@ async function installKotikitSkill(
   const existing = await readTextIfExists(targetPath);
 
   if (existing !== null && existing !== source) {
-    if (name === "kotikit-auto" && isOutdatedKotikitAutoSkill(existing)) {
-      await writeTextAtomic(targetPath, source);
-      result.written.push(targetPath);
-      result.notes.push(`Replaced outdated ${label} skill: ${targetPath}`);
+    if (preserveSkills) {
+      result.skipped.push(targetPath);
+      result.notes.push(`Skipped existing ${label} skill with local changes: ${targetPath}`);
       return;
     }
 
-    result.skipped.push(targetPath);
-    result.notes.push(`Skipped existing ${label} skill with local changes: ${targetPath}`);
+    const backupPath = skillBackupPath(targetRoot, agent, name);
+    await writeTextAtomic(backupPath, existing);
+    await writeTextAtomic(targetPath, source);
+    result.written.push(targetPath);
+    result.notes.push(
+      name === "kotikit-auto" && isOutdatedKotikitAutoSkill(existing)
+        ? `Replaced outdated ${label} skill and saved previous copy at ${backupPath}`
+        : `Updated ${label} skill and saved previous copy at ${backupPath}`
+    );
     return;
   }
 
@@ -446,10 +468,11 @@ export async function scaffoldAgents(
 
   const installSkills = options.installSkills ?? options.installCodexSkill ?? true;
   if (installSkills) {
+    const preserveSkills = options.preserveSkills ?? false;
     await Promise.all(
       agents.flatMap((agent) =>
         KOTIKIT_SKILL_NAMES.map((name) =>
-          installKotikitSkill(result, targetRoot, kotikitRoot, agent, name)
+          installKotikitSkill(result, targetRoot, kotikitRoot, agent, name, preserveSkills)
         )
       )
     );
