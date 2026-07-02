@@ -8,13 +8,13 @@ import type {
   VariableBindingPlan,
 } from "../../schemas/artifact.js";
 
-export type CanvasPlanSummary = {
+type CanvasPlanSummary = {
   sectionName: string;
   placementCount: number;
   zoneCount: number;
 };
 
-export type FigmaTransactionSummary = {
+type FigmaTransactionSummary = {
   id: string;
   order: number;
   kind: FigmaTransactionPlan["transactions"][number]["kind"];
@@ -22,9 +22,12 @@ export type FigmaTransactionSummary = {
   placementId: string;
   stateId?: string;
   draftComponentId?: string;
+  expectedNodeKind: "COMPONENT" | "FRAME";
+  placement: CanvasPlan["placements"][number];
+  parentZone: CanvasPlan["zones"][number];
 };
 
-export type FigmaTransactionPlanSummary = {
+type FigmaTransactionPlanSummary = {
   transactionCount: number;
   transactions: FigmaTransactionSummary[];
 };
@@ -38,17 +41,32 @@ export type FigmaApplyPacket = {
   layoutContract: LayoutContract;
   variableBindingPlan: VariableBindingPlan;
   canvasPlanSummary: CanvasPlanSummary;
+  canvasPlan: CanvasPlan;
   transactionPlanSummary: FigmaTransactionPlanSummary;
+  iconRequirements: IconRequirement[];
   steps: unknown[];
   repeatedItems: unknown[];
   textTransforms: unknown[];
   metadata: {
     requiresApplyMetadata: true;
     verifyComponentRefs: true;
+    verifyActualComponentInstances: true;
+    verifyIcons: true;
     verifyVariables: true;
     verifyAutoLayout: true;
     incrementalTransactions: true;
   };
+};
+
+type IconRequirement = {
+  id: string;
+  semantic: string;
+  source: "local-design-system" | "approved-external";
+  reason: string;
+  partId?: string;
+  iconKey?: string;
+  iconName?: string;
+  required?: boolean;
 };
 
 export function buildFigmaApplyPacket(input: {
@@ -85,13 +103,17 @@ export function buildFigmaApplyPacket(input: {
     layoutContract: input.layoutContract,
     variableBindingPlan: input.variableBindingPlan,
     canvasPlanSummary: summarizeCanvasPlan(input.canvasPlan),
-    transactionPlanSummary: summarizeTransactionPlan(input.transactionPlan),
+    canvasPlan: input.canvasPlan,
+    transactionPlanSummary: summarizeTransactionPlan(input.transactionPlan, input.canvasPlan),
+    iconRequirements: iconRequirementsFrom(input.uiComposition),
     steps: input.steps ?? [],
     repeatedItems: input.repeatedItems ?? [],
     textTransforms: input.textTransforms ?? [],
     metadata: {
       requiresApplyMetadata: true,
       verifyComponentRefs: true,
+      verifyActualComponentInstances: true,
+      verifyIcons: true,
       verifyVariables: true,
       verifyAutoLayout: true,
       incrementalTransactions: true,
@@ -108,20 +130,58 @@ function summarizeCanvasPlan(canvasPlan: CanvasPlan): CanvasPlanSummary {
 }
 
 function summarizeTransactionPlan(
-  transactionPlan: FigmaTransactionPlan
+  transactionPlan: FigmaTransactionPlan,
+  canvasPlan: CanvasPlan
 ): FigmaTransactionPlanSummary {
+  const placementsById = new Map(
+    canvasPlan.placements.map((placement) => [placement.id, placement])
+  );
+  const zonesById = new Map(canvasPlan.zones.map((zone) => [zone.id, zone]));
   return {
     transactionCount: transactionPlan.transactions.length,
-    transactions: transactionPlan.transactions.map((transaction) => ({
-      id: transaction.id,
-      order: transaction.order,
-      kind: transaction.kind,
-      label: transaction.label,
-      placementId: transaction.placementId,
-      ...(transaction.stateId === undefined ? {} : { stateId: transaction.stateId }),
-      ...(transaction.draftComponentId === undefined
-        ? {}
-        : { draftComponentId: transaction.draftComponentId }),
-    })),
+    transactions: transactionPlan.transactions.map((transaction) => {
+      const placement = placementsById.get(transaction.placementId);
+      if (placement === undefined) {
+        throw new KotikitError(
+          `Figma transaction ${transaction.id} references missing canvas placement ${transaction.placementId}.`,
+          "Regenerate the canvas plan before building the apply packet."
+        );
+      }
+      const parentZone = zonesById.get(placement.parentZoneId);
+      if (parentZone === undefined) {
+        throw new KotikitError(
+          `Canvas placement ${placement.id} references missing parent zone ${placement.parentZoneId}.`,
+          "Regenerate the canvas plan before building the apply packet."
+        );
+      }
+      return {
+        id: transaction.id,
+        order: transaction.order,
+        kind: transaction.kind,
+        label: transaction.label,
+        placementId: transaction.placementId,
+        ...(transaction.stateId === undefined ? {} : { stateId: transaction.stateId }),
+        ...(transaction.draftComponentId === undefined
+          ? {}
+          : { draftComponentId: transaction.draftComponentId }),
+        expectedNodeKind: transaction.kind === "create-draft-component" ? "COMPONENT" : "FRAME",
+        placement,
+        parentZone,
+      };
+    }),
   };
+}
+
+function iconRequirementsFrom(uiComposition: UICompositionContract): IconRequirement[] {
+  return uiComposition.parts.flatMap((part) =>
+    (part.iconAffordances ?? [])
+      .filter((affordance) => affordance.required !== false)
+      .map((affordance) => ({
+        ...affordance,
+        partId: part.id,
+        required: affordance.required ?? true,
+        reason:
+          affordance.reason ?? "Use the icon affordance planned in the UI composition contract.",
+      }))
+  );
 }

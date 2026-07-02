@@ -6,6 +6,7 @@ type CreatedDraftComponent = {
   name?: unknown;
   componentKey?: unknown;
   nodeId?: unknown;
+  componentNodeId?: unknown;
 };
 
 type AppliedInstance = {
@@ -53,7 +54,9 @@ export function buildDraftComponentLifecycle(input: {
         ...(typeof created?.componentKey === "string"
           ? { componentKey: created.componentKey }
           : {}),
-        ...(typeof created?.nodeId === "string" ? { componentNodeId: created.nodeId } : {}),
+        ...(componentNodeIdFrom(created) === undefined
+          ? {}
+          : { componentNodeId: componentNodeIdFrom(created) }),
         placement: placementFor(placement, input.plan.sectionName),
         requiredInstances: 1,
         actualInstances: instances.map((instance) => ({
@@ -86,6 +89,12 @@ export function verifyDraftComponentLifecycle(lifecycle: DraftComponentLifecycle
       "Move draft components into the reserved Kotikit Draft Components area before continuing."
     );
   }
+}
+
+function componentNodeIdFrom(component: CreatedDraftComponent | undefined): string | undefined {
+  if (typeof component?.componentNodeId === "string") return component.componentNodeId;
+  if (typeof component?.nodeId === "string") return component.nodeId;
+  return undefined;
 }
 
 function placementFor(

@@ -39,11 +39,14 @@ describe("create-screen graph flow", () => {
         runId: started.runId,
         answer: "create-draft-components",
       });
-      expect(missingResolved.status).toBe("waiting-for-user");
-      expect(missingResolved.state.pendingQuestion?.id).toBe("approve-literal-variable-fallback");
+      expect(missingResolved.status).toBe("waiting-for-figma");
       expect(missingResolved.state.draftComponentPlan?.components).toContainEqual(
         expect.objectContaining({ name: "secondary action" })
       );
+
+      const draftCreated = await drainFakeFigmaTransactions(runtime, started.runId);
+      expect(draftCreated.status).toBe("waiting-for-user");
+      expect(draftCreated.pendingQuestion?.id).toBe("approve-literal-variable-fallback");
 
       const waitingForApply = await runtime.answerRun({
         runId: started.runId,
@@ -58,7 +61,7 @@ describe("create-screen graph flow", () => {
         expect.objectContaining({
           name: "secondary action",
           source: "draft-component",
-          componentKey: "draft:draft-secondary-action",
+          componentKey: "local-draft-draft-secondary-action-key",
         })
       );
       expect(waitingForApply.state.stateRepresentation).toMatchObject({
@@ -186,12 +189,14 @@ describe("create-screen graph flow", () => {
         runId: started.runId,
         answer: "create-draft-components",
       });
+      const draftCreated = await drainFakeFigmaTransactions(first.runtime, started.runId);
       const waitingForApply = await first.runtime.answerRun({
         runId: started.runId,
         answer: "approve-draft-only-literals",
       });
 
-      expect(missingResolved.status).toBe("waiting-for-user");
+      expect(missingResolved.status).toBe("waiting-for-figma");
+      expect(draftCreated.status).toBe("waiting-for-user");
       expect(waitingForApply.status).toBe("waiting-for-figma");
       expectIncrementalQueueReady(waitingForApply.state);
 

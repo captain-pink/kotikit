@@ -76,6 +76,7 @@ const StartInputSchema = z.strictObject({
       project: RuntimeProjectInputSchema.optional(),
       userIntent: z.string().min(1).optional(),
       figmaTarget: z.unknown().optional(),
+      figmaDefaults: z.unknown().optional(),
       review: z.unknown().optional(),
       designSystem: z.unknown().optional(),
     })
@@ -195,6 +196,10 @@ export function registerFacadeTools(
               type: "object",
               description: "Safe Figma draft target object to seed into the graph run.",
             },
+            figmaDefaults: {
+              type: "object",
+              description: "Optional Figma draft defaults, normally loaded from kotikit config.",
+            },
             review: {
               type: "object",
               description: "Optional pre-collected review target, evidence, or comment snapshot.",
@@ -224,12 +229,14 @@ export function registerFacadeTools(
     try {
       const input = StartInputSchema.parse(args);
       const runtime = requireRuntime(deps.runtime);
+      const config = await ctx.loadConfig();
       const startInput: RuntimeStartInput = {
         project: input.input?.project ?? { root: ctx.root },
         ...(input.input?.userIntent === undefined ? {} : { userIntent: input.input.userIntent }),
         ...(input.input?.figmaTarget === undefined
           ? {}
           : { figmaTarget: ensureDraftTarget(input.input.figmaTarget) }),
+        figmaDefaults: figmaDefaultsFrom(input.input?.figmaDefaults, config?.defaults.figmaSection),
         ...(input.input?.review === undefined ? {} : { review: input.input.review }),
         ...(input.input?.designSystem === undefined
           ? {}
@@ -628,10 +635,29 @@ function figmaApplyInputSchema(): Tool["inputSchema"] {
         description: "Compact component keys or node refs used by this transaction.",
         items: { type: "string" },
       },
+      componentSource: {
+        type: "string",
+        enum: ["existing-component", "draft-component", "approved-primitive"],
+        description:
+          "Proof that the applied node is an actual design-system component, a kotikit draft component, or an approved primitive.",
+      },
       variableRefs: {
         type: "array",
         description: "Compact variable/style refs used by this transaction.",
         items: { type: "string" },
+      },
+      iconRefs: {
+        type: "array",
+        description: "Compact local design-system icon keys used by this transaction.",
+        items: { type: "string" },
+      },
+      iconKey: {
+        type: "string",
+        description: "Single local design-system icon key used by this node.",
+      },
+      iconPlaceholder: {
+        type: "boolean",
+        description: "Whether this node is only a temporary icon placeholder.",
       },
       representation: {
         type: "string",
@@ -656,9 +682,16 @@ function figmaApplyInputSchema(): Tool["inputSchema"] {
             partId: { type: "string" },
             draftComponentId: { type: "string" },
             componentKey: { type: "string" },
+            componentSource: {
+              type: "string",
+              enum: ["existing-component", "draft-component", "approved-primitive"],
+            },
             bounds: { type: "object" },
             componentRefs: { type: "array", items: { type: "string" } },
             variableRefs: { type: "array", items: { type: "string" } },
+            iconRefs: { type: "array", items: { type: "string" } },
+            iconKey: { type: "string" },
+            iconPlaceholder: { type: "boolean" },
             autoLayout: { type: "boolean" },
           },
         },
@@ -707,8 +740,18 @@ function figmaApplyMetadataFrom(input: Record<string, unknown>): Record<string, 
     ...(stringArray(input.componentRefs) !== undefined
       ? { componentRefs: stringArray(input.componentRefs) }
       : {}),
+    ...(componentSourceField(input) !== undefined
+      ? { componentSource: componentSourceField(input) }
+      : {}),
     ...(stringArray(input.variableRefs) !== undefined
       ? { variableRefs: stringArray(input.variableRefs) }
+      : {}),
+    ...(stringArray(input.iconRefs) !== undefined ? { iconRefs: stringArray(input.iconRefs) } : {}),
+    ...(stringField(input, "iconKey") !== undefined
+      ? { iconKey: stringField(input, "iconKey") }
+      : {}),
+    ...(booleanField(input, "iconPlaceholder") !== undefined
+      ? { iconPlaceholder: booleanField(input, "iconPlaceholder") }
       : {}),
     ...(stateRepresentationField(input) !== undefined
       ? { representation: stateRepresentationField(input) }
@@ -737,12 +780,22 @@ function figmaApplyNodesFrom(input: Record<string, unknown>): Record<string, unk
     ...(stringField(input, "componentName") !== undefined
       ? { componentName: stringField(input, "componentName") }
       : {}),
+    ...(componentSourceField(input) !== undefined
+      ? { componentSource: componentSourceField(input) }
+      : {}),
     ...(stringField(input, "partId") !== undefined ? { partId: stringField(input, "partId") } : {}),
     ...(stringField(input, "draftComponentId") !== undefined
       ? { draftComponentId: stringField(input, "draftComponentId") }
       : {}),
     ...(stringField(input, "dsKey") !== undefined
       ? { componentKey: stringField(input, "dsKey") }
+      : {}),
+    ...(stringArray(input.iconRefs) !== undefined ? { iconRefs: stringArray(input.iconRefs) } : {}),
+    ...(stringField(input, "iconKey") !== undefined
+      ? { iconKey: stringField(input, "iconKey") }
+      : {}),
+    ...(booleanField(input, "iconPlaceholder") !== undefined
+      ? { iconPlaceholder: booleanField(input, "iconPlaceholder") }
       : {}),
   };
   const nodes = [
@@ -770,6 +823,9 @@ function compactApplyNodeFrom(input: Record<string, unknown>): Record<string, un
     ...(stringField(input, "componentName") !== undefined
       ? { componentName: stringField(input, "componentName") }
       : {}),
+    ...(componentSourceField(input) !== undefined
+      ? { componentSource: componentSourceField(input) }
+      : {}),
     ...(stringField(input, "partId") !== undefined ? { partId: stringField(input, "partId") } : {}),
     ...(stringField(input, "draftComponentId") !== undefined
       ? { draftComponentId: stringField(input, "draftComponentId") }
@@ -784,9 +840,63 @@ function compactApplyNodeFrom(input: Record<string, unknown>): Record<string, un
     ...(stringArray(input.variableRefs) !== undefined
       ? { variableRefs: stringArray(input.variableRefs) }
       : {}),
+    ...(stringArray(input.iconRefs) !== undefined ? { iconRefs: stringArray(input.iconRefs) } : {}),
+    ...(stringField(input, "iconKey") !== undefined
+      ? { iconKey: stringField(input, "iconKey") }
+      : {}),
+    ...(booleanField(input, "iconPlaceholder") !== undefined
+      ? { iconPlaceholder: booleanField(input, "iconPlaceholder") }
+      : {}),
     ...(booleanField(input, "autoLayout") !== undefined
       ? { autoLayout: booleanField(input, "autoLayout") }
       : {}),
+  };
+}
+
+function componentSourceField(
+  value: Record<string, unknown>
+): "existing-component" | "draft-component" | "approved-primitive" | undefined {
+  const candidate = value.componentSource;
+  return candidate === "existing-component" ||
+    candidate === "draft-component" ||
+    candidate === "approved-primitive"
+    ? candidate
+    : undefined;
+}
+
+function figmaDefaultsFrom(
+  value: unknown,
+  fallbackSection: NonNullable<RuntimeStartInput["figmaDefaults"]>["section"] | undefined
+): NonNullable<RuntimeStartInput["figmaDefaults"]> {
+  if (value !== undefined) {
+    const section = figmaSectionDefaultFrom(recordFrom(value).section);
+    if (section === undefined) {
+      throw new KotikitError(
+        "The Figma defaults input is invalid.",
+        "Pass figmaDefaults.section.background as { color: HEX, opacity: 0..1 }, or omit it to use the kotikit config default."
+      );
+    }
+    return { section };
+  }
+  return {
+    section: fallbackSection ?? {
+      background: { color: "AED0FF", opacity: 0.1 },
+    },
+  };
+}
+
+function figmaSectionDefaultFrom(
+  value: unknown
+): NonNullable<RuntimeStartInput["figmaDefaults"]>["section"] | undefined {
+  const background = recordFrom(recordFrom(value).background);
+  const color = stringField(background, "color");
+  const opacity = numberField(background, "opacity");
+  if (color === undefined || opacity === undefined || !/^[0-9A-F]{6}$/.test(color)) {
+    return undefined;
+  }
+  if (opacity < 0 || opacity > 1) return undefined;
+  return {
+    background: { color, opacity },
   };
 }
 
@@ -813,6 +923,11 @@ function stringField(value: Record<string, unknown>, key: string): string | unde
 function booleanField(value: Record<string, unknown>, key: string): boolean | undefined {
   const candidate = value[key];
   return typeof candidate === "boolean" ? candidate : undefined;
+}
+
+function numberField(value: Record<string, unknown>, key: string): number | undefined {
+  const candidate = value[key];
+  return typeof candidate === "number" && Number.isFinite(candidate) ? candidate : undefined;
 }
 
 function boundsFrom(value: unknown):

@@ -40,8 +40,9 @@ design decisions.
    artifact ids.
 6. If approved revisions are applied through official Figma MCP, apply the
    active transaction only, call `kotikit_record_figma_apply` with the active
-   `runId`, `transactionId`, node id, bounds, component refs, variable refs,
-   and auto-layout metadata, then call `kotikit_continue`.
+   `runId`, `transactionId`, node id, bounds, component refs, component
+   source, variable refs, required icon refs, and auto-layout metadata, then
+   call `kotikit_continue`.
 7. Present findings grouped by severity and theme. Keep recommendations focused
    on layout, hierarchy, component usage, variables, state coverage,
    accessibility, and interaction clarity.

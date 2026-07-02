@@ -63,6 +63,7 @@ After kotikit creates a draft, verify:
 - loading, empty, no-results, error, and permission states replace the affected
   region;
 - important controls use design-system component instances;
+- required icons come from the local design-system icon index, not placeholders;
 - variables/styles are bound where available;
 - comments on moved frames still map after comment review starts.
 

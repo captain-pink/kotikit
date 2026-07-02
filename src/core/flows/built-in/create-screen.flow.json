@@ -76,6 +76,11 @@
       "params": {}
     },
     {
+      "id": "save-reuse-plan",
+      "uses": "designSystem.saveReusePlan",
+      "params": {}
+    },
+    {
       "id": "ask-missing-component-decision",
       "uses": "designSystem.askMissingComponentDecision",
       "params": {}
@@ -184,6 +189,11 @@
       "id": "post-draft-qa",
       "uses": "qa.postDraftQa",
       "params": {}
+    },
+    {
+      "id": "save-design-system-usage-report",
+      "uses": "designSystem.saveUsageReport",
+      "params": {}
     }
   ],
   "edges": [
@@ -196,7 +206,8 @@
     ["ask-brief-approval", "save-approved-brief"],
     ["save-approved-brief", "search-local-design-system"],
     ["search-local-design-system", "build-fit-report"],
-    ["build-fit-report", "ask-missing-component-decision"],
+    ["build-fit-report", "save-reuse-plan"],
+    ["save-reuse-plan", "ask-missing-component-decision"],
     ["ask-missing-component-decision", "plan-missing-components"],
     ["plan-missing-components", "ensure-draft-target"],
     ["ensure-draft-target", "create-draft-components"],
@@ -217,9 +228,10 @@
     ["verify-state-representation", "verify-draft-component-lifecycle"],
     ["verify-draft-component-lifecycle", "save-apply-report"],
     ["save-apply-report", "run-ui-quality-gate"],
-    ["run-ui-quality-gate", "post-draft-qa"]
+    ["run-ui-quality-gate", "post-draft-qa"],
+    ["post-draft-qa", "save-design-system-usage-report"]
   ],
   "start": "classify-intent",
-  "end": ["post-draft-qa"],
+  "end": ["save-design-system-usage-report"],
   "safetyProfile": "standard-design-draft"
 }

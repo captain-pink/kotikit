@@ -18,6 +18,8 @@ const transactionMetadata = [
   "bounds",
   "auto-layout",
   "component-refs",
+  "component-source",
+  "icon-refs",
   "variable-refs",
 ] as const;
 
@@ -28,6 +30,7 @@ function validCanvasPlan() {
     coordinateSpace: "section-relative",
     screenSize: { width: 1440, height: 960 },
     minGap: 24,
+    sectionStyle: { background: { color: "AED0FF", opacity: 0.1 } },
     zones: [
       {
         id: "draft-zone",
@@ -162,6 +165,31 @@ describe("canvas and figma ledger artifact schemas", () => {
       schemaVersion: "CanvasPlan/v1",
     });
     expect(ArtifactSchemaVersionByType["canvas-plan"]).toBe("CanvasPlan/v1");
+  });
+
+  it("backfills the default section style for legacy canvas plans", () => {
+    const { sectionStyle: _sectionStyle, ...legacyCanvasPlan } = validCanvasPlan();
+
+    expect(CanvasPlanSchema.parse(legacyCanvasPlan)).toMatchObject({
+      schemaVersion: "CanvasPlan/v1",
+      sectionStyle: { background: { color: "AED0FF", opacity: 0.1 } },
+    });
+    expect(
+      KotikitGraphStateSchema.parse({
+        schemaVersion: "KotikitGraphState/v1",
+        runId: "run-1",
+        flowId: "create-screen",
+        flowVersion: "1.0.0",
+        graphHash: "hash",
+        status: "running",
+        project: { root: "/tmp/project" },
+        canvasPlan: legacyCanvasPlan,
+        artifacts: [],
+        errors: [],
+      }).canvasPlan
+    ).toMatchObject({
+      sectionStyle: { background: { color: "AED0FF", opacity: 0.1 } },
+    });
   });
 
   it("parses figma transaction plans and node ledgers", () => {
@@ -569,6 +597,7 @@ describe("canvas and figma ledger artifact schemas", () => {
           coordinateSpace: "section-relative",
           screenSize: { width: 1440, height: 960 },
           minGap: 24,
+          sectionStyle: { background: { color: "AED0FF", opacity: 0.1 } },
           zones: [],
           placements: [],
           strategy: {

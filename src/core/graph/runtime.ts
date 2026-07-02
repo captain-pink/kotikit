@@ -39,6 +39,7 @@ export type RuntimeStartInput = {
   project: KotikitGraphState["project"];
   userIntent?: string;
   figmaTarget?: KotikitGraphState["figmaTarget"];
+  figmaDefaults?: KotikitGraphState["figmaDefaults"];
   review?: KotikitGraphState["review"];
   designSystem?: KotikitGraphState["designSystem"];
 };
@@ -99,6 +100,7 @@ export function createGraphRuntime(input: {
         project: startInput.input.project,
         userIntent: startInput.input.userIntent,
         figmaTarget: startInput.input.figmaTarget,
+        figmaDefaults: startInput.input.figmaDefaults,
         review: startInput.input.review,
         designSystem: startInput.input.designSystem,
         artifacts: [],
@@ -240,15 +242,33 @@ async function executeRun(
       throw new KotikitError("This flow run points to an unknown node index.");
     }
 
-    const output = parseRuntimeNodeOutput(
-      (
-        await compiled.langGraph.invoke({
-          state: run.state,
-          nodeId: node.id,
-          params: node.manifest.params ?? {},
-        })
-      ).nodeOutput
-    );
+    let output: RuntimeNodeOutput;
+    try {
+      output = parseRuntimeNodeOutput(
+        (
+          await compiled.langGraph.invoke({
+            state: run.state,
+            nodeId: node.id,
+            params: node.manifest.params ?? {},
+          })
+        ).nodeOutput
+      );
+    } catch (err) {
+      if (
+        err instanceof KotikitError &&
+        node.definition.kind !== "interrupt" &&
+        !isRuntimeProtocolError(err)
+      ) {
+        return blockRunFromNodeError({
+          run,
+          node,
+          err,
+          runStore,
+          checkpointStore,
+        });
+      }
+      throw err;
+    }
 
     const patchedState = { ...run.state, ...output.statePatch };
     assertCompactGraphState(patchedState);
@@ -316,6 +336,69 @@ async function executeRun(
   });
   await writeRuntimeCheckpoint(run, checkpointStore);
   return toResult(run);
+}
+
+async function blockRunFromNodeError(input: {
+  run: RunRecord;
+  node: ResolvedFlowNode;
+  err: KotikitError;
+  runStore: RunStore;
+  checkpointStore?: CheckpointStore;
+}): Promise<RuntimeRunResult> {
+  const fingerprint = workflowErrorFingerprint(input.node.id, input.err);
+  const errors = upsertWorkflowError(input.run.state.errors, {
+    code: "node-blocked",
+    message: input.err.userMessage,
+    nodeId: input.node.id,
+    hint: input.err.hint,
+    fingerprint,
+  });
+  const blockedState = {
+    ...input.run.state,
+    status: "blocked" as const,
+    errors,
+  };
+  assertCompactGraphState(blockedState);
+  const blockedRun = await input.runStore.updateRunState(input.run.id, {
+    currentNodeId: input.node.id,
+    nextNodeIndex: input.run.nextNodeIndex,
+    status: "blocked",
+    state: blockedState,
+  });
+  await writeRuntimeCheckpoint(blockedRun, input.checkpointStore);
+  return toResult(blockedRun);
+}
+
+function upsertWorkflowError(
+  errors: KotikitGraphState["errors"],
+  next: NonNullable<KotikitGraphState["errors"][number]>
+): KotikitGraphState["errors"] {
+  const existing = errors.find((error) => error.fingerprint === next.fingerprint);
+  const count = existing === undefined ? 1 : (existing.count ?? 1) + 1;
+  const updated = {
+    ...next,
+    count,
+    ...(count < 2
+      ? {}
+      : {
+          diagnostic: {
+            expected: [next.hint ?? "Resolve the blocked validator before continuing."],
+            found: [next.message],
+            acceptedActions: [
+              next.hint ?? "Fix the blocked validator finding, then continue the kotikit run.",
+            ],
+          },
+        }),
+  };
+  return [...errors.filter((error) => error.fingerprint !== next.fingerprint), updated];
+}
+
+function workflowErrorFingerprint(nodeId: string, err: KotikitError): string {
+  return `${nodeId}:${err.userMessage}:${err.hint ?? ""}`;
+}
+
+function isRuntimeProtocolError(err: KotikitError): boolean {
+  return err.userMessage.startsWith("A runtime node returned an invalid");
 }
 
 function resolveInterruptResume(

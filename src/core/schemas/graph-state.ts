@@ -36,6 +36,16 @@ const WorkflowErrorSchema = z.strictObject({
   code: z.string().min(1),
   message: z.string().min(1),
   nodeId: z.string().min(1).optional(),
+  hint: z.string().min(1).optional(),
+  fingerprint: z.string().min(1).optional(),
+  count: z.number().int().positive().optional(),
+  diagnostic: z
+    .strictObject({
+      expected: z.array(z.string().min(1)),
+      found: z.array(z.string().min(1)),
+      acceptedActions: z.array(z.string().min(1)),
+    })
+    .optional(),
 });
 
 const UserQuestionSchema = z.strictObject({
@@ -48,6 +58,18 @@ const ApprovalRequestSchema = z.strictObject({
   id: z.string().min(1),
   summary: z.string().min(1),
   artifactIds: z.array(z.string().min(1)).optional(),
+});
+
+const FigmaDefaultsSchema = z.strictObject({
+  section: z.strictObject({
+    background: z.strictObject({
+      color: z
+        .string()
+        .regex(/^[0-9A-F]{6}$/)
+        .default("AED0FF"),
+      opacity: z.number().min(0).max(1).default(0.1),
+    }),
+  }),
 });
 
 export const KotikitGraphStateSchema = z.strictObject({
@@ -66,6 +88,7 @@ export const KotikitGraphStateSchema = z.strictObject({
   designSystem: z.unknown().optional(),
   fitReport: z.unknown().optional(),
   figmaTarget: z.unknown().optional(),
+  figmaDefaults: FigmaDefaultsSchema.optional(),
   applyMetadata: z.unknown().optional(),
   uxEnvelope: UXEnvelopeSchema.optional(),
   stateMatrix: StateMatrixSchema.optional(),

@@ -26,6 +26,12 @@ boring, precise at boundaries, easy to test, and hard to misuse.
   lines look similar.
 - YAGNI: do not build future adapters, installers, transports, or settings
   until the current behavior needs them.
+- Generic before specific: do not hardcode product, screen, component, icon,
+  or flow-specific rules in core logic. Core behavior should be driven by
+  typed contracts, schemas, configuration, local design-system indexes, or
+  explicit user/project input. For example, icon usage should be planned as a
+  design-system-backed affordance in a UI contract, not inferred from labels
+  like "invite" or "primary" inside a Figma adapter.
 - Local-first: kotikit runs on the user's machine, reads local project state,
   and should not require network services except for explicit Figma sync or
   documented agent setup.

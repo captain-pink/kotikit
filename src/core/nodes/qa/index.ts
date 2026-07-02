@@ -20,20 +20,29 @@ const EmptyParamsSchema = z.strictObject({});
 export const qaNodeDefinitions: NodeDefinition[] = [
   node({
     key: "qa.runUiQualityGate",
-    stateReads: ["applyReport"],
+    stateReads: ["applyReport", "canvasPlan", "draftPlan"],
     stateWrites: ["uiQualityGate"],
     requiredCapabilities: ["qa.run"],
     run: async (input) => {
       const state = graphState(input.state);
-      const nodes = recordArray(recordFrom(state.applyReport).nodes);
+      const applyReport = recordFrom(state.applyReport);
+      const nodes = recordArray(applyReport.nodes);
       if (nodes.length === 0) {
         throw new KotikitError(
           "Figma apply metadata has not been recorded yet.",
           "Record applied draft nodes with kotikit_record_figma_apply before running the UI quality gate."
         );
       }
+      const applyPacket = recordFrom(recordFrom(state.draftPlan).applyPacket);
       return {
-        statePatch: { uiQualityGate: runUiQualityGate({ nodes }) },
+        statePatch: {
+          uiQualityGate: runUiQualityGate({
+            nodes,
+            canvasPlan: state.canvasPlan,
+            iconRequirements: recordArray(applyPacket.iconRequirements),
+            iconRefs: stringArray(applyReport.iconRefs),
+          }),
+        },
       } satisfies RuntimeNodeOutput;
     },
   }),
@@ -102,5 +111,11 @@ function recordArray(value: unknown): Record<string, unknown>[] {
         (item): item is Record<string, unknown> =>
           typeof item === "object" && item !== null && !Array.isArray(item)
       )
+    : [];
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.length > 0)
     : [];
 }

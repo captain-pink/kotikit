@@ -10,6 +10,8 @@ const REQUIRED_METADATA = [
   "bounds",
   "auto-layout",
   "component-refs",
+  "component-source",
+  "icon-refs",
   "variable-refs",
 ] as const;
 

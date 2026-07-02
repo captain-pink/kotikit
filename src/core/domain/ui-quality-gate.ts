@@ -1,8 +1,13 @@
-import type { UIQualityGateReport } from "../schemas/artifact.js";
+import type { CanvasPlan, UIQualityGateReport } from "../schemas/artifact.js";
 
 type AppliedNode = Record<string, unknown>;
 
-export function runUiQualityGate(input: { nodes: AppliedNode[] }): UIQualityGateReport {
+export function runUiQualityGate(input: {
+  nodes: AppliedNode[];
+  canvasPlan?: CanvasPlan;
+  iconRequirements?: Record<string, unknown>[];
+  iconRefs?: string[];
+}): UIQualityGateReport {
   const checks = [
     check(
       "vertical-text",
@@ -79,6 +84,9 @@ export function runUiQualityGate(input: { nodes: AppliedNode[] }): UIQualityGate
       (node) => node.draftComponentDetachedUse === true
     ),
     checkCanvasOverlap(input.nodes),
+    checkCanvasMinGap(input.nodes, input.canvasPlan),
+    checkCanvasZoneMembership(input.nodes, input.canvasPlan),
+    checkIconRefs(input.nodes, input.iconRequirements ?? [], input.iconRefs ?? []),
     checkScreenStateAutoLayout(input.nodes),
     checkMissingTransactionMetadata(input.nodes),
   ];
@@ -90,10 +98,105 @@ export function runUiQualityGate(input: { nodes: AppliedNode[] }): UIQualityGate
   };
 }
 
-function checkCanvasOverlap(nodes: AppliedNode[]): UIQualityGateReport["checks"][number] {
-  const topLevelNodes = nodes.filter((node) =>
-    ["screen-state", "draft-component"].includes(String(node.semanticRole ?? ""))
+function checkCanvasMinGap(
+  nodes: AppliedNode[],
+  canvasPlan: CanvasPlan | undefined
+): UIQualityGateReport["checks"][number] {
+  if (canvasPlan === undefined) return checkResult("canvas-min-gap", "Canvas minimum gap", []);
+  const topLevelNodes = topLevelCanvasNodes(nodes);
+  const findings = topLevelNodes.flatMap((left, index) =>
+    topLevelNodes.slice(index + 1).flatMap((right) => {
+      if (!hasBounds(left) || !hasBounds(right)) return [];
+      const gap = gapBetween(left.bounds, right.bounds);
+      return gap < canvasPlan.minGap
+        ? [
+            `${String(left.id ?? "unknown")} is ${Math.round(gap)}px from ${String(right.id ?? "unknown")}; expected at least ${canvasPlan.minGap}px`,
+          ]
+        : [];
+    })
   );
+  return checkResult("canvas-min-gap", "Canvas minimum gap", findings);
+}
+
+function checkCanvasZoneMembership(
+  nodes: AppliedNode[],
+  canvasPlan: CanvasPlan | undefined
+): UIQualityGateReport["checks"][number] {
+  if (canvasPlan === undefined) {
+    return checkResult("canvas-zone-membership", "Canvas zone membership", []);
+  }
+  const placementsById = new Map(
+    canvasPlan.placements.map((placement) => [placement.id, placement])
+  );
+  const zonesById = new Map(canvasPlan.zones.map((zone) => [zone.id, zone]));
+  const findings = topLevelCanvasNodes(nodes).flatMap((node) => {
+    const placementId = stringField(node, "placementId");
+    if (placementId === undefined || !hasBounds(node)) return [];
+    const placement = placementsById.get(placementId);
+    const zone = placement === undefined ? undefined : zonesById.get(placement.parentZoneId);
+    if (zone === undefined) return [`${String(node.id ?? "unknown")} has no planned canvas zone`];
+    return boundsInside(node.bounds, zone.bounds)
+      ? []
+      : [`${String(node.id ?? "unknown")} is outside planned zone ${zone.label}`];
+  });
+  return checkResult("canvas-zone-membership", "Canvas zone membership", findings);
+}
+
+function checkIconRefs(
+  nodes: AppliedNode[],
+  iconRequirements: Record<string, unknown>[],
+  iconRefs: string[]
+): UIQualityGateReport["checks"][number] {
+  if (iconRequirements.length === 0) return checkResult("icon-refs", "Icon refs", []);
+  const globalRefs = new Set([
+    ...iconRefs,
+    ...nodes.flatMap((node) => stringArray(node.iconRefs)),
+    ...nodes.flatMap((node) => {
+      const iconKey = stringField(node, "iconKey");
+      return iconKey === undefined ? [] : [iconKey];
+    }),
+  ]);
+  const placeholderFindings = nodes
+    .filter((node) => node.iconPlaceholder === true)
+    .map((node) => `${String(node.id ?? "unknown")} uses an icon placeholder`);
+  const missingRefFindings = iconRequirements
+    .filter((requirement) => !iconRequirementSatisfied(requirement, nodes, globalRefs))
+    .map(
+      (requirement) => `${String(requirement.id ?? "icon")} has no recorded design-system icon ref`
+    );
+  return checkResult("icon-refs", "Icon refs", [...placeholderFindings, ...missingRefFindings]);
+}
+
+function iconRequirementSatisfied(
+  requirement: Record<string, unknown>,
+  nodes: AppliedNode[],
+  globalIconRefs: Set<string>
+): boolean {
+  const expectedIconRef =
+    stringField(requirement, "iconKey") ?? stringField(requirement, "iconName");
+  const partId = stringField(requirement, "partId");
+  if (partId === undefined) {
+    if (expectedIconRef !== undefined) return globalIconRefs.has(expectedIconRef);
+    return globalIconRefs.size > 0;
+  }
+  return nodes
+    .filter((node) => stringField(node, "partId") === partId && node.iconPlaceholder !== true)
+    .some((node) => {
+      const refs = nodeIconRefs(node);
+      if (expectedIconRef !== undefined) return refs.has(expectedIconRef);
+      return refs.size > 0;
+    });
+}
+
+function nodeIconRefs(node: AppliedNode): Set<string> {
+  return new Set([
+    ...stringArray(node.iconRefs),
+    ...(stringField(node, "iconKey") === undefined ? [] : [String(node.iconKey)]),
+  ]);
+}
+
+function checkCanvasOverlap(nodes: AppliedNode[]): UIQualityGateReport["checks"][number] {
+  const topLevelNodes = topLevelCanvasNodes(nodes);
   const findings = topLevelNodes.flatMap((left, index) =>
     topLevelNodes
       .slice(index + 1)
@@ -113,6 +216,12 @@ function checkScreenStateAutoLayout(nodes: AppliedNode[]): UIQualityGateReport["
     nodes
       .filter((node) => node.semanticRole === "screen-state" && node.autoLayout !== true)
       .map((node) => String(node.id ?? "unknown"))
+  );
+}
+
+function topLevelCanvasNodes(nodes: AppliedNode[]): AppliedNode[] {
+  return nodes.filter((node) =>
+    ["screen-state", "draft-component"].includes(String(node.semanticRole ?? ""))
   );
 }
 
@@ -165,6 +274,8 @@ function checkResult(
 function recommendedActionFor(id: string): string {
   const actions: Record<string, string> = {
     "canvas-overlap": "Move generated frames into the canvas plan grid before continuing.",
+    "canvas-min-gap": "Move generated frames to preserve the canvas plan minimum gap.",
+    "canvas-zone-membership": "Move generated frames back into their planned canvas zone.",
     "component-refs":
       "Replace hardcoded layers with design-system or approved draft component instances.",
     "draft-component-detached-use":
@@ -173,6 +284,7 @@ function recommendedActionFor(id: string): string {
       "Move the draft component into the reserved draft component area before continuing.",
     "hardcoded-imitation":
       "Use a real design-system component, an approved draft component, or an explicit primitive exception.",
+    "icon-refs": "Replace icon placeholders with icons from the planned design-system icon refs.",
     "layout-overlap": "Rebuild the affected region with auto layout so elements no longer overlap.",
     "missing-state-frame": "Create the required state frame or region state before continuing.",
     "orphan-draft-component":
@@ -213,6 +325,49 @@ function hasBounds(node: AppliedNode): node is AppliedNode & {
     typeof (node.bounds as { width?: unknown }).width === "number" &&
     typeof (node.bounds as { height?: unknown }).height === "number"
   );
+}
+
+function stringField(value: Record<string, unknown>, key: string): string | undefined {
+  const candidate = value[key];
+  return typeof candidate === "string" && candidate.length > 0 ? candidate : undefined;
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.length > 0)
+    : [];
+}
+
+function boundsInside(
+  child: { x: number; y: number; width: number; height: number },
+  parent: { x: number; y: number; width: number; height: number }
+): boolean {
+  return (
+    child.x >= parent.x &&
+    child.y >= parent.y &&
+    child.x + child.width <= parent.x + parent.width &&
+    child.y + child.height <= parent.y + parent.height
+  );
+}
+
+function gapBetween(
+  left: { x: number; y: number; width: number; height: number },
+  right: { x: number; y: number; width: number; height: number }
+): number {
+  if (boundsOverlap(left, right)) return 0;
+  const horizontalGap = Math.max(
+    left.x - (right.x + right.width),
+    right.x - (left.x + left.width),
+    0
+  );
+  const verticalGap = Math.max(
+    left.y - (right.y + right.height),
+    right.y - (left.y + left.height),
+    0
+  );
+  if (horizontalGap === 0) return verticalGap;
+  if (verticalGap === 0) return horizontalGap;
+  return Math.min(horizontalGap, verticalGap);
 }
 
 function boundsOverlap(

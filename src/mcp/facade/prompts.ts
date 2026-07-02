@@ -103,7 +103,7 @@ const PROMPTS: Record<KotikitPromptName, PromptDefinition> = {
         "Use kotikit_flow_list, choose create-screen or create-product-flow, then call kotikit_start.",
         "Read the active Figma transaction from the run result or apply-packet artifact.",
         "Apply one draft component, screen state, or region state with use_figma at the canvas plan bounds.",
-        "Record transactionId, node id, bounds, component refs, variable refs, and autoLayout with kotikit_record_figma_apply.",
+        "Record transactionId, node id, bounds, component refs, component source, variable refs, required icon refs, and autoLayout with kotikit_record_figma_apply.",
         "Continue the run and repeat until no active Figma transaction remains.",
         "Use generate_figma_design only for web or HTML capture references, not normal kotikit draft composition.",
       ].join("\n"),

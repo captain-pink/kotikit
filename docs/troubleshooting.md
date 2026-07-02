@@ -151,6 +151,24 @@ created but no linked instances appear in the screen, treat the run as failed.
 Ask kotikit to run the UI quality gate or recreate the screen after resolving
 the missing component decision.
 
+## Kotikit Reused The Wrong Amount Of Design System
+
+Before Figma writes, kotikit saves a `DesignSystemReusePlan`. Check it when the
+draft looks too custom or when a close component was ignored. The plan separates
+exact reuse, substitutes to validate, close candidates that should be wrapped or
+composed, and true gaps that need draft components.
+
+After QA, kotikit saves a `DesignSystemUsageReport`. Use it to confirm which
+design-system components, draft components, icons, and primitive exceptions were
+actually recorded from Figma metadata.
+
+## Kotikit Blocks On The Same Validator Twice
+
+Repeated graph validator failures are persisted in the run's `errors` list.
+The second repeated failure should include compact diagnostics with what kotikit
+expected, what it found, and the accepted next action. Continue from that
+diagnostic instead of guessing or restarting the whole flow.
+
 ## Figma Comments Cannot Be Mapped
 
 Comment review uses Figma REST comment snapshots and generated-node apply

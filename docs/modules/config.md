@@ -19,6 +19,8 @@ The config module owns everything related to `.kotikit/config.json`: the Zod sch
 - `figma.designSystemFiles` — array of `{ key, name }` objects
 - `defaults.breakpoints` — pixel widths, default `[375, 768, 1024, 1440]`
 - `defaults.themes` — string array, default `["light", "dark"]`
+- `defaults.figmaSection.background` — generated Figma Section fill, default
+  `{ color: "AED0FF", opacity: 0.1 }`
 - `git.autoCommit` — boolean, default `true`
 - `git.coAuthor` — `{ name, email }` used for generated commit footers; defaults to Claude Code for backward compatibility
 - `flowPacks.projectFlowsEnabled` — boolean, default `false`; project-local

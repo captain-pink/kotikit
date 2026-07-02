@@ -24,6 +24,26 @@ const FlowPacksSchema = z
     extensions: [],
   });
 
+const FigmaSectionDefaultsSchema = z
+  .object({
+    background: z
+      .object({
+        color: z
+          .string()
+          .regex(/^#?[0-9a-fA-F]{6}$/)
+          .transform((value) => value.replace(/^#/, "").toUpperCase())
+          .default("AED0FF"),
+        opacity: z.number().min(0).max(1).default(0.1),
+      })
+      .default({ color: "AED0FF", opacity: 0.1 }),
+  })
+  .default({
+    background: {
+      color: "AED0FF",
+      opacity: 0.1,
+    },
+  });
+
 export const ConfigSchema = z.object({
   schemaVersion: z
     .number()
@@ -47,6 +67,7 @@ export const ConfigSchema = z.object({
   defaults: z.object({
     breakpoints: z.array(z.number().int().positive()).default([375, 768, 1024, 1440]),
     themes: z.array(z.string()).default(["light", "dark"]),
+    figmaSection: FigmaSectionDefaultsSchema,
   }),
   git: z
     .object({
@@ -80,6 +101,12 @@ export function defaultConfig(): Config {
     defaults: {
       breakpoints: [375, 768, 1024, 1440],
       themes: ["light", "dark"],
+      figmaSection: {
+        background: {
+          color: "AED0FF",
+          opacity: 0.1,
+        },
+      },
     },
   });
 }

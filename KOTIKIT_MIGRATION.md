@@ -79,6 +79,28 @@ shell because it requires an active Figma file/session; the offline graph smoke
 coverage exercises the same Admin members flow shape with deterministic fake
 Figma metadata.
 
+## Implementation Update: Design-System Reuse And Recovery Diagnostics
+
+Completed on branch `feature/figma-transaction-contract`.
+
+The latest draft runs showed that kotikit could create clean incremental
+screens, but agents still needed more visible design-system intent and clearer
+recovery when validators repeated. This slice adds generic, graph-backed
+contracts instead of product-specific rules:
+
+- `DesignSystemReusePlan/v1` is saved before missing-component decisions, so
+  agents can see exact component reuse, substitutes to validate, close
+  candidates to wrap or compose, and true draft-component gaps;
+- `DesignSystemUsageReport/v1` is saved after QA, proving which design-system
+  components, draft components, icons, and primitive exceptions were actually
+  recorded from Figma metadata;
+- fit reports can classify close repeated-pattern candidates as wrap-needed
+  rather than forcing a binary exact-match or missing-component decision;
+- UI composition can consume those wrap candidates while still requiring draft
+  coverage for missing repeated-structure roles and states;
+- repeated deterministic validator failures are persisted as blocked run
+  diagnostics with expected, found, and accepted-action fields.
+
 ## Implementation Update: Design-To-Code Removed From Core
 
 Completed on branch `feature/kotikit-migration`.
@@ -144,17 +166,19 @@ The migration now has deterministic graph nodes for the core draft path:
   component keys;
 - draft nodes compile high-fidelity draft plans and build official Figma MCP
   apply packets only after safe draft target and brief rules pass, and persist
-  packet artifacts with component, draft-origin, variable/style, layout,
-  repeated-structure, and text-transform metadata;
-- Figma nodes validate file, page, kotikit Section, component refs, draft
-  origins, variable/style bindings, layout settings, repeated structures, and
-  text transforms before accepting apply metadata;
+  packet artifacts with component, draft-origin, canvas placement,
+  design-system icon affordance, variable/style, layout, repeated-structure,
+  and text-transform metadata;
+- Figma nodes validate file, page, kotikit Section, component refs, component
+  source, draft origins, required icon refs, variable/style bindings, layout
+  settings, repeated structures, and text transforms before accepting apply
+  metadata;
 - the small MCP facade is wired to the graph runtime in real server sessions,
   `kotikit_start` can seed a safe Figma draft target, `kotikit_bind_figma_target`
   can patch a target into an active run, and `kotikit_record_figma_apply`
   patches graph runs with component part, draft-component origin,
-  variable/style, layout, repeated-item, and text transform metadata before
-  `kotikit_continue`;
+  component source, icon refs, variable/style, layout, repeated-item, and text
+  transform metadata before `kotikit_continue`;
 - QA nodes block vertical or mirrored text, flipped transforms, negative
   dimensions, clipped text, missing component refs, detached instances, layout
   overlap, and hardcoded component imitations, and fail closed when apply
@@ -1284,6 +1308,9 @@ Actions:
 - Move target binding into graph state.
 - Move design-system fit checks into graph branches.
 - Compile `DraftPlan` to the existing official Figma MCP apply packet.
+- Keep icon usage contract-driven: UI composition can declare
+  design-system-backed icon affordances, but core adapters must not infer icons
+  from product-specific labels.
 - Record apply metadata through one graph action.
 - Implement `draft.flow.json` using registered subgraphs for target safety,
   design-system grounding, component decisions, and official Figma apply.

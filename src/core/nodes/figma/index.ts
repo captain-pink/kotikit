@@ -178,6 +178,7 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
             layoutFrames: recordArray(metadata.layoutFrames),
             repeatedItems: recordArray(metadata.repeatedItems),
             textTransforms: recordArray(metadata.textTransforms),
+            iconRefs: stringArray(metadata.iconRefs),
             states: recordArray(metadata.states),
             draftComponentInstances: recordArray(metadata.draftComponentInstances),
             draftComponentPlacements: recordArray(metadata.draftComponentPlacements),
@@ -338,7 +339,19 @@ function appendLedgerNode(
       : {}),
     bounds,
     componentRefs,
+    ...(componentSourceField(input.metadata) === undefined
+      ? {}
+      : { componentSource: componentSourceField(input.metadata) }),
     variableRefs,
+    ...(optionalStringArray(input.active.id, input.metadata.iconRefs, "iconRefs").length === 0
+      ? {}
+      : { iconRefs: optionalStringArray(input.active.id, input.metadata.iconRefs, "iconRefs") }),
+    ...(stringField(input.metadata, "iconKey") === undefined
+      ? {}
+      : { iconKey: stringField(input.metadata, "iconKey") }),
+    ...(booleanField(input.metadata, "iconPlaceholder") === undefined
+      ? {}
+      : { iconPlaceholder: booleanField(input.metadata, "iconPlaceholder") }),
     autoLayout,
     recordedAt,
   };
@@ -405,11 +418,23 @@ function childLedgerNodesFromMetadata(
         ...(partId === undefined ? {} : { partId }),
         bounds: parseLedgerBounds(input.active.id, nodeMetadata.bounds),
         componentRefs,
+        ...(componentSourceField(nodeMetadata) === undefined
+          ? {}
+          : { componentSource: componentSourceField(nodeMetadata) }),
         variableRefs: optionalStringArray(
           input.active.id,
           nodeMetadata.variableRefs,
           "variableRefs"
         ),
+        ...(optionalStringArray(input.active.id, nodeMetadata.iconRefs, "iconRefs").length === 0
+          ? {}
+          : { iconRefs: optionalStringArray(input.active.id, nodeMetadata.iconRefs, "iconRefs") }),
+        ...(stringField(nodeMetadata, "iconKey") === undefined
+          ? {}
+          : { iconKey: stringField(nodeMetadata, "iconKey") }),
+        ...(booleanField(nodeMetadata, "iconPlaceholder") === undefined
+          ? {}
+          : { iconPlaceholder: booleanField(nodeMetadata, "iconPlaceholder") }),
         autoLayout: booleanField(nodeMetadata, "autoLayout") ?? false,
         recordedAt: parent.recordedAt,
       },
@@ -592,6 +617,10 @@ function applyReportFromLedger(ledger: FigmaNodeLedger): Record<string, unknown>
         sectionName: ledger.sectionName,
         bounds: node.bounds,
       })),
+    iconRefs: uniqueStrings([
+      ...ledger.nodes.flatMap((node) => node.iconRefs ?? []),
+      ...ledger.nodes.map((node) => node.iconKey),
+    ]),
     recordedAt: ledger.updatedAt,
   };
 }
@@ -610,7 +639,11 @@ function compactReportNode(node: FigmaNodeLedger["nodes"][number]): Record<strin
     ...(node.partId === undefined ? {} : { partId: node.partId }),
     bounds: node.bounds,
     componentRefs: node.componentRefs,
+    ...(node.componentSource === undefined ? {} : { componentSource: node.componentSource }),
     variableRefs: node.variableRefs,
+    ...(node.iconRefs === undefined ? {} : { iconRefs: node.iconRefs }),
+    ...(node.iconKey === undefined ? {} : { iconKey: node.iconKey }),
+    ...(node.iconPlaceholder === undefined ? {} : { iconPlaceholder: node.iconPlaceholder }),
     autoLayout: node.autoLayout,
   };
 }
@@ -686,20 +719,33 @@ function verifyIncrementalApplyPacket(
 ): void {
   const nodes = recordArray(report.nodes);
   const componentRefs = stringSetFromArrays(nodes.map((node) => node.componentRefs));
+  stringSetFromArrays(nodes.map((node) => node.componentKey)).forEach((componentRef) => {
+    componentRefs.add(componentRef);
+  });
   const variableRefs = stringSetFromArrays([
     ...nodes.map((node) => node.variableRefs),
     recordArray(report.variableBindings).map((binding) => binding.variableRef),
+  ]);
+  const iconRefs = stringSetFromArrays([
+    report.iconRefs,
+    ...nodes.map((node) => node.iconRefs),
+    ...nodes.map((node) => node.iconKey),
   ]);
 
   verifyIncrementalComponentRefs(recordArray(recordFrom(packet.uiComposition).parts), {
     componentRefs,
     nodes,
   });
+  verifyIncrementalActualComponentInstances(
+    recordArray(recordFrom(packet.uiComposition).parts),
+    nodes
+  );
   verifyIncrementalVariableRefs(
     recordArray(recordFrom(packet.variableBindingPlan).bindings),
     variableRefs
   );
   verifyIncrementalAutoLayout(recordArray(recordFrom(packet.layoutContract).frames), report);
+  verifyIncrementalIconRefs(recordArray(packet.iconRequirements), nodes, iconRefs);
 
   if (recordArray(report.repeatedItems).length > 0) {
     verifyExactJson(
@@ -715,6 +761,80 @@ function verifyIncrementalApplyPacket(
       recordArray(report.textTransforms)
     );
   }
+}
+
+function verifyIncrementalActualComponentInstances(
+  parts: Record<string, unknown>[],
+  nodes: Record<string, unknown>[]
+): void {
+  parts
+    .filter((part) => part.source === "existing-component" && stringField(part, "componentKey"))
+    .forEach((part) => {
+      const componentKey = stringField(part, "componentKey");
+      const applied = nodes.find(
+        (node) =>
+          node.componentSource === "existing-component" &&
+          node.partId === part.id &&
+          componentKey !== undefined &&
+          nodeHasComponentRef(node, componentKey)
+      );
+      if (applied === undefined) {
+        throw new KotikitError(
+          `The incremental Figma apply report is missing an actual design-system instance for "${String(part.name ?? part.id)}".`,
+          "Record componentSource: existing-component for every placed design-system component, not a copied or draft layer."
+        );
+      }
+    });
+}
+
+function verifyIncrementalIconRefs(
+  iconRequirements: Record<string, unknown>[],
+  nodes: Record<string, unknown>[],
+  iconRefs: Set<string>
+): void {
+  if (iconRequirements.length === 0) return;
+  const missing = iconRequirements.filter(
+    (requirement) => !iconRequirementSatisfied(requirement, nodes, iconRefs)
+  );
+  if (missing.length === 0) return;
+  throw new KotikitError(
+    "The incremental Figma apply report is missing icon ref proof.",
+    "Record iconRefs for every required icon affordance placed from the local design-system icon index."
+  );
+}
+
+function iconRequirementSatisfied(
+  requirement: Record<string, unknown>,
+  nodes: Record<string, unknown>[],
+  globalIconRefs: Set<string>
+): boolean {
+  const expectedIconRef =
+    stringField(requirement, "iconKey") ?? stringField(requirement, "iconName");
+  const partId = stringField(requirement, "partId");
+  if (partId === undefined) {
+    if (expectedIconRef !== undefined) return globalIconRefs.has(expectedIconRef);
+    return globalIconRefs.size > 0;
+  }
+  return nodes
+    .filter((node) => node.partId === partId && node.iconPlaceholder !== true)
+    .some((node) => {
+      const refs = nodeIconRefs(node);
+      if (expectedIconRef !== undefined) return refs.has(expectedIconRef);
+      return refs.size > 0;
+    });
+}
+
+function nodeHasComponentRef(node: Record<string, unknown>, componentKey: string): boolean {
+  return (
+    node.componentKey === componentKey || stringArray(node.componentRefs).includes(componentKey)
+  );
+}
+
+function nodeIconRefs(node: Record<string, unknown>): Set<string> {
+  return new Set([
+    ...stringArray(node.iconRefs),
+    ...(stringField(node, "iconKey") === undefined ? [] : [String(node.iconKey)]),
+  ]);
 }
 
 function verifyIncrementalComponentRefs(
@@ -933,6 +1053,17 @@ function booleanField(value: Record<string, unknown>, key: string): boolean | un
   return typeof candidate === "boolean" ? candidate : undefined;
 }
 
+function componentSourceField(
+  value: Record<string, unknown>
+): "existing-component" | "draft-component" | "approved-primitive" | undefined {
+  const candidate = value.componentSource;
+  return candidate === "existing-component" ||
+    candidate === "draft-component" ||
+    candidate === "approved-primitive"
+    ? candidate
+    : undefined;
+}
+
 function recordArray(value: unknown): Record<string, unknown>[] {
   return Array.isArray(value)
     ? value.filter(
@@ -944,6 +1075,12 @@ function recordArray(value: unknown): Record<string, unknown>[] {
 
 function unknownArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.length > 0)
+    : [];
 }
 
 function normalize(value: unknown): string {

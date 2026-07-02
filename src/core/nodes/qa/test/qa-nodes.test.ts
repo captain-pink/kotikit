@@ -164,6 +164,140 @@ describe("qa graph nodes", () => {
     });
   });
 
+  it("blocks canvas nodes that do not preserve the planned minimum gap", async () => {
+    const result = await runNode("qa.runUiQualityGate", {
+      canvasPlan: canvasPlan(),
+      applyReport: {
+        schemaVersion: "FigmaApplyReport/v1",
+        nodes: [
+          {
+            id: "state-filled",
+            semanticRole: "screen-state",
+            transactionId: "txn-filled",
+            placementId: "state-filled",
+            bounds: { x: 560, y: 0, width: 1440, height: 900 },
+            autoLayout: true,
+          },
+          {
+            id: "state-loading",
+            semanticRole: "screen-state",
+            transactionId: "txn-loading",
+            placementId: "state-loading",
+            bounds: { x: 2040, y: 0, width: 1440, height: 900 },
+            autoLayout: true,
+          },
+        ],
+      },
+    });
+
+    expect(result.statePatch?.uiQualityGate).toMatchObject({
+      status: "blocked",
+      checks: expect.arrayContaining([
+        expect.objectContaining({ id: "canvas-min-gap", status: "blocked" }),
+      ]),
+    });
+  });
+
+  it("blocks applied nodes outside their planned canvas zone", async () => {
+    const result = await runNode("qa.runUiQualityGate", {
+      canvasPlan: canvasPlan(),
+      applyReport: {
+        schemaVersion: "FigmaApplyReport/v1",
+        nodes: [
+          {
+            id: "state-filled",
+            semanticRole: "screen-state",
+            transactionId: "txn-filled",
+            placementId: "state-filled",
+            bounds: { x: 40, y: 0, width: 1440, height: 900 },
+            autoLayout: true,
+          },
+        ],
+      },
+    });
+
+    expect(result.statePatch?.uiQualityGate).toMatchObject({
+      status: "blocked",
+      checks: expect.arrayContaining([
+        expect.objectContaining({ id: "canvas-zone-membership", status: "blocked" }),
+      ]),
+    });
+  });
+
+  it("blocks icon placeholders when the apply packet required icons", async () => {
+    const result = await runNode("qa.runUiQualityGate", {
+      draftPlan: {
+        applyPacket: {
+          iconRequirements: [{ id: "search-icon", semantic: "search" }],
+        },
+      },
+      applyReport: {
+        schemaVersion: "FigmaApplyReport/v1",
+        nodes: [
+          {
+            id: "state-empty-icon",
+            semanticRole: "component-instance",
+            iconPlaceholder: true,
+            name: "State icon",
+          },
+        ],
+      },
+    });
+
+    expect(result.statePatch?.uiQualityGate).toMatchObject({
+      status: "blocked",
+      checks: expect.arrayContaining([
+        expect.objectContaining({ id: "icon-refs", status: "blocked" }),
+      ]),
+    });
+  });
+
+  it("blocks missing per-part icon proof even when another required icon is present", async () => {
+    const result = await runNode("qa.runUiQualityGate", {
+      draftPlan: {
+        applyPacket: {
+          iconRequirements: [
+            {
+              id: "search-icon",
+              semantic: "search",
+              partId: "search",
+              iconKey: "icon-search-key",
+            },
+            {
+              id: "error-icon",
+              semantic: "error",
+              partId: "error",
+              iconKey: "icon-error-key",
+            },
+          ],
+        },
+      },
+      applyReport: {
+        schemaVersion: "FigmaApplyReport/v1",
+        nodes: [
+          {
+            id: "search-node",
+            partId: "search",
+            semanticRole: "component-instance",
+            iconRefs: ["icon-search-key"],
+          },
+          {
+            id: "error-node",
+            partId: "error",
+            semanticRole: "component-instance",
+          },
+        ],
+      },
+    });
+
+    expect(result.statePatch?.uiQualityGate).toMatchObject({
+      status: "blocked",
+      checks: expect.arrayContaining([
+        expect.objectContaining({ id: "icon-refs", status: "blocked" }),
+      ]),
+    });
+  });
+
   it("saves post-draft QA findings without posting comments or changing memory", async () => {
     const result = await runNode("qa.postDraftQa", {
       uiQualityGate: {
@@ -219,4 +353,59 @@ function recordArray(value: unknown): Record<string, unknown>[] {
           typeof item === "object" && item !== null && !Array.isArray(item)
       )
     : [];
+}
+
+function canvasPlan(): NonNullable<KotikitGraphState["canvasPlan"]> {
+  return {
+    schemaVersion: "CanvasPlan/v1",
+    section: { id: "section-1", name: "kotikit / members / 2026-06-30" },
+    coordinateSpace: "section-relative",
+    screenSize: { width: 1440, height: 900 },
+    minGap: 160,
+    sectionStyle: {
+      background: {
+        color: "AED0FF",
+        opacity: 0.1,
+      },
+    },
+    zones: [
+      {
+        id: "zone-draft-components",
+        kind: "draft-components",
+        label: "Draft components",
+        bounds: { x: 0, y: 0, width: 360, height: 240 },
+      },
+      {
+        id: "zone-screen-states",
+        kind: "screen-states",
+        label: "Screen states",
+        bounds: { x: 560, y: 0, width: 3040, height: 900 },
+      },
+    ],
+    placements: [
+      {
+        id: "state-filled",
+        kind: "screen-state",
+        stateId: "filled",
+        label: "Members / Filled",
+        bounds: { x: 560, y: 0, width: 1440, height: 900 },
+        parentZoneId: "zone-screen-states",
+        transactionId: "txn-filled",
+      },
+      {
+        id: "state-loading",
+        kind: "screen-state",
+        stateId: "loading",
+        label: "Members / Loading",
+        bounds: { x: 2160, y: 0, width: 1440, height: 900 },
+        parentZoneId: "zone-screen-states",
+        transactionId: "txn-loading",
+      },
+    ],
+    strategy: {
+      primaryFirst: true,
+      creationOrder: ["state-filled", "state-loading"],
+      designerNotes: ["Screen states use deterministic spacing."],
+    },
+  };
 }

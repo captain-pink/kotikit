@@ -10,6 +10,8 @@ export const ArtifactTypeSchema = z.enum([
   "ux-envelope",
   "state-matrix",
   "design-system-fit-report",
+  "design-system-reuse-plan",
+  "design-system-usage-report",
   "figma-target",
   "ui-composition-contract",
   "layout-contract",
@@ -39,6 +41,8 @@ export const ArtifactSchemaVersionByType = {
   "ux-envelope": "UXEnvelope/v1",
   "state-matrix": "StateMatrix/v1",
   "design-system-fit-report": "DesignSystemFitReport/v1",
+  "design-system-reuse-plan": "DesignSystemReusePlan/v1",
+  "design-system-usage-report": "DesignSystemUsageReport/v1",
   "figma-target": "FigmaTarget/v1",
   "ui-composition-contract": "UICompositionContract/v1",
   "layout-contract": "LayoutContract/v1",
@@ -86,6 +90,16 @@ const CanvasSectionRefSchema = z.strictObject({
   name: IncrementalTextSchema,
 });
 
+const FigmaSectionStyleSchema = z.strictObject({
+  background: z.strictObject({
+    color: z
+      .string()
+      .regex(/^[0-9A-F]{6}$/)
+      .default("AED0FF"),
+    opacity: z.number().min(0).max(1).default(0.1),
+  }),
+});
+
 const ScreenSizeSchema = z.strictObject({
   width: z.number().positive().max(INCREMENTAL_DIMENSION_MAX),
   height: z.number().positive().max(INCREMENTAL_DIMENSION_MAX),
@@ -122,6 +136,9 @@ export const CanvasPlanSchema = z
     coordinateSpace: z.literal("section-relative"),
     screenSize: ScreenSizeSchema,
     minGap: z.number().nonnegative().max(INCREMENTAL_DIMENSION_MAX),
+    sectionStyle: FigmaSectionStyleSchema.default({
+      background: { color: "AED0FF", opacity: 0.1 },
+    }),
     zones: z.array(CanvasZoneSchema).max(INCREMENTAL_ARRAY_MAX),
     placements: z.array(CanvasPlacementSchema).max(INCREMENTAL_ARRAY_MAX),
     strategy: CanvasPlanStrategySchema,
@@ -231,6 +248,8 @@ const FigmaTransactionMetadataSchema = z.enum([
   "bounds",
   "auto-layout",
   "component-refs",
+  "component-source",
+  "icon-refs",
   "variable-refs",
 ]);
 
@@ -336,7 +355,13 @@ const FigmaNodeLedgerEntrySchema = z.strictObject({
   partId: IncrementalRefSchema.optional(),
   bounds: BoundsSchema,
   componentRefs: z.array(IncrementalRefSchema).max(INCREMENTAL_ARRAY_MAX),
+  componentSource: z
+    .enum(["existing-component", "draft-component", "approved-primitive"])
+    .optional(),
   variableRefs: z.array(IncrementalRefSchema).max(INCREMENTAL_ARRAY_MAX),
+  iconRefs: z.array(IncrementalRefSchema).max(INCREMENTAL_ARRAY_MAX).optional(),
+  iconKey: IncrementalRefSchema.optional(),
+  iconPlaceholder: z.boolean().optional(),
   autoLayout: z.boolean(),
   recordedAt: IncrementalRefSchema,
 });
@@ -386,6 +411,16 @@ export const CanvasReconciliationReportSchema = z.strictObject({
   unmappedCommentsRisk: z.enum(["none", "low", "needs-human"]),
 });
 
+const IconAffordanceSchema = z.strictObject({
+  id: z.string().min(1),
+  semantic: z.string().min(1),
+  source: z.enum(["local-design-system", "approved-external"]),
+  iconKey: z.string().min(1).optional(),
+  iconName: z.string().min(1).optional(),
+  required: z.boolean().optional(),
+  reason: z.string().min(1).optional(),
+});
+
 const UICompositionPartSchema = z.strictObject({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -408,6 +443,7 @@ const UICompositionPartSchema = z.strictObject({
   componentKey: z.string().min(1).optional(),
   draftComponentId: z.string().min(1).optional(),
   primitiveReason: z.string().min(1).optional(),
+  iconAffordances: z.array(IconAffordanceSchema).optional(),
 });
 
 export const UICompositionContractSchema = z.strictObject({
@@ -661,6 +697,12 @@ export const FlowModelPayloadSchema = createGenericArtifactPayloadSchema(
 export const DesignSystemFitReportPayloadSchema = createGenericArtifactPayloadSchema(
   ArtifactSchemaVersionByType["design-system-fit-report"]
 );
+export const DesignSystemReusePlanPayloadSchema = createGenericArtifactPayloadSchema(
+  ArtifactSchemaVersionByType["design-system-reuse-plan"]
+);
+export const DesignSystemUsageReportPayloadSchema = createGenericArtifactPayloadSchema(
+  ArtifactSchemaVersionByType["design-system-usage-report"]
+);
 export const FigmaTargetPayloadSchema = createGenericArtifactPayloadSchema(
   ArtifactSchemaVersionByType["figma-target"]
 );
@@ -690,6 +732,8 @@ export const ArtifactPayloadSchema = z.union([
   UXEnvelopeSchema,
   StateMatrixSchema,
   DesignSystemFitReportPayloadSchema,
+  DesignSystemReusePlanPayloadSchema,
+  DesignSystemUsageReportPayloadSchema,
   FigmaTargetPayloadSchema,
   UICompositionContractSchema,
   LayoutContractSchema,
@@ -740,6 +784,8 @@ export const ArtifactVariantSchema = z.union([
   createArtifactVariantSchema("ux-envelope", UXEnvelopeSchema),
   createArtifactVariantSchema("state-matrix", StateMatrixSchema),
   createArtifactVariantSchema("design-system-fit-report", DesignSystemFitReportPayloadSchema),
+  createArtifactVariantSchema("design-system-reuse-plan", DesignSystemReusePlanPayloadSchema),
+  createArtifactVariantSchema("design-system-usage-report", DesignSystemUsageReportPayloadSchema),
   createArtifactVariantSchema("figma-target", FigmaTargetPayloadSchema),
   createArtifactVariantSchema("ui-composition-contract", UICompositionContractSchema),
   createArtifactVariantSchema("layout-contract", LayoutContractSchema),

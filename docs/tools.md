@@ -52,11 +52,18 @@ quality contracts are:
   pages, regions, components, or generated nodes where possible.
 - `DraftComponentLifecycle`: draft components created for design-system gaps,
   with required linked instances in the final screen.
+- `DesignSystemReusePlan`: visible pre-apply plan showing exact reuse,
+  substitutes to validate, close candidates to wrap or compose, and true gaps
+  that need draft components.
+- `DesignSystemUsageReport`: final proof summary of reused design-system
+  components, linked draft components, icon refs, and primitive exceptions.
 
 Context durability checks keep long-lived graph state compact. Raw Figma,
 comment, and research payloads should move into artifacts after these contracts
 exist. If a flow blocks, designer recovery output should explain the problem,
-why it matters, and the recommended next action.
+why it matters, and the recommended next action. Repeated validator failures
+are persisted on the run with expected/found/action diagnostics so the next
+agent can recover without guessing.
 
 ## Graph Flow Facade
 
@@ -119,11 +126,14 @@ Output: compact component refs.
 ### kotikit_record_figma_apply
 
 Purpose: Record official Figma MCP apply metadata into the active graph run.
-Input: `{ runId: string; scope: string; stepIndex: number; outcome: "ok" | "warned" | "failed"; transactionId: string; figmaFileKey?; figmaPageId?; figmaSectionName?; figmaNodeId?; figmaNodeName?; bounds?; componentRefs?; variableRefs?; representation?; autoLayout?; nodes?; partId?; draftComponentId?; componentName?; dsKey?; variableBindings?; layoutFrames?; repeatedItems?; textTransforms? }`
+Input: `{ runId: string; scope: string; stepIndex: number; outcome: "ok" | "warned" | "failed"; transactionId: string; figmaFileKey?; figmaPageId?; figmaSectionName?; figmaNodeId?; figmaNodeName?; bounds?; componentRefs?; componentSource?; variableRefs?; iconRefs?; iconKey?; iconPlaceholder?; representation?; autoLayout?; nodes?; partId?; draftComponentId?; componentName?; dsKey?; variableBindings?; layoutFrames?; repeatedItems?; textTransforms? }`
 Output: `{ runId; status; activeFigmaTransaction?; figmaTransactionProgress?; pendingQuestion?; artifacts; errors }`
 
 Use this after applying the active incremental Figma transaction. Do not record
-a later transaction before the graph consumes the current metadata.
+a later transaction before the graph consumes the current metadata. Use
+`componentSource: "existing-component"` for imported design-system instances,
+`componentSource: "draft-component"` for linked kotikit draft components, and
+record `iconRefs` when the apply packet lists required icon affordances.
 
 ### kotikit_review_figma_target
 

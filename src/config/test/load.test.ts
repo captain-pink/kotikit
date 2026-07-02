@@ -128,6 +128,15 @@ describe("buildConfig", () => {
     expect(cfg.git.autoCommit).toBe(def.git.autoCommit);
   });
 
+  it("defaults kotikit Figma sections to a visible blue tint", () => {
+    expect(defaultConfig().defaults.figmaSection).toEqual({
+      background: {
+        color: "AED0FF",
+        opacity: 0.1,
+      },
+    });
+  });
+
   it("overrides only specified fields", () => {
     const cfg = buildConfig({ autoCommit: false });
     expect(cfg.git.autoCommit).toBe(false);

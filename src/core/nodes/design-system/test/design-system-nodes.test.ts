@@ -233,6 +233,55 @@ describe("design-system graph nodes", () => {
     );
   });
 
+  it("classifies close repeated-pattern matches as wrap candidates instead of exact or missing", async () => {
+    const root = mkProject();
+    const stateWithDesignSystem = {
+      ...state(root),
+      screen: {
+        requiredUiParts: ["member table"],
+        repeatedPatterns: ["table"],
+      },
+      designSystem: {
+        source: "local-cache",
+        setupRequired: false,
+        components: [
+          {
+            name: "Table preview",
+            path: "components/table-preview.json",
+            key: "table-preview-key",
+            fileKey: "f",
+          },
+        ],
+        variables: [],
+      },
+    } satisfies Partial<KotikitGraphState>;
+
+    const result = await runNode("designSystem.buildFitReport", stateWithDesignSystem, {});
+    const report = result.statePatch?.fitReport as {
+      exactMatches: unknown[];
+      wrapCandidates: unknown[];
+      missingComponents: unknown[];
+      repeatedPatterns: unknown[];
+    };
+
+    expect(report.exactMatches).toEqual([]);
+    expect(report.wrapCandidates).toEqual([
+      expect.objectContaining({
+        requestedPart: "member table",
+        componentKey: "table-preview-key",
+        candidateKind: "wrap-needed",
+      }),
+    ]);
+    expect(report.missingComponents).toEqual([]);
+    expect(report.repeatedPatterns).toEqual([
+      expect.objectContaining({
+        pattern: "table",
+        status: "partial",
+        componentKey: "table-preview-key",
+      }),
+    ]);
+  });
+
   it("pauses for a draft-component decision when meaningful UI parts are missing", async () => {
     const output = await runNode(
       "designSystem.askMissingComponentDecision",
@@ -324,6 +373,129 @@ describe("design-system graph nodes", () => {
     });
   });
 
+  it("saves a visible design-system reuse plan before draft decisions", async () => {
+    const output = await runNode(
+      "designSystem.saveReusePlan",
+      {
+        ...state(mkProject()),
+        fitReport: {
+          summary: "1 exact match, 1 wrap candidate, 1 missing component.",
+          exactMatches: [
+            {
+              requestedPart: "primary button",
+              componentName: "Button",
+              componentKey: "button-key",
+            },
+          ],
+          substitutes: [
+            { requestedPart: "status chip", componentName: "Badge", componentKey: "badge-key" },
+          ],
+          wrapCandidates: [
+            {
+              requestedPart: "member table",
+              componentName: "Table preview",
+              componentKey: "table-preview-key",
+              candidateKind: "wrap-needed",
+              reason: "Candidate can provide a reusable base.",
+            },
+          ],
+          missingComponents: [{ requestedPart: "table data row" }],
+          variableGaps: [],
+          repeatedPatterns: [],
+        },
+      },
+      {}
+    );
+
+    expect(output.artifacts?.[0]).toMatchObject({
+      type: "design-system-reuse-plan",
+      schemaVersion: "DesignSystemReusePlan/v1",
+      payload: {
+        schemaVersion: "DesignSystemReusePlan/v1",
+        summary:
+          "Reuse 1 exact component, validate 1 substitute, wrap 1 close candidate, draft 1 gap.",
+        refs: [
+          "reuse: primary button -> button-key",
+          "substitute: status chip -> badge-key",
+          "wrap: member table -> table-preview-key",
+          "draft: table data row",
+        ],
+      },
+    });
+  });
+
+  it("saves a final design-system usage report from composition and Figma proof", async () => {
+    const output = await runNode(
+      "designSystem.saveUsageReport",
+      {
+        ...state(mkProject()),
+        uiComposition: {
+          schemaVersion: "UICompositionContract/v1",
+          parts: [
+            {
+              id: "primary-button",
+              name: "Primary button",
+              role: "primary-action",
+              source: "existing-component",
+              componentKey: "button-key",
+            },
+            {
+              id: "table-row",
+              name: "Table row",
+              role: "row",
+              source: "draft-component",
+              componentKey: "row-key",
+              draftComponentId: "draft-table-row",
+            },
+            {
+              id: "divider",
+              name: "Divider",
+              role: "content",
+              source: "approved-primitive",
+              primitiveReason: "Approved primitive separator.",
+            },
+          ],
+        },
+        applyReport: {
+          iconRefs: ["search-icon-key"],
+        },
+        draftComponentLifecycle: {
+          schemaVersion: "DraftComponentLifecycle/v1",
+          sectionName: "Kotikit Draft Components",
+          components: [
+            {
+              draftComponentId: "draft-table-row",
+              name: "Table row",
+              reason: "Missing row component",
+              componentKey: "row-key",
+              placement: {},
+              requiredInstances: 1,
+              actualInstances: [{ nodeId: "2:1" }],
+              status: "used",
+            },
+          ],
+        },
+      },
+      {}
+    );
+
+    expect(output.artifacts?.[0]).toMatchObject({
+      type: "design-system-usage-report",
+      schemaVersion: "DesignSystemUsageReport/v1",
+      payload: {
+        schemaVersion: "DesignSystemUsageReport/v1",
+        summary:
+          "Reused 1 design-system component, used 1 draft component, used 1 icon, kept 1 primitive exception.",
+        refs: [
+          "reused: Primary button -> button-key",
+          "drafted: Table row -> row-key",
+          "icon: search-icon-key",
+          "primitive: Divider",
+        ],
+      },
+    });
+  });
+
   it("compiles the sync-design-system flow with the real design-system node schemas", async () => {
     const flow = requireFlow(await loadBuiltInFlows(), "sync-design-system");
     const registry = createNodeRegistry([
@@ -335,6 +507,24 @@ describe("design-system graph nodes", () => {
     expect(() =>
       compileFlowDefinition(flow, registry, { allowedCapabilities: flow.requiredCapabilities })
     ).not.toThrow();
+  });
+
+  it("compiles create-screen with reuse planning before missing-component decisions and usage reporting after QA", async () => {
+    const flow = requireFlow(await loadBuiltInFlows(), "create-screen");
+    const saveReuseIndex = flow.nodes.findIndex(
+      (node) => node.uses === "designSystem.saveReusePlan"
+    );
+    const askMissingIndex = flow.nodes.findIndex(
+      (node) => node.uses === "designSystem.askMissingComponentDecision"
+    );
+    const usageReportIndex = flow.nodes.findIndex(
+      (node) => node.uses === "designSystem.saveUsageReport"
+    );
+    const qaIndex = flow.nodes.findIndex((node) => node.uses === "qa.postDraftQa");
+
+    expect(saveReuseIndex).toBeGreaterThan(-1);
+    expect(askMissingIndex).toBeGreaterThan(saveReuseIndex);
+    expect(usageReportIndex).toBeGreaterThan(qaIndex);
   });
 
   it("declares a remote-read capability for optional Figma remote search", () => {

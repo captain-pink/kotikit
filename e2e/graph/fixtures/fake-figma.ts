@@ -97,15 +97,13 @@ export async function drainFakeFigmaTransactions(
   runId: string
 ): Promise<KotikitGraphState> {
   let state = await runtime.getRunState(runId);
-  let remainingTransactions = recordArray(
-    recordFrom(state.figmaTransactionPlan).transactions
-  ).length;
+  let drainedTransactions = 0;
 
   while (state.status === "waiting-for-figma") {
-    if (remainingTransactions <= 0) {
-      throw new Error("Fake Figma transaction drain exceeded the transaction count.");
+    drainedTransactions += 1;
+    if (drainedTransactions > 50) {
+      throw new Error("Fake Figma transaction drain exceeded the safety limit.");
     }
-    remainingTransactions -= 1;
 
     const active = recordFrom(state.activeFigmaTransaction);
     if (active.id === undefined) {
@@ -135,7 +133,8 @@ export function fakeTransactionMetadataFor(state: KotikitGraphState): Record<str
   const placement = recordArray(recordFrom(state.canvasPlan).placements).find(
     (candidate) => candidate.id === active.placementId
   );
-  const bounds = recordFrom(placement?.bounds);
+  const bounds = boundsForActive(active, placement);
+  const figmaNodeKind = active.kind === "create-draft-component" ? "COMPONENT" : "FRAME";
 
   return {
     transactionId,
@@ -144,10 +143,10 @@ export function fakeTransactionMetadataFor(state: KotikitGraphState): Record<str
     sectionName: stringField(recordFrom(target.section), "name"),
     figmaNodeId: `node-${transactionId}`,
     figmaNodeName: stringField(active, "label") ?? transactionId,
-    figmaNodeKind: "FRAME",
+    figmaNodeKind,
     bounds,
     representation: stateRepresentationForActive(state, active),
-    componentRefs: componentRefsFrom(state),
+    componentRefs: componentRefsForActive(state, active),
     variableRefs: variableRefsFrom(state),
     autoLayout: true,
     nodes: compactChildNodesForActive(state, active, bounds),
@@ -257,6 +256,17 @@ function componentRefsFrom(state: KotikitGraphState): string[] {
   );
 }
 
+function componentRefsForActive(
+  state: KotikitGraphState,
+  active: Record<string, unknown>
+): string[] {
+  if (active.kind === "create-draft-component") {
+    const draftComponentId = stringField(active, "draftComponentId");
+    return draftComponentId === undefined ? [] : [realDraftComponentKey(draftComponentId)];
+  }
+  return componentRefsFrom(state);
+}
+
 function compactChildNodesForActive(
   state: KotikitGraphState,
   active: Record<string, unknown>,
@@ -267,22 +277,46 @@ function compactChildNodesForActive(
 
   const packet = recordFrom(recordFrom(state.draftPlan).applyPacket);
   const uiComposition = recordFrom(state.uiComposition ?? packet.uiComposition);
-  return recordArray(uiComposition.parts)
-    .filter((part) => stringField(part, "draftComponentId") !== undefined)
-    .map((part, index) => ({
-      id: `node-${String(active.id)}-${String(part.id)}`,
-      name: stringField(part, "name") ?? String(part.id),
-      kind: "INSTANCE",
-      partId: stringField(part, "id"),
-      draftComponentId: stringField(part, "draftComponentId"),
-      bounds: childBoundsWithin(parentBounds, index),
-      componentRefs: uniqueStrings([
-        stringField(part, "componentKey"),
-        stringField(part, "draftComponentId"),
-      ]),
-      variableRefs: variableRefsFrom(state),
-      autoLayout: true,
-    }));
+  return recordArray(uiComposition.parts).map((part, index) => ({
+    id: `node-${String(active.id)}-${String(part.id)}`,
+    name: stringField(part, "name") ?? String(part.id),
+    kind: "INSTANCE",
+    partId: stringField(part, "id"),
+    ...(stringField(part, "draftComponentId") === undefined
+      ? {}
+      : { draftComponentId: stringField(part, "draftComponentId") }),
+    bounds: childBoundsWithin(parentBounds, index),
+    componentRefs: uniqueStrings([
+      stringField(part, "componentKey"),
+      stringField(part, "draftComponentId"),
+    ]),
+    ...(componentSourceFrom(part) === undefined
+      ? {}
+      : { componentSource: componentSourceFrom(part) }),
+    variableRefs: variableRefsFrom(state),
+    autoLayout: true,
+  }));
+}
+
+function boundsForActive(
+  active: Record<string, unknown>,
+  placement: Record<string, unknown> | undefined
+): Record<string, unknown> {
+  const placementBounds = recordFrom(placement?.bounds);
+  if (Object.keys(placementBounds).length > 0) return placementBounds;
+  if (active.kind === "create-draft-component") {
+    return { x: 0, y: 0, width: 320, height: 96 };
+  }
+  return { x: 0, y: 0, width: 1440, height: 960 };
+}
+
+function componentSourceFrom(
+  part: Record<string, unknown>
+): "existing-component" | "draft-component" | "approved-primitive" | undefined {
+  if (part.source === "existing-component") return "existing-component";
+  if (part.source === "draft-component") return "draft-component";
+  if (part.source === "approved-primitive") return "approved-primitive";
+  return undefined;
 }
 
 function childBoundsWithin(
@@ -330,6 +364,10 @@ function stateRepresentationForActive(
 
 function uniqueStrings(values: Array<string | undefined>): string[] {
   return [...new Set(values.filter((value): value is string => value !== undefined))];
+}
+
+function realDraftComponentKey(draftComponentId: string): string {
+  return `local-draft-${slugify(draftComponentId)}-key`;
 }
 
 function seedComponent(

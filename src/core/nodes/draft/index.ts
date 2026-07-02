@@ -69,6 +69,7 @@ export const draftNodeDefinitions: NodeDefinition[] = [
         screenSize: { width: 1440, height: 900 },
         states: canvasStatesFrom(state),
         draftComponents: state.draftComponentPlan?.components ?? [],
+        sectionStyle: state.figmaDefaults?.section,
       });
       return {
         statePatch: { canvasPlan },
@@ -77,13 +78,18 @@ export const draftNodeDefinitions: NodeDefinition[] = [
   }),
   node({
     key: "draft.buildFigmaTransactionPlan",
-    stateReads: ["canvasPlan"],
+    stateReads: ["canvasPlan", "draftPlan"],
     stateWrites: ["figmaTransactionPlan"],
     run: async (input) => {
-      const canvasPlan = CanvasPlanSchema.parse(graphState(input.state).canvasPlan);
+      const state = graphState(input.state);
+      const canvasPlan = CanvasPlanSchema.parse(state.canvasPlan);
+      const pendingPlacements = transactionPlacementsForState(state, canvasPlan);
+      const pendingPlacementIds = new Set(pendingPlacements.map((placement) => placement.id));
       const figmaTransactionPlan = buildFigmaTransactionPlan({
-        placements: canvasPlan.placements,
-        creationOrder: canvasPlan.strategy.creationOrder,
+        placements: pendingPlacements,
+        creationOrder: canvasPlan.strategy.creationOrder.filter((placementId) =>
+          pendingPlacementIds.has(placementId)
+        ),
       });
       return {
         statePatch: { figmaTransactionPlan },
@@ -137,6 +143,7 @@ export const draftNodeDefinitions: NodeDefinition[] = [
 ];
 
 function compileDraft(state: KotikitGraphState, fidelity: "standard" | "high"): RuntimeNodeOutput {
+  const createdDraftComponents = recordArray(recordFrom(state.draftPlan).createdDraftComponents);
   return {
     statePatch: {
       draftPlan: {
@@ -155,6 +162,7 @@ function compileDraft(state: KotikitGraphState, fidelity: "standard" | "high"): 
             componentKey: part.componentKey,
             draftComponentId: part.draftComponentId,
           })) ?? [],
+        ...(createdDraftComponents.length === 0 ? {} : { createdDraftComponents }),
       },
     },
   };
@@ -188,6 +196,30 @@ function statesFrom(state: KotikitGraphState): string[] {
     (item): item is string => typeof item === "string"
   );
   return states.length > 0 ? states : STANDARD_STATES;
+}
+
+function transactionPlacementsForState(
+  state: KotikitGraphState,
+  canvasPlan: CanvasPlan
+): CanvasPlan["placements"] {
+  const createdDraftComponentIds = new Set(
+    recordArray(recordFrom(state.draftPlan).createdDraftComponents)
+      .filter((component) => hasRealComponentKey(component))
+      .map((component) => stringField(component, "id"))
+      .filter((id): id is string => id !== undefined)
+  );
+  if (createdDraftComponentIds.size === 0) return canvasPlan.placements;
+  return canvasPlan.placements.filter(
+    (placement) =>
+      placement.kind !== "draft-component" ||
+      placement.draftComponentId === undefined ||
+      !createdDraftComponentIds.has(placement.draftComponentId)
+  );
+}
+
+function hasRealComponentKey(component: Record<string, unknown>): boolean {
+  const componentKey = stringField(component, "componentKey");
+  return componentKey !== undefined && !componentKey.startsWith("draft:");
 }
 
 function canvasSectionFrom(state: KotikitGraphState): { name: string; id?: string } {
@@ -253,7 +285,9 @@ function buildApplyPacketArtifact(state: KotikitGraphState, packet: FigmaApplyPa
         repeatedItems: toJson(packet.repeatedItems),
         textTransforms: toJson(packet.textTransforms),
         canvasPlanSummary: toJson(packet.canvasPlanSummary),
+        canvasPlan: toJson(packet.canvasPlan),
         transactionPlanSummary: toJson(packet.transactionPlanSummary),
+        iconRequirements: toJson(packet.iconRequirements),
       },
     },
   };
