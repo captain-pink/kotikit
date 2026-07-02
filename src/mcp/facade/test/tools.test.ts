@@ -15,8 +15,11 @@ import { FACADE_TOOL_NAMES, type FacadeRuntime, registerFacadeTools } from "../t
 
 const makeRegistry = (): ToolRegistry => ({ tools: [] as Tool[], handlers: new Map() });
 
-const makeCtx = (config: Config | null = null): ToolContext => ({
-  root: "/tmp/kotikit-facade-test",
+const makeCtx = (
+  config: Config | null = null,
+  root: string = "/tmp/kotikit-facade-test"
+): ToolContext => ({
+  root,
   loadConfig: async () => config,
 });
 
@@ -242,10 +245,12 @@ describe("MCP facade tools", () => {
     const result = await callTool(registry, "kotikit_flow_list", {});
     const detail = detailOf<{ flows: Record<string, unknown>[] }>(result.content[0]?.text ?? "");
     const createScreen = detail.flows.find((flow) => flow.id === "create-screen");
+    const reviewScreen = detail.flows.find((flow) => flow.id === "review-screen");
 
     expect(result.isError).toBeFalsy();
-    expect(detail.flows.length).toBeGreaterThanOrEqual(7);
+    expect(detail.flows.map((flow) => flow.id)).toEqual(["create-screen", "review-screen"]);
     expect(createScreen?.title).toBe("Create Screen");
+    expect(reviewScreen?.title).toBe("Review Screen");
     expect(createScreen).not.toHaveProperty("nodes");
     expect(createScreen).not.toHaveProperty("edges");
   });
@@ -268,14 +273,11 @@ describe("MCP facade tools", () => {
     const registry = makeRegistry();
     registerFacadeTools(registry, makeCtx());
     const applyTool = registry.tools.find((tool) => tool.name === "kotikit_record_figma_apply");
-    const reviewTool = registry.tools.find((tool) => tool.name === "kotikit_review_figma_target");
 
     expect(applyTool?.inputSchema.required).toEqual(["runId", "scope", "stepIndex", "outcome"]);
     expect(applyTool?.inputSchema.properties).toHaveProperty("figmaNodeId");
     expect(applyTool?.inputSchema.properties).toHaveProperty("runId");
-    expect(reviewTool?.inputSchema.properties).toHaveProperty("figmaUrl");
-    expect(reviewTool?.inputSchema.properties).toHaveProperty("fileKey");
-    expect(reviewTool?.inputSchema.properties).toHaveProperty("nodeId");
+    expect(registry.tools.map((tool) => tool.name)).not.toContain("kotikit_review_figma_target");
   });
 
   it("exposes incremental Figma apply metadata in the record tool schema", () => {
@@ -496,82 +498,6 @@ describe("MCP facade tools", () => {
     expect(patched).toEqual([]);
   });
 
-  it("starts graph review flows without compatibility review handlers", async () => {
-    const config = { ...defaultConfig(), figma: { ...defaultConfig().figma, token: "figd_test" } };
-    const runtime = {
-      ...makeRuntime(),
-      async startFlow(input): Promise<RuntimeRunResult> {
-        expect(input).toMatchObject({
-          flowId: "improve-existing-design",
-          input: {
-            project: { root: "/tmp/kotikit-facade-test" },
-            review: {
-              target: {
-                source: "figma",
-                fileKey: "FILE",
-                nodeId: "1:2",
-                targetKind: "frame",
-                targetName: "Members",
-                figmaUrl: "https://www.figma.com/design/FILE/review?node-id=1-2",
-              },
-              evidence: {
-                tokenBudget: { maxRegions: 2, returnedRegions: 2, truncatedRegions: 1 },
-                targetSummary: { nodeId: "1:2", name: "Members", type: "FRAME" },
-                regions: [
-                  { nodeId: "1:3", name: "Header", type: "FRAME" },
-                  { nodeId: "1:4", name: "Table", type: "INSTANCE" },
-                ],
-              },
-              brief: {
-                strictness: "standard",
-              },
-            },
-          },
-        });
-        return {
-          runId: "review-run",
-          status: "waiting-for-user",
-          state: {
-            ...makeState("waiting-for-user"),
-            runId: "review-run",
-            flowId: "improve-existing-design",
-          },
-        };
-      },
-    } satisfies FacadeRuntime;
-    const registry = makeRegistry();
-    registerFacadeTools(registry, makeCtx(config), {
-      runtime,
-      figmaReviewClientFactory: () => ({
-        getNodes: async () => ({
-          "1:2": {
-            document: {
-              id: "1:2",
-              name: "Members",
-              type: "FRAME",
-              children: [
-                { id: "1:3", name: "Header", type: "FRAME" },
-                { id: "1:4", name: "Table", type: "INSTANCE" },
-                { id: "1:5", name: "Footer", type: "FRAME" },
-              ],
-            },
-          },
-        }),
-      }),
-    });
-
-    const result = await callTool(registry, "kotikit_review_figma_target", {
-      figmaUrl: "https://www.figma.com/design/FILE/App?node-id=1-2",
-      strictness: "standard",
-      maxRegions: 2,
-    });
-    const detail = detailOf<{ runId: string; status: string }>(result.content[0]?.text ?? "");
-
-    expect(result.isError).toBeFalsy();
-    expect(detail.runId).toBe("review-run");
-    expect(detail.status).toBe("waiting-for-user");
-  });
-
   it("advertises required nested project root for kotikit_start", () => {
     const registry = makeRegistry();
     registerFacadeTools(registry, makeCtx());
@@ -633,7 +559,7 @@ describe("MCP facade tools", () => {
     expect(startInput?.state.figmaTarget).toMatchObject({ pageName: "Draft - Members" });
   });
 
-  it("starts review flows with seeded review and design-system context", async () => {
+  it("starts flows with seeded design-system context", async () => {
     let captured: unknown;
     const runtime = {
       ...makeRuntime(),
@@ -644,7 +570,6 @@ describe("MCP facade tools", () => {
           status: "running",
           state: {
             ...makeState("running"),
-            review: input.input.review,
             designSystem: input.input.designSystem,
           },
         };
@@ -654,18 +579,90 @@ describe("MCP facade tools", () => {
     registerFacadeTools(registry, makeCtx(), { runtime });
 
     const result = await callTool(registry, "kotikit_start", {
-      flowId: "improve-existing-design",
+      flowId: "create-screen",
       input: {
         figmaTarget: draftTarget(),
-        review: { target: { fileKey: "FILE", nodeId: "1:2" }, evidence: { regions: [] } },
         designSystem: { components: [{ name: "Button", key: "button-key" }] },
       },
     });
 
     expect(result.isError).toBeFalsy();
     expect(captured).toMatchObject({
-      review: { target: { fileKey: "FILE", nodeId: "1:2" } },
       designSystem: { components: [{ name: "Button", key: "button-key" }] },
+    });
+  });
+
+  it("attaches a compact Figma comment snapshot to a review run", async () => {
+    const root = mkProject();
+    writeFileSync(join(root, ".env"), "FIGMA_TOKEN=test-token\n");
+    let seenToken = "";
+    let patchedFeedback: unknown;
+    const runtime = {
+      ...makeRuntime(),
+      async patchRunState(input): Promise<RuntimeRunResult> {
+        patchedFeedback = input.statePatch.feedback;
+        return {
+          runId: "run-1",
+          status: "running",
+          state: { ...makeState("running"), feedback: input.statePatch.feedback },
+        };
+      },
+    } satisfies FacadeRuntime;
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx(null, root), {
+      runtime,
+      figmaClientFactory: (token) => {
+        seenToken = token;
+        return {
+          async getComments(fileKey, opts) {
+            expect(fileKey).toBe("FILE");
+            expect(opts).toEqual({ asMarkdown: true });
+            return [
+              {
+                id: "comment-1",
+                file_key: "FILE",
+                message: "Move the empty state inside the table region.",
+                client_meta: { node_id: "node-table", ignored: "large" },
+                resolved_at: null,
+                user: { handle: "Designer", email: "designer@example.com" },
+              },
+              {
+                id: "comment-2",
+                file_key: "FILE",
+                message: "Already handled.",
+                resolved_at: "2026-07-02T00:00:00.000Z",
+              },
+            ];
+          },
+        };
+      },
+    });
+
+    const result = await callTool(registry, "kotikit_feedback_snapshot", {
+      figmaUrl: "https://www.figma.com/design/FILE/Untitled?node-id=1-2",
+      runId: "run-1",
+    });
+    const detail = detailOf<{
+      snapshot: { comments: Record<string, unknown>[] };
+      run: { runId: string };
+    }>(result.content[0]?.text ?? "");
+
+    expect(result.isError).toBeFalsy();
+    expect(seenToken).toBe("test-token");
+    expect(detail.snapshot.comments).toEqual([
+      expect.objectContaining({
+        id: "comment-1",
+        message: "Move the empty state inside the table region.",
+        client_meta: { node_id: "node-table" },
+        user: { handle: "Designer" },
+      }),
+    ]);
+    expect(detail.run.runId).toBe("run-1");
+    expect(patchedFeedback).toMatchObject({
+      commentSnapshot: {
+        fileKey: "FILE",
+        comments: [expect.objectContaining({ id: "comment-1" })],
+      },
     });
   });
 

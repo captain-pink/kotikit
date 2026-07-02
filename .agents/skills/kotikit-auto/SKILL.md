@@ -1,6 +1,6 @@
 ---
 name: kotikit-auto
-description: Run the kotikit auto workflow with MCP tools. Use when the user says kotikit:auto, run kotikit auto, build a screen with kotikit, sync my Figma design system, create a Figma design, review Figma comments, or work on kotikit screen and flow specs.
+description: Run the kotikit auto workflow with MCP tools. Use when the user says kotikit:auto, run kotikit auto, build a screen with kotikit, sync my Figma design system, create a Figma design, or work on kotikit screen specs.
 ---
 
 # Kotikit Auto
@@ -29,10 +29,10 @@ is available on `PATH`.
   `kotikit_answer`, `kotikit_continue`, `kotikit_get_artifact`, and
   `kotikit_list_artifacts`.
 - Start every substantial design request with `kotikit_start` and a built-in
-  flow id. Use `create-screen` for screen drafting, `create-product-flow` for
-  multi-screen flows, `sync-design-system` for local sync,
-  `improve-existing-design` for a Figma target, and `review-comments` for
-  comment review.
+  flow id. The tiny kotikit core exposes `create-screen` for screen drafting
+  and `review-screen` for post-screen Figma comment feedback. Use direct
+  support tools such as `kotikit_sync_ds` only when the user explicitly asks
+  for setup or design-system sync.
 - Keep the designer-facing conversation plain-language and product-focused.
 - Do not expose JSON, tool names, schemas, internal paths, or git terminology
   unless the user explicitly asks.
@@ -60,25 +60,21 @@ is available on `PATH`.
 3. Call `kotikit_start` with the chosen flow and `userIntent`.
 4. When the run pauses, ask the pending question in plain language and resume
    with `kotikit_answer`.
-5. If the pending question id is `bind-review-draft-target`, ask for the exact
-   draft page URL, bind it with `kotikit_bind_figma_target`, then answer
-   `target-bound` with `kotikit_answer`.
-6. If the run needs any other Figma target, ask for the exact draft page URL and
+5. If the run needs a Figma target, ask for the exact draft page URL and
    bind it with `kotikit_bind_figma_target`.
-7. If the run produces a `design-system-reuse-plan` artifact, read it before
+6. If the run produces a `design-system-reuse-plan` artifact, read it before
    drafting. Reuse exact design-system components, validate substitutes, and
    compose close candidates directly in the screen. Do not create draft
    components before the main screen or flow exists.
-8. If the run produces an apply-packet artifact, read it with
+7. If the run produces an apply-packet artifact, read it with
    `kotikit_get_artifact`, apply only the active Figma transaction through
    official Figma MCP tools, then call `kotikit_record_figma_apply` with the
    `runId`, `transactionId`, node id, Figma node type, bounds, component refs
    or componentKey, component source, variable refs, required icon refs, and
-   auto-layout metadata. For draft component transactions, record
-   `figmaNodeKind: "COMPONENT"` and the real Figma component key.
-9. Call `kotikit_continue` after external Figma work is recorded. Repeat until
+   auto-layout metadata.
+8. Call `kotikit_continue` after external Figma work is recorded. Repeat until
    kotikit reports no active Figma transaction.
-10. If the run produces a `design-system-usage-report`, use it in the final
+9. If the run produces a `design-system-usage-report`, use it in the final
    answer to summarize reused design-system components, screen-draft parts,
    draft components, icon refs, and primitive exceptions. After the design is
    visible, ask whether the designer wants reusable missing parts extracted as
@@ -87,8 +83,7 @@ is available on `PATH`.
 When applying a kotikit draft in Figma:
 
 - Use the apply packet's active transaction.
-- Create exactly one screen state, region state, or approved post-screen draft
-  component per Figma write.
+- Create exactly one screen state or region state per Figma write.
 - Place it at the bounds from the canvas plan.
 - Use auto layout, imported design-system component instances, and
   variables/styles.
@@ -96,8 +91,6 @@ When applying a kotikit draft in Figma:
   componentKey, component source, variable refs, required icon refs, and
   auto-layout metadata with
   `kotikit_record_figma_apply`.
-- For a draft component transaction, record `figmaNodeKind: "COMPONENT"` and
-  the created component's real Figma key.
 - Continue the run and repeat until kotikit reports no active Figma
   transaction.
 - Do not create every state on the canvas in one operation.
@@ -106,10 +99,27 @@ When applying a kotikit draft in Figma:
   waiting for an active transaction. Follow the recovery action or report the
   blocker plainly.
 
+## Review Figma Comments
+
+Use this path after a generated design exists and the designer asks to review
+Figma comments or make changes from feedback.
+
+1. Use `kotikit_feedback_snapshot` with the Figma URL or file key. If a
+   `review-screen` run is already active, pass its `runId`.
+2. Start `review-screen` with the snapshot as `feedback` when there is no active
+   review run.
+3. Read `comment-evidence-map` and `revision-plan` artifacts when they appear.
+4. Explain proposed changes in design language.
+5. Ask before applying revisions.
+6. If approved, apply changes through official Figma MCP in small increments and
+   record metadata with `kotikit_record_figma_apply`.
+
+Do not post comments, resolve comment threads, or promote feedback into memory
+from the tiny core.
+
 ## Design-System Sync
 
-1. Start `sync-design-system` with `kotikit_start`, or use `kotikit_sync_ds`
-   directly when the user explicitly asks only for sync.
+1. Use `kotikit_sync_ds` when the user explicitly asks for sync.
 2. If no design-system file is configured, ask for the Figma file URL or key and
    call `kotikit_config_init` with `figmaFiles`.
 3. Summarize sync results in plain language.
@@ -117,13 +127,5 @@ When applying a kotikit draft in Figma:
    call `kotikit_bridge_start`, give the returned URL, and guide the designer
    through the Figma plugin variable export.
 
-## Review
-
-For existing design review, call `kotikit_review_figma_target` with an exact
-Figma URL or start `improve-existing-design` with `kotikit_start`.
-
-For comment review, start `review-comments` with `kotikit_start` and seed the
-available comment context if another tool already collected it.
-
-Never post comments, apply revisions, accept literal variable fallbacks, or
-promote memory without explicit designer approval.
+Never apply revisions, accept literal variable fallbacks, or extract reusable
+draft components without explicit designer approval.

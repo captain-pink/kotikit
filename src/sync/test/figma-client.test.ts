@@ -277,6 +277,57 @@ describe("FigmaClient", () => {
     });
   });
 
+  it("getComments reads markdown comments for lightweight feedback review", async () => {
+    let seenUrl = "";
+    const fetch = async (url: string | URL) => {
+      seenUrl = url.toString();
+      return jsonResponse({
+        comments: [
+          {
+            id: "comment-1",
+            file_key: "k1",
+            message: "Move the empty state into the table body.",
+            created_at: "2026-07-02T00:00:00.000Z",
+            resolved_at: null,
+            client_meta: { node_id: "1:2", node_offset: { x: 8, y: 12 } },
+            user: { handle: "Designer" },
+          },
+        ],
+      });
+    };
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      limiter: FAST_LIMITER,
+      backoffOpts: FAST_BACKOFF,
+    });
+
+    const comments = await client.getComments("k1", { asMarkdown: true });
+
+    expect(seenUrl).toContain("/v1/files/k1/comments?as_md=true");
+    expect(comments).toEqual([
+      expect.objectContaining({
+        id: "comment-1",
+        message: "Move the empty state into the table body.",
+        client_meta: expect.objectContaining({ node_id: "1:2" }),
+      }),
+    ]);
+  });
+
+  it("getComments maps 403 to a comment-scope remediation", async () => {
+    const fetch = async () => errorResponse(403);
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      limiter: FAST_LIMITER,
+      backoffOpts: FAST_BACKOFF,
+    });
+
+    await expect(client.getComments("k1")).rejects.toMatchObject({
+      hint: expect.stringContaining("file_comments:read"),
+    });
+  });
+
   it("getNodes batches 250 ids into 3 calls (100, 100, 50)", async () => {
     const callsBy: number[] = [];
     const depths: Array<string | null> = [];
@@ -396,115 +447,6 @@ describe("FigmaClient", () => {
     });
     const root = await client.getPageTree("k1", "p1");
     expect(root).toBeNull();
-  });
-
-  it("getComments fetches comments as markdown and parses the response", async () => {
-    let seenUrl = "";
-    const fetch = async (url: string | URL) => {
-      seenUrl = url.toString();
-      return jsonResponse({
-        comments: [
-          {
-            id: "comment-1",
-            file_key: "k1",
-            message: "**Use primary button**",
-            created_at: "2026-06-17T00:00:00Z",
-            user: { id: "user-1", handle: "Reviewer" },
-            client_meta: { node_id: "node-1" },
-          },
-        ],
-      });
-    };
-    const client = new FigmaClient({
-      token: "tkn",
-      fetch: fetch as unknown as typeof globalThis.fetch,
-      limiter: FAST_LIMITER,
-      backoffOpts: FAST_BACKOFF,
-    });
-
-    const comments = await client.getComments("k1", { asMarkdown: true });
-
-    expect(seenUrl).toContain("/v1/files/k1/comments");
-    expect(seenUrl).toContain("as_md=true");
-    expect(comments[0]?.message).toBe("**Use primary button**");
-    expect(comments[0]?.client_meta?.node_id).toBe("node-1");
-  });
-
-  it("getImageUrls fetches temporary image URLs for review screenshots", async () => {
-    let seenUrl = "";
-    const fetch = async (url: string | URL) => {
-      seenUrl = url.toString();
-      return jsonResponse({
-        err: null,
-        images: {
-          "12:34": "https://figma-images.example/12-34.png",
-        },
-      });
-    };
-    const client = new FigmaClient({
-      token: "tkn",
-      fetch: fetch as unknown as typeof globalThis.fetch,
-      limiter: FAST_LIMITER,
-      backoffOpts: FAST_BACKOFF,
-    });
-
-    const urls = await client.getImageUrls("k1", ["12:34"], { format: "png", scale: 1 });
-
-    expect(seenUrl).toContain("/v1/images/k1");
-    expect(seenUrl).toContain("ids=12%3A34");
-    expect(seenUrl).toContain("format=png");
-    expect(seenUrl).toContain("scale=1");
-    expect(urls["12:34"]).toBe("https://figma-images.example/12-34.png");
-  });
-
-  it("getComments maps 403 to a file_comments scope hint", async () => {
-    const fetch = async () => errorResponse(403);
-    const client = new FigmaClient({
-      token: "tkn",
-      fetch: fetch as unknown as typeof globalThis.fetch,
-      limiter: FAST_LIMITER,
-      backoffOpts: FAST_BACKOFF,
-    });
-
-    await expect(client.getComments("k1")).rejects.toMatchObject({
-      hint: expect.stringContaining("file_comments:read"),
-    });
-  });
-
-  it("postComment replies to a root comment through the comments endpoint", async () => {
-    let seenUrl = "";
-    let seenMethod = "";
-    let seenBody = "";
-    const fetch = async (url: string | URL, init?: RequestInit) => {
-      seenUrl = url.toString();
-      seenMethod = init?.method ?? "GET";
-      seenBody = String(init?.body ?? "");
-      return jsonResponse({
-        id: "reply-1",
-        file_key: "k1",
-        parent_id: "comment-1",
-        message: "Fixed in this pass.",
-      });
-    };
-    const client = new FigmaClient({
-      token: "tkn",
-      fetch: fetch as unknown as typeof globalThis.fetch,
-      limiter: FAST_LIMITER,
-      backoffOpts: FAST_BACKOFF,
-    });
-
-    const reply = await client.postComment("k1", {
-      message: "Fixed in this pass.",
-      commentId: "comment-1",
-    });
-
-    expect(seenUrl).toContain("/v1/files/k1/comments");
-    expect(seenMethod).toBe("POST");
-    expect(JSON.parse(seenBody)).toEqual({
-      message: "Fixed in this pass.",
-      comment_id: "comment-1",
-    });
-    expect(reply.id).toBe("reply-1");
   });
 
   it("getDocument returns parsed file with depth query param", async () => {

@@ -69,7 +69,7 @@ does not overwrite unknown settings.
 
 ## When to extend it
 
-- Adding a new top-level config key (e.g. a `review` block) — add the field to `ConfigSchema`, update defaults, and add a question to the MCP `kotikit_config_init` tool.
+- Adding a new top-level config key — add the field to `ConfigSchema`, update defaults, and add a question to the MCP `kotikit_config_init` tool.
 - Supporting a second secret provider (e.g. AWS Secrets Manager) — extend `resolveSecretImpl` with a new prefix branch and update the spawn injection interface so tests can cover it without hitting a real AWS endpoint.
 - Changing where `.kotikit/` lives — update `configPath` in `src/util/paths.ts` (the config module delegates all path construction there).
 

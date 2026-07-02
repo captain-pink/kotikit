@@ -9,8 +9,9 @@ project. Re-measure with `bun run measure` after payload changes. See
 
 Design-to-code tools are not part of the core MCP surface. The older manual
 workflow, brainstorm/spec, component-plan, design-plan, design-apply,
-review/comment, and memory choreography tools have been removed from public
-registration. Use graph flows and artifacts instead.
+comment posting, and memory choreography tools have been removed from public
+registration. Use graph flows and artifacts instead. Lightweight Figma comment
+feedback remains through `review-screen` and compact artifacts.
 
 ## Safe Local Auto-Approvals
 
@@ -30,7 +31,7 @@ for Codex and Claude Code auto-approves only exact safe local read-only tools:
 
 The scaffold does not use wildcard approval rules. Tools that write files,
 start or stop the bridge, return bridge tokens, call Figma, resolve secrets,
-post or prepare review state, or mutate graph runs still require user approval.
+or mutate graph runs still require user approval.
 
 ## Graph Artifacts And UX Quality Contracts
 
@@ -48,23 +49,23 @@ quality contracts are:
   time.
 - `FigmaNodeLedger`: compact record of created Figma nodes, bounds, component
   refs, variable refs, auto layout, state representation, and transaction ids.
-- `CanvasReconciliationReport`: current canvas map used before comment review
-  so moved or renamed generated frames remain mapped by node id.
-- `CommentEvidenceMap`: REST-backed Figma comment evidence mapped to known
-  pages, regions, components, or generated nodes where possible.
 - `DesignSystemReusePlan`: visible pre-apply plan showing exact reuse,
   substitutes to validate, close candidates to compose, and true gaps that
   should stay as screen-draft work until the designer approves extraction.
 - `DesignSystemUsageReport`: final proof summary of reused design-system
   components, screen-draft parts, optional linked draft components, icon refs,
   and primitive exceptions.
+- `CommentEvidenceMap`: compact mapping from Figma REST comments to node-ledger
+  entries after a draft is visible.
+- `RevisionPlan`: proposed post-screen changes from Figma comments or plain chat
+  feedback, paused for designer approval before any Figma edits.
 
-Context durability checks keep long-lived graph state compact. Raw Figma,
-comment, and research payloads should move into artifacts after these contracts
-exist. If a flow blocks, designer recovery output should explain the problem,
-why it matters, and the recommended next action. Repeated validator failures
-are persisted on the run with expected/found/action diagnostics so the next
-agent can recover without guessing.
+Context durability checks keep long-lived graph state compact. Raw Figma and
+research payloads should move into artifacts after these contracts exist. If a
+flow blocks, designer recovery output should explain the problem, why it
+matters, and the recommended next action. Repeated validator failures are
+persisted on the run with expected/found/action diagnostics so the next agent
+can recover without guessing.
 
 ## Graph Flow Facade
 
@@ -84,7 +85,7 @@ Output: `{ valid: boolean; flow }`
 ### kotikit_start
 
 Purpose: Start a graph-backed designer flow.
-Input: `{ flowId: string; input?: { userIntent?: string; figmaTarget?: object; review?: object; designSystem?: object; project?: { root: string; name?: string } } }`
+Input: `{ flowId: string; input?: { userIntent?: string; figmaTarget?: object; designSystem?: object; feedback?: object; project?: { root: string; name?: string } } }`
 Output: `{ runId; status; pendingQuestion?; artifacts; errors }`
 
 ### kotikit_answer
@@ -122,6 +123,16 @@ Output: `{ artifacts: Artifact[] }`
 
 Purpose: Search the local design-system mirror with the token-efficient index.
 Input: `{ query: string; limit?: number }`
+
+### kotikit_feedback_snapshot
+
+Purpose: Read compact Figma comments for a draft file and optionally attach
+them to a `review-screen` run.
+Input: `{ figmaUrl?: string; fileKey?: string; runId?: string; includeResolved?: boolean; limit?: number }`
+Output: `{ snapshot; run? }`
+
+This tool is read-only for Figma, but it resolves a local Figma token and calls
+Figma, so scaffolded agents should still ask before running it.
 Output: compact component refs.
 
 ### kotikit_record_figma_apply
@@ -135,18 +146,8 @@ a later transaction before the graph consumes the current metadata. Use
 `componentSource: "existing-component"` for imported design-system instances,
 `componentSource: "screen-draft"` for composed missing structure that may be
 extracted later, `componentSource: "draft-component"` for linked kotikit draft
-components, and record `iconRefs` when the apply packet lists required icon
-affordances. For draft component transactions, record
-`figmaNodeKind: "COMPONENT"` and either `componentRefs` or `componentKey` with
-the real Figma component key.
-
-### kotikit_review_figma_target
-
-Purpose: Fetch bounded REST-backed evidence for an exact Figma target, then
-start the built-in improve-existing-design graph flow.
-Input: `{ figmaUrl?: string; fileKey?: string; nodeId?: string; scope?: string; screen?: string; surfaceType?: string; audience?: string; primaryUserGoal?: string; reviewGoal?: string; strictness?: "quick" | "standard" | "deep"; notes?: string; maxRegions?: number }`
-Output: `{ runId; status; pendingQuestion?; artifacts; errors }`
-Requires `FIGMA_TOKEN` or `config.figma.token` with file-read access.
+components after designer-approved extraction, and record `iconRefs` when the
+apply packet lists required icon affordances.
 
 ### kotikit_doctor
 

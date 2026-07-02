@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "review-screen",
+  "version": "1.0.0",
+  "title": "Review Screen",
+  "description": "Turn Figma comments or plain chat feedback on an existing Kotikit screen into a compact post-screen revision plan.",
+  "stateSchema": "KotikitGraphState/v1",
+  "requiredCapabilities": ["comments.read", "feedback.plan"],
+  "nodes": [
+    {
+      "id": "build-comment-evidence-map",
+      "uses": "feedback.buildEvidenceMap",
+      "params": {}
+    },
+    {
+      "id": "create-revision-plan",
+      "uses": "feedback.createRevisionPlan",
+      "params": {}
+    },
+    {
+      "id": "ask-revision-approval",
+      "uses": "feedback.askRevisionApproval",
+      "params": {}
+    }
+  ],
+  "edges": [
+    ["build-comment-evidence-map", "create-revision-plan"],
+    ["create-revision-plan", "ask-revision-approval"]
+  ],
+  "start": "build-comment-evidence-map",
+  "end": ["ask-revision-approval"],
+  "safetyProfile": "standard-design-feedback"
+}

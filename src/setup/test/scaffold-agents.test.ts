@@ -30,7 +30,6 @@ const unsafePromptedTools = [
   "kotikit_bridge_stop",
   "kotikit_bridge_status",
   "kotikit_start",
-  "kotikit_review_figma_target",
 ];
 
 function readJson(path: string): unknown {
@@ -47,7 +46,7 @@ function currentKotikitSkill(name: string = "kotikit-auto"): string {
 function seedKotikitRoot(): void {
   mkdirSync(join(kotikitRoot, "src", "mcp"), { recursive: true });
   writeFileSync(join(kotikitRoot, "src", "mcp", "server.ts"), "export {};\n");
-  ["kotikit-auto", "kotikit-design-review"].forEach((name) => {
+  ["kotikit-auto"].forEach((name) => {
     mkdirSync(join(kotikitRoot, ".agents", "skills", name), { recursive: true });
     writeFileSync(
       join(kotikitRoot, ".agents", "skills", name, "SKILL.md"),
@@ -106,17 +105,6 @@ describe("scaffoldAgents", () => {
     expect(skill).not.toContain("docs/agent_workflow");
   });
 
-  it("ships a portable focused kotikit design-review skill", () => {
-    const skill = currentKotikitSkill("kotikit-design-review");
-    expect(skill).toContain("kotikit_review_figma_target");
-    expect(skill).toContain("kotikit_get_artifact");
-    expect(skill).toContain("explicit designer approval");
-    expect(skill).toContain("Design Director");
-    expect(skill).not.toContain("kotikit_workflow_");
-    expect(skill).not.toContain("kotikit_design_review_start");
-    expect(skill).not.toContain("../../../docs");
-  });
-
   it("writes Claude project MCP config while preserving existing servers", async () => {
     writeFileSync(
       join(targetRoot, ".mcp.json"),
@@ -146,16 +134,8 @@ describe("scaffoldAgents", () => {
       join(targetRoot, ".claude", "skills", "kotikit-auto", "SKILL.md"),
       "utf8"
     );
-    const installedReviewSkill = readFileSync(
-      join(targetRoot, ".claude", "skills", "kotikit-design-review", "SKILL.md"),
-      "utf8"
-    );
     const autoCommand = readFileSync(
       join(targetRoot, ".claude", "commands", "kotikit-auto.md"),
-      "utf8"
-    );
-    const reviewCommand = readFileSync(
-      join(targetRoot, ".claude", "commands", "kotikit-design-review.md"),
       "utf8"
     );
     expect(config.mcpServers.browser.command).toBe("npx");
@@ -173,24 +153,15 @@ describe("scaffoldAgents", () => {
     }
     expect(settings.permissions.allow).not.toContain("mcp__kotikit__*");
     expect(installedSkill).toBe(currentKotikitSkill());
-    expect(installedReviewSkill).toBe(currentKotikitSkill("kotikit-design-review"));
     expect(installedSkill).toContain("Use this self-contained skill");
     expect(autoCommand).toContain(".claude/skills/kotikit-auto/SKILL.md");
     expect(autoCommand).toContain("kotikit-auto");
-    expect(reviewCommand).toContain(".claude/skills/kotikit-design-review/SKILL.md");
-    expect(reviewCommand).toContain("kotikit-design-review");
     expect(result.written).toContain(join(targetRoot, ".mcp.json"));
     expect(result.written).toContain(join(targetRoot, ".claude", "settings.json"));
     expect(result.written).toContain(
       join(targetRoot, ".claude", "skills", "kotikit-auto", "SKILL.md")
     );
-    expect(result.written).toContain(
-      join(targetRoot, ".claude", "skills", "kotikit-design-review", "SKILL.md")
-    );
     expect(result.written).toContain(join(targetRoot, ".claude", "commands", "kotikit-auto.md"));
-    expect(result.written).toContain(
-      join(targetRoot, ".claude", "commands", "kotikit-design-review.md")
-    );
     expect(result.notes.join("\n")).toContain("Claude Code project MCP config");
     expect(result.notes.join("\n")).toContain("safe read-only Kotikit tool permissions");
   });
@@ -361,12 +332,7 @@ describe("scaffoldAgents", () => {
       join(targetRoot, ".agents", "skills", "kotikit-auto", "SKILL.md"),
       "utf8"
     );
-    const installedReviewSkill = readFileSync(
-      join(targetRoot, ".agents", "skills", "kotikit-design-review", "SKILL.md"),
-      "utf8"
-    );
     expect(installedSkill).toBe(currentKotikitSkill());
-    expect(installedReviewSkill).toBe(currentKotikitSkill("kotikit-design-review"));
     expect(installedSkill).not.toContain("../../../docs");
     expect(readFileSync(join(targetRoot, ".env"), "utf8")).toBe("FIGMA_TOKEN=\n");
     expect(result.written).toContain(join(targetRoot, ".codex", "config.toml"));

@@ -45,23 +45,19 @@ root, then writes agent-specific setup:
   or appending them if missing. The generated block sets
   `default_tools_approval_mode = "prompt"` and adds exact
   `approval_mode = "approve"` sections only for safe local read-only tools.
-- Agent skills: copies the portable `kotikit-auto` and
-  `kotikit-design-review` workflows into the target project. Claude Code
-  receives `.claude/skills/...` for
-  `/kotikit-auto` and `/kotikit-design-review`; Codex receives
-  `.agents/skills/...` for `kotikit:auto` and `kotikit:design-review`. The
-  installer treats these copied kotikit skills as managed files: if a copied
-  skill differs from the current source, it saves the previous copy under
+- Agent skills: copies the portable `kotikit-auto` workflow into the target
+  project. Claude Code receives `.claude/skills/...` for `/kotikit-auto`;
+  Codex receives `.agents/skills/...` for `kotikit:auto`. The installer treats
+  this copied kotikit skill as a managed file: if a copied skill differs from
+  the current source, it saves the previous copy under
   `.kotikit/backups/scaffold/` and refreshes the active skill. Pass
   `--preserve-skills` to keep locally edited copied skills instead.
-- Claude Code commands: writes `.claude/commands/kotikit-auto.md` and
-  `.claude/commands/kotikit-design-review.md` so the slash commands reliably
-  load the copied skills. Existing command files with local changes are
-  preserved.
+- Claude Code commands: writes `.claude/commands/kotikit-auto.md` so the slash
+  command reliably loads the copied skill. Existing command files with local
+  changes are preserved.
 - Figma token placeholder: creates `.env` with `FIGMA_TOKEN=` or appends that
-  key when `.env` exists without it. This token is for local design-system sync
-  and REST-backed design/comment review, not for draft creation through Figma
-  remote MCP auth.
+  key when `.env` exists without it. This token is for local design-system
+  sync, not for draft creation through Figma remote MCP auth.
 - Co-author metadata: when requested, updates an existing
   `.kotikit/config.json` with `git.coAuthor`.
 

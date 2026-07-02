@@ -123,7 +123,7 @@ This guard exists to reduce accidental changes to production design pages.
 
 Ask kotikit to continue the run so it can run the UI quality gate. If the gate
 blocks on canvas overlap, rerun the active Figma transaction or ask kotikit to
-reconcile the current canvas before reviewing comments.
+reconcile the current canvas before continuing.
 
 Generated frames should sit inside one kotikit Section, follow the canvas plan,
 and be applied one screen state at a time. Draft components belong in their own
@@ -137,9 +137,20 @@ region rather than becoming extra content around it. Kotikit stores the intended
 coverage in a `StateMatrix`.
 
 If a generated screen shows loading, empty, no-results, error, or permission
-states as disconnected cards, rerun the design review on the exact Figma target
-and ask kotikit to check state representation. The review should point to the
-affected page, region, component, or flow state.
+states as disconnected cards, continue the run and ask kotikit to check state
+representation. The QA result should point to the affected page, region,
+component, or flow state.
+
+## Figma Comments Do Not Load
+
+The lightweight feedback flow reads comments through Figma REST. Check that the
+target project `.env` has `FIGMA_TOKEN`, the token can access the file, and the
+token includes `file_comments:read`.
+
+If comments load but kotikit cannot map them, continue the `review-screen` run
+and open the `CommentEvidenceMap` artifact. Unmapped comments should stay
+explicit as page-level or needs-human feedback rather than being attached to a
+guessed layer.
 
 ## Draft Components Are Created But Not Used
 
@@ -171,21 +182,11 @@ The second repeated failure should include compact diagnostics with what kotikit
 expected, what it found, and the accepted next action. Continue from that
 diagnostic instead of guessing or restarting the whole flow.
 
-## Figma Comments Cannot Be Mapped
-
-Comment review uses Figma REST comment snapshots and generated-node apply
-metadata to build a `CommentEvidenceMap`. Some comments can still be unmapped,
-especially if they were placed on areas not created by kotikit or if the design
-was edited after apply metadata was recorded.
-
-Unmapped comments should remain visible as page-level or needs-human evidence.
-Kotikit should not guess an exact layer when the evidence is weak.
-
 ## Kotikit Says The Run Carries Too Much Context
 
 This is a context durability guard. Long-running graph state should stay small
-and resumable; raw Figma, comment, and research payloads belong in artifacts
-once compact contracts exist.
+and resumable; raw Figma and research payloads belong in artifacts once compact
+contracts exist.
 
 Retry the flow from the latest saved run if available. If it blocks again,
 open the listed artifact or run `kotikit doctor` from the target project. The

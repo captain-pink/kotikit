@@ -1,9 +1,9 @@
 # Figma Setup
 
-kotikit uses two Figma integration paths:
+kotikit uses three Figma integration paths:
 
-1. The Figma REST API for syncing published libraries, reading comments, and
-   posting approved comments.
+1. The Figma REST API for syncing published libraries and reading comments for
+   feedback review.
 2. The official Figma assistant integration for creating and refining draft
    designs in Figma.
 3. The local kotikit Figma plugin only for exporting variables when REST
@@ -13,8 +13,8 @@ kotikit uses two Figma integration paths:
 
 Figma personal access token is not required for draft creation when your
 assistant is connected through Figma's remote MCP integration. Create a token
-only when you want local design-system sync or REST-backed design/comment
-review, then store it in the target workspace `.env` file:
+only when you want local design-system sync or Figma comment feedback, then
+store it in the target workspace `.env` file:
 
 ```env
 FIGMA_TOKEN=figd_...your_token_here...
@@ -22,11 +22,8 @@ FIGMA_TOKEN=figd_...your_token_here...
 
 Recommended scopes:
 
-- File read access for design-system sync and REST-backed design review
-  evidence.
-- `file_comments:read` for browserless comment review.
-- `file_comments:write` only if you want kotikit to post approved replies or
-  review comments.
+- File read access for design-system sync.
+- `file_comments:read` for the lightweight `review-screen` feedback loop.
 
 Do not put the token in the kotikit repo. It belongs in the target project root
 next to `.kotikit/`.
@@ -54,10 +51,10 @@ published-component API returns zero usable components. Kotikit does not scrape
 the full document tree as a substitute, because draft creation needs importable
 keys.
 
-kotikit can still inspect some draft-file data for experiments and review
-workflows. That is different from composing a new Figma draft with reusable
-design-system components. Generated drafts need importable component keys, and
-those keys come from published libraries.
+kotikit can still inspect some draft-file data for experiments. That is
+different from composing a new Figma draft with reusable design-system
+components. Generated drafts need importable component keys, and those keys
+come from published libraries.
 
 ## Draft Page Safety
 
@@ -71,23 +68,8 @@ page URL must:
 - have a page name containing `Draft` or `Drafts`
 
 Generated frames are placed inside a kotikit-owned Section on that page. Later
-apply metadata validates the Figma file, page, and Section before it can be
-used by review and comment evidence flows.
-
-## Comment Evidence
-
-Figma comments are read through the REST API when `file_comments:read` is
-available. Kotikit combines the REST comment snapshot with saved apply metadata
-from generated frames and stores the result as a compact `CommentEvidenceMap`.
-
-That map lets the review graph connect a thread to the nearest known page,
-region, component, or generated node when possible. Comments that cannot be
-mapped safely stay visible as unmapped evidence instead of being guessed.
-
-After the map is built, raw comment snapshots are kept as artifacts and removed
-from long-lived graph state. This supports context durability and lets the run
-resume after approval pauses without requiring the assistant to reread the full
-comment payload.
+apply metadata validates the Figma file, page, and Section before graph QA can
+use it.
 
 ## Official Figma Assistant Integration
 
@@ -110,17 +92,28 @@ exist, kotikit should still compose the visible screen first with screen-draft
 structure, then ask whether the designer wants those reusable parts extracted
 as draft components on the same draft page.
 
-Each active Figma transaction creates exactly one screen state, region state,
-or approved post-screen draft component at the bounds from the canvas plan.
-After each write, record transactionId, node id, bounds, component refs,
-component source, variable refs, required icon refs, and auto-layout metadata with
-`kotikit_record_figma_apply`, then continue the run.
+Each active Figma transaction creates exactly one screen state or region state
+at the bounds from the canvas plan. After each write, record transactionId,
+node id, bounds, component refs, component source, variable refs, required icon
+refs, and auto-layout metadata with `kotikit_record_figma_apply`, then continue
+the run.
+
+## Figma Comment Feedback
+
+After a draft exists, designers can leave normal Figma comments and ask kotikit
+to review them. Kotikit reads comments through Figma REST with
+`kotikit_feedback_snapshot`, maps `client_meta.node_id` to the recorded node
+ledger, saves a compact `CommentEvidenceMap`, then creates a `RevisionPlan` and
+asks before applying changes.
+
+The tiny core does not post comments, resolve threads, or store feedback as
+project memory. Comment reads require a token with `file_comments:read`; draft
+creation still uses the official Figma assistant integration for writes.
 
 ## Local Kotikit Plugin
 
-The plugin is optional for design-system search and comment reading. It is
-needed only for exporting variables on Figma plans where REST variables are
-unavailable.
+The plugin is optional for design-system search. It is needed only for
+exporting variables on Figma plans where REST variables are unavailable.
 
 Build the plugin:
 

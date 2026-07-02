@@ -10,7 +10,6 @@ import {
   configPath,
   designApplyLogPath,
   designPlanPath,
-  designReviewDbPath,
   designSystemDir,
   findProjectRoot,
   iconsDbPath,
@@ -161,10 +160,6 @@ describe("paths", () => {
       expect(designApplyLogPath("/p", "checkout-flow", "cart")).toBe(
         "/p/.kotikit/specs/checkout-flow/cart.design.apply.log"
       );
-    });
-
-    it("designReviewDbPath", () => {
-      expect(designReviewDbPath("/p")).toBe("/p/.kotikit/design-review.db");
     });
 
     it("bridgeConfigPath", () => {

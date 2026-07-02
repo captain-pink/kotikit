@@ -24,11 +24,6 @@ Design-to-code plans are not part of the core planning module.
 - `readDesignPlan(root, scope, screen | null)` — async; returns `DesignPlan | null`
 - `deleteDesignPlan(root, scope, screen | null)` — async
 
-**Review evidence and preferences** (`src/planning/design-review.ts`, `src/db/design-review-db.ts`)
-- `collectDesignReviewEvidence(input)` — fetches bounded depth-1 Figma target evidence, limits returned child regions, records a versioned cache row, and returns a temporary screenshot URL when available
-- Comment review now uses graph `CommentEvidenceMap` artifacts built from Figma REST comment snapshots plus graph apply metadata; unmatched comments remain unmapped instead of being guessed
-- `design-review.db` — local review ledger for comment sessions, standalone design-quality reviews, shallow evidence cache rows, micro-adjustments, reply/comment outbox rows, preference candidates, and active design preferences
-
 ## How it works
 
 Design plans are disposable work queues generated from the spec they reference.
@@ -57,21 +52,8 @@ overlap, clipping, minimum target size, and responsive state quality.
 
 Apply results are recorded through graph apply metadata and artifacts. The
 metadata stores file, page, Section, component, draft-origin, variable, layout,
-repeated-structure, and generated node details so review and comment flows can
-prove they are operating inside the approved draft area. Graph comment flows
-combine that apply metadata with Figma REST `client_meta.node_id` values to
-build `CommentEvidenceMap` artifacts. Comments without node IDs, or comments
-whose node IDs are outside the known metadata, are returned as unmapped rather
-than inferred from text.
-
-Review results and refinements live in `.kotikit/design-review.db`. Graph review
-nodes record micro-adjustments instead of expanding specs or prompts with
-verbose change history. Standalone design-quality reviews gather screenshot-led,
-shallow, bounded Figma evidence instead of loading a whole file tree. Figma
-comments are prepared and posted only after user approval. Repeated feedback can
-become a design memory candidate; promoted preferences are returned by graph
-memory nodes so future design passes can apply project taste before the same
-comment appears again.
+repeated-structure, and generated node details so QA and future extensions can
+prove they are operating inside the approved draft area.
 
 ## When to extend it
 
@@ -87,5 +69,5 @@ comment appears again.
 
 - [spec](./spec.md) — plans reference specs by scope and screen slug; `ScreenSpec` is the primary input to both generators
 - [util](./util.md) — `designPlanPath` and `designApplyLogPath` live here
-- [mcp](./mcp.md) — graph facade tools expose planning, review, and memory
-  outputs as artifacts instead of public choreography wrappers
+- [mcp](./mcp.md) — graph facade tools expose planning outputs as artifacts
+  instead of public choreography wrappers

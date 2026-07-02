@@ -3,14 +3,12 @@ import { KotikitError } from "../util/result.js";
 import { type BackoffOpts, type RetryableError, withBackoff } from "./backoff.js";
 import {
   type FigmaComment,
-  FigmaCommentSchema,
   FigmaCommentsResponseSchema,
   type FigmaComponentSet,
   FigmaComponentSetsResponseSchema,
   FigmaComponentsResponseSchema,
   type FigmaFile,
   FigmaFileSchema,
-  FigmaImagesResponseSchema,
   type FigmaLocalVariables,
   type FigmaNode,
   FigmaNodesResponseSchema,
@@ -284,33 +282,7 @@ export class FigmaClient {
     }
   }
 
-  /** GET /v1/images/:key — temporary image URLs for visual review evidence. */
-  async getImageUrls(
-    fileKey: string,
-    ids: string[],
-    opts: { format?: "png" | "jpg" | "svg"; scale?: number } = {}
-  ): Promise<Record<string, string>> {
-    const params = new URLSearchParams({
-      ids: ids.join(","),
-      format: opts.format ?? "png",
-    });
-    if (opts.scale !== undefined) params.set("scale", String(opts.scale));
-    try {
-      const res = await this.request(
-        `/v1/images/${fileKey}?${params.toString()}`,
-        FigmaImagesResponseSchema
-      );
-      return Object.fromEntries(
-        Object.entries(res.images).flatMap(([nodeId, url]) =>
-          url === null ? [] : [[nodeId, url] as const]
-        )
-      );
-    } catch (err) {
-      throw this.mapError(err, fileKey, "images");
-    }
-  }
-
-  /** GET /v1/files/:key/comments — comments and replies for design review. */
+  /** GET /v1/files/:key/comments — comments and replies for lightweight design feedback. */
   async getComments(fileKey: string, opts: { asMarkdown?: boolean } = {}): Promise<FigmaComment[]> {
     try {
       const suffix = opts.asMarkdown === true ? "?as_md=true" : "";
@@ -321,26 +293,6 @@ export class FigmaClient {
       return res.comments;
     } catch (err) {
       throw this.mapError(err, fileKey, "comments");
-    }
-  }
-
-  /** POST /v1/files/:key/comments — create a root comment or reply. */
-  async postComment(
-    fileKey: string,
-    input: { message: string; commentId?: string; clientMeta?: unknown }
-  ): Promise<FigmaComment> {
-    try {
-      return await this.request(`/v1/files/${fileKey}/comments`, FigmaCommentSchema, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: input.message,
-          ...(input.commentId !== undefined ? { comment_id: input.commentId } : {}),
-          ...(input.clientMeta !== undefined ? { client_meta: input.clientMeta } : {}),
-        }),
-      });
-    } catch (err) {
-      throw this.mapError(err, fileKey, "comments-write");
     }
   }
 
@@ -356,9 +308,7 @@ export class FigmaClient {
         const scopeHint =
           kind === "comments"
             ? "Make sure the file is accessible to the token and the token has the file_comments:read scope."
-            : kind === "comments-write"
-              ? "Make sure the file is accessible to the token and the token has the file_comments:write scope."
-              : "Make sure the file is published to your team and the token has the file_read scope.";
+            : "Make sure the file is published to your team and the token has the file_read scope.";
         return new KotikitError(
           `Your Figma token doesn't have access to file ${fileKey}.`,
           scopeHint

@@ -40,8 +40,8 @@ export type RuntimeStartInput = {
   userIntent?: string;
   figmaTarget?: KotikitGraphState["figmaTarget"];
   figmaDefaults?: KotikitGraphState["figmaDefaults"];
-  review?: KotikitGraphState["review"];
   designSystem?: KotikitGraphState["designSystem"];
+  feedback?: KotikitGraphState["feedback"];
 };
 
 export type RuntimeRunResult = {
@@ -101,8 +101,8 @@ export function createGraphRuntime(input: {
         userIntent: startInput.input.userIntent,
         figmaTarget: startInput.input.figmaTarget,
         figmaDefaults: startInput.input.figmaDefaults,
-        review: startInput.input.review,
         designSystem: startInput.input.designSystem,
+        feedback: startInput.input.feedback,
         artifacts: [],
         errors: [],
       };

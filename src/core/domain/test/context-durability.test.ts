@@ -1,10 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { KotikitError } from "../../../util/result.js";
-import {
-  assertCompactGraphState,
-  buildContextBudgetReport,
-  pruneRawReviewPayloads,
-} from "../context-durability.js";
+import { assertCompactGraphState, buildContextBudgetReport } from "../context-durability.js";
 
 describe("context durability", () => {
   it("reports serialized graph state size", () => {
@@ -40,24 +36,12 @@ describe("context durability", () => {
           graphHash: "hash",
           status: "running",
           project: { root: "/tmp/project" },
-          review: { rawPayload: "x".repeat(2_000) },
+          designSystem: { rawPayload: "x".repeat(2_000) },
           artifacts: [],
           errors: [],
         },
         { warningBytes: 512, maxBytes: 1024 }
       )
     ).toThrow(KotikitError);
-  });
-
-  it("prunes raw review snapshots after compact comment evidence exists", () => {
-    expect(
-      pruneRawReviewPayloads({
-        commentSnapshot: { comments: [{ id: "comment-1", message: "Long raw payload" }] },
-        nodeMap: { nodes: [{ nodeId: "1:2" }] },
-        commentEvidenceMap: { schemaVersion: "CommentEvidenceMap/v1" },
-      })
-    ).toEqual({
-      commentSnapshotRef: "comment-evidence-map",
-    });
   });
 });

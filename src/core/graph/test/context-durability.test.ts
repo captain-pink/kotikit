@@ -55,7 +55,7 @@ describe("context durability", () => {
           project: { root, name: "Smoke Project" },
           userIntent: "Create Admin members page",
           figmaTarget: fakeDraftTarget("Draft - Members"),
-          review: { rawPayload: "x".repeat(300_000) },
+          designSystem: { rawPayload: "x".repeat(300_000) },
         },
       })
     ).rejects.toThrow("too much context");

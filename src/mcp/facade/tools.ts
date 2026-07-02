@@ -10,16 +10,11 @@ import type {
 } from "../../core/graph/runtime.js";
 import type { Artifact } from "../../core/schemas/artifact.js";
 import { type FlowDefinition, FlowDefinitionSchema } from "../../core/schemas/flow-definition.js";
-import { openDesignReviewDb } from "../../db/design-review-db.js";
 import { runKotikitDoctor } from "../../doctor/doctor.js";
 import { DESIGN_PLAN_STEP_KINDS } from "../../planning/design-plan-schema.js";
-import {
-  collectDesignReviewEvidence,
-  type DesignReviewEvidenceClient,
-  parseFigmaReviewUrl,
-} from "../../planning/design-review.js";
 import { FigmaClient } from "../../sync/figma-client.js";
 import { resolveFigmaToken } from "../../sync/figma-token.js";
+import { nowIso } from "../../util/ids.js";
 import { KotikitError, toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
@@ -35,8 +30,8 @@ export const FACADE_TOOL_NAMES = [
   "kotikit_get_artifact",
   "kotikit_list_artifacts",
   "kotikit_search_design_system",
+  "kotikit_feedback_snapshot",
   "kotikit_record_figma_apply",
-  "kotikit_review_figma_target",
   "kotikit_doctor",
 ] as const;
 
@@ -52,7 +47,7 @@ export type FacadeRuntime = Pick<
 export type FacadeToolDependencies = {
   runtime?: FacadeRuntime;
   loadFlows?: () => Promise<FlowDefinition[]>;
-  figmaReviewClientFactory?: (token: string) => DesignReviewEvidenceClient;
+  figmaClientFactory?: (token: string) => Pick<FigmaClient, "getComments">;
 };
 
 const FlowValidateInputSchema = z
@@ -77,8 +72,8 @@ const StartInputSchema = z.strictObject({
       userIntent: z.string().min(1).optional(),
       figmaTarget: z.unknown().optional(),
       figmaDefaults: z.unknown().optional(),
-      review: z.unknown().optional(),
       designSystem: z.unknown().optional(),
+      feedback: z.unknown().optional(),
     })
     .optional(),
 });
@@ -97,28 +92,6 @@ const BindFigmaTargetInputSchema = z.strictObject({
   target: z.unknown(),
 });
 
-const ReviewFigmaTargetInputSchema = z
-  .strictObject({
-    figmaUrl: z.string().min(1).optional(),
-    fileKey: z.string().min(1).optional(),
-    nodeId: z.string().min(1).optional(),
-    scope: z.string().min(1).optional(),
-    screen: z.string().min(1).optional(),
-    surfaceType: z.string().min(1).optional(),
-    audience: z.string().min(1).optional(),
-    primaryUserGoal: z.string().min(1).optional(),
-    reviewGoal: z.string().min(1).optional(),
-    strictness: z.enum(["quick", "standard", "deep"]).optional().default("standard"),
-    notes: z.string().min(1).optional(),
-    maxRegions: z.number().int().positive().max(30).optional().default(8),
-  })
-  .refine((input) => input.figmaUrl !== undefined || input.fileKey !== undefined, {
-    message: "Pass figmaUrl, or pass fileKey with nodeId.",
-  })
-  .refine((input) => input.figmaUrl !== undefined || input.nodeId !== undefined, {
-    message: "Pass figmaUrl, or pass fileKey with nodeId.",
-  });
-
 const GetArtifactInputSchema = z.strictObject({
   artifactId: z.string().min(1),
 });
@@ -126,6 +99,18 @@ const GetArtifactInputSchema = z.strictObject({
 const ListArtifactsInputSchema = z.strictObject({
   runId: z.string().min(1).optional(),
 });
+
+const FeedbackSnapshotInputSchema = z
+  .strictObject({
+    figmaUrl: z.string().url().optional(),
+    fileKey: z.string().min(1).optional(),
+    runId: z.string().min(1).optional(),
+    includeResolved: z.boolean().optional(),
+    limit: z.number().int().positive().max(200).optional(),
+  })
+  .refine((input) => input.figmaUrl !== undefined || input.fileKey !== undefined, {
+    message: "Pass either figmaUrl or fileKey.",
+  });
 
 type ToolHandler = ToolRegistry["handlers"] extends Map<string, infer Handler> ? Handler : never;
 
@@ -200,13 +185,13 @@ export function registerFacadeTools(
               type: "object",
               description: "Optional Figma draft defaults, normally loaded from kotikit config.",
             },
-            review: {
-              type: "object",
-              description: "Optional pre-collected review target, evidence, or comment snapshot.",
-            },
             designSystem: {
               type: "object",
               description: "Optional pre-seeded design-system search results.",
+            },
+            feedback: {
+              type: "object",
+              description: "Optional pre-seeded feedback snapshot for review-screen.",
             },
             project: {
               type: "object",
@@ -237,10 +222,10 @@ export function registerFacadeTools(
           ? {}
           : { figmaTarget: ensureDraftTarget(input.input.figmaTarget) }),
         figmaDefaults: figmaDefaultsFrom(input.input?.figmaDefaults, config?.defaults.figmaSection),
-        ...(input.input?.review === undefined ? {} : { review: input.input.review }),
         ...(input.input?.designSystem === undefined
           ? {}
           : { designSystem: input.input.designSystem }),
+        ...(input.input?.feedback === undefined ? {} : { feedback: input.input.feedback }),
       };
       return toolText(
         `Started ${input.flowId}.`,
@@ -397,6 +382,81 @@ export function registerFacadeTools(
   });
 
   registerTool(registry, {
+    name: "kotikit_feedback_snapshot",
+    description:
+      "Read compact Figma comments for a draft file and optionally attach them to a review-screen run.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        figmaUrl: {
+          type: "string",
+          description: "Figma design URL; the /design/:fileKey segment is used.",
+        },
+        fileKey: { type: "string", description: "Figma file key, when already known." },
+        runId: {
+          type: "string",
+          description: "Optional active review-screen run id to patch with the snapshot.",
+        },
+        includeResolved: {
+          type: "boolean",
+          description: "Whether to include resolved Figma comments in the snapshot.",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum comments to return, capped at 200.",
+        },
+      },
+    },
+  });
+  registry.handlers.set("kotikit_feedback_snapshot", async (args) => {
+    try {
+      const input = FeedbackSnapshotInputSchema.parse(args);
+      const config = await ctx.loadConfig();
+      const token = await resolveFigmaToken(ctx.root, config);
+      if (token === undefined || token === "") {
+        throw new KotikitError(
+          "I couldn't find your Figma token.",
+          "Set FIGMA_TOKEN in the project .env file before reading Figma comments."
+        );
+      }
+      const fileKey = input.fileKey ?? fileKeyFromFigmaUrl(input.figmaUrl ?? "");
+      const client = deps.figmaClientFactory?.(token) ?? new FigmaClient({ token });
+      const comments = (await client.getComments(fileKey, { asMarkdown: true }))
+        .filter((comment) => input.includeResolved === true || comment.resolved_at == null)
+        .slice(0, input.limit ?? 100)
+        .map(compactFigmaComment);
+      const snapshot = {
+        schemaVersion: "FigmaCommentSnapshot/v1",
+        fileKey,
+        fetchedAt: nowIso(),
+        includeResolved: input.includeResolved === true,
+        comments,
+      };
+
+      if (input.runId !== undefined) {
+        const runtime = requireRuntime(deps.runtime);
+        const result = await runtime.patchRunState({
+          runId: input.runId,
+          statePatch: {
+            feedback: {
+              commentSnapshot: snapshot,
+              includeResolved: input.includeResolved === true,
+            },
+          },
+        });
+        return toolText(`Attached ${comments.length} Figma comment(s) to run ${input.runId}.`, {
+          snapshot,
+          run: compactRunResult(result),
+        });
+      }
+
+      return toolText(`Fetched ${comments.length} Figma comment(s).`, { snapshot });
+    } catch (err) {
+      return toolError(err);
+    }
+  });
+
+  registerTool(registry, {
     name: "kotikit_record_figma_apply",
     description: "Record metadata after the official Figma MCP apply path updates a draft.",
     inputSchema: figmaApplyInputSchema(),
@@ -423,52 +483,6 @@ export function registerFacadeTools(
         },
       });
       return toolText(`Recorded Figma apply metadata for run ${runId}.`, compactRunResult(result));
-    } catch (err) {
-      return toolError(err);
-    }
-  });
-
-  registerTool(registry, {
-    name: "kotikit_review_figma_target",
-    description: "Start the built-in improve-existing-design flow for an exact Figma target.",
-    inputSchema: reviewFigmaTargetInputSchema(),
-  });
-  registry.handlers.set("kotikit_review_figma_target", async (args) => {
-    try {
-      const runtime = requireRuntime(deps.runtime);
-      const input = ReviewFigmaTargetInputSchema.parse(args);
-      const token = await resolveFigmaToken(ctx.root, await ctx.loadConfig());
-      if (token === undefined || token === "") {
-        throw new KotikitError(
-          "I couldn't find your Figma token.",
-          "Set FIGMA_TOKEN or config.figma.token. Design review evidence needs Figma file read access."
-        );
-      }
-      const client = deps.figmaReviewClientFactory?.(token) ?? new FigmaClient({ token });
-      const parsedTarget = reviewTargetFromInput(input);
-      const { target, evidence } = await collectDesignReviewEvidence({
-        client,
-        store: openDesignReviewDb(ctx.root),
-        target: {
-          ...parsedTarget,
-          ...(input.scope === undefined ? {} : { scope: input.scope }),
-          ...(input.screen === undefined ? {} : { screen: input.screen }),
-        },
-        maxRegions: input.maxRegions,
-      });
-      const brief = reviewBriefFromInput(input);
-      const result = await runtime.startFlow({
-        flowId: "improve-existing-design",
-        input: {
-          project: { root: ctx.root },
-          review: {
-            target,
-            evidence,
-            ...(Object.keys(brief).length === 0 ? {} : { brief }),
-          },
-        },
-      });
-      return toolText(`Started review run ${result.runId}.`, compactRunResult(result));
     } catch (err) {
       return toolError(err);
     }
@@ -898,6 +912,70 @@ function figmaDefaultsFrom(
   };
 }
 
+function fileKeyFromFigmaUrl(figmaUrl: string): string {
+  const url = new URL(figmaUrl);
+  const segments = url.pathname.split("/").filter(Boolean);
+  const designIndex = segments.indexOf("design");
+  const fileKey = designIndex === -1 ? undefined : segments[designIndex + 1];
+  if (fileKey === undefined || fileKey.length === 0) {
+    throw new KotikitError(
+      "That Figma URL does not include a design file key.",
+      "Use a URL shaped like https://www.figma.com/design/<fileKey>/..."
+    );
+  }
+  return fileKey;
+}
+
+function compactFigmaComment(comment: Record<string, unknown>): Record<string, unknown> {
+  const user = recordFrom(comment.user);
+  return {
+    ...(stringField(comment, "id") !== undefined ? { id: stringField(comment, "id") } : {}),
+    ...(stringField(comment, "file_key") !== undefined
+      ? { file_key: stringField(comment, "file_key") }
+      : {}),
+    ...(stringField(comment, "parent_id") !== undefined
+      ? { parent_id: stringField(comment, "parent_id") }
+      : {}),
+    ...(stringField(comment, "message") !== undefined
+      ? { message: stringField(comment, "message") }
+      : {}),
+    ...(stringField(comment, "created_at") !== undefined
+      ? { created_at: stringField(comment, "created_at") }
+      : {}),
+    ...(stringField(comment, "resolved_at") !== undefined
+      ? { resolved_at: stringField(comment, "resolved_at") }
+      : {}),
+    ...(stringField(comment, "order_id") !== undefined
+      ? { order_id: stringField(comment, "order_id") }
+      : {}),
+    ...(Object.keys(user).length === 0
+      ? {}
+      : {
+          user: {
+            ...(stringField(user, "id") !== undefined ? { id: stringField(user, "id") } : {}),
+            ...(stringField(user, "handle") !== undefined
+              ? { handle: stringField(user, "handle") }
+              : {}),
+          },
+        }),
+    ...(Object.keys(recordFrom(comment.client_meta)).length === 0
+      ? {}
+      : { client_meta: compactClientMeta(recordFrom(comment.client_meta)) }),
+  };
+}
+
+function compactClientMeta(clientMeta: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...(stringField(clientMeta, "node_id") !== undefined
+      ? { node_id: stringField(clientMeta, "node_id") }
+      : {}),
+    ...(recordFrom(clientMeta.node_offset).x === undefined &&
+    recordFrom(clientMeta.node_offset).y === undefined
+      ? {}
+      : { node_offset: recordFrom(clientMeta.node_offset) }),
+  };
+}
+
 function figmaSectionDefaultFrom(
   value: unknown
 ): NonNullable<RuntimeStartInput["figmaDefaults"]>["section"] | undefined {
@@ -983,70 +1061,6 @@ function stateRepresentationField(input: Record<string, unknown>): string | unde
     representation === "flow-step"
     ? representation
     : undefined;
-}
-
-function reviewTargetFromInput(input: z.infer<typeof ReviewFigmaTargetInputSchema>): {
-  fileKey: string;
-  nodeId: string;
-  figmaUrl: string;
-} {
-  if (input.figmaUrl !== undefined) return parseFigmaReviewUrl(input.figmaUrl);
-  if (input.fileKey !== undefined && input.nodeId !== undefined) {
-    return {
-      fileKey: input.fileKey,
-      nodeId: input.nodeId,
-      figmaUrl: `https://www.figma.com/design/${input.fileKey}/review?node-id=${input.nodeId.replace(":", "-")}`,
-    };
-  }
-  throw new KotikitError(
-    "I need an exact Figma target to review.",
-    "Pass figmaUrl with node-id, or pass both fileKey and nodeId."
-  );
-}
-
-function reviewBriefFromInput(
-  input: z.infer<typeof ReviewFigmaTargetInputSchema>
-): Record<string, unknown> {
-  return {
-    strictness: input.strictness,
-    ...(input.surfaceType === undefined ? {} : { surfaceType: input.surfaceType }),
-    ...(input.audience === undefined ? {} : { audience: input.audience }),
-    ...(input.primaryUserGoal === undefined ? {} : { primaryUserGoal: input.primaryUserGoal }),
-    ...(input.reviewGoal === undefined ? {} : { reviewGoal: input.reviewGoal }),
-    ...(input.notes === undefined ? {} : { notes: input.notes }),
-  };
-}
-
-function reviewFigmaTargetInputSchema(): Tool["inputSchema"] {
-  return {
-    type: "object",
-    properties: {
-      figmaUrl: { type: "string", description: "Exact Figma URL with node-id." },
-      fileKey: {
-        type: "string",
-        description: "Figma file key, used with nodeId when figmaUrl is omitted.",
-      },
-      nodeId: {
-        type: "string",
-        description: "Figma node id, used with fileKey when figmaUrl is omitted.",
-      },
-      scope: { type: "string", description: "Optional kotikit scope to link the review to." },
-      screen: { type: "string", description: "Optional kotikit screen to link the review to." },
-      surfaceType: {
-        type: "string",
-        description: "App screen, dashboard, landing page, component, mobile flow, etc.",
-      },
-      audience: { type: "string" },
-      primaryUserGoal: { type: "string" },
-      reviewGoal: { type: "string" },
-      strictness: { type: "string", enum: ["quick", "standard", "deep"] },
-      notes: { type: "string" },
-      maxRegions: {
-        type: "number",
-        description: "Maximum shallow child regions returned. Defaults to 8, max 30.",
-      },
-    },
-  };
 }
 
 async function validateFigmaApplyRecord(

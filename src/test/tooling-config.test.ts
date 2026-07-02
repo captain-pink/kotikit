@@ -99,7 +99,6 @@ describe("live documentation", () => {
     "docs/troubleshooting.md",
     "docs/workflows.md",
     ".agents/skills/kotikit-auto/SKILL.md",
-    ".agents/skills/kotikit-design-review/SKILL.md",
     "plugins/README.md",
     ...readdirSync(join(repoRoot, "docs", "modules"))
       .filter((name) => name.endsWith(".md"))
@@ -146,7 +145,6 @@ describe("live documentation", () => {
     expect(docs).toContain("plugins are preferred");
     expect(docs).toContain("scaffold remains");
     expect(docs).toContain("not required for draft creation");
-    expect(docs).toContain("REST-backed design/comment review");
     expect(docs).toContain("primary token-efficient grounding");
     expect(docs).toContain("Design-to-code is removed from the core workflow");
   });

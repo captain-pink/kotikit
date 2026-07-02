@@ -16,15 +16,7 @@ import {
   loadProjectFlows,
 } from "../catalog.js";
 
-const BUILT_IN_FLOW_IDS = [
-  "first-run",
-  "create-screen",
-  "create-product-flow",
-  "improve-existing-design",
-  "review-comments",
-  "sync-design-system",
-  "resolve-missing-components",
-];
+const BUILT_IN_FLOW_IDS = ["create-screen", "review-screen"];
 
 let root: string;
 
@@ -226,6 +218,24 @@ describe("flow catalog", () => {
         recordsAssumptions: true,
       },
     });
+  });
+
+  it("review-screen keeps Figma comment feedback as a lightweight post-screen flow", async () => {
+    const reviewScreen = requireFlow(await loadBuiltInFlows(), "review-screen");
+
+    expect(reviewScreen.requiredCapabilities).toEqual(["comments.read", "feedback.plan"]);
+    expect(reviewScreen.nodes.map((node) => node.uses)).toEqual([
+      "feedback.buildEvidenceMap",
+      "feedback.createRevisionPlan",
+      "feedback.askRevisionApproval",
+    ]);
+    expect(reviewScreen.nodes.map((node) => node.uses)).not.toEqual(
+      expect.arrayContaining([
+        "review.collectEvidence",
+        "comments.buildEvidenceMap",
+        "memory.promotePreference",
+      ])
+    );
   });
 });
 

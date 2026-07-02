@@ -53,8 +53,7 @@ variables, and auto layout. Missing reusable structure is kept as screen-draft
 work during composition. After the design is visible, the assistant should ask
 whether you want those missing reusable parts extracted into draft components on
 the same draft page. Each generated node is placed by the canvas plan and
-recorded in the node ledger so comment review can still work after designers
-move frames.
+recorded in the node ledger so future recovery and QA have real evidence.
 
 ### Manual QA For Generated Figma Drafts
 
@@ -69,7 +68,7 @@ After kotikit creates a draft, verify:
 - important controls use design-system component instances;
 - required icons come from the local design-system icon index, not placeholders;
 - variables/styles are bound where available;
-- comments on moved frames still map after comment review starts.
+- all frames stay editable and selectable without manual cleanup.
 
 ## Screen States
 
@@ -86,7 +85,30 @@ Quick mode still works for fast high-fidelity screens. If kotikit can infer the
 screen archetype and design-system fit, it records assumptions and continues.
 It asks only when a decision would change the design outcome or safety boundary.
 
-## Guided Screen Or Product Flow
+## Review Comments And Apply Changes
+
+After a draft exists, designers can leave comments in Figma and ask the
+assistant to review them. Kotikit should use the lightweight `review-screen`
+flow, not the old standalone review database.
+
+The assistant should:
+
+1. Fetch a compact Figma comment snapshot with `kotikit_feedback_snapshot`.
+2. Start or continue `review-screen` with that feedback.
+3. Let kotikit map comments to the Figma node ledger and save a
+   `CommentEvidenceMap` artifact.
+4. Read the `RevisionPlan` artifact and explain the proposed changes in plain
+   design language.
+5. Ask before applying revisions.
+6. If approved, apply changes incrementally through the same Figma transaction
+   discipline used by `create-screen`.
+
+Kotikit does not post comments, resolve threads, or promote feedback into
+memory in the tiny core. If a comment cannot be mapped to a known node, it
+stays explicit as page-level or needs-human feedback instead of being attached
+to a guessed layer.
+
+## Guided Screen
 
 Use the guided path when the product shape is not clear yet:
 
@@ -95,11 +117,9 @@ I want to design an invite flow for adding new members.
 ```
 
 The assistant should ask product/design questions one topic at a time, confirm
-the summary, save a design-brief artifact, and then continue into screen or
-product-flow drafting.
-
-Product-flow work should map actor, goal, scenario, screens, states, and shared
-state before drafting screens.
+the summary, save a design-brief artifact, and then continue into screen
+drafting. Multi-screen product-flow graphs are not part of the tiny built-in
+core right now; use separate screen drafts until that extension returns.
 
 ## Sync A Figma Design System
 
@@ -147,49 +167,6 @@ skipped, use the plugin fallback:
 The plugin reads variables from the open file through Figma's Plugin API and
 sends a compact payload to kotikit over the local bridge.
 
-## Review An Existing Figma Design
-
-Ask:
-
-```text
-Review this Figma design like a design director:
-https://www.figma.com/design/...
-```
-
-The link must include `node-id`.
-
-Kotikit gathers bounded REST-backed evidence instead of reading the full Figma
-file:
-
-- shallow target metadata
-- limited child-region summaries
-- a temporary screenshot URL when available
-- a short-lived local cache row with schema, fingerprint, and expiry
-
-The graph compares the target to local design-system evidence, creates a
-revision-plan artifact, and pauses before any approved revision is applied.
-
-## Review Existing Figma Comments
-
-Ask:
-
-```text
-Review the Figma comments for the Members screen.
-```
-
-Comment review works best when the design was created through kotikit and has
-recorded Figma node metadata. Kotikit maps comments on known nodes back to graph
-artifacts when possible, groups them into decisions, and can prepare replies.
-
-The comment flow uses Figma REST comment snapshots, canvas reconciliation, and
-saved apply metadata to build a compact `CommentEvidenceMap`. Designers may
-move or rename generated frames; kotikit reconciles the current canvas before
-mapping comments. Raw comment snapshots are stored as artifacts after the
-evidence map exists, so the graph can resume review without keeping large
-payloads in assistant context.
-
-Kotikit never posts replies or review comments without your approval.
-
 ## Recovery And Resume
 
 Kotikit graph runs are designed to resume after assistant restarts, Figma apply
@@ -199,12 +176,3 @@ small enough to reload reliably.
 When kotikit blocks, it should use designer recovery language: the problem,
 why it matters for the design, and one recommended next action. Technical
 details stay in artifacts or logs for maintainers.
-
-## Design Memory
-
-When the same feedback appears repeatedly, kotikit can turn it into a local
-design preference. Future design passes can read those preferences before
-creating another draft.
-
-This is intentionally local. Preferences live in `.kotikit/design-review.db`,
-not in a hosted service.

@@ -2,14 +2,13 @@ import { afterAll, describe, expect, it } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { z } from "zod";
 import { initComponentsDb, upsertComponent } from "../../../../db/components-db.js";
 import { openDb } from "../../../../db/sqlite.js";
 import { nowIso } from "../../../../util/ids.js";
 import { componentJsonPath, componentsDbPath, variablesJsonPath } from "../../../../util/paths.js";
 import { loadBuiltInFlows } from "../../../flows/catalog.js";
 import { compileFlowDefinition } from "../../../graph/compiler.js";
-import { createNodeRegistry, type NodeDefinition } from "../../../graph/node-registry.js";
+import { createNodeRegistry } from "../../../graph/node-registry.js";
 import type { FlowDefinition } from "../../../schemas/flow-definition.js";
 import type { KotikitGraphState } from "../../../schemas/graph-state.js";
 import { createDesignSystemNodeDefinitions } from "../index.js";
@@ -504,19 +503,6 @@ describe("design-system graph nodes", () => {
     });
   });
 
-  it("compiles the sync-design-system flow with the real design-system node schemas", async () => {
-    const flow = requireFlow(await loadBuiltInFlows(), "sync-design-system");
-    const registry = createNodeRegistry([
-      ...createDesignSystemNodeDefinitions(),
-      stubNode("setup.detectLocalCache", { capabilities: ["setup.detect"] }),
-      stubNode("setup.detectFigmaRemoteMcp", { capabilities: ["setup.detect"] }),
-    ]);
-
-    expect(() =>
-      compileFlowDefinition(flow, registry, { allowedCapabilities: flow.requiredCapabilities })
-    ).not.toThrow();
-  });
-
   it("compiles create-screen with reuse planning before composition and usage reporting after QA", async () => {
     const flow = requireFlow(await loadBuiltInFlows(), "create-screen");
     const saveReuseIndex = flow.nodes.findIndex(
@@ -679,20 +665,4 @@ function requireFlow(flows: FlowDefinition[], id: string): FlowDefinition {
   const flow = flows.find((candidate) => candidate.id === id);
   if (flow === undefined) throw new Error(`Expected ${id} flow.`);
   return flow;
-}
-
-function stubNode(key: string, options: { capabilities?: string[] } = {}): NodeDefinition {
-  return {
-    key,
-    version: "1.0.0",
-    kind: "deterministic",
-    paramsSchema: z.record(z.string(), z.unknown()),
-    inputSchema: z.unknown(),
-    outputSchema: z.unknown(),
-    stateReads: [],
-    stateWrites: [],
-    sideEffects: "none",
-    requiredCapabilities: options.capabilities ?? [],
-    run: async () => ({}),
-  };
 }

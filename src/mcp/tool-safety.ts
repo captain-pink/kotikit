@@ -29,8 +29,8 @@ export const KOTIKIT_TOOL_NAMES = [
   "kotikit_continue",
   "kotikit_answer",
   "kotikit_bind_figma_target",
+  "kotikit_feedback_snapshot",
   "kotikit_record_figma_apply",
-  "kotikit_review_figma_target",
 ] as const;
 
 export type KotikitToolName = (typeof KOTIKIT_TOOL_NAMES)[number];
@@ -70,7 +70,7 @@ export const KOTIKIT_TOOL_SAFETY = Object.fromEntries(
       name === "kotikit_doctor" ||
       name === "kotikit_config_get" ||
       name === "kotikit_sync_ds" ||
-      name === "kotikit_review_figma_target";
+      name === "kotikit_feedback_snapshot";
     return [
       name,
       {

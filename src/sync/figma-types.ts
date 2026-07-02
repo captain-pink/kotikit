@@ -198,25 +198,15 @@ const FigmaNodesResponseSchema = z
   })
   .passthrough();
 
-// ─── GET /v1/images/:key ───────────────────────────────────────────────────
-
-const FigmaImagesResponseSchema = z
-  .object({
-    err: z.unknown().nullable().optional(),
-    images: z.record(z.string(), z.string().nullable()),
-  })
-  .passthrough();
-
 // ─── GET /v1/files/:key/comments ─────────────────────────────────────────────
 
-export const FigmaCommentClientMetaSchema = z
+const FigmaCommentClientMetaSchema = z
   .object({
     node_id: z.string().optional(),
   })
   .passthrough();
-export type FigmaCommentClientMeta = z.infer<typeof FigmaCommentClientMetaSchema>;
 
-export const FigmaCommentUserSchema = z
+const FigmaCommentUserSchema = z
   .object({
     id: z.string().optional(),
     handle: z.string().optional(),
@@ -224,9 +214,8 @@ export const FigmaCommentUserSchema = z
     email: z.string().optional(),
   })
   .passthrough();
-export type FigmaCommentUser = z.infer<typeof FigmaCommentUserSchema>;
 
-export const FigmaCommentSchema = z
+const FigmaCommentSchema = z
   .object({
     id: z.string(),
     file_key: z.string(),
@@ -252,7 +241,6 @@ export {
   FigmaCommentsResponseSchema,
   FigmaComponentSetsResponseSchema,
   FigmaComponentsResponseSchema,
-  FigmaImagesResponseSchema,
   FigmaNodesResponseSchema,
   FigmaStylesResponseSchema,
   FigmaVariablesResponseSchema,

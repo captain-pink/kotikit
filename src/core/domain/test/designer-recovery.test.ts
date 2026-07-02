@@ -5,25 +5,25 @@ describe("designer recovery", () => {
   it("creates a plain-language recovery model", () => {
     expect(
       createDesignerRecovery({
-        problem: "Kotikit cannot map 2 comments to exact layers.",
-        why: "Guessing targets could apply revisions to the wrong part of the design.",
-        recommendedAction: "Treat them as page-level feedback or open the comment map artifact.",
+        problem: "Kotikit could not verify the Figma Section for the active transaction.",
+        why: "Writing outside the draft Section could make the generated screen hard to review.",
+        recommendedAction: "Bind the exact draft page again and continue the active transaction.",
         actions: [
-          { id: "page-feedback", label: "Use page-level feedback" },
-          { id: "open-artifact", label: "Open comment map" },
+          { id: "bind-draft-page", label: "Bind draft page" },
+          { id: "open-apply-packet", label: "Open apply packet" },
         ],
-        artifactRefs: ["run-1-comment-evidence-map"],
+        artifactRefs: ["run-1-figma-apply-packet"],
       })
     ).toEqual({
       schemaVersion: "DesignerRecovery/v1",
-      problem: "Kotikit cannot map 2 comments to exact layers.",
-      why: "Guessing targets could apply revisions to the wrong part of the design.",
-      recommendedAction: "Treat them as page-level feedback or open the comment map artifact.",
+      problem: "Kotikit could not verify the Figma Section for the active transaction.",
+      why: "Writing outside the draft Section could make the generated screen hard to review.",
+      recommendedAction: "Bind the exact draft page again and continue the active transaction.",
       actions: [
-        { id: "page-feedback", label: "Use page-level feedback" },
-        { id: "open-artifact", label: "Open comment map" },
+        { id: "bind-draft-page", label: "Bind draft page" },
+        { id: "open-apply-packet", label: "Open apply packet" },
       ],
-      artifactRefs: ["run-1-comment-evidence-map"],
+      artifactRefs: ["run-1-figma-apply-packet"],
     });
   });
 
@@ -32,7 +32,7 @@ describe("designer recovery", () => {
       problem: "The local design-system cache is empty.",
       why: "Kotikit needs component evidence before composing a polished screen.",
       recommendedAction: "Run design-system sync or continue with draft components.",
-      actions: [{ id: "sync-design-system", label: "Sync design system" }],
+      actions: [{ id: "kotikit_sync_ds", label: "Sync design system" }],
       technicalDetailsRef: "kotikit://runs/run-1",
     });
 

@@ -55,9 +55,6 @@ export const designApplyLogPath = (root: string, scope: string, screen: string |
 /** Path to the bridge config file written when the bridge starts. */
 export const bridgeConfigPath = (root: string): string => `${root}/.kotikit/bridge.json`;
 
-/** Path to the local design review ledger and project design preferences DB. */
-export const designReviewDbPath = (root: string): string => `${root}/.kotikit/design-review.db`;
-
 /**
  * Walk up from `start` (default: process.cwd()) looking for a directory
  * that contains a `.kotikit` folder. Returns that directory if found,

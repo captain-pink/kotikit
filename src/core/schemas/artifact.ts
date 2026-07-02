@@ -27,9 +27,7 @@ export const ArtifactTypeSchema = z.enum([
   "canvas-reconciliation-report",
   "ui-quality-gate-report",
   "comment-evidence-map",
-  "review-session",
   "revision-plan",
-  "design-memory-candidate",
 ]);
 
 export type ArtifactType = z.infer<typeof ArtifactTypeSchema>;
@@ -58,9 +56,7 @@ export const ArtifactSchemaVersionByType = {
   "canvas-reconciliation-report": "CanvasReconciliationReport/v1",
   "ui-quality-gate-report": "UIQualityGateReport/v1",
   "comment-evidence-map": "CommentEvidenceMap/v1",
-  "review-session": "ReviewSession/v1",
   "revision-plan": "RevisionPlan/v1",
-  "design-memory-candidate": "DesignMemoryCandidate/v1",
 } as const satisfies Record<ArtifactType, string>;
 
 const SourceNodeSchema = z.strictObject({
@@ -716,14 +712,8 @@ export const FigmaApplyPacketPayloadSchema = createGenericArtifactPayloadSchema(
 export const FigmaApplyReportPayloadSchema = createGenericArtifactPayloadSchema(
   ArtifactSchemaVersionByType["figma-apply-report"]
 );
-export const ReviewSessionPayloadSchema = createGenericArtifactPayloadSchema(
-  ArtifactSchemaVersionByType["review-session"]
-);
 export const RevisionPlanPayloadSchema = createGenericArtifactPayloadSchema(
   ArtifactSchemaVersionByType["revision-plan"]
-);
-export const DesignMemoryCandidatePayloadSchema = createGenericArtifactPayloadSchema(
-  ArtifactSchemaVersionByType["design-memory-candidate"]
 );
 
 export const ArtifactPayloadSchema = z.union([
@@ -750,9 +740,7 @@ export const ArtifactPayloadSchema = z.union([
   CanvasReconciliationReportSchema,
   UIQualityGateReportSchema,
   CommentEvidenceMapSchema,
-  ReviewSessionPayloadSchema,
   RevisionPlanPayloadSchema,
-  DesignMemoryCandidatePayloadSchema,
 ]);
 
 export const ArtifactEnvelopeSchema = z.strictObject({
@@ -802,9 +790,7 @@ export const ArtifactVariantSchema = z.union([
   createArtifactVariantSchema("canvas-reconciliation-report", CanvasReconciliationReportSchema),
   createArtifactVariantSchema("ui-quality-gate-report", UIQualityGateReportSchema),
   createArtifactVariantSchema("comment-evidence-map", CommentEvidenceMapSchema),
-  createArtifactVariantSchema("review-session", ReviewSessionPayloadSchema),
   createArtifactVariantSchema("revision-plan", RevisionPlanPayloadSchema),
-  createArtifactVariantSchema("design-memory-candidate", DesignMemoryCandidatePayloadSchema),
 ]);
 
 export const ArtifactSchema = ArtifactEnvelopeSchema.superRefine((artifact, ctx) => {

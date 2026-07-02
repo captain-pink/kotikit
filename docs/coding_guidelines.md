@@ -110,7 +110,7 @@ designers.
 - Follow TDD for new behavior and regressions.
 - Prefer focused unit tests for pure functions and parser behavior.
 - Use integration-style tool tests for MCP handlers, filesystem writes,
-  design-system indexes, review storage, and commits.
+  design-system indexes, graph persistence, and commits.
 - Seed temporary projects under the OS temp directory and clean them up in
   `afterEach`.
 - Stub external binaries or gate runners in tests unless the test explicitly

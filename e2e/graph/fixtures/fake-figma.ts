@@ -20,7 +20,6 @@ export type GraphSmokeFixture = {
 export type SeedOptions = {
   includePrimaryAction?: boolean;
   includeSecondaryAction?: boolean;
-  includeProductFlowParts?: boolean;
 };
 
 type SeedComponent = {
@@ -52,12 +51,6 @@ export function seedLocalDesignSystem(root: string, options: SeedOptions = {}): 
     { name: "Form Fields", key: "form-fields-key", props: "State" },
     ...(options.includeSecondaryAction === true
       ? [{ name: "Secondary Action", key: "button-secondary-key", props: "Variant Size State" }]
-      : []),
-    ...(options.includeProductFlowParts === true
-      ? [
-          { name: "Email Input", key: "email-input-key", props: "State" },
-          { name: "Role Selector", key: "role-selector-key", props: "State" },
-        ]
       : []),
   ] satisfies SeedComponent[];
 
@@ -133,9 +126,7 @@ export function fakeTransactionMetadataFor(state: KotikitGraphState): Record<str
   const placement = recordArray(recordFrom(state.canvasPlan).placements).find(
     (candidate) => candidate.id === active.placementId
   );
-  const bounds = boundsForActive(active, placement);
-  const figmaNodeKind = active.kind === "create-draft-component" ? "COMPONENT" : "FRAME";
-
+  const bounds = boundsForActive(placement);
   return {
     transactionId,
     fileKey: stringField(target, "fileKey"),
@@ -143,97 +134,13 @@ export function fakeTransactionMetadataFor(state: KotikitGraphState): Record<str
     sectionName: stringField(recordFrom(target.section), "name"),
     figmaNodeId: `node-${transactionId}`,
     figmaNodeName: stringField(active, "label") ?? transactionId,
-    figmaNodeKind,
+    figmaNodeKind: "FRAME",
     bounds,
     representation: stateRepresentationForActive(state, active),
-    componentRefs: componentRefsForActive(state, active),
+    componentRefs: componentRefsForActive(state),
     variableRefs: variableRefsFrom(state),
     autoLayout: true,
     nodes: compactChildNodesForActive(state, active, bounds),
-  };
-}
-
-export function fakeReviewEvidence(): Record<string, unknown> {
-  return {
-    target: {
-      source: "figma",
-      fileKey: "FILE_SMOKE",
-      nodeId: "9:10",
-      targetKind: "frame",
-      targetName: "Members Review Frame",
-      figmaUrl: "https://www.figma.com/design/FILE_SMOKE/Kotikit-Smoke?node-id=9-10",
-      scope: "members",
-      screen: "admin",
-    },
-    evidence: {
-      collectedAt: "2026-06-30T00:00:00.000Z",
-      tokenBudget: {
-        maxRegions: 8,
-        returnedRegions: 2,
-        truncatedRegions: 0,
-      },
-      targetSummary: {
-        nodeId: "9:10",
-        name: "Members Review Frame",
-        type: "FRAME",
-        kind: "frame",
-        childCount: 2,
-      },
-      regions: [
-        { nodeId: "primary-action", name: "Primary Action", type: "INSTANCE" },
-        { nodeId: "content-heading", name: "Content Heading", type: "TEXT" },
-      ],
-      notes: ["Fixture evidence is bounded and local."],
-    },
-    findings: [
-      {
-        theme: "color",
-        severity: "high",
-        confidence: "observed",
-        title: "Strengthen primary action contrast",
-        observation: "The primary action is visible but not prominent enough.",
-        rationale: "The main action should carry the strongest visual emphasis.",
-        recommendation: "Bind the primary action fill to Color/Primary.",
-        nodeId: "primary-action",
-        partName: "Primary Action",
-        componentKey: "button-primary-key",
-        variableBindings: [
-          {
-            targetId: "primary-action",
-            property: "fill",
-            source: "variable",
-            name: "Color/Primary",
-            id: "var-color-primary",
-          },
-        ],
-      },
-    ],
-  };
-}
-
-export function fakeCommentSnapshot(): Record<string, unknown> {
-  return {
-    commentSnapshot: {
-      fileKey: "FILE_SMOKE",
-      comments: [
-        {
-          id: "comment-1",
-          message: "Please tighten the spacing around the primary action.",
-          client_meta: { node_id: "primary-action" },
-          createdAt: "2026-06-30T00:00:00.000Z",
-        },
-      ],
-      nodeMap: {
-        nodes: [
-          {
-            nodeId: "primary-action",
-            nodeName: "Primary Action",
-            partId: "primary-action",
-            componentKey: "button-primary-key",
-          },
-        ],
-      },
-    },
   };
 }
 
@@ -256,14 +163,7 @@ function componentRefsFrom(state: KotikitGraphState): string[] {
   );
 }
 
-function componentRefsForActive(
-  state: KotikitGraphState,
-  active: Record<string, unknown>
-): string[] {
-  if (active.kind === "create-draft-component") {
-    const draftComponentId = stringField(active, "draftComponentId");
-    return draftComponentId === undefined ? [] : [realDraftComponentKey(draftComponentId)];
-  }
+function componentRefsForActive(state: KotikitGraphState): string[] {
   return componentRefsFrom(state);
 }
 
@@ -298,15 +198,9 @@ function compactChildNodesForActive(
   }));
 }
 
-function boundsForActive(
-  active: Record<string, unknown>,
-  placement: Record<string, unknown> | undefined
-): Record<string, unknown> {
+function boundsForActive(placement: Record<string, unknown> | undefined): Record<string, unknown> {
   const placementBounds = recordFrom(placement?.bounds);
   if (Object.keys(placementBounds).length > 0) return placementBounds;
-  if (active.kind === "create-draft-component") {
-    return { x: 0, y: 0, width: 320, height: 96 };
-  }
   return { x: 0, y: 0, width: 1440, height: 960 };
 }
 
@@ -364,10 +258,6 @@ function stateRepresentationForActive(
 
 function uniqueStrings(values: Array<string | undefined>): string[] {
   return [...new Set(values.filter((value): value is string => value !== undefined))];
-}
-
-function realDraftComponentKey(draftComponentId: string): string {
-  return `local-draft-${slugify(draftComponentId)}-key`;
 }
 
 function seedComponent(

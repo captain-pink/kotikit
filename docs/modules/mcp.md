@@ -35,7 +35,7 @@ grouped here by product area:
   `kotikit_start`, `kotikit_answer`, `kotikit_continue`,
   `kotikit_bind_figma_target`, `kotikit_get_artifact`,
   `kotikit_list_artifacts`, `kotikit_search_design_system`,
-  `kotikit_record_figma_apply`, `kotikit_review_figma_target`, and
+  `kotikit_feedback_snapshot`, `kotikit_record_figma_apply`, and
   `kotikit_doctor`.
 - Setup: `kotikit_config_status`, `kotikit_config_init`,
   `kotikit_config_get`.
@@ -60,24 +60,23 @@ flow, start it, answer human-in-the-loop prompts, continue when external work
 is complete, read artifacts by id, translate tool JSON into plain language,
 fetch long system prompts by reference, search design-system indexes before
 reading exact files, keep user-facing errors friendly, and keep kotikit focused
-on design creation and review.
+on design creation.
 
 The stdio transport is the normal agent path. Claude Code, Codex, and other
-MCP clients use it for setup, sync, graph flow execution, review, and official
-Figma apply coordination. The WebSocket bridge reuses the same handler map, but
-it is reserved for the local Figma plugin's variable-export fallback. Graph
-runs store compact current state, checkpoints, and artifacts rather than a
-manual workflow history.
+MCP clients use it for setup, sync, graph flow execution, and official Figma
+apply coordination. The WebSocket bridge reuses the same handler map, but it is
+reserved for the local Figma plugin's variable-export fallback. Graph runs
+store compact current state, checkpoints, and artifacts rather than a manual
+workflow history.
 
 Figma design creation is fail-closed around explicit draft targets. The agent
 first binds a safe draft target through `kotikit_bind_figma_target` on the
 active graph run. The graph validates the page target, requires a page name
 containing `Draft` or `Drafts`, and writes generated nodes inside a
 kotikit-owned Section. Draft creation then drains an incremental Figma
-transaction queue: the agent applies one screen state, region state, or
-approved post-screen draft component at a time with `use_figma`, places it at
-the canvas plan bounds, records metadata with `kotikit_record_figma_apply`, and
-continues the graph.
+transaction queue: the agent applies one screen state or region state at a
+time with `use_figma`, places it at the canvas plan bounds, records metadata
+with `kotikit_record_figma_apply`, and continues the graph.
 `kotikit_record_figma_apply` records official Figma MCP apply metadata back into
 the run so graph QA nodes can validate file, page, Section, component,
 component source, variable, icon, layout, repeated-item, text-transform,

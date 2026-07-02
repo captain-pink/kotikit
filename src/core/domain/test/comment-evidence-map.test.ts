@@ -14,7 +14,7 @@ describe("comment evidence map", () => {
     ],
   };
 
-  it("maps comments by client_meta node id", () => {
+  it("maps comments by client_meta node id without guessing intent from copy", () => {
     const map = buildCommentEvidenceMap({
       fileKey: "file-1",
       comments: [
@@ -33,9 +33,28 @@ describe("comment evidence map", () => {
       commentId: "comment-1",
       mappingStrategy: "node-id",
       mappingConfidence: "exact",
-      mappedTarget: { nodeId: "1:2", partId: "members-table" },
-      intent: "bug-usability",
+      mappedTarget: { nodeId: "1:2", nodeName: "Members table", partId: "members-table" },
+      intent: "needs-human-clarification",
+      status: "actionable",
     });
+  });
+
+  it("preserves explicit comment intent when the caller provides one", () => {
+    const map = buildCommentEvidenceMap({
+      fileKey: "file-1",
+      comments: [
+        {
+          id: "comment-1",
+          message: "This does not match our table pattern.",
+          intent: "design-system-mismatch",
+          client_meta: { node_id: "1:2" },
+        },
+      ],
+      nodeMap,
+      mappedAt: "2026-07-01T00:00:00.000Z",
+    });
+
+    expect(map.comments[0]?.intent).toBe("design-system-mismatch");
   });
 
   it("normalizes client metadata without copying raw payload fields", () => {

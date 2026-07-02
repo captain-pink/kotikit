@@ -19,7 +19,6 @@ Core kotikit state:
 - `designPlanPath(root, scope, screen | null)` — `.kotikit/specs/<scope>/<screen>.design.plan.json`
 - `designApplyLogPath(root, scope, screen | null)` — `.kotikit/specs/<scope>/<screen>.design.apply.log`
 - `bridgeConfigPath(root)` — `.kotikit/bridge.json`
-- `designReviewDbPath(root)` — `.kotikit/design-review.db`
 
 Design system artifacts:
 - `designSystemDir(root)` — `design-system/`
@@ -72,6 +71,6 @@ All path helpers are pure functions that take `root` as their first argument and
 - [sync](./sync.md) — uses all `design-system/` path helpers and `checkpointPath`
 - [planning](./planning.md) — uses `designPlanPath` and
   `designApplyLogPath`
-- [db](./db.md) — uses `componentsDbPath`, `iconsDbPath`, `designReviewDbPath`
+- [db](./db.md) — uses `componentsDbPath` and `iconsDbPath`
 - [mcp](./mcp.md) — uses `findProjectRoot`, `bridgeConfigPath`
 - [git](./git.md) — uses `KotikitError` (re-exported from result)

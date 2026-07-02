@@ -50,8 +50,8 @@ describe("KOTIKIT_MCP_INSTRUCTIONS", () => {
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("generate_figma_design");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit_get_artifact");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit_record_figma_apply");
-    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("figmaNodeKind as COMPONENT");
-    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("real Figma component key");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("Do not create every screen state");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("after the screen is visible");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("Do not finish Figma work manually");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("local kotikit plugin only for variable export");
     expect(KOTIKIT_MCP_INSTRUCTIONS).not.toContain("then call kotikit_design_apply_step");

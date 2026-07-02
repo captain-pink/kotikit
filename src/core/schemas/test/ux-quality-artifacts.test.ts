@@ -1,10 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import {
-  CommentEvidenceMapSchema,
-  DraftComponentLifecycleSchema,
-  StateMatrixSchema,
-  UXEnvelopeSchema,
-} from "../artifact.js";
+import { DraftComponentLifecycleSchema, StateMatrixSchema, UXEnvelopeSchema } from "../artifact.js";
 import { KotikitGraphStateSchema } from "../graph-state.js";
 
 describe("UX quality artifact schemas", () => {
@@ -51,28 +46,6 @@ describe("UX quality artifact schemas", () => {
         ],
       })
     ).toMatchObject({ states: [expect.objectContaining({ scope: "region" })] });
-  });
-
-  it("validates comment evidence with unmapped comments", () => {
-    expect(
-      CommentEvidenceMapSchema.parse({
-        schemaVersion: "CommentEvidenceMap/v1",
-        fileKey: "abc123",
-        mappedAt: "2026-07-01T00:00:00.000Z",
-        comments: [
-          {
-            commentId: "comment-1",
-            rootCommentId: "comment-1",
-            message: "This table state is unclear",
-            mappingConfidence: "none",
-            mappingStrategy: "unmapped",
-            intent: "needs-human-clarification",
-            status: "needs-human",
-          },
-        ],
-        unmappedCount: 1,
-      })
-    ).toMatchObject({ unmappedCount: 1 });
   });
 
   it("validates draft component lifecycle usage", () => {

@@ -15,16 +15,16 @@ Codex, or another MCP-capable assistant can call the `kotikit_*` MCP tools.
 - A Professional, Organization, or Enterprise Figma account is recommended.
   Free/Starter accounts can hit very low API limits during design-system sync.
 - A Figma personal access token with file read access if you want local
-  design-system sync or REST-backed design/comment review.
+  design-system sync.
 - A published Figma design-system library if you want kotikit to compose new
   drafts from real components.
 - A target workspace/project folder where kotikit can write `.kotikit/`,
   `design-system/`, and `.env`.
 
 Why a target workspace? kotikit stores local specs, design-system indexes,
-review memory, assistant config, and your `.env` token placeholder next to the
-work you are asking the assistant to manage. The current guided workflow does
-not require you to write code or run a web app.
+graph artifacts, assistant config, and your `.env` token placeholder next to
+the work you are asking the assistant to manage. The current guided workflow
+does not require you to write code or run a web app.
 
 For design-only experiments, a plain local folder is enough:
 
@@ -91,9 +91,8 @@ The scaffold writes:
 - `.claude/settings.json` permission rules that allow only safe local
   read-only kotikit tools to run without an extra prompt.
 - `.codex/config.toml` for Codex.
-- Portable `kotikit-auto` and `kotikit-design-review` skills.
-- Claude Code slash command files for `/kotikit-auto` and
-  `/kotikit-design-review`.
+- Portable `kotikit-auto` skill.
+- Claude Code slash command file for `/kotikit-auto`.
 - `.env` with a `FIGMA_TOKEN=` placeholder if needed.
 
 It preserves unrelated assistant config. Copied kotikit skills are managed by
@@ -128,17 +127,14 @@ This assistant integration is not the same as the kotikit local Figma plugin:
 
 Figma personal access token is not required for draft creation when your
 assistant is connected through Figma's remote MCP integration. Create a token
-only when you want kotikit to sync a local design-system index or use
-REST-backed design/comment review, then put it in the target workspace `.env`
-file:
+only when you want kotikit to sync a local design-system index, then put it in
+the target workspace `.env` file:
 
 ```env
 FIGMA_TOKEN=figd_...your_token_here...
 ```
 
-For design-system sync and design review evidence, file read access is
-required. For posting review comments through REST, `file_comments:write` is
-required. Comment review needs `file_comments:read`.
+For design-system sync, file read access is required.
 
 For best results, sync a published Figma library rather than an unpublished
 draft file. kotikit may inspect some draft-file data, but Figma drafts can only
@@ -159,11 +155,6 @@ Start the guided workflow:
 
 - Claude Code: `/kotikit-auto`
 - Codex: `kotikit:auto`
-
-Start focused design review:
-
-- Claude Code: `/kotikit-design-review`
-- Codex: `kotikit:design-review`
 
 ## Updating kotikit
 
@@ -201,4 +192,4 @@ or in Claude Code:
 ```
 
 The assistant should check setup, ask what you want to build, and guide you
-through the first spec.
+through the first screen draft.

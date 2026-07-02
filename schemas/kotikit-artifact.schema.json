@@ -38,9 +38,7 @@
         "canvas-reconciliation-report",
         "ui-quality-gate-report",
         "comment-evidence-map",
-        "review-session",
-        "revision-plan",
-        "design-memory-candidate"
+        "revision-plan"
       ]
     },
     "schemaVersion": {
@@ -1892,69 +1890,7 @@
           "properties": {
             "schemaVersion": {
               "type": "string",
-              "const": "ReviewSession/v1"
-            },
-            "summary": {
-              "type": "string",
-              "minLength": 1
-            },
-            "refs": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1
-              }
-            },
-            "data": {
-              "type": "object",
-              "propertyNames": {
-                "type": "string"
-              },
-              "additionalProperties": {
-                "$ref": "#/$defs/__schema0"
-              }
-            }
-          },
-          "required": ["schemaVersion"],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "schemaVersion": {
-              "type": "string",
               "const": "RevisionPlan/v1"
-            },
-            "summary": {
-              "type": "string",
-              "minLength": 1
-            },
-            "refs": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1
-              }
-            },
-            "data": {
-              "type": "object",
-              "propertyNames": {
-                "type": "string"
-              },
-              "additionalProperties": {
-                "$ref": "#/$defs/__schema0"
-              }
-            }
-          },
-          "required": ["schemaVersion"],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "schemaVersion": {
-              "type": "string",
-              "const": "DesignMemoryCandidate/v1"
             },
             "summary": {
               "type": "string",
@@ -5217,96 +5153,6 @@
         },
         "type": {
           "type": "string",
-          "const": "review-session"
-        },
-        "schemaVersion": {
-          "type": "string",
-          "const": "ReviewSession/v1"
-        },
-        "createdAt": {
-          "type": "string",
-          "minLength": 1
-        },
-        "updatedAt": {
-          "type": "string",
-          "minLength": 1
-        },
-        "sourceNode": {
-          "type": "object",
-          "properties": {
-            "key": {
-              "type": "string",
-              "minLength": 1
-            },
-            "version": {
-              "type": "string",
-              "minLength": 1
-            }
-          },
-          "required": ["key", "version"],
-          "additionalProperties": false
-        },
-        "payload": {
-          "type": "object",
-          "properties": {
-            "schemaVersion": {
-              "type": "string",
-              "const": "ReviewSession/v1"
-            },
-            "summary": {
-              "type": "string",
-              "minLength": 1
-            },
-            "refs": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1
-              }
-            },
-            "data": {
-              "type": "object",
-              "propertyNames": {
-                "type": "string"
-              },
-              "additionalProperties": {
-                "$ref": "#/$defs/__schema0"
-              }
-            }
-          },
-          "required": ["schemaVersion"],
-          "additionalProperties": false
-        },
-        "filesystemPath": {
-          "type": "string",
-          "minLength": 1
-        }
-      },
-      "required": [
-        "id",
-        "runId",
-        "type",
-        "schemaVersion",
-        "createdAt",
-        "updatedAt",
-        "sourceNode",
-        "payload"
-      ],
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "runId": {
-          "type": "string",
-          "minLength": 1
-        },
-        "type": {
-          "type": "string",
           "const": "revision-plan"
         },
         "schemaVersion": {
@@ -5342,96 +5188,6 @@
             "schemaVersion": {
               "type": "string",
               "const": "RevisionPlan/v1"
-            },
-            "summary": {
-              "type": "string",
-              "minLength": 1
-            },
-            "refs": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1
-              }
-            },
-            "data": {
-              "type": "object",
-              "propertyNames": {
-                "type": "string"
-              },
-              "additionalProperties": {
-                "$ref": "#/$defs/__schema0"
-              }
-            }
-          },
-          "required": ["schemaVersion"],
-          "additionalProperties": false
-        },
-        "filesystemPath": {
-          "type": "string",
-          "minLength": 1
-        }
-      },
-      "required": [
-        "id",
-        "runId",
-        "type",
-        "schemaVersion",
-        "createdAt",
-        "updatedAt",
-        "sourceNode",
-        "payload"
-      ],
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "runId": {
-          "type": "string",
-          "minLength": 1
-        },
-        "type": {
-          "type": "string",
-          "const": "design-memory-candidate"
-        },
-        "schemaVersion": {
-          "type": "string",
-          "const": "DesignMemoryCandidate/v1"
-        },
-        "createdAt": {
-          "type": "string",
-          "minLength": 1
-        },
-        "updatedAt": {
-          "type": "string",
-          "minLength": 1
-        },
-        "sourceNode": {
-          "type": "object",
-          "properties": {
-            "key": {
-              "type": "string",
-              "minLength": 1
-            },
-            "version": {
-              "type": "string",
-              "minLength": 1
-            }
-          },
-          "required": ["key", "version"],
-          "additionalProperties": false
-        },
-        "payload": {
-          "type": "object",
-          "properties": {
-            "schemaVersion": {
-              "type": "string",
-              "const": "DesignMemoryCandidate/v1"
             },
             "summary": {
               "type": "string",

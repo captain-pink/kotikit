@@ -30,6 +30,18 @@ type NodeTarget = {
 type MappingStrategy = "node-id" | "parent-thread";
 type MappingConfidence = "exact" | "high";
 
+const COMMENT_INTENTS = new Set<CommentEvidenceMap["comments"][number]["intent"]>([
+  "question",
+  "bug-usability",
+  "visual-polish",
+  "copy-content",
+  "design-system-mismatch",
+  "implementation-handoff",
+  "preference",
+  "out-of-scope",
+  "needs-human-clarification",
+]);
+
 export function buildCommentEvidenceMap(input: {
   fileKey: string;
   comments: FigmaCommentLike[];
@@ -92,7 +104,7 @@ function mapComment(input: {
     ...commentMetadata(input.comment),
     mappingConfidence: "none",
     mappingStrategy: "unmapped",
-    intent: "needs-human-clarification",
+    intent: intentFromComment(input.comment),
     status: "needs-human",
   };
 }
@@ -134,7 +146,7 @@ function commentRecord(
     mappedTarget: target,
     mappingConfidence: confidence,
     mappingStrategy: strategy,
-    intent: classifyIntent(stringField(comment, "message") ?? ""),
+    intent: intentFromComment(comment),
     status: stringField(comment, "resolved_at") === undefined ? "actionable" : "resolved",
   };
 }
@@ -164,11 +176,12 @@ function nodeTargetsFrom(nodeMap: NodeMapLike): NodeTarget[] {
     ? nodeMap.nodes.flatMap((node) => {
         if (typeof node !== "object" || node === null || Array.isArray(node)) return [];
         const record = node as Record<string, unknown>;
-        const nodeId = stringField(record, "nodeId");
+        const nodeId = stringField(record, "nodeId") ?? stringField(record, "id");
         if (nodeId === undefined) return [];
         return [
           {
             nodeId,
+            ...optionalString(record, "name", "nodeName"),
             ...optionalString(record, "nodeName"),
             ...optionalString(record, "partId"),
             ...optionalString(record, "stateId"),
@@ -212,15 +225,14 @@ function nodeOffsetFrom(value: unknown): { x: number; y: number } | undefined {
     : undefined;
 }
 
-function classifyIntent(message: string): CommentEvidenceMap["comments"][number]["intent"] {
-  const value = message.toLowerCase();
-  if (value.includes("?")) return "question";
-  if (value.includes("component") || value.includes("token")) return "design-system-mismatch";
-  if (value.includes("copy") || value.includes("text")) return "copy-content";
-  if (value.includes("missing") || value.includes("broken") || value.includes("unclear")) {
-    return "bug-usability";
-  }
-  return "visual-polish";
+function intentFromComment(
+  comment: FigmaCommentLike
+): CommentEvidenceMap["comments"][number]["intent"] {
+  const explicitIntent = stringField(comment, "intent");
+  return explicitIntent !== undefined &&
+    COMMENT_INTENTS.has(explicitIntent as CommentEvidenceMap["comments"][number]["intent"])
+    ? (explicitIntent as CommentEvidenceMap["comments"][number]["intent"])
+    : "needs-human-clarification";
 }
 
 function authorFromComment(comment: FigmaCommentLike): string | undefined {
@@ -230,10 +242,11 @@ function authorFromComment(comment: FigmaCommentLike): string | undefined {
 
 function optionalString(
   record: Record<string, unknown>,
-  key: keyof NodeTarget
+  key: keyof NodeTarget | "name",
+  outputKey: keyof NodeTarget = key as keyof NodeTarget
 ): Partial<NodeTarget> {
   const value = stringField(record, key);
-  return value === undefined ? {} : { [key]: value };
+  return value === undefined ? {} : { [outputKey]: value };
 }
 
 function recordFrom(value: unknown): Record<string, unknown> {
@@ -247,5 +260,9 @@ function stringField(record: Record<string, unknown>, key: string): string | und
 }
 
 function numberField(record: Record<string, unknown>, key: string): number | undefined {
-  return typeof record[key] === "number" ? record[key] : undefined;
+  const value = record[key];
+  if (typeof value === "number") return value;
+  if (typeof value !== "string") return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }

@@ -32,8 +32,8 @@ const unsafePromptedTools = [
   "kotikit_continue",
   "kotikit_answer",
   "kotikit_bind_figma_target",
+  "kotikit_feedback_snapshot",
   "kotikit_record_figma_apply",
-  "kotikit_review_figma_target",
 ];
 
 afterAll(() => {

@@ -36,13 +36,12 @@ The target project owns:
 - `.kotikit/artifacts/*`
 - `.kotikit/specs/*`
 - `.kotikit/index.json`
-- `.kotikit/design-review.db`
 - `.kotikit/bridge.json` when a bridge is running
 
-Specs, graph runs, and graph artifacts are JSON. Review state and memory live
-in SQLite. Runs persist flow ids, graph hashes, node versions, status, and
-state; artifacts hold compact contracts such as briefs, fit reports, apply
-packets, review sessions, revision plans, and QA reports.
+Specs, graph runs, and graph artifacts are JSON. Runs persist flow ids, graph
+hashes, node versions, status, and state; artifacts hold compact contracts such
+as briefs, fit reports, apply packets, comment evidence maps, revision plans,
+usage reports, and QA reports.
 
 ### Design-System Indexes
 
@@ -65,10 +64,14 @@ generates a bounded apply packet, the assistant writes through official Figma
 tools, then reports applied node metadata back to kotikit with
 `kotikit_record_figma_apply`.
 
+Figma comment feedback uses the REST API only for compact comment snapshots.
+The `review-screen` graph maps comments to the node ledger and saves a revision
+plan artifact before asking the designer whether to apply changes. The tiny
+core does not post comments, resolve threads, or store design memory.
+
 The local plugin bridge is used only for exporting variables through the Plugin
-API when REST variables are unavailable. Search, comments, design review, and
-design creation stay on the normal MCP plus Figma REST or official Figma
-assistant paths.
+API when REST variables are unavailable. Search, sync, and design creation stay
+on the normal MCP plus Figma REST or official Figma assistant paths.
 
 The bridge:
 
@@ -107,17 +110,13 @@ This gives teams without Figma branches a practical safety boundary.
 
 4. **Official Figma apply**
    The assistant uses the official Figma integration to drain incremental Figma
-   transactions one screen state, region state, or approved post-screen draft
-   component at a time.
+   transactions one screen state or region state at a time.
    Each write follows the canvas plan and records node-ledger metadata back to
    kotikit.
 
-5. **Review**
-   Comments and design-quality findings are stored in `design-review.db`.
-
-6. **Memory**
-   Repeated feedback can become a local design preference used in future design
-   passes.
+5. **Feedback review**
+   The assistant fetches compact Figma comments, runs `review-screen`, reads the
+   revision plan artifact, and asks before applying any changes.
 
 ## Module References
 
@@ -127,7 +126,7 @@ This gives teams without Figma branches a practical safety boundary.
 - [modules/sync.md](modules/sync.md) - Figma sync, normalization, rate limits,
   and checkpoints.
 - [modules/planning.md](modules/planning.md) - design plans, graph draft
-  component planning, apply metadata, and review evidence.
+  component planning, and apply metadata.
 - [modules/mcp.md](modules/mcp.md) - MCP server, tool registry, and bridge.
 - [modules/workflow.md](modules/workflow.md) - removed legacy workflow module
   and graph-runtime replacement notes.

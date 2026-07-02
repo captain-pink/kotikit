@@ -39,10 +39,10 @@ not changed by a read. Write paths always serialize the latest schema, so the
 file is upgraded only when kotikit actually modifies it.
 
 SQLite databases are different. They must match the schema expected by queries
-as soon as they are opened, so user-authored stores use `PRAGMA user_version`
-and idempotent open-time migrations. `design-review.db` has a versioned
-starting point; derived design-system search indexes can usually be rebuilt by
-running sync again.
+as soon as they are opened, so user-authored stores should use
+`PRAGMA user_version` and idempotent open-time migrations. The current tiny
+core only writes derived design-system search indexes, which can usually be
+rebuilt by running sync again.
 
 `kotikit doctor` reports old readable artifacts as a warning, not an error:
 those files will update automatically when edited. It also includes capped

@@ -285,7 +285,7 @@ async function writeCodexConfig(
   result.written.push(path);
 }
 
-const KOTIKIT_SKILL_NAMES = ["kotikit-auto", "kotikit-design-review"] as const;
+const KOTIKIT_SKILL_NAMES = ["kotikit-auto"] as const;
 type KotikitSkillName = (typeof KOTIKIT_SKILL_NAMES)[number];
 
 function kotikitSkillSourcePath(kotikitRoot: string, name: KotikitSkillName): string {

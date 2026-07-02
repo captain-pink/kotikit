@@ -57,36 +57,6 @@ export function assertCompactGraphState(
   if (report.status !== "blocked") return;
   throw new KotikitError(
     "This Kotikit run is carrying too much context to resume reliably.",
-    "Persist raw Figma/comment data as artifacts and keep only compact contracts in graph state."
+    "Persist raw Figma or research data as artifacts and keep only compact contracts in graph state."
   );
-}
-
-export function pruneRawReviewPayloads(review: Record<string, unknown>): Record<string, unknown> {
-  if (review.commentEvidenceMap === undefined) return review;
-  const {
-    commentEvidenceMap: _commentEvidenceMap,
-    commentSnapshot: _commentSnapshot,
-    currentNodes: _currentNodes,
-    nodeMap: _nodeMap,
-    sourceSnapshot: _sourceSnapshot,
-    ...rest
-  } = review;
-  return {
-    ...rest,
-    commentSnapshotRef: "comment-evidence-map",
-    ...(review.currentNodes === undefined
-      ? {}
-      : { currentNodesRef: "canvas-reconciliation-report" }),
-  };
-}
-
-export function pruneCanvasReviewPayloads(
-  review: Record<string, unknown>
-): Record<string, unknown> {
-  if (review.currentNodes === undefined) return review;
-  const { currentNodes: _currentNodes, ...rest } = review;
-  return {
-    ...rest,
-    currentNodesRef: "canvas-reconciliation-report",
-  };
 }

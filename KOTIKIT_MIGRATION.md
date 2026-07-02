@@ -24,9 +24,8 @@ resumes the run from persisted state.
 
 This keeps the canvas clean for designers: screen states are placed one screen
 state at a time in a non-overlapping grid, optional extracted draft components
-stay in their own zone below the completed screens, and comment review
-reconciles moved or renamed frames before mapping feedback. Placement-aware QA
-now blocks overlapping top-level frames, missing transaction metadata, and
+stay in their own zone below the completed screens, and placement-aware QA
+blocks overlapping top-level frames, missing transaction metadata, and
 screen-state frames that are not auto layout.
 
 ## Implementation Update: Compose-First Lightweight Screen Drafting
@@ -56,6 +55,66 @@ This is intentionally lighter than the previous component-first plan. It keeps
 LangGraph responsible for context, recovery, apply ledgers, and QA, but removes
 the fragile point where the graph demanded a complete table/list component
 family before a designer could see any useful screen.
+
+## Implementation Update: Shrink To Tiny Kotikit Core
+
+Implemented on the current branch.
+
+Recent live runs showed that the main reliability problem is not a missing UX
+rule. The active product has too many competing paths: product-flow drafting,
+missing-component resolving, pre-screen draft-component queues, old
+review/comment/memory choreography, compatibility helpers, and manual Figma
+fallbacks. Non-technical designers need one excellent creation path plus one
+small feedback loop before kotikit grows again.
+
+Tiny Kotikit Core is:
+
+- two built-in designer graphs: `create-screen` for fast screen drafting and
+  `review-screen` for lightweight post-screen feedback;
+- local design-system, icon, and variable grounding as support adapters;
+- UX envelope and state matrix planning;
+- UI composition, layout, variable, canvas, Figma transaction, state
+  representation, QA, and usage-report contracts;
+- `CommentEvidenceMap/v1` and `RevisionPlan/v1` for compact Figma comment
+  review after a generated draft exists;
+- incremental official Figma MCP writes, one screen/region state at a time;
+- no pre-screen draft-component flow;
+- no built-in product-flow, old review/comment posting, memory, or
+  missing-component resolver flows in the default runtime;
+- no public `kotikit_review_figma_target` helper in the core MCP surface.
+
+The following remain as support infrastructure, not competing designer flows:
+
+- local design-system sync/search tools;
+- config, doctor, scaffold, plugin-variable bridge, and schema migration
+  utilities;
+- trusted project/extension flow loading, so future packs can reintroduce
+  advanced flows behind explicit capability allowlists.
+
+Implementation rules for this slice:
+
+- delete stale built-in flow manifests that are no longer loaded;
+- unregister stale node groups from the built-in registry;
+- remove public prompts and skills that advertise removed built-in flows;
+- keep live docs focused on idea-to-screen drafting;
+- keep tests proving the built-in flow list contains only `create-screen` and
+  `review-screen`;
+- keep project/extension flow-pack trust tests, because extensibility remains a
+  future-safe boundary outside the tiny built-in core.
+
+After this shrink pass, the next reliability work should happen inside the
+smaller surface: URL-based Figma target preparation and stricter state
+transaction instructions for loading, empty, no-results, and error states.
+
+This branch implements the shrink pass by keeping only `create-screen` and the
+new lightweight `review-screen` feedback flow in the built-in catalog, removing
+stale built-in product-flow, old review/comment posting, sync-flow, memory, and
+missing-component resolver manifests, unregistering their node groups from the
+built-in registry, removing `kotikit_review_figma_target` from the public MCP
+surface, and refreshing scaffold/plugins/skills/docs so new assistant installs
+advertise the lightweight screen-drafting and comment-feedback paths. Local
+design-system sync/search, icon search, config, doctor, and bridge tools remain
+because they support the fast idea-to-screen workflow.
 
 ## Implementation Update: UX Quality Contracts
 
@@ -220,47 +279,34 @@ target, plan, and apply tool removal stays with the facade cleanup and stale-cod
 removal tasks because the old compatibility handlers are intentionally thin
 bridges while the graph facade owns runtime execution.
 
-## Implementation Update: Review And Memory Graph Nodes
+## Implementation Update: Lightweight Feedback Loop
 
-Completed on branch `feature/kotikit-migration`.
+Completed on the current branch.
 
-The migration now has graph-backed review and memory primitives:
+The previous review and memory design was too large for the tiny core. It mixed
+comment reading, standalone target review, comment posting, review-session
+persistence, and preference memory into one broad platform. That made the
+product harder to reason about and pulled agents away from the fast
+idea-to-screen path.
 
-- `review.collectEvidence` builds bounded Figma-target or comment evidence in
-  graph state;
-- `review.compareToDesignSystem` compares exact target regions to the local
-  design-system index and emits fit reports plus review findings;
-- `review.groupFindings` groups findings by theme and severity;
-- `review.createRevisionPlan` saves a revision-plan artifact that preserves
-  component instance keys, draft-component origins, variable/style bindings,
-  and layout metadata instead of replacing reviewed UI with hardcoded layers;
-- `review.askApproval` pauses before approved revisions and can also pause
-  before comment posting or memory promotion, with comment-only flows able to
-  skip revision-apply approval;
-- `review.applyApprovedRevisions` records safe Figma draft/update metadata for
-  QA only after explicit approval;
-- `review.saveSession` can persist graph review sessions into the existing
-  local design-review SQLite database and emit review-session artifacts;
-- `review.prepareApprovedComments` consumes the explicit comment-posting
-  approval and prepares pending Figma comments in the existing review DB;
-- `memory.detectPreferenceCandidate`, `memory.askPromotionApproval`, and
-  `memory.promotePreference` use the existing local design-review database for
-  candidate detection and promotion, with explicit approval before writing
-  active project memory.
+The tiny core keeps the designer feedback loop but makes it small:
 
-The built-in `improve-existing-design` flow now routes approved revisions
-directly into apply metadata and the UI quality gate instead of detouring
-through screen composition nodes. Seeded design-system context is preserved
-when local cache lookup has no results, so pre-collected exact matches do not
-turn into false missing-component findings. The built-in `review-comments` flow
-now uses separate comment posting approval, memory detection, memory approval,
-and promotion nodes after comment evidence is gathered. `kotikit_start` can
-seed pre-collected review evidence, comment snapshots, and design-system
-context into graph state, so legacy review/comment fetch tools now return
-graph-facade input payloads for new graph runs. Comment snapshots exclude
-resolved comments unless `includeResolved` is requested. Legacy comment/review
-report tools prefer matching graph artifacts before falling back to SQLite
-reports.
+- `kotikit_feedback_snapshot` reads a compact Figma REST comment snapshot and
+  can attach it to an active graph run;
+- `review-screen` maps comments to the `FigmaNodeLedger` or apply report
+  metadata through `CommentEvidenceMap/v1`;
+- `RevisionPlan/v1` stores the proposed post-screen changes from Figma comments
+  or plain chat feedback;
+- `feedback.askRevisionApproval` pauses before revisions are applied;
+- resolved comments are skipped by default unless `includeResolved` is
+  requested;
+- unmapped comments stay explicit as page-level or needs-human feedback instead
+  of being attached to guessed layers.
+
+The old design-review SQLite database, comment-posting tools, memory promotion
+nodes, standalone review flows, and design-review skill stay removed. If those
+capabilities return, they should come back as an extension flow pack with
+explicit capabilities, not as default core behavior.
 
 ## Implementation Update: Public Choreography Surface Removed
 
@@ -283,12 +329,11 @@ bridge support tools:
   facade;
 - kept local design-system sync/search and REST-backed review evidence as
   token-efficient support adapters;
-- fixed `kotikit_review_figma_target` to collect bounded Figma REST evidence
-  before starting `improve-existing-design`, while the graph no longer requires
-  a safe draft target before evidence collection;
-- made approved review revision application pause for a safe draft target
-  instead of crashing when evidence review started from an existing Figma
-  target.
+- later shrink work replaced the old review target helper with
+  `kotikit_feedback_snapshot` plus the lightweight `review-screen` graph;
+- approved feedback application now belongs behind the revision-plan approval
+  gate and should use the same incremental Figma transaction discipline as
+  `create-screen`.
 
 `bun run check:unused` now reports only broader exported-symbol/type hygiene
 that is outside this stale public surface slice; it no longer reports removed
@@ -376,13 +421,10 @@ flows:
   saves QA;
 - `create-screen` guided lane pauses for brief approval, saves a design-brief
   artifact, then continues through the same draft artifact chain;
-- `create-product-flow` maps actor, goal, scenario, screens, and transitions,
-  then marks the draft pass as incremental;
-- `improve-existing-design` starts from bounded Figma evidence, preserves
-  component keys and variable bindings in the revision plan, and pauses before
-  applying revisions;
-- `review-comments` turns fake Figma comments into a revision plan, pauses
-  before posting comments, and pauses again before memory promotion.
+- historical migration smoke tests also covered product-flow,
+  improve-existing-design, and review-comments. Those flows are no longer part
+  of the tiny built-in core; the current replacement is `review-screen` for
+  compact post-screen feedback.
 
 The smoke tests use a deterministic local design-system SQLite fixture and fake
 Figma target/comment/apply metadata. They do not call Figma or the network. The
@@ -896,10 +938,8 @@ Node keys should be semantic and coarse enough to remain stable:
 - `draft.compilePlan`
 - `draft.buildFigmaApplyPacket`
 - `figma.recordApplyMetadata`
-- `review.collectEvidence`
-- `review.groupFindings`
-- `review.prepareComments`
-- `memory.promotePreference`
+- `feedback.buildEvidenceMap`
+- `feedback.createRevisionPlan`
 
 Do not expose raw Figma operations as lego pieces. The lego units should match
 designer workflow capabilities, not API calls.

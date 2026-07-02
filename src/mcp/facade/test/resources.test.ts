@@ -60,7 +60,17 @@ describe("MCP facade completions", () => {
       argument: { name: "flowId", value: "create" },
     });
 
-    expect(result.completion.values).toEqual(["create-product-flow", "create-screen"]);
-    expect(result.completion.total).toBeGreaterThanOrEqual(2);
+    expect(result.completion.values).toEqual(["create-screen"]);
+    expect(result.completion.total).toBe(1);
+  });
+
+  it("completes the lightweight review flow id", async () => {
+    const result = await completeFacadeArgument({
+      ref: { type: "ref/prompt", name: "kotikit.create_screen" },
+      argument: { name: "flowId", value: "review" },
+    });
+
+    expect(result.completion.values).toEqual(["review-screen"]);
+    expect(result.completion.total).toBe(1);
   });
 });

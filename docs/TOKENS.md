@@ -17,9 +17,9 @@ details, and let kotikit use its defaults.
 
 These are the only token habits most designers need:
 
-1. Work on one screen or flow at a time.
-2. Sync design systems, create drafts, and run design reviews in focused
-   sessions instead of mixing everything into one long chat.
+1. Work on one screen at a time.
+2. Sync design systems and create drafts in focused sessions instead of mixing
+   everything into one long chat.
 3. Let the agent search the design-system index before fetching exact component
    details.
 4. Keep implementation/code requests outside kotikit's core design sessions.
@@ -34,7 +34,7 @@ an agent can accidentally load:
 
 - full design-system component JSON,
 - repeated system prompts,
-- long design-review reports,
+- long design or research reports,
 - stale brainstorm context from previous tasks.
 
 kotikit reduces that risk by keeping long doctrines behind
