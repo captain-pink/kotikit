@@ -3,8 +3,10 @@
 These guidelines are for any agent or engineer extending kotikit. They capture
 the current repo style plus the standards we want to hold as the project grows.
 
-Kotikit should feel like a top-tier local library: boring where it should be
-boring, precise at boundaries, easy to test, and hard to misuse.
+Kotikit should feel like a top-tier local library and a lightweight designer
+tool: boring where it should be boring, precise at boundaries, easy to test,
+hard to misuse, fast to run, and immediately useful for non-technical UX/UI
+designers.
 
 ## Working Rules
 
@@ -21,6 +23,11 @@ boring, precise at boundaries, easy to test, and hard to misuse.
 
 ## Design Values
 
+- Lightweight by default: kotikit exists to create production-looking Figma
+  screens and flows from idea to usable result in minutes. Prefer the shortest
+  reliable path from intent to editable design; do not add checkpoints,
+  artifacts, setup steps, or graph nodes unless they directly improve output
+  quality, safety, or designer control.
 - KISS: choose the simplest implementation that satisfies the behavior.
 - DRY: remove meaningful duplication, but do not abstract just because two
   lines look similar.
@@ -35,6 +42,15 @@ boring, precise at boundaries, easy to test, and hard to misuse.
 - Local-first: kotikit runs on the user's machine, reads local project state,
   and should not require network services except for explicit Figma sync or
   documented agent setup.
+- Designer-first: assume users are UX/UI designers, not software engineers.
+  Interactions should be clear, low-friction, and recoverable. Ask only for
+  decisions that genuinely need human judgment, and phrase them in design
+  language rather than implementation or graph terminology.
+- Compose before extracting: prefer using local design-system components,
+  variables, icons, and auto layout to create the screen or flow first. Draft
+  component extraction should happen after the design is visible and only after
+  the designer approves it. Extracted components stay on the same draft page
+  and must never be published into the real design system automatically.
 - Agent-neutral core: MCP tools and engines should work for Claude Code,
   Codex, and future agents. Agent-specific setup belongs in docs, skills,
   plugins, or thin wrappers.
