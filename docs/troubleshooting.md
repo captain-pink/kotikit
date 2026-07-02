@@ -119,6 +119,17 @@ Check that the Figma link:
 
 This guard exists to reduce accidental changes to production design pages.
 
+## Figma Draft Looks Messy Or Overlapped
+
+Ask kotikit to continue the run so it can run the UI quality gate. If the gate
+blocks on canvas overlap, rerun the active Figma transaction or ask kotikit to
+reconcile the current canvas before reviewing comments.
+
+Generated frames should sit inside one kotikit Section, follow the canvas plan,
+and be applied one screen state at a time. Draft components belong in their own
+zone; loading, empty, no-results, error, and permission states should replace
+the affected region rather than appear as extra cards.
+
 ## Loading, Empty, Or Error States Look Like Extra Cards
 
 For tables and lists, these states should usually replace the affected data

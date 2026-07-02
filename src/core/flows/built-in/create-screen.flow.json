@@ -131,18 +131,23 @@
       "params": {}
     },
     {
+      "id": "build-canvas-plan",
+      "uses": "draft.buildCanvasPlan",
+      "params": {}
+    },
+    {
+      "id": "build-figma-transaction-plan",
+      "uses": "draft.buildFigmaTransactionPlan",
+      "params": {}
+    },
+    {
       "id": "build-figma-apply-packet",
       "uses": "draft.buildFigmaApplyPacket",
       "params": {}
     },
     {
-      "id": "wait-for-apply-metadata",
-      "uses": "figma.waitForApplyMetadata",
-      "params": {}
-    },
-    {
-      "id": "record-apply-metadata",
-      "uses": "figma.recordApplyMetadata",
+      "id": "apply-figma-transaction-queue",
+      "uses": "figma.applyTransactionQueue",
       "params": {}
     },
     {
@@ -202,10 +207,11 @@
     ["build-layout-contract", "build-variable-binding-plan"],
     ["build-variable-binding-plan", "validate-no-hardcoded-imitation"],
     ["validate-no-hardcoded-imitation", "compile-high-fidelity-draft"],
-    ["compile-high-fidelity-draft", "build-figma-apply-packet"],
-    ["build-figma-apply-packet", "wait-for-apply-metadata"],
-    ["wait-for-apply-metadata", "record-apply-metadata"],
-    ["record-apply-metadata", "build-draft-component-lifecycle"],
+    ["compile-high-fidelity-draft", "build-canvas-plan"],
+    ["build-canvas-plan", "build-figma-transaction-plan"],
+    ["build-figma-transaction-plan", "build-figma-apply-packet"],
+    ["build-figma-apply-packet", "apply-figma-transaction-queue"],
+    ["apply-figma-transaction-queue", "build-draft-component-lifecycle"],
     ["build-draft-component-lifecycle", "verify-draft-invariants"],
     ["verify-draft-invariants", "verify-state-representation"],
     ["verify-state-representation", "verify-draft-component-lifecycle"],

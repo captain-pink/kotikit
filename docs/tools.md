@@ -12,6 +12,26 @@ workflow, brainstorm/spec, component-plan, design-plan, design-apply,
 review/comment, and memory choreography tools have been removed from public
 registration. Use graph flows and artifacts instead.
 
+## Safe Local Auto-Approvals
+
+Every registered MCP tool carries explicit safety annotations. Source scaffold
+for Codex and Claude Code auto-approves only exact safe local read-only tools:
+
+- `kotikit_flow_list`
+- `kotikit_flow_validate`
+- `kotikit_get_artifact`
+- `kotikit_list_artifacts`
+- `kotikit_search_design_system`
+- `kotikit_ds_search`
+- `kotikit_ds_get_component`
+- `kotikit_icons_search`
+- `kotikit_get_system_prompt`
+- `kotikit_config_status`
+
+The scaffold does not use wildcard approval rules. Tools that write files,
+start or stop the bridge, return bridge tokens, call Figma, resolve secrets,
+post or prepare review state, or mutate graph runs still require user approval.
+
 ## Graph Artifacts And UX Quality Contracts
 
 The graph facade keeps designer work resumable by storing durable artifacts
@@ -20,6 +40,14 @@ quality contracts are:
 
 - `StateMatrix`: planned filled, loading, empty, no-results, error, and
   permission states before visual composition.
+- `CanvasPlan`: deterministic draft-component and screen-state zones used to
+  keep generated Figma frames same-sized and non-overlapping.
+- `FigmaTransactionPlan`: ordered incremental Figma transaction queue for one
+  draft component, screen state, or region state at a time.
+- `FigmaNodeLedger`: compact record of created Figma nodes, bounds, component
+  refs, variable refs, auto layout, state representation, and transaction ids.
+- `CanvasReconciliationReport`: current canvas map used before comment review
+  so moved or renamed generated frames remain mapped by node id.
 - `CommentEvidenceMap`: REST-backed Figma comment evidence mapped to known
   pages, regions, components, or generated nodes where possible.
 - `DraftComponentLifecycle`: draft components created for design-system gaps,
@@ -91,8 +119,11 @@ Output: compact component refs.
 ### kotikit_record_figma_apply
 
 Purpose: Record official Figma MCP apply metadata into the active graph run.
-Input: `{ runId: string; scope: string; stepIndex: number; outcome: "ok" | "warned" | "failed"; figmaFileKey?; figmaPageId?; figmaSectionName?; figmaNodeId?; figmaNodeName?; partId?; draftComponentId?; componentName?; dsKey?; variableBindings?; layoutFrames?; repeatedItems?; textTransforms? }`
-Output: `{ runId; status; pendingQuestion?; artifacts; errors }`
+Input: `{ runId: string; scope: string; stepIndex: number; outcome: "ok" | "warned" | "failed"; transactionId: string; figmaFileKey?; figmaPageId?; figmaSectionName?; figmaNodeId?; figmaNodeName?; bounds?; componentRefs?; variableRefs?; representation?; autoLayout?; nodes?; partId?; draftComponentId?; componentName?; dsKey?; variableBindings?; layoutFrames?; repeatedItems?; textTransforms? }`
+Output: `{ runId; status; activeFigmaTransaction?; figmaTransactionProgress?; pendingQuestion?; artifacts; errors }`
+
+Use this after applying the active incremental Figma transaction. Do not record
+a later transaction before the graph consumes the current metadata.
 
 ### kotikit_review_figma_target
 

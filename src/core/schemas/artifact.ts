@@ -19,6 +19,10 @@ export const ArtifactTypeSchema = z.enum([
   "draft-plan",
   "figma-apply-packet",
   "figma-apply-report",
+  "canvas-plan",
+  "figma-transaction-plan",
+  "figma-node-ledger",
+  "canvas-reconciliation-report",
   "ui-quality-gate-report",
   "comment-evidence-map",
   "review-session",
@@ -44,6 +48,10 @@ export const ArtifactSchemaVersionByType = {
   "draft-plan": "DraftPlan/v1",
   "figma-apply-packet": "FigmaApplyPacket/v1",
   "figma-apply-report": "FigmaApplyReport/v1",
+  "canvas-plan": "CanvasPlan/v1",
+  "figma-transaction-plan": "FigmaTransactionPlan/v1",
+  "figma-node-ledger": "FigmaNodeLedger/v1",
+  "canvas-reconciliation-report": "CanvasReconciliationReport/v1",
   "ui-quality-gate-report": "UIQualityGateReport/v1",
   "comment-evidence-map": "CommentEvidenceMap/v1",
   "review-session": "ReviewSession/v1",
@@ -56,10 +64,346 @@ const SourceNodeSchema = z.strictObject({
   version: z.string().min(1),
 });
 
+// Compact incremental Figma contracts: large raw Figma payloads belong in artifacts/files, not graph state.
+const INCREMENTAL_TEXT_MAX = 512;
+const INCREMENTAL_REF_MAX = 2_048;
+const INCREMENTAL_ARRAY_MAX = 500;
+const INCREMENTAL_COORDINATE_LIMIT = 1_000_000;
+const INCREMENTAL_DIMENSION_MAX = 100_000;
+
+const IncrementalTextSchema = z.string().min(1).max(INCREMENTAL_TEXT_MAX);
+const IncrementalRefSchema = z.string().min(1).max(INCREMENTAL_REF_MAX);
+
+export const BoundsSchema = z.strictObject({
+  x: z.number().min(-INCREMENTAL_COORDINATE_LIMIT).max(INCREMENTAL_COORDINATE_LIMIT),
+  y: z.number().min(-INCREMENTAL_COORDINATE_LIMIT).max(INCREMENTAL_COORDINATE_LIMIT),
+  width: z.number().positive().max(INCREMENTAL_DIMENSION_MAX),
+  height: z.number().positive().max(INCREMENTAL_DIMENSION_MAX),
+});
+
+const CanvasSectionRefSchema = z.strictObject({
+  id: IncrementalRefSchema.optional(),
+  name: IncrementalTextSchema,
+});
+
+const ScreenSizeSchema = z.strictObject({
+  width: z.number().positive().max(INCREMENTAL_DIMENSION_MAX),
+  height: z.number().positive().max(INCREMENTAL_DIMENSION_MAX),
+});
+
+const CanvasZoneSchema = z.strictObject({
+  id: IncrementalRefSchema,
+  kind: z.enum(["draft-components", "screen-states", "review-notes"]),
+  label: IncrementalTextSchema,
+  bounds: BoundsSchema,
+});
+
+const CanvasPlacementSchema = z.strictObject({
+  id: IncrementalRefSchema,
+  kind: z.enum(["screen-state", "draft-component", "annotation"]),
+  stateId: IncrementalRefSchema.optional(),
+  draftComponentId: IncrementalRefSchema.optional(),
+  label: IncrementalTextSchema,
+  bounds: BoundsSchema,
+  parentZoneId: IncrementalRefSchema,
+  transactionId: IncrementalRefSchema,
+});
+
+const CanvasPlanStrategySchema = z.strictObject({
+  primaryFirst: z.boolean(),
+  creationOrder: z.array(IncrementalRefSchema).max(INCREMENTAL_ARRAY_MAX),
+  designerNotes: z.array(z.string().min(1).max(INCREMENTAL_REF_MAX)).max(INCREMENTAL_ARRAY_MAX),
+});
+
+export const CanvasPlanSchema = z
+  .strictObject({
+    schemaVersion: z.literal("CanvasPlan/v1"),
+    section: CanvasSectionRefSchema,
+    coordinateSpace: z.literal("section-relative"),
+    screenSize: ScreenSizeSchema,
+    minGap: z.number().nonnegative().max(INCREMENTAL_DIMENSION_MAX),
+    zones: z.array(CanvasZoneSchema).max(INCREMENTAL_ARRAY_MAX),
+    placements: z.array(CanvasPlacementSchema).max(INCREMENTAL_ARRAY_MAX),
+    strategy: CanvasPlanStrategySchema,
+  })
+  .superRefine((plan, ctx) => {
+    const zoneIds = new Set<string>();
+    const placementIds = new Set<string>();
+    const transactionIds = new Set<string>();
+
+    plan.zones.forEach((zone, index) => {
+      if (zoneIds.has(zone.id)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["zones", index, "id"],
+          message: `Duplicate zone id ${zone.id}.`,
+        });
+      }
+      zoneIds.add(zone.id);
+    });
+
+    plan.placements.forEach((placement, index) => {
+      if (!zoneIds.has(placement.parentZoneId)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["placements", index, "parentZoneId"],
+          message: `Unknown parent zone ${placement.parentZoneId}.`,
+        });
+      }
+
+      if (placementIds.has(placement.id)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["placements", index, "id"],
+          message: `Duplicate placement id ${placement.id}.`,
+        });
+      }
+      placementIds.add(placement.id);
+
+      if (transactionIds.has(placement.transactionId)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["placements", index, "transactionId"],
+          message: `Duplicate transaction id ${placement.transactionId}.`,
+        });
+      }
+      transactionIds.add(placement.transactionId);
+
+      if (placement.kind === "screen-state" && placement.stateId === undefined) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["placements", index, "stateId"],
+          message: "Screen-state placements require stateId.",
+        });
+      }
+
+      if (placement.kind === "draft-component" && placement.draftComponentId === undefined) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["placements", index, "draftComponentId"],
+          message: "Draft-component placements require draftComponentId.",
+        });
+      }
+    });
+
+    const orderedPlacementIds = new Set<string>();
+    plan.strategy.creationOrder.forEach((placementId, index) => {
+      if (!placementIds.has(placementId)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["strategy", "creationOrder", index],
+          message: `Creation order references unknown placement ${placementId}.`,
+        });
+      }
+
+      if (orderedPlacementIds.has(placementId)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["strategy", "creationOrder", index],
+          message: `Duplicate creation order placement ${placementId}.`,
+        });
+      }
+      orderedPlacementIds.add(placementId);
+    });
+
+    placementIds.forEach((placementId) => {
+      if (!orderedPlacementIds.has(placementId)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["strategy", "creationOrder"],
+          message: `Creation order omits placement ${placementId}.`,
+        });
+      }
+    });
+  });
+
+const FigmaTransactionKindSchema = z.enum([
+  "create-draft-component",
+  "create-screen-state",
+  "create-region-state",
+  "verify-created-node",
+]);
+
+const FigmaTransactionStatusSchema = z.enum(["pending", "active", "recorded", "failed"]);
+
+const FigmaTransactionMetadataSchema = z.enum([
+  "node-id",
+  "bounds",
+  "auto-layout",
+  "component-refs",
+  "variable-refs",
+]);
+
+const ActiveFigmaTransactionBaseSchema = z.strictObject({
+  id: IncrementalRefSchema,
+  order: z.number().int().positive(),
+  kind: FigmaTransactionKindSchema,
+  label: IncrementalTextSchema,
+  placementId: IncrementalRefSchema,
+  stateId: IncrementalRefSchema.optional(),
+  draftComponentId: IncrementalRefSchema.optional(),
+  requiredMetadata: z.array(FigmaTransactionMetadataSchema).min(1).max(INCREMENTAL_ARRAY_MAX),
+});
+
+function addFigmaTransactionExecutableRefIssues(
+  transaction: z.infer<typeof ActiveFigmaTransactionBaseSchema>,
+  ctx: {
+    addIssue: (issue: { code: "custom"; path: Array<string | number>; message: string }) => void;
+  },
+  path: Array<string | number>
+): void {
+  if (
+    (transaction.kind === "create-screen-state" || transaction.kind === "create-region-state") &&
+    transaction.stateId === undefined
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: [...path, "stateId"],
+      message: `${transaction.kind} transactions require stateId.`,
+    });
+  }
+
+  if (transaction.kind === "create-draft-component" && transaction.draftComponentId === undefined) {
+    ctx.addIssue({
+      code: "custom",
+      path: [...path, "draftComponentId"],
+      message: "create-draft-component transactions require draftComponentId.",
+    });
+  }
+}
+
+export const ActiveFigmaTransactionSchema = ActiveFigmaTransactionBaseSchema.superRefine(
+  (transaction, ctx) => {
+    addFigmaTransactionExecutableRefIssues(transaction, ctx, []);
+  }
+);
+
+const FigmaTransactionSchema = ActiveFigmaTransactionSchema.extend({
+  status: FigmaTransactionStatusSchema,
+});
+
+export const FigmaTransactionPlanSchema = z
+  .strictObject({
+    schemaVersion: z.literal("FigmaTransactionPlan/v1"),
+    mode: z.literal("incremental-official-figma-mcp"),
+    transactions: z.array(FigmaTransactionSchema).max(INCREMENTAL_ARRAY_MAX),
+  })
+  .superRefine((plan, ctx) => {
+    const ids = new Set<string>();
+    const orders = new Set<number>();
+
+    plan.transactions.forEach((transaction, index) => {
+      if (ids.has(transaction.id)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["transactions", index, "id"],
+          message: `Duplicate transaction id ${transaction.id}.`,
+        });
+      }
+      ids.add(transaction.id);
+
+      if (orders.has(transaction.order)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["transactions", index, "order"],
+          message: `Duplicate transaction order ${transaction.order}.`,
+        });
+      }
+      orders.add(transaction.order);
+    });
+  });
+
+const FigmaNodeSemanticRoleSchema = z.enum([
+  "screen-state",
+  "draft-component",
+  "component-instance",
+  "layout-frame",
+  "annotation",
+]);
+
+const FigmaNodeLedgerEntrySchema = z.strictObject({
+  nodeId: IncrementalRefSchema,
+  name: IncrementalTextSchema,
+  kind: IncrementalTextSchema,
+  semanticRole: FigmaNodeSemanticRoleSchema,
+  transactionId: IncrementalRefSchema,
+  placementId: IncrementalRefSchema,
+  stateId: IncrementalRefSchema.optional(),
+  representation: z
+    .enum(["screen-frame", "region-state", "component-state", "flow-step"])
+    .optional(),
+  draftComponentId: IncrementalRefSchema.optional(),
+  partId: IncrementalRefSchema.optional(),
+  bounds: BoundsSchema,
+  componentRefs: z.array(IncrementalRefSchema).max(INCREMENTAL_ARRAY_MAX),
+  variableRefs: z.array(IncrementalRefSchema).max(INCREMENTAL_ARRAY_MAX),
+  autoLayout: z.boolean(),
+  recordedAt: IncrementalRefSchema,
+});
+
+export const FigmaNodeLedgerSchema = z
+  .strictObject({
+    schemaVersion: z.literal("FigmaNodeLedger/v1"),
+    fileKey: IncrementalRefSchema,
+    pageId: IncrementalRefSchema,
+    sectionName: IncrementalTextSchema,
+    nodes: z.array(FigmaNodeLedgerEntrySchema).max(INCREMENTAL_ARRAY_MAX),
+    updatedAt: IncrementalRefSchema,
+  })
+  .superRefine((ledger, ctx) => {
+    const nodeIds = new Set<string>();
+
+    ledger.nodes.forEach((node, index) => {
+      if (nodeIds.has(node.nodeId)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["nodes", index, "nodeId"],
+          message: `Duplicate ledger node id ${node.nodeId}.`,
+        });
+      }
+      nodeIds.add(node.nodeId);
+    });
+  });
+
+const CanvasReconciliationNodeSchema = z.strictObject({
+  nodeId: IncrementalRefSchema,
+  ledgerStatus: z.enum(["matched", "moved", "renamed", "missing", "untracked"]),
+  previousName: IncrementalTextSchema.optional(),
+  currentName: IncrementalTextSchema.optional(),
+  previousBounds: BoundsSchema.optional(),
+  currentBounds: BoundsSchema.optional(),
+  transactionId: IncrementalRefSchema.optional(),
+  placementId: IncrementalRefSchema.optional(),
+  stateId: IncrementalRefSchema.optional(),
+});
+
+export const CanvasReconciliationReportSchema = z.strictObject({
+  schemaVersion: z.literal("CanvasReconciliationReport/v1"),
+  fileKey: IncrementalRefSchema,
+  pageId: IncrementalRefSchema,
+  reconciledAt: IncrementalRefSchema,
+  nodes: z.array(CanvasReconciliationNodeSchema).max(INCREMENTAL_ARRAY_MAX),
+  unmappedCommentsRisk: z.enum(["none", "low", "needs-human"]),
+});
+
 const UICompositionPartSchema = z.strictObject({
   id: z.string().min(1),
   name: z.string().min(1),
   role: z.string().min(1),
+  placement: z
+    .enum([
+      "left-sidebar",
+      "top-bar",
+      "top-right-action",
+      "main-content",
+      "table-body",
+      "center-region",
+      "right-rail",
+      "footer",
+      "modal",
+      "unknown",
+    ])
+    .optional(),
   source: z.enum(["existing-component", "draft-component", "approved-primitive"]),
   componentKey: z.string().min(1).optional(),
   draftComponentId: z.string().min(1).optional(),
@@ -193,6 +537,7 @@ const CommentEvidenceTargetSchema = z.strictObject({
   stateId: z.string().min(1).optional(),
   componentKey: z.string().min(1).optional(),
   draftComponentId: z.string().min(1).optional(),
+  bounds: BoundsSchema.optional(),
 });
 
 const CommentEvidenceItemSchema = z.strictObject({
@@ -354,6 +699,10 @@ export const ArtifactPayloadSchema = z.union([
   DraftPlanPayloadSchema,
   FigmaApplyPacketPayloadSchema,
   FigmaApplyReportPayloadSchema,
+  CanvasPlanSchema,
+  FigmaTransactionPlanSchema,
+  FigmaNodeLedgerSchema,
+  CanvasReconciliationReportSchema,
   UIQualityGateReportSchema,
   CommentEvidenceMapSchema,
   ReviewSessionPayloadSchema,
@@ -400,6 +749,10 @@ export const ArtifactVariantSchema = z.union([
   createArtifactVariantSchema("draft-plan", DraftPlanPayloadSchema),
   createArtifactVariantSchema("figma-apply-packet", FigmaApplyPacketPayloadSchema),
   createArtifactVariantSchema("figma-apply-report", FigmaApplyReportPayloadSchema),
+  createArtifactVariantSchema("canvas-plan", CanvasPlanSchema),
+  createArtifactVariantSchema("figma-transaction-plan", FigmaTransactionPlanSchema),
+  createArtifactVariantSchema("figma-node-ledger", FigmaNodeLedgerSchema),
+  createArtifactVariantSchema("canvas-reconciliation-report", CanvasReconciliationReportSchema),
   createArtifactVariantSchema("ui-quality-gate-report", UIQualityGateReportSchema),
   createArtifactVariantSchema("comment-evidence-map", CommentEvidenceMapSchema),
   createArtifactVariantSchema("review-session", ReviewSessionPayloadSchema),
@@ -444,5 +797,10 @@ export type LayoutContract = z.infer<typeof LayoutContractSchema>;
 export type VariableBindingPlan = z.infer<typeof VariableBindingPlanSchema>;
 export type DraftComponentPlan = z.infer<typeof DraftComponentPlanSchema>;
 export type DraftComponentLifecycle = z.infer<typeof DraftComponentLifecycleSchema>;
+export type Bounds = z.infer<typeof BoundsSchema>;
+export type CanvasPlan = z.infer<typeof CanvasPlanSchema>;
+export type FigmaTransactionPlan = z.infer<typeof FigmaTransactionPlanSchema>;
+export type FigmaNodeLedger = z.infer<typeof FigmaNodeLedgerSchema>;
+export type CanvasReconciliationReport = z.infer<typeof CanvasReconciliationReportSchema>;
 export type CommentEvidenceMap = z.infer<typeof CommentEvidenceMapSchema>;
 export type UIQualityGateReport = z.infer<typeof UIQualityGateReportSchema>;

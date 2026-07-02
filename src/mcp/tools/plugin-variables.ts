@@ -7,6 +7,7 @@ import {
 import { KotikitError, toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
+import { withKotikitToolSafety } from "../tool-safety.js";
 
 const PluginVariablesToolArgsSchema = z.object({
   payload: PluginVariablesPayloadSchema,
@@ -30,7 +31,7 @@ export function registerPluginVariableTools(registry: ToolRegistry, ctx: ToolCon
     },
   };
 
-  registry.tools.push(tool);
+  registry.tools.push(withKotikitToolSafety(tool));
 
   registry.handlers.set("kotikit_sync_plugin_variables", async (args) => {
     try {

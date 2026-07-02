@@ -7,6 +7,34 @@ import { FACADE_TOOL_NAMES } from "../facade/tools.js";
 import { buildServer } from "../server.js";
 
 const tmpDirs: string[] = [];
+const safeAutoApprovedTools = [
+  "kotikit_flow_list",
+  "kotikit_flow_validate",
+  "kotikit_get_artifact",
+  "kotikit_list_artifacts",
+  "kotikit_search_design_system",
+  "kotikit_ds_search",
+  "kotikit_ds_get_component",
+  "kotikit_icons_search",
+  "kotikit_get_system_prompt",
+  "kotikit_config_status",
+];
+const unsafePromptedTools = [
+  "kotikit_doctor",
+  "kotikit_config_get",
+  "kotikit_config_init",
+  "kotikit_sync_ds",
+  "kotikit_sync_plugin_variables",
+  "kotikit_bridge_start",
+  "kotikit_bridge_stop",
+  "kotikit_bridge_status",
+  "kotikit_start",
+  "kotikit_continue",
+  "kotikit_answer",
+  "kotikit_bind_figma_target",
+  "kotikit_record_figma_apply",
+  "kotikit_review_figma_target",
+];
 
 afterAll(() => {
   tmpDirs.forEach((dir) => {
@@ -124,6 +152,34 @@ describe("MCP server", () => {
     expect(registeredNames.filter((name) => name === "kotikit_doctor")).toHaveLength(1);
     expect(registry.tools.length).toBe(expectedTools.length);
     expect(registry.handlers.size).toBe(expectedTools.length);
+  });
+
+  it("classifies every tool with conservative MCP safety annotations", () => {
+    const { registry } = buildServer();
+    const toolsByName = new Map(registry.tools.map((tool) => [tool.name, tool]));
+
+    for (const tool of registry.tools) {
+      expect(tool.annotations).toBeDefined();
+      expect(typeof tool.annotations?.readOnlyHint).toBe("boolean");
+      expect(typeof tool.annotations?.destructiveHint).toBe("boolean");
+      expect(typeof tool.annotations?.idempotentHint).toBe("boolean");
+      expect(typeof tool.annotations?.openWorldHint).toBe("boolean");
+    }
+
+    for (const toolName of safeAutoApprovedTools) {
+      const tool = toolsByName.get(toolName);
+      expect(tool?.annotations).toEqual({
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      });
+    }
+
+    for (const toolName of unsafePromptedTools) {
+      const tool = toolsByName.get(toolName);
+      expect(tool?.annotations?.readOnlyHint).not.toBe(true);
+    }
   });
 });
 

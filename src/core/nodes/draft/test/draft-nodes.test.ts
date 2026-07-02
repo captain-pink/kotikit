@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { buildFigmaTransactionPlan } from "../../../domain/figma-transaction-plan.js";
 import { ArtifactSchema } from "../../../schemas/artifact.js";
 import type { KotikitGraphState } from "../../../schemas/graph-state.js";
 import { draftNodeDefinitions } from "../index.js";
@@ -19,6 +20,92 @@ describe("draft graph nodes", () => {
     ).rejects.toThrow("approved brief");
   });
 
+  it("builds a canvas plan from state matrix and draft components using the target section", async () => {
+    const result = await runNode("draft.buildCanvasPlan", {
+      screen: { title: "Members" },
+      figmaTarget: draftTarget(),
+      stateMatrix: stateMatrix(),
+      draftComponentPlan: draftComponentPlan(),
+    });
+
+    expect(result.statePatch?.canvasPlan).toMatchObject({
+      schemaVersion: "CanvasPlan/v1",
+      section: { id: "section-1", name: "kotikit / members / 2026-06-30" },
+      placements: [
+        {
+          id: "draft-table-row",
+          kind: "draft-component",
+          draftComponentId: "table-row",
+          transactionId: "txn-draft-table-row",
+        },
+        {
+          id: "state-filled",
+          kind: "screen-state",
+          stateId: "filled",
+          transactionId: "txn-state-filled",
+        },
+      ],
+      strategy: { creationOrder: ["draft-table-row", "state-filled"] },
+    });
+  });
+
+  it("falls back to standard states when the state matrix is empty", async () => {
+    const result = await runNode("draft.buildCanvasPlan", {
+      screen: { title: "Members" },
+      figmaTarget: draftTarget(),
+      stateMatrix: { schemaVersion: "StateMatrix/v1", states: [] },
+      draftComponentPlan: draftComponentPlan(),
+    });
+
+    expect(result.statePatch?.canvasPlan?.placements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "state-loading",
+          kind: "screen-state",
+          stateId: "loading",
+          transactionId: "txn-state-loading",
+        }),
+        expect.objectContaining({
+          id: "state-filled",
+          kind: "screen-state",
+          stateId: "filled",
+          transactionId: "txn-state-filled",
+        }),
+      ])
+    );
+    expect(result.statePatch?.canvasPlan?.strategy.creationOrder).toEqual(
+      expect.arrayContaining(["state-loading", "state-filled"])
+    );
+  });
+
+  it("builds ordered Figma transactions from a canvas plan", async () => {
+    const result = await runNode("draft.buildFigmaTransactionPlan", {
+      canvasPlan: sampleCanvasPlan(),
+    });
+
+    expect(result.statePatch?.figmaTransactionPlan).toMatchObject({
+      schemaVersion: "FigmaTransactionPlan/v1",
+      transactions: [
+        {
+          id: "txn-draft-table-row",
+          order: 1,
+          kind: "create-draft-component",
+          placementId: "draft-table-row",
+          draftComponentId: "table-row",
+          status: "pending",
+        },
+        {
+          id: "txn-state-filled",
+          order: 2,
+          kind: "create-screen-state",
+          placementId: "state-filled",
+          stateId: "filled",
+          status: "pending",
+        },
+      ],
+    });
+  });
+
   it("allows quick high-fidelity packets from a screen blueprint and assumptions", async () => {
     const result = await runNode("draft.buildFigmaApplyPacket", {
       brief: { lane: "quick", assumptions: ["Use existing design-system components first."] },
@@ -26,6 +113,8 @@ describe("draft graph nodes", () => {
       uiComposition: composition(),
       layoutContract: layout(),
       variableBindingPlan: { schemaVersion: "VariableBindingPlan/v1", bindings: [] },
+      canvasPlan: sampleCanvasPlan(),
+      figmaTransactionPlan: sampleTransactionPlan(),
       figmaTarget: draftTarget(),
       draftPlan: {
         steps: [{ kind: "place-component", componentName: "Button" }],
@@ -38,13 +127,44 @@ describe("draft graph nodes", () => {
       applyPacket: expect.objectContaining({
         mode: "official-figma-mcp",
         target: expect.objectContaining({ fileKey: "FILE" }),
+        canvasPlanSummary: {
+          sectionName: "kotikit / members / 2026-06-30",
+          placementCount: 2,
+          zoneCount: 2,
+        },
+        transactionPlanSummary: {
+          transactionCount: 2,
+          transactions: [
+            {
+              id: "txn-draft-table-row",
+              order: 1,
+              kind: "create-draft-component",
+              label: "Table row",
+              placementId: "draft-table-row",
+              draftComponentId: "table-row",
+            },
+            {
+              id: "txn-state-filled",
+              order: 2,
+              kind: "create-screen-state",
+              label: "Members - Filled",
+              placementId: "state-filled",
+              stateId: "filled",
+            },
+          ],
+        },
         repeatedItems: [{ id: "members", instances: ["row-key"] }],
         textTransforms: [{ id: "button-label", transform: "none" }],
+        metadata: expect.objectContaining({ incrementalTransactions: true }),
       }),
     });
+    const applyPacket = (result.statePatch?.draftPlan as { applyPacket?: Record<string, unknown> })
+      .applyPacket;
+    expect(applyPacket).not.toHaveProperty("canvasPlan");
+    expect(applyPacket).not.toHaveProperty("transactionPlan");
   });
 
-  it("emits a graph apply-packet artifact with legacy scope metadata", async () => {
+  it("emits a graph apply-packet artifact with legacy scope metadata and compact plan summaries", async () => {
     const result = await runNode("draft.buildFigmaApplyPacket", {
       brief: { lane: "quick", assumptions: ["Use existing design-system components first."] },
       screen: {
@@ -56,6 +176,8 @@ describe("draft graph nodes", () => {
       uiComposition: composition(),
       layoutContract: layout(),
       variableBindingPlan: { schemaVersion: "VariableBindingPlan/v1", bindings: [] },
+      canvasPlan: sampleCanvasPlan(),
+      figmaTransactionPlan: sampleTransactionPlan(),
       figmaTarget: draftTarget(),
       draftPlan: { steps: [{ kind: "place-component", componentName: "Button" }] },
     });
@@ -86,9 +208,77 @@ describe("draft graph nodes", () => {
           ],
           variableBindings: [],
           layoutFrames: [{ id: "root", mode: "auto-layout", direction: "vertical" }],
+          canvasPlanSummary: {
+            sectionName: "kotikit / members / 2026-06-30",
+            placementCount: 2,
+            zoneCount: 2,
+          },
+          transactionPlanSummary: {
+            transactionCount: 2,
+            transactions: [
+              {
+                id: "txn-draft-table-row",
+                order: 1,
+                kind: "create-draft-component",
+                label: "Table row",
+                placementId: "draft-table-row",
+                draftComponentId: "table-row",
+              },
+              {
+                id: "txn-state-filled",
+                order: 2,
+                kind: "create-screen-state",
+                label: "Members - Filled",
+                placementId: "state-filled",
+                stateId: "filled",
+              },
+            ],
+          },
         },
       },
     });
+    const data = (result.artifacts?.[0] as { payload?: { data?: Record<string, unknown> } }).payload
+      ?.data;
+    expect(data).not.toHaveProperty("canvasPlan");
+    expect(data).not.toHaveProperty("transactionPlan");
+    expect(data).not.toHaveProperty("transactions");
+  });
+
+  it("keeps graph state compact after building an apply packet for multiple states", async () => {
+    const canvasPlan = multiStateCanvasPlan();
+    const patch: Partial<KotikitGraphState> = {
+      brief: { lane: "quick", assumptions: ["Use existing design-system components first."] },
+      screen: { title: "Members", requiredUiParts: ["primary button"] },
+      uiComposition: composition(),
+      layoutContract: layout(),
+      variableBindingPlan: { schemaVersion: "VariableBindingPlan/v1", bindings: [] },
+      canvasPlan,
+      figmaTransactionPlan: buildFigmaTransactionPlan({
+        placements: canvasPlan.placements,
+        creationOrder: canvasPlan.strategy.creationOrder,
+      }),
+      figmaTarget: draftTarget(),
+      draftPlan: { steps: [{ kind: "place-component", componentName: "Button" }] },
+    };
+
+    const result = await runNode("draft.buildFigmaApplyPacket", patch);
+    const nextState = state({ ...patch, ...result.statePatch });
+
+    expect(JSON.stringify(nextState).length).toBeLessThan(256 * 1024);
+  });
+
+  it("refuses Figma write packets without canvas and transaction plans", async () => {
+    await expect(
+      runNode("draft.buildFigmaApplyPacket", {
+        brief: { lane: "quick", assumptions: ["fast path"] },
+        screen: { title: "Members", requiredUiParts: ["primary button"] },
+        uiComposition: composition(),
+        layoutContract: layout(),
+        variableBindingPlan: { schemaVersion: "VariableBindingPlan/v1", bindings: [] },
+        figmaTarget: draftTarget(),
+        draftPlan: { steps: [] },
+      })
+    ).rejects.toThrow("missing required UI contracts");
   });
 
   it("refuses Figma write packets without a safe draft page target", async () => {
@@ -161,6 +351,163 @@ function layout(): NonNullable<KotikitGraphState["layoutContract"]> {
     schemaVersion: "LayoutContract/v1",
     strategy: "auto-layout",
     frames: [{ id: "root", name: "Root", mode: "auto-layout", direction: "vertical" }],
+  };
+}
+
+function stateMatrix(): NonNullable<KotikitGraphState["stateMatrix"]> {
+  return {
+    schemaVersion: "StateMatrix/v1",
+    states: [
+      {
+        id: "filled",
+        label: "Filled",
+        kind: "filled",
+        scope: "page",
+        persistentRegions: [],
+        replacementBehavior: "replace-whole-page",
+        requiredComponents: ["table row"],
+        sourceRefs: ["https://example.com/states/filled"],
+      },
+    ],
+  };
+}
+
+function draftComponentPlan(): NonNullable<KotikitGraphState["draftComponentPlan"]> {
+  return {
+    schemaVersion: "DraftComponentPlan/v1",
+    sectionName: "Kotikit Draft Components",
+    components: [{ id: "table-row", name: "Table row", reason: "Missing table row" }],
+  };
+}
+
+function sampleCanvasPlan(): NonNullable<KotikitGraphState["canvasPlan"]> {
+  return {
+    schemaVersion: "CanvasPlan/v1",
+    section: { id: "section-1", name: "kotikit / members / 2026-06-30" },
+    coordinateSpace: "section-relative",
+    screenSize: { width: 1440, height: 900 },
+    minGap: 160,
+    zones: [
+      {
+        id: "zone-draft-components",
+        kind: "draft-components",
+        label: "Draft components",
+        bounds: { x: 0, y: 0, width: 360, height: 240 },
+      },
+      {
+        id: "zone-screen-states",
+        kind: "screen-states",
+        label: "Screen states",
+        bounds: { x: 560, y: 0, width: 3040, height: 900 },
+      },
+    ],
+    placements: [
+      {
+        id: "draft-table-row",
+        kind: "draft-component",
+        draftComponentId: "table-row",
+        label: "Table row",
+        bounds: { x: 0, y: 0, width: 360, height: 240 },
+        parentZoneId: "zone-draft-components",
+        transactionId: "txn-draft-table-row",
+      },
+      {
+        id: "state-filled",
+        kind: "screen-state",
+        stateId: "filled",
+        label: "Members - Filled",
+        bounds: { x: 560, y: 0, width: 1440, height: 900 },
+        parentZoneId: "zone-screen-states",
+        transactionId: "txn-state-filled",
+      },
+    ],
+    strategy: {
+      primaryFirst: true,
+      creationOrder: ["draft-table-row", "state-filled"],
+      designerNotes: [
+        "Draft components stay in the left lane; screen states use a deterministic two-column grid.",
+      ],
+    },
+  };
+}
+
+function multiStateCanvasPlan(): NonNullable<KotikitGraphState["canvasPlan"]> {
+  const base = sampleCanvasPlan();
+  const draftPlacement = base.placements.find((placement) => placement.kind === "draft-component");
+  if (draftPlacement === undefined) throw new Error("Sample canvas plan needs a draft placement");
+
+  const states = [
+    { id: "loading", label: "Loading" },
+    { id: "empty", label: "Empty" },
+    { id: "error", label: "Error" },
+    { id: "filled", label: "Filled" },
+  ];
+  const statePlacements: NonNullable<KotikitGraphState["canvasPlan"]>["placements"] = states.map(
+    (state, index) => {
+      const column = index % 2;
+      const row = Math.floor(index / 2);
+      return {
+        id: `state-${state.id}`,
+        kind: "screen-state",
+        stateId: state.id,
+        label: `Members - ${state.label}`,
+        bounds: {
+          x: 560 + column * 1600,
+          y: row * 1060,
+          width: 1440,
+          height: 900,
+        },
+        parentZoneId: "zone-screen-states",
+        transactionId: `txn-state-${state.id}`,
+      };
+    }
+  );
+  const placements: NonNullable<KotikitGraphState["canvasPlan"]>["placements"] = [
+    draftPlacement,
+    ...statePlacements,
+  ];
+
+  return {
+    ...base,
+    zones: base.zones.map((zone) =>
+      zone.id === "zone-screen-states"
+        ? { ...zone, bounds: { ...zone.bounds, height: 1960 } }
+        : zone
+    ),
+    placements,
+    strategy: {
+      ...base.strategy,
+      creationOrder: placements.map((placement) => placement.id),
+    },
+  };
+}
+
+function sampleTransactionPlan(): NonNullable<KotikitGraphState["figmaTransactionPlan"]> {
+  return {
+    schemaVersion: "FigmaTransactionPlan/v1",
+    mode: "incremental-official-figma-mcp",
+    transactions: [
+      {
+        id: "txn-draft-table-row",
+        order: 1,
+        kind: "create-draft-component",
+        label: "Table row",
+        placementId: "draft-table-row",
+        draftComponentId: "table-row",
+        status: "pending",
+        requiredMetadata: ["node-id", "bounds", "auto-layout", "component-refs", "variable-refs"],
+      },
+      {
+        id: "txn-state-filled",
+        order: 2,
+        kind: "create-screen-state",
+        label: "Members - Filled",
+        placementId: "state-filled",
+        stateId: "filled",
+        status: "pending",
+        requiredMetadata: ["node-id", "bounds", "auto-layout", "component-refs", "variable-refs"],
+      },
+    ],
   };
 }
 

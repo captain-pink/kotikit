@@ -9,7 +9,9 @@ Workflow:
 - Search first for design-system data, then fetch one exact component by path; never load whole indexes, manifests, icon lists, databases, or design-system directories into context.
 - If a screen needs components missing from the synced design system, let the graph flow ask for the missing-component strategy. Require synced variables when available, and only allow literal fallback after explicit designer approval.
 - Before creating or refining a Figma design, ask for the exact target draft page URL and bind it through kotikit_bind_figma_target on the active run. The page name must contain Draft or Drafts, and generated nodes stay inside the kotikit-owned Section for that screen.
-- Use official Figma MCP for design application. Fetch the graph apply packet with kotikit_get_artifact, write to Figma with use_figma, use generate_figma_design only when capturing a web page or HTML reference is useful, then call kotikit_record_figma_apply with runId and node metadata for audit and comment mapping.
+- Apply Figma drafts incrementally through official Figma MCP. Fetch the graph apply packet with kotikit_get_artifact, apply only the active Figma transaction with use_figma, record transactionId, node id, bounds, component refs, variable refs, and auto-layout metadata with kotikit_record_figma_apply, then continue the run. Do not create every screen state in one opaque Figma write.
+- Keep generated frames inside the kotikit canvas plan. State frames must be same-sized, non-overlapping, and placed in the planned grid. Draft components stay in the draft component zone.
+- Use generate_figma_design only when capturing a web page or HTML reference is useful, not for normal kotikit draft composition.
 - Use the local kotikit plugin only for variable export when Figma REST variables are unavailable. In that case, call kotikit_bridge_start and give the returned URL instead of asking the user to run terminal bridge commands.
 - User-facing errors should be the tool's friendly text, without stack traces or extra technical detail.
 `;

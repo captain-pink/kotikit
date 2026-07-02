@@ -55,6 +55,42 @@ function makeState(status: KotikitGraphState["status"]): KotikitGraphState {
   };
 }
 
+function activeFigmaTransaction(
+  transactionId: string
+): NonNullable<KotikitGraphState["activeFigmaTransaction"]> {
+  return {
+    id: transactionId,
+    order: 1,
+    kind: "create-screen-state",
+    label: "Members / Filled",
+    placementId: "state-filled",
+    stateId: "filled",
+    requiredMetadata: ["node-id", "bounds", "auto-layout", "component-refs", "variable-refs"],
+  };
+}
+
+function transactionPlan(
+  transactionId: string,
+  status: "pending" | "active" | "recorded" | "failed"
+): NonNullable<KotikitGraphState["figmaTransactionPlan"]> {
+  return {
+    schemaVersion: "FigmaTransactionPlan/v1",
+    mode: "incremental-official-figma-mcp",
+    transactions: [
+      {
+        id: transactionId,
+        order: 1,
+        kind: "create-screen-state",
+        label: "Members / Filled",
+        placementId: "state-filled",
+        stateId: "filled",
+        status,
+        requiredMetadata: ["node-id", "bounds", "auto-layout", "component-refs", "variable-refs"],
+      },
+    ],
+  };
+}
+
 function draftTarget(): NonNullable<KotikitGraphState["figmaTarget"]> {
   return {
     fileKey: "FILE",
@@ -232,6 +268,203 @@ describe("MCP facade tools", () => {
     expect(reviewTool?.inputSchema.properties).toHaveProperty("figmaUrl");
     expect(reviewTool?.inputSchema.properties).toHaveProperty("fileKey");
     expect(reviewTool?.inputSchema.properties).toHaveProperty("nodeId");
+  });
+
+  it("exposes incremental Figma apply metadata in the record tool schema", () => {
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx());
+    const applyTool = registry.tools.find((tool) => tool.name === "kotikit_record_figma_apply");
+
+    expect(applyTool?.inputSchema.properties).toHaveProperty("transactionId");
+    expect(applyTool?.inputSchema.properties).toHaveProperty("bounds");
+    expect(applyTool?.inputSchema.properties).toHaveProperty("componentRefs");
+    expect(applyTool?.inputSchema.properties).toHaveProperty("variableRefs");
+    expect(applyTool?.inputSchema.properties).toHaveProperty("representation");
+    expect(applyTool?.inputSchema.properties).toHaveProperty("autoLayout");
+    expect(applyTool?.inputSchema.properties).toHaveProperty("nodes");
+  });
+
+  it("records incremental transaction metadata into graph apply metadata", async () => {
+    let applyMetadata: Record<string, unknown> | undefined;
+    const runtime = {
+      ...makeRuntime(),
+      async getRunState(runId): Promise<KotikitGraphState> {
+        expect(runId).toBe("run-1");
+        return {
+          ...makeState("waiting-for-figma"),
+          activeFigmaTransaction: {
+            id: "txn-filled",
+            order: 1,
+            kind: "create-screen-state",
+            label: "Members / Filled",
+            placementId: "state-filled",
+            stateId: "filled",
+            requiredMetadata: [
+              "node-id",
+              "bounds",
+              "auto-layout",
+              "component-refs",
+              "variable-refs",
+            ],
+          },
+        };
+      },
+      async patchRunState(input): Promise<RuntimeRunResult> {
+        applyMetadata = input.statePatch.applyMetadata as Record<string, unknown>;
+        return {
+          runId: "run-1",
+          status: "waiting-for-figma",
+          state: {
+            ...makeState("waiting-for-figma"),
+            activeFigmaTransaction: activeFigmaTransaction("txn-filled"),
+            figmaTransactionPlan: transactionPlan("txn-filled", "active"),
+            applyMetadata,
+          },
+        };
+      },
+    } satisfies FacadeRuntime;
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx(), { runtime });
+
+    const result = await callTool(registry, "kotikit_record_figma_apply", {
+      runId: "run-1",
+      scope: "members",
+      stepIndex: 0,
+      outcome: "ok",
+      transactionId: "txn-filled",
+      figmaFileKey: "FILE",
+      figmaPageId: "1:2",
+      figmaSectionName: "kotikit / members / 2026-06-30",
+      figmaNodeId: "node-1",
+      figmaNodeName: "Members / Filled",
+      figmaNodeKind: "frame",
+      bounds: { x: 560, y: 0, width: 1440, height: 900 },
+      representation: "region-state",
+      componentRefs: ["button-key"],
+      variableRefs: ["var-color-primary"],
+      autoLayout: true,
+      nodes: [
+        {
+          id: "node-2",
+          name: "Primary action",
+          kind: "instance",
+          partId: "primary-action",
+          draftComponentId: "draft-primary-action",
+          bounds: { x: 1200, y: 72, width: 160, height: 40 },
+          componentRefs: ["draft-primary-action"],
+          variableRefs: ["var-color-primary"],
+          autoLayout: true,
+        },
+      ],
+    });
+    const detail = detailOf<{
+      activeFigmaTransaction?: { id: string };
+      figmaTransactionProgress?: { active: number };
+    }>(result.content[0]?.text ?? "");
+
+    expect(applyMetadata).toMatchObject({
+      transactionId: "txn-filled",
+      bounds: { x: 560, y: 0, width: 1440, height: 900 },
+      representation: "region-state",
+      componentRefs: ["button-key"],
+      variableRefs: ["var-color-primary"],
+      autoLayout: true,
+    });
+    expect(applyMetadata?.nodes).toEqual([
+      expect.objectContaining({ id: "node-1", kind: "frame" }),
+      expect.objectContaining({
+        id: "node-2",
+        draftComponentId: "draft-primary-action",
+        bounds: { x: 1200, y: 72, width: 160, height: 40 },
+      }),
+    ]);
+    expect(detail.activeFigmaTransaction?.id).toBe("txn-filled");
+    expect(detail.figmaTransactionProgress?.active).toBe(1);
+  });
+
+  it("rejects Figma apply records when the run is not waiting for the active transaction", async () => {
+    const attempts: Record<string, number> = {};
+    const runtime = {
+      ...makeRuntime(),
+      async getRunState(runId): Promise<KotikitGraphState> {
+        attempts.getRunState = (attempts.getRunState ?? 0) + 1;
+        expect(runId).toBe("run-1");
+        return {
+          ...makeState("waiting-for-user"),
+          activeFigmaTransaction: {
+            id: "txn-active",
+            order: 1,
+            kind: "create-screen-state",
+            label: "Members / Filled",
+            placementId: "state-filled",
+            requiredMetadata: [],
+          },
+        };
+      },
+      async patchRunState(): Promise<RuntimeRunResult> {
+        attempts.patchRunState = (attempts.patchRunState ?? 0) + 1;
+        throw new Error("patchRunState should not be called");
+      },
+    } satisfies FacadeRuntime;
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx(), { runtime });
+
+    const result = await callTool(registry, "kotikit_record_figma_apply", {
+      runId: "run-1",
+      scope: "members",
+      stepIndex: 0,
+      outcome: "ok",
+      transactionId: "txn-active",
+    });
+
+    expect(String(result.content[0]?.text)).toContain("waiting for Figma");
+    expect(attempts).toEqual({ getRunState: 1 });
+  });
+
+  it("rejects mismatched or unconsumed Figma apply metadata before patching state", async () => {
+    const patched: string[] = [];
+    const runtime = {
+      ...makeRuntime(),
+      async getRunState(): Promise<KotikitGraphState> {
+        return {
+          ...makeState("waiting-for-figma"),
+          activeFigmaTransaction: {
+            id: "txn-active",
+            order: 1,
+            kind: "create-screen-state",
+            label: "Members / Filled",
+            placementId: "state-filled",
+            requiredMetadata: [],
+          },
+          applyMetadata: { transactionId: "txn-active" },
+        };
+      },
+      async patchRunState(): Promise<RuntimeRunResult> {
+        patched.push("patch");
+        throw new Error("patchRunState should not be called");
+      },
+    } satisfies FacadeRuntime;
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx(), { runtime });
+
+    const mismatched = await callTool(registry, "kotikit_record_figma_apply", {
+      runId: "run-1",
+      scope: "members",
+      stepIndex: 0,
+      outcome: "ok",
+      transactionId: "txn-other",
+    });
+    const stale = await callTool(registry, "kotikit_record_figma_apply", {
+      runId: "run-1",
+      scope: "members",
+      stepIndex: 0,
+      outcome: "ok",
+      transactionId: "txn-active",
+    });
+
+    expect(String(mismatched.content[0]?.text)).toContain("active Figma transaction");
+    expect(String(stale.content[0]?.text)).toContain("already has unconsumed Figma apply metadata");
+    expect(patched).toEqual([]);
   });
 
   it("starts graph review flows without compatibility review handlers", async () => {
@@ -451,13 +684,23 @@ describe("MCP facade tools", () => {
 
   it("records Figma apply metadata into a graph run when runId is supplied", async () => {
     const registry = makeRegistry();
-    registerFacadeTools(registry, makeCtx(), { runtime: makeRuntime() });
+    const runtime = {
+      ...makeRuntime(),
+      async getRunState(): Promise<KotikitGraphState> {
+        return {
+          ...makeState("waiting-for-figma"),
+          activeFigmaTransaction: activeFigmaTransaction("txn-legacy"),
+        };
+      },
+    } satisfies FacadeRuntime;
+    registerFacadeTools(registry, makeCtx(), { runtime });
 
     const result = await callTool(registry, "kotikit_record_figma_apply", {
       runId: "run-1",
       scope: "members",
       stepIndex: 0,
       outcome: "ok",
+      transactionId: "txn-legacy",
       figmaFileKey: "FILE",
       figmaPageId: "1:2",
       figmaSectionName: "kotikit / members / 2026-06-30",
@@ -479,6 +722,12 @@ describe("MCP facade tools", () => {
     let applyMetadata: Record<string, unknown> | undefined;
     const runtime = {
       ...makeRuntime(),
+      async getRunState(): Promise<KotikitGraphState> {
+        return {
+          ...makeState("waiting-for-figma"),
+          activeFigmaTransaction: activeFigmaTransaction("txn-draft-email-input"),
+        };
+      },
       async patchRunState(input): Promise<RuntimeRunResult> {
         applyMetadata = input.statePatch.applyMetadata as Record<string, unknown>;
         return {
@@ -499,6 +748,7 @@ describe("MCP facade tools", () => {
       scope: "members",
       stepIndex: 0,
       outcome: "ok",
+      transactionId: "txn-draft-email-input",
       figmaFileKey: "FILE",
       figmaPageId: "1:2",
       figmaSectionName: "kotikit / members / 2026-06-30",

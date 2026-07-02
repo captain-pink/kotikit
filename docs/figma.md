@@ -97,14 +97,23 @@ integration to write draft designs with Figma's supported tools.
 
 In Codex-style environments, the relevant official Figma tools are
 `use_figma` for normal Figma writes and `generate_figma_design` only when a
-web page or HTML reference should be captured into Figma. Kotikit still owns
-the spec, design-system search, draft target, apply packet, and audit logging.
+web page or HTML reference should be captured into Figma. Normal kotikit draft
+creation uses deterministic `use_figma` writes one transaction at a time.
+`generate_figma_design` is reserved for capturing a web page or HTML reference,
+not for composing kotikit's design-system-grounded screen states. Kotikit still
+owns the spec, design-system search, draft target, canvas plan, apply packet,
+and audit logging.
 
 Kotikit draft output should use imported design-system component instances,
 design variables, auto layout, and graph-approved draft components. When a
 needed component does not exist, kotikit should create it on the active draft
 page first, track it with `DraftComponentLifecycle`, and then use linked
 instances in the composed screen.
+
+Each active Figma transaction creates exactly one draft component, screen state,
+or region state at the bounds from the canvas plan. After each write, record
+transactionId, node id, bounds, component refs, variable refs, and auto-layout
+metadata with `kotikit_record_figma_apply`, then continue the run.
 
 ## Local Kotikit Plugin
 

@@ -8,6 +8,31 @@ let tmp: string;
 let targetRoot: string;
 let kotikitRoot: string;
 
+const safeAutoApprovedTools = [
+  "kotikit_flow_list",
+  "kotikit_flow_validate",
+  "kotikit_get_artifact",
+  "kotikit_list_artifacts",
+  "kotikit_search_design_system",
+  "kotikit_ds_search",
+  "kotikit_ds_get_component",
+  "kotikit_icons_search",
+  "kotikit_get_system_prompt",
+  "kotikit_config_status",
+];
+
+const unsafePromptedTools = [
+  "kotikit_doctor",
+  "kotikit_config_get",
+  "kotikit_config_init",
+  "kotikit_sync_ds",
+  "kotikit_bridge_start",
+  "kotikit_bridge_stop",
+  "kotikit_bridge_status",
+  "kotikit_start",
+  "kotikit_review_figma_target",
+];
+
 function readJson(path: string): unknown {
   return JSON.parse(readFileSync(path, "utf8"));
 }
@@ -114,6 +139,9 @@ describe("scaffoldAgents", () => {
         { command: string; args: string[]; type?: string; timeout?: number }
       >;
     };
+    const settings = readJson(join(targetRoot, ".claude", "settings.json")) as {
+      permissions: { allow: string[] };
+    };
     const installedSkill = readFileSync(
       join(targetRoot, ".claude", "skills", "kotikit-auto", "SKILL.md"),
       "utf8"
@@ -137,6 +165,13 @@ describe("scaffoldAgents", () => {
       args: ["run", join(kotikitRoot, "src", "mcp", "server.ts")],
       timeout: 900000,
     });
+    for (const toolName of safeAutoApprovedTools) {
+      expect(settings.permissions.allow).toContain(`mcp__kotikit__${toolName}`);
+    }
+    for (const toolName of unsafePromptedTools) {
+      expect(settings.permissions.allow).not.toContain(`mcp__kotikit__${toolName}`);
+    }
+    expect(settings.permissions.allow).not.toContain("mcp__kotikit__*");
     expect(installedSkill).toBe(currentKotikitSkill());
     expect(installedReviewSkill).toBe(currentKotikitSkill("kotikit-design-review"));
     expect(installedSkill).toContain("Use this self-contained skill");
@@ -145,6 +180,7 @@ describe("scaffoldAgents", () => {
     expect(reviewCommand).toContain(".claude/skills/kotikit-design-review/SKILL.md");
     expect(reviewCommand).toContain("kotikit-design-review");
     expect(result.written).toContain(join(targetRoot, ".mcp.json"));
+    expect(result.written).toContain(join(targetRoot, ".claude", "settings.json"));
     expect(result.written).toContain(
       join(targetRoot, ".claude", "skills", "kotikit-auto", "SKILL.md")
     );
@@ -156,6 +192,45 @@ describe("scaffoldAgents", () => {
       join(targetRoot, ".claude", "commands", "kotikit-design-review.md")
     );
     expect(result.notes.join("\n")).toContain("Claude Code project MCP config");
+    expect(result.notes.join("\n")).toContain("safe read-only Kotikit tool permissions");
+  });
+
+  it("preserves existing Claude Code settings while adding only safe Kotikit allow rules", async () => {
+    const settingsPath = join(targetRoot, ".claude", "settings.json");
+    mkdirSync(join(targetRoot, ".claude"), { recursive: true });
+    writeFileSync(
+      settingsPath,
+      JSON.stringify(
+        {
+          model: "sonnet",
+          permissions: {
+            allow: ["Bash(bun test:*)"],
+            ask: ["mcp__kotikit__kotikit_start"],
+            deny: ["Bash(rm:*)"],
+          },
+        },
+        null,
+        2
+      )
+    );
+
+    await scaffoldAgents({
+      targetRoot,
+      kotikitRoot,
+      agents: ["claude"],
+    });
+
+    const settings = readJson(settingsPath) as {
+      model: string;
+      permissions: { allow: string[]; ask: string[]; deny: string[] };
+    };
+    expect(settings.model).toBe("sonnet");
+    expect(settings.permissions.allow).toContain("Bash(bun test:*)");
+    expect(settings.permissions.ask).toEqual(["mcp__kotikit__kotikit_start"]);
+    expect(settings.permissions.deny).toEqual(["Bash(rm:*)"]);
+    expect(settings.permissions.allow).toContain("mcp__kotikit__kotikit_ds_search");
+    expect(settings.permissions.allow).not.toContain("mcp__kotikit__kotikit_doctor");
+    expect(settings.permissions.allow).not.toContain("mcp__kotikit__*");
   });
 
   it("preserves existing Claude command files with local changes", async () => {
@@ -244,6 +319,15 @@ describe("scaffoldAgents", () => {
     );
     expect(codexConfig).toContain(`cwd = "${targetRoot}"`);
     expect(codexConfig).toContain("tool_timeout_sec = 900");
+    expect(codexConfig).toContain('default_tools_approval_mode = "prompt"');
+    for (const toolName of safeAutoApprovedTools) {
+      expect(codexConfig).toContain(`[mcp_servers.kotikit.tools.${toolName}]`);
+      expect(codexConfig).toContain('approval_mode = "approve"');
+    }
+    for (const toolName of unsafePromptedTools) {
+      expect(codexConfig).not.toContain(`[mcp_servers.kotikit.tools.${toolName}]`);
+    }
+    expect(codexConfig).not.toContain("[mcp_servers.kotikit.tools.*]");
     const installedSkill = readFileSync(
       join(targetRoot, ".agents", "skills", "kotikit-auto", "SKILL.md"),
       "utf8"
@@ -295,6 +379,9 @@ describe("scaffoldAgents", () => {
         'args = ["old"]',
         "tool_timeout_sec = 120",
         "",
+        "[mcp_servers.kotikit.tools.kotikit_doctor]",
+        'approval_mode = "approve"',
+        "",
         "[profiles.work]",
         'model = "gpt-5-codex"',
         "",
@@ -313,6 +400,7 @@ describe("scaffoldAgents", () => {
     expect(codexConfig).toContain("[profiles.work]");
     expect(codexConfig).not.toContain('command = "old"');
     expect(codexConfig).not.toContain("tool_timeout_sec = 120");
+    expect(codexConfig).not.toContain("[mcp_servers.kotikit.tools.kotikit_doctor]");
     expect(codexConfig).toContain("tool_timeout_sec = 900");
     expect(codexConfig).toContain(`cwd = "${targetRoot}"`);
   });

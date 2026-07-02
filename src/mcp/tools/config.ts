@@ -5,6 +5,7 @@ import { configExists, loadConfig, resolveSecret, writeConfig } from "../../conf
 import { isGitRepo } from "../../git/auto-commit.js";
 import { KotikitError, toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
+import { withKotikitToolSafety } from "../tool-safety.js";
 
 // ─── Registry shape ───────────────────────────────────────────────────────────
 
@@ -27,15 +28,17 @@ export function registerConfigTools(registry: ToolRegistry, ctx: ToolContext): v
 // ─── kotikit_config_status ────────────────────────────────────────────────────
 
 function registerConfigStatus(registry: ToolRegistry, ctx: ToolContext): void {
-  registry.tools.push({
-    name: "kotikit_config_status",
-    description:
-      "Check whether kotikit is initialized in this project and surface any configuration gaps.",
-    inputSchema: {
-      type: "object",
-      properties: {},
-    },
-  });
+  registry.tools.push(
+    withKotikitToolSafety({
+      name: "kotikit_config_status",
+      description:
+        "Check whether kotikit is initialized in this project and surface any configuration gaps.",
+      inputSchema: {
+        type: "object",
+        properties: {},
+      },
+    })
+  );
 
   registry.handlers.set("kotikit_config_status", async (_args) => {
     try {
@@ -64,71 +67,73 @@ function registerConfigStatus(registry: ToolRegistry, ctx: ToolContext): void {
 // ─── kotikit_config_init ──────────────────────────────────────────────────────
 
 function registerConfigInit(registry: ToolRegistry, ctx: ToolContext): void {
-  registry.tools.push({
-    name: "kotikit_config_init",
-    description:
-      "Initialize or reinitialize kotikit config. All fields are optional and fall back to sensible defaults.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        autoCommit: {
-          type: "boolean",
-          description: "Whether kotikit should auto-commit spec changes via git.",
-        },
-        coAuthor: {
-          type: "object",
-          description: "Co-author identity to include in generated commit bodies.",
-          properties: {
-            name: { type: "string" },
-            email: { type: "string" },
+  registry.tools.push(
+    withKotikitToolSafety({
+      name: "kotikit_config_init",
+      description:
+        "Initialize or reinitialize kotikit config. All fields are optional and fall back to sensible defaults.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          autoCommit: {
+            type: "boolean",
+            description: "Whether kotikit should auto-commit spec changes via git.",
           },
-          required: ["name", "email"],
-        },
-        figmaFiles: {
-          type: "array",
-          description: "Figma design system files to connect.",
-          items: {
+          coAuthor: {
             type: "object",
+            description: "Co-author identity to include in generated commit bodies.",
             properties: {
-              key: { type: "string" },
               name: { type: "string" },
+              email: { type: "string" },
             },
-            required: ["key", "name"],
+            required: ["name", "email"],
           },
-        },
-        flowPacks: {
-          type: "object",
-          description:
-            "Optional explicit trust policy for project and extension flow packs. Defaults keep all custom flow packs disabled.",
-          properties: {
-            projectFlowsEnabled: { type: "boolean" },
-            allowedProjectCapabilities: {
-              type: "array",
-              items: { type: "string" },
+          figmaFiles: {
+            type: "array",
+            description: "Figma design system files to connect.",
+            items: {
+              type: "object",
+              properties: {
+                key: { type: "string" },
+                name: { type: "string" },
+              },
+              required: ["key", "name"],
             },
-            extensions: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  id: { type: "string" },
-                  source: { type: "string" },
-                  versionOrRef: { type: "string" },
-                  hash: { type: "string" },
-                  capabilities: {
-                    type: "array",
-                    items: { type: "string" },
+          },
+          flowPacks: {
+            type: "object",
+            description:
+              "Optional explicit trust policy for project and extension flow packs. Defaults keep all custom flow packs disabled.",
+            properties: {
+              projectFlowsEnabled: { type: "boolean" },
+              allowedProjectCapabilities: {
+                type: "array",
+                items: { type: "string" },
+              },
+              extensions: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string" },
+                    source: { type: "string" },
+                    versionOrRef: { type: "string" },
+                    hash: { type: "string" },
+                    capabilities: {
+                      type: "array",
+                      items: { type: "string" },
+                    },
+                    enabled: { type: "boolean" },
                   },
-                  enabled: { type: "boolean" },
+                  required: ["id", "source", "versionOrRef", "hash", "capabilities", "enabled"],
                 },
-                required: ["id", "source", "versionOrRef", "hash", "capabilities", "enabled"],
               },
             },
           },
         },
       },
-    },
-  });
+    })
+  );
 
   registry.handlers.set("kotikit_config_init", async (args) => {
     try {
@@ -157,14 +162,16 @@ function registerConfigInit(registry: ToolRegistry, ctx: ToolContext): void {
 // ─── kotikit_config_get ───────────────────────────────────────────────────────
 
 function registerConfigGet(registry: ToolRegistry, ctx: ToolContext): void {
-  registry.tools.push({
-    name: "kotikit_config_get",
-    description: "Read the current kotikit config. Never returns raw secret values.",
-    inputSchema: {
-      type: "object",
-      properties: {},
-    },
-  });
+  registry.tools.push(
+    withKotikitToolSafety({
+      name: "kotikit_config_get",
+      description: "Read the current kotikit config. Never returns raw secret values.",
+      inputSchema: {
+        type: "object",
+        properties: {},
+      },
+    })
+  );
 
   registry.handlers.set("kotikit_config_get", async (_args) => {
     try {

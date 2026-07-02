@@ -73,10 +73,14 @@ Figma design creation is fail-closed around explicit draft targets. The agent
 first binds a safe draft target through `kotikit_bind_figma_target` on the
 active graph run. The graph validates the page target, requires a page name
 containing `Draft` or `Drafts`, and writes generated nodes inside a
-kotikit-owned Section. `kotikit_record_figma_apply` records official Figma MCP
-apply metadata back into the run so graph QA nodes can validate file, page,
-Section, component, variable, layout, repeated-item, and text-transform
-metadata.
+kotikit-owned Section. Draft creation then drains an incremental Figma
+transaction queue: the agent applies one draft component, screen state, or
+region state at a time with `use_figma`, places it at the canvas plan bounds,
+records metadata with `kotikit_record_figma_apply`, and continues the graph.
+`kotikit_record_figma_apply` records official Figma MCP apply metadata back into
+the run so graph QA nodes can validate file, page, Section, component,
+variable, layout, repeated-item, text-transform, transaction, placement, and
+canvas-overlap metadata.
 
 The bridge binds to `127.0.0.1` only and requires a per-session token on the WebSocket upgrade URL query string. The `/handshake` endpoint is unauthenticated and returns project metadata so the Figma plugin can display the connected project name before asking for a token. When the bridge starts, it writes `BridgeConfig` to `.kotikit/bridge.json` atomically; on SIGINT/SIGTERM it removes that file so a stale config cannot mislead a future session.
 

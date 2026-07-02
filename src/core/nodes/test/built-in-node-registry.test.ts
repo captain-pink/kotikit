@@ -40,15 +40,20 @@ describe("built-in node registry", () => {
     );
   });
 
-  it("records and saves Figma apply metadata before post-apply QA", async () => {
+  it("applies Figma transactions incrementally before post-apply QA", async () => {
     const flows = await loadBuiltInFlows();
     const createScreen = flows.find((flow) => flow.id === "create-screen");
     if (createScreen === undefined) throw new Error("Missing create-screen flow.");
 
-    expect(nodeIndex(createScreen, "figma.recordApplyMetadata")).toBeGreaterThan(
-      nodeIndex(createScreen, "figma.waitForApplyMetadata")
+    expect(createScreen.nodes.map((node) => node.uses)).not.toContain("figma.waitForApplyMetadata");
+    expect(createScreen.nodes.map((node) => node.uses)).not.toContain("figma.recordApplyMetadata");
+    expect(nodeIndex(createScreen, "figma.applyTransactionQueue")).toBeGreaterThan(
+      nodeIndex(createScreen, "draft.buildFigmaApplyPacket")
     );
-    expect(nodeIndex(createScreen, "figma.recordApplyMetadata")).toBeLessThan(
+    expect(nodeIndex(createScreen, "figma.applyTransactionQueue")).toBeLessThan(
+      nodeIndex(createScreen, "draftComponents.buildLifecycle")
+    );
+    expect(nodeIndex(createScreen, "draftComponents.buildLifecycle")).toBeLessThan(
       nodeIndex(createScreen, "figma.verifyDraftInvariants")
     );
     expect(nodeIndex(createScreen, "figma.saveApplyReport")).toBeGreaterThan(
@@ -56,6 +61,22 @@ describe("built-in node registry", () => {
     );
     expect(nodeIndex(createScreen, "figma.saveApplyReport")).toBeLessThan(
       nodeIndex(createScreen, "qa.runUiQualityGate")
+    );
+  });
+
+  it("builds incremental Figma plans before the apply packet in create-screen", async () => {
+    const flows = await loadBuiltInFlows();
+    const createScreen = flows.find((flow) => flow.id === "create-screen");
+    if (createScreen === undefined) throw new Error("Missing create-screen flow.");
+
+    expect(nodeIndex(createScreen, "draft.compileHighFidelityDraft")).toBeLessThan(
+      nodeIndex(createScreen, "draft.buildCanvasPlan")
+    );
+    expect(nodeIndex(createScreen, "draft.buildCanvasPlan")).toBeLessThan(
+      nodeIndex(createScreen, "draft.buildFigmaTransactionPlan")
+    );
+    expect(nodeIndex(createScreen, "draft.buildFigmaTransactionPlan")).toBeLessThan(
+      nodeIndex(createScreen, "draft.buildFigmaApplyPacket")
     );
   });
 

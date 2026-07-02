@@ -79,6 +79,91 @@ describe("qa graph nodes", () => {
     });
   });
 
+  it("blocks overlapping canvas placements from applied node bounds", async () => {
+    const result = await runNode("qa.runUiQualityGate", {
+      applyReport: {
+        schemaVersion: "FigmaApplyReport/v1",
+        nodes: [
+          {
+            id: "state-filled",
+            semanticRole: "screen-state",
+            transactionId: "txn-filled",
+            placementId: "state-filled",
+            bounds: { x: 0, y: 0, width: 1440, height: 900 },
+            autoLayout: true,
+            overlaps: [],
+          },
+          {
+            id: "state-loading",
+            semanticRole: "screen-state",
+            transactionId: "txn-loading",
+            placementId: "state-loading",
+            bounds: { x: 100, y: 100, width: 1440, height: 900 },
+            autoLayout: true,
+            overlaps: [],
+          },
+        ],
+      },
+    });
+
+    expect(result.statePatch?.uiQualityGate).toMatchObject({
+      status: "blocked",
+      checks: expect.arrayContaining([
+        expect.objectContaining({ id: "canvas-overlap", status: "blocked" }),
+      ]),
+    });
+  });
+
+  it("blocks screen-state frames that are not auto layout", async () => {
+    const result = await runNode("qa.runUiQualityGate", {
+      applyReport: {
+        schemaVersion: "FigmaApplyReport/v1",
+        nodes: [
+          {
+            id: "state-filled",
+            semanticRole: "screen-state",
+            transactionId: "txn-filled",
+            placementId: "state-filled",
+            bounds: { x: 0, y: 0, width: 1440, height: 900 },
+            autoLayout: false,
+            overlaps: [],
+          },
+        ],
+      },
+    });
+
+    expect(result.statePatch?.uiQualityGate).toMatchObject({
+      status: "blocked",
+      checks: expect.arrayContaining([
+        expect.objectContaining({ id: "screen-state-auto-layout", status: "blocked" }),
+      ]),
+    });
+  });
+
+  it("blocks applied nodes without transaction placement metadata", async () => {
+    const result = await runNode("qa.runUiQualityGate", {
+      applyReport: {
+        schemaVersion: "FigmaApplyReport/v1",
+        nodes: [
+          {
+            id: "state-filled",
+            semanticRole: "screen-state",
+            bounds: { x: 0, y: 0, width: 1440, height: 900 },
+            autoLayout: true,
+            overlaps: [],
+          },
+        ],
+      },
+    });
+
+    expect(result.statePatch?.uiQualityGate).toMatchObject({
+      status: "blocked",
+      checks: expect.arrayContaining([
+        expect.objectContaining({ id: "transaction-metadata", status: "blocked" }),
+      ]),
+    });
+  });
+
   it("saves post-draft QA findings without posting comments or changing memory", async () => {
     const result = await runNode("qa.postDraftQa", {
       uiQualityGate: {

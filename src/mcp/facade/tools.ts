@@ -23,6 +23,7 @@ import { resolveFigmaToken } from "../../sync/figma-token.js";
 import { KotikitError, toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
+import { withKotikitToolSafety } from "../tool-safety.js";
 
 export const FACADE_TOOL_NAMES = [
   "kotikit_flow_list",
@@ -406,10 +407,12 @@ export function registerFacadeTools(
         );
       }
       const runtime = requireRuntime(deps.runtime);
+      const applyMetadata = figmaApplyMetadataFrom(candidate);
+      await validateFigmaApplyRecord(runtime, runId, applyMetadata);
       const result = await runtime.patchRunState({
         runId,
         statePatch: {
-          applyMetadata: figmaApplyMetadataFrom(candidate),
+          applyMetadata,
         },
       });
       return toolText(`Recorded Figma apply metadata for run ${runId}.`, compactRunResult(result));
@@ -484,7 +487,7 @@ export function registerFacadeTools(
 }
 
 function registerTool(registry: ToolRegistry, tool: Tool): void {
-  registry.tools.push(tool);
+  registry.tools.push(withKotikitToolSafety(tool));
 }
 
 function registerDelegateTool(
@@ -551,6 +554,10 @@ function figmaApplyInputSchema(): Tool["inputSchema"] {
         enum: ["ok", "warned", "failed"],
         description: "Result of the official Figma MCP apply.",
       },
+      transactionId: {
+        type: "string",
+        description: "Active incremental Figma transaction id this metadata records.",
+      },
       note: { type: "string", description: "Optional human-readable note." },
       stepKind: {
         type: "string",
@@ -605,6 +612,57 @@ function figmaApplyInputSchema(): Tool["inputSchema"] {
         type: "string",
         description: "Figma node name created or updated by this step.",
       },
+      bounds: {
+        type: "object",
+        description: "Compact node bounds after apply.",
+        properties: {
+          x: { type: "number" },
+          y: { type: "number" },
+          width: { type: "number" },
+          height: { type: "number" },
+        },
+        required: ["x", "y", "width", "height"],
+      },
+      componentRefs: {
+        type: "array",
+        description: "Compact component keys or node refs used by this transaction.",
+        items: { type: "string" },
+      },
+      variableRefs: {
+        type: "array",
+        description: "Compact variable/style refs used by this transaction.",
+        items: { type: "string" },
+      },
+      representation: {
+        type: "string",
+        enum: ["screen-frame", "region-state", "component-state", "flow-step"],
+        description: "Compact state representation for screen, region, component, or flow states.",
+      },
+      autoLayout: {
+        type: "boolean",
+        description: "Whether the applied top-level node uses Figma auto layout.",
+      },
+      nodes: {
+        type: "array",
+        description:
+          "Compact child nodes created inside this transaction, such as draft component instances.",
+        items: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            name: { type: "string" },
+            kind: { type: "string" },
+            semanticRole: { type: "string" },
+            partId: { type: "string" },
+            draftComponentId: { type: "string" },
+            componentKey: { type: "string" },
+            bounds: { type: "object" },
+            componentRefs: { type: "array", items: { type: "string" } },
+            variableRefs: { type: "array", items: { type: "string" } },
+            autoLayout: { type: "boolean" },
+          },
+        },
+      },
       variableBindings: {
         type: "array",
         description: "Variable/style bindings applied by official Figma MCP.",
@@ -632,6 +690,9 @@ function figmaApplyInputSchema(): Tool["inputSchema"] {
 
 function figmaApplyMetadataFrom(input: Record<string, unknown>): Record<string, unknown> {
   return {
+    ...(stringField(input, "transactionId") !== undefined
+      ? { transactionId: stringField(input, "transactionId") }
+      : {}),
     ...(stringField(input, "figmaFileKey") !== undefined
       ? { fileKey: stringField(input, "figmaFileKey") }
       : {}),
@@ -641,32 +702,91 @@ function figmaApplyMetadataFrom(input: Record<string, unknown>): Record<string, 
     ...(stringField(input, "figmaSectionName") !== undefined
       ? { sectionName: stringField(input, "figmaSectionName") }
       : {}),
-    nodes: [
-      {
-        ...(stringField(input, "figmaNodeId") !== undefined
-          ? { id: stringField(input, "figmaNodeId") }
-          : {}),
-        ...(stringField(input, "figmaNodeName") !== undefined
-          ? { name: stringField(input, "figmaNodeName") }
-          : {}),
-        ...(stringField(input, "componentName") !== undefined
-          ? { componentName: stringField(input, "componentName") }
-          : {}),
-        ...(stringField(input, "partId") !== undefined
-          ? { partId: stringField(input, "partId") }
-          : {}),
-        ...(stringField(input, "draftComponentId") !== undefined
-          ? { draftComponentId: stringField(input, "draftComponentId") }
-          : {}),
-        ...(stringField(input, "dsKey") !== undefined
-          ? { componentKey: stringField(input, "dsKey") }
-          : {}),
-      },
-    ].filter((node) => Object.keys(node).length > 0),
+    nodes: figmaApplyNodesFrom(input),
+    ...(boundsFrom(input.bounds) !== undefined ? { bounds: boundsFrom(input.bounds) } : {}),
+    ...(stringArray(input.componentRefs) !== undefined
+      ? { componentRefs: stringArray(input.componentRefs) }
+      : {}),
+    ...(stringArray(input.variableRefs) !== undefined
+      ? { variableRefs: stringArray(input.variableRefs) }
+      : {}),
+    ...(stateRepresentationField(input) !== undefined
+      ? { representation: stateRepresentationField(input) }
+      : {}),
+    ...(booleanField(input, "autoLayout") !== undefined
+      ? { autoLayout: booleanField(input, "autoLayout") }
+      : {}),
     variableBindings: recordArray(input.variableBindings),
     layoutFrames: recordArray(input.layoutFrames),
     repeatedItems: recordArray(input.repeatedItems),
     textTransforms: recordArray(input.textTransforms),
+  };
+}
+
+function figmaApplyNodesFrom(input: Record<string, unknown>): Record<string, unknown>[] {
+  const primaryNode = {
+    ...(stringField(input, "figmaNodeId") !== undefined
+      ? { id: stringField(input, "figmaNodeId") }
+      : {}),
+    ...(stringField(input, "figmaNodeName") !== undefined
+      ? { name: stringField(input, "figmaNodeName") }
+      : {}),
+    ...(stringField(input, "figmaNodeKind") !== undefined
+      ? { kind: stringField(input, "figmaNodeKind") }
+      : {}),
+    ...(stringField(input, "componentName") !== undefined
+      ? { componentName: stringField(input, "componentName") }
+      : {}),
+    ...(stringField(input, "partId") !== undefined ? { partId: stringField(input, "partId") } : {}),
+    ...(stringField(input, "draftComponentId") !== undefined
+      ? { draftComponentId: stringField(input, "draftComponentId") }
+      : {}),
+    ...(stringField(input, "dsKey") !== undefined
+      ? { componentKey: stringField(input, "dsKey") }
+      : {}),
+  };
+  const nodes = [
+    primaryNode,
+    ...recordArray(input.nodes).map((node) => compactApplyNodeFrom(node)),
+  ].filter((node) => Object.keys(node).length > 0);
+  const seen = new Set<string>();
+  return nodes.filter((node) => {
+    const id = stringField(node, "id");
+    if (id === undefined) return true;
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
+function compactApplyNodeFrom(input: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...(stringField(input, "id") !== undefined ? { id: stringField(input, "id") } : {}),
+    ...(stringField(input, "name") !== undefined ? { name: stringField(input, "name") } : {}),
+    ...(stringField(input, "kind") !== undefined ? { kind: stringField(input, "kind") } : {}),
+    ...(stringField(input, "semanticRole") !== undefined
+      ? { semanticRole: stringField(input, "semanticRole") }
+      : {}),
+    ...(stringField(input, "componentName") !== undefined
+      ? { componentName: stringField(input, "componentName") }
+      : {}),
+    ...(stringField(input, "partId") !== undefined ? { partId: stringField(input, "partId") } : {}),
+    ...(stringField(input, "draftComponentId") !== undefined
+      ? { draftComponentId: stringField(input, "draftComponentId") }
+      : {}),
+    ...(stringField(input, "componentKey") !== undefined
+      ? { componentKey: stringField(input, "componentKey") }
+      : {}),
+    ...(boundsFrom(input.bounds) !== undefined ? { bounds: boundsFrom(input.bounds) } : {}),
+    ...(stringArray(input.componentRefs) !== undefined
+      ? { componentRefs: stringArray(input.componentRefs) }
+      : {}),
+    ...(stringArray(input.variableRefs) !== undefined
+      ? { variableRefs: stringArray(input.variableRefs) }
+      : {}),
+    ...(booleanField(input, "autoLayout") !== undefined
+      ? { autoLayout: booleanField(input, "autoLayout") }
+      : {}),
   };
 }
 
@@ -688,6 +808,49 @@ function recordArray(value: unknown): Record<string, unknown>[] {
 function stringField(value: Record<string, unknown>, key: string): string | undefined {
   const candidate = value[key];
   return typeof candidate === "string" && candidate.length > 0 ? candidate : undefined;
+}
+
+function booleanField(value: Record<string, unknown>, key: string): boolean | undefined {
+  const candidate = value[key];
+  return typeof candidate === "boolean" ? candidate : undefined;
+}
+
+function boundsFrom(value: unknown):
+  | {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }
+  | undefined {
+  const bounds = recordFrom(value);
+  return typeof bounds.x === "number" &&
+    typeof bounds.y === "number" &&
+    typeof bounds.width === "number" &&
+    typeof bounds.height === "number"
+    ? {
+        x: bounds.x,
+        y: bounds.y,
+        width: bounds.width,
+        height: bounds.height,
+      }
+    : undefined;
+}
+
+function stringArray(value: unknown): string[] | undefined {
+  return Array.isArray(value) && value.every((item) => typeof item === "string" && item.length > 0)
+    ? value
+    : undefined;
+}
+
+function stateRepresentationField(input: Record<string, unknown>): string | undefined {
+  const representation = stringField(input, "representation");
+  return representation === "screen-frame" ||
+    representation === "region-state" ||
+    representation === "component-state" ||
+    representation === "flow-step"
+    ? representation
+    : undefined;
 }
 
 function reviewTargetFromInput(input: z.infer<typeof ReviewFigmaTargetInputSchema>): {
@@ -754,6 +917,45 @@ function reviewFigmaTargetInputSchema(): Tool["inputSchema"] {
   };
 }
 
+async function validateFigmaApplyRecord(
+  runtime: FacadeRuntime,
+  runId: string,
+  applyMetadata: Record<string, unknown>
+): Promise<void> {
+  const state = await runtime.getRunState(runId);
+  if (state.status !== "waiting-for-figma") {
+    throw new KotikitError(
+      `Run ${runId} is not waiting for Figma apply metadata.`,
+      "Continue the kotikit run until it pauses for the active Figma transaction, then record the apply metadata."
+    );
+  }
+
+  const active = recordFrom(state.activeFigmaTransaction);
+  const activeId = stringField(active, "id");
+  if (activeId === undefined) {
+    throw new KotikitError(
+      `Run ${runId} is waiting for Figma but has no active Figma transaction.`,
+      "Continue the kotikit run to recover the active transaction before recording apply metadata."
+    );
+  }
+
+  const transactionId = stringField(applyMetadata, "transactionId");
+  if (transactionId !== activeId) {
+    throw new KotikitError(
+      `Recorded transaction ${transactionId ?? "unknown"} does not match the active Figma transaction ${activeId}.`,
+      "Use the active transaction from the latest kotikit run result before recording apply metadata."
+    );
+  }
+
+  const existing = recordFrom(state.applyMetadata);
+  if (Object.keys(existing).length > 0) {
+    throw new KotikitError(
+      `Run ${runId} already has unconsumed Figma apply metadata for transaction ${String(existing.transactionId ?? "unknown")}.`,
+      "Continue the kotikit run so the graph records the pending metadata before recording another transaction."
+    );
+  }
+}
+
 function compactFlow(flow: FlowDefinition): Record<string, unknown> {
   return {
     id: flow.id,
@@ -775,8 +977,23 @@ function compactRunResult(result: RuntimeRunResult): Record<string, unknown> {
     graphHash: result.state.graphHash,
     pendingQuestion: result.state.pendingQuestion,
     pendingApproval: result.state.pendingApproval,
+    activeFigmaTransaction: result.state.activeFigmaTransaction,
+    figmaTransactionProgress: transactionProgressFrom(result.state.figmaTransactionPlan),
     artifacts: result.state.artifacts,
     errors: result.state.errors,
+  };
+}
+
+function transactionProgressFrom(
+  plan: RuntimeRunResult["state"]["figmaTransactionPlan"]
+): Record<string, number> | undefined {
+  if (plan === undefined) return undefined;
+  return {
+    total: plan.transactions.length,
+    pending: plan.transactions.filter((transaction) => transaction.status === "pending").length,
+    active: plan.transactions.filter((transaction) => transaction.status === "active").length,
+    recorded: plan.transactions.filter((transaction) => transaction.status === "recorded").length,
+    failed: plan.transactions.filter((transaction) => transaction.status === "failed").length,
   };
 }
 

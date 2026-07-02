@@ -26,7 +26,7 @@ const EmptyParamsSchema = z.strictObject({});
 export const uiCompositionNodeDefinitions: NodeDefinition[] = [
   node({
     key: "ui.buildCompositionContract",
-    stateReads: ["screen", "fitReport", "draftComponentPlan"],
+    stateReads: ["screen", "uxEnvelope", "fitReport", "draftComponentPlan"],
     stateWrites: ["uiComposition"],
     run: async (input) => {
       const state = graphState(input.state);
@@ -34,6 +34,7 @@ export const uiCompositionNodeDefinitions: NodeDefinition[] = [
       const contract = buildUiCompositionContract({
         requiredUiParts: stringArray(screen.requiredUiParts),
         neededStates: stringArray(screen.states),
+        screenArchetype: state.uxEnvelope?.screenArchetype,
         fitReport: recordFrom(state.fitReport),
         draftComponentPlan: state.draftComponentPlan,
         createdDraftComponents: recordArray(recordFrom(state.draftPlan).createdDraftComponents),

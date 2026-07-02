@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   createGraphSmokeFixture,
-  fakeApplyMetadataFor,
+  drainFakeFigmaTransactions,
   fakeDraftTarget,
   seedLocalDesignSystem,
 } from "./fixtures/fake-figma.js";
@@ -64,6 +64,7 @@ describe("create-screen graph flow", () => {
       expect(waitingForApply.state.stateRepresentation).toMatchObject({
         schemaVersion: "StateRepresentationContract/v1",
       });
+      expectIncrementalQueueReady(waitingForApply.state);
 
       await expect(
         artifactStore.getArtifact(`${started.runId}-figma-apply-packet`)
@@ -77,19 +78,16 @@ describe("create-screen graph flow", () => {
         },
       });
 
-      await runtime.patchRunState({
-        runId: started.runId,
-        statePatch: { applyMetadata: fakeApplyMetadataFor(waitingForApply.state) },
-      });
-      const completed = await runtime.continueRun({ runId: started.runId });
+      const completed = await drainFakeFigmaTransactions(runtime, started.runId);
 
       expect(completed.status).toBe("done");
-      expect(completed.state.draftComponentLifecycle).toMatchObject({
+      expect(completed.draftComponentLifecycle).toMatchObject({
         schemaVersion: "DraftComponentLifecycle/v1",
         components: expect.arrayContaining([expect.objectContaining({ status: "used" })]),
       });
-      expect(completed.state.uiQualityGate?.status).toBe("passed");
-      expect(completed.state.artifacts.map((artifact) => artifact.type)).toEqual(
+      expectIncrementalQueueDone(completed);
+      expect(completed.uiQualityGate?.status).toBe("passed");
+      expect(completed.artifacts.map((artifact) => artifact.type)).toEqual(
         expect.arrayContaining([
           "design-brief",
           "ux-envelope",
@@ -144,6 +142,7 @@ describe("create-screen graph flow", () => {
       expect(waitingForApply.state.stateRepresentation).toMatchObject({
         schemaVersion: "StateRepresentationContract/v1",
       });
+      expectIncrementalQueueReady(waitingForApply.state);
       await expect(
         artifactStore.getArtifact(`${started.runId}-design-brief`)
       ).resolves.toMatchObject({
@@ -151,14 +150,11 @@ describe("create-screen graph flow", () => {
         payload: { summary: expect.stringContaining("Profile Settings") },
       });
 
-      await runtime.patchRunState({
-        runId: started.runId,
-        statePatch: { applyMetadata: fakeApplyMetadataFor(waitingForApply.state) },
-      });
-      const completed = await runtime.continueRun({ runId: started.runId });
+      const completed = await drainFakeFigmaTransactions(runtime, started.runId);
 
       expect(completed.status).toBe("done");
-      expect(completed.state.artifacts.map((artifact) => artifact.type)).toEqual(
+      expectIncrementalQueueDone(completed);
+      expect(completed.artifacts.map((artifact) => artifact.type)).toEqual(
         expect.arrayContaining([
           "design-brief",
           "figma-apply-packet",
@@ -197,27 +193,57 @@ describe("create-screen graph flow", () => {
 
       expect(missingResolved.status).toBe("waiting-for-user");
       expect(waitingForApply.status).toBe("waiting-for-figma");
-
-      await first.runtime.patchRunState({
-        runId: started.runId,
-        statePatch: { applyMetadata: fakeApplyMetadataFor(waitingForApply.state) },
-      });
+      expectIncrementalQueueReady(waitingForApply.state);
 
       const second = await createGraphSmokeFixture(root);
-      const completed = await second.runtime.continueRun({ runId: started.runId });
+      const completed = await drainFakeFigmaTransactions(second.runtime, started.runId);
 
-      expect(completed.runId).toBe(started.runId);
       expect(completed.status).toBe("done");
-      expect(recordFrom(completed.state).applyMetadata).toBeUndefined();
-      expect(JSON.stringify(completed.state).length).toBeLessThan(256 * 1024);
+      expect(completed.runId).toBe(started.runId);
+      expectIncrementalQueueDone(completed);
+      expect(recordFrom(completed).applyMetadata).toBeUndefined();
+      expect(JSON.stringify(completed).length).toBeLessThan(256 * 1024);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
   });
 });
 
+function expectIncrementalQueueReady(state: Record<string, unknown>): void {
+  expect(state.canvasPlan).toMatchObject({
+    schemaVersion: "CanvasPlan/v1",
+  });
+  expect(state.figmaTransactionPlan).toMatchObject({
+    schemaVersion: "FigmaTransactionPlan/v1",
+    mode: "incremental-official-figma-mcp",
+  });
+  expect(state.activeFigmaTransaction).toMatchObject({
+    id: expect.stringMatching(/^txn-/),
+  });
+}
+
+function expectIncrementalQueueDone(state: Record<string, unknown>): void {
+  expect(state.figmaNodeLedger).toMatchObject({
+    schemaVersion: "FigmaNodeLedger/v1",
+  });
+  expect(
+    recordArray(recordFrom(state.figmaTransactionPlan).transactions).every(
+      (item) => item.status === "recorded"
+    )
+  ).toBe(true);
+}
+
 function recordFrom(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
+}
+
+function recordArray(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value)
+    ? value.filter(
+        (item): item is Record<string, unknown> =>
+          typeof item === "object" && item !== null && !Array.isArray(item)
+      )
+    : [];
 }

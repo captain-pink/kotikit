@@ -66,6 +66,7 @@ export function pruneRawReviewPayloads(review: Record<string, unknown>): Record<
   const {
     commentEvidenceMap: _commentEvidenceMap,
     commentSnapshot: _commentSnapshot,
+    currentNodes: _currentNodes,
     nodeMap: _nodeMap,
     sourceSnapshot: _sourceSnapshot,
     ...rest
@@ -73,5 +74,19 @@ export function pruneRawReviewPayloads(review: Record<string, unknown>): Record<
   return {
     ...rest,
     commentSnapshotRef: "comment-evidence-map",
+    ...(review.currentNodes === undefined
+      ? {}
+      : { currentNodesRef: "canvas-reconciliation-report" }),
+  };
+}
+
+export function pruneCanvasReviewPayloads(
+  review: Record<string, unknown>
+): Record<string, unknown> {
+  if (review.currentNodes === undefined) return review;
+  const { currentNodes: _currentNodes, ...rest } = review;
+  return {
+    ...rest,
+    currentNodesRef: "canvas-reconciliation-report",
   };
 }

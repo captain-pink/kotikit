@@ -12,6 +12,22 @@ Detailed follow-up documents:
 This document captures a proposed complete refactor of kotikit around a smaller
 designer-first core and a LangGraphJS workflow engine.
 
+## Implementation Update: Incremental Figma Apply
+
+Completed on branch `feature/kotikit-safe-tool-approvals`.
+
+Kotikit no longer treats Figma apply as one large write. The graph creates a
+canvas plan and transaction queue, then drains the queue through resumable Figma
+interrupts. Each write creates exactly one draft component, screen state, or
+region state, records a compact Figma node ledger, and resumes the run from
+persisted state.
+
+This keeps the canvas clean for designers: draft components stay in their own
+zone, screen states are placed one screen state at a time in a non-overlapping
+grid, and comment review reconciles moved or renamed frames before mapping
+feedback. Placement-aware QA now blocks overlapping top-level frames, missing
+transaction metadata, and screen-state frames that are not auto layout.
+
 ## Implementation Update: UX Quality Contracts
 
 Completed on branch `feature/kotikit-ux-quality-contracts`.

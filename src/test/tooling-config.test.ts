@@ -150,6 +150,20 @@ describe("live documentation", () => {
     expect(docs).toContain("primary token-efficient grounding");
     expect(docs).toContain("Design-to-code is removed from the core workflow");
   });
+
+  it("documents incremental Figma apply instead of one-shot state dumping", () => {
+    const docs = [
+      readText(join(repoRoot, "README.md")),
+      readText(join(repoRoot, "docs", "workflows.md")),
+      readText(join(repoRoot, "docs", "figma.md")),
+      readText(join(repoRoot, ".agents", "skills", "kotikit-auto", "SKILL.md")),
+    ].join("\n");
+
+    expect(docs).toContain("incremental Figma");
+    expect(docs).toContain("one screen state at a time");
+    expect(docs).toContain("canvas plan");
+    expect(docs).not.toContain("dump all states");
+  });
 });
 
 describe("git hook tooling config", () => {
