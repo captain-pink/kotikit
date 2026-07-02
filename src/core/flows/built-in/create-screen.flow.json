@@ -96,6 +96,11 @@
       "params": {}
     },
     {
+      "id": "build-canvas-plan",
+      "uses": "draft.buildCanvasPlan",
+      "params": {}
+    },
+    {
       "id": "create-draft-components",
       "uses": "draftComponents.createOnDraftPage",
       "params": {}
@@ -133,11 +138,6 @@
     {
       "id": "compile-high-fidelity-draft",
       "uses": "draft.compileHighFidelityDraft",
-      "params": {}
-    },
-    {
-      "id": "build-canvas-plan",
-      "uses": "draft.buildCanvasPlan",
       "params": {}
     },
     {
@@ -210,7 +210,8 @@
     ["save-reuse-plan", "ask-missing-component-decision"],
     ["ask-missing-component-decision", "plan-missing-components"],
     ["plan-missing-components", "ensure-draft-target"],
-    ["ensure-draft-target", "create-draft-components"],
+    ["ensure-draft-target", "build-canvas-plan"],
+    ["build-canvas-plan", "create-draft-components"],
     ["create-draft-components", "validate-draft-components"],
     ["validate-draft-components", "build-ui-composition-contract"],
     ["build-ui-composition-contract", "build-state-representation-contract"],
@@ -218,8 +219,7 @@
     ["build-layout-contract", "build-variable-binding-plan"],
     ["build-variable-binding-plan", "validate-no-hardcoded-imitation"],
     ["validate-no-hardcoded-imitation", "compile-high-fidelity-draft"],
-    ["compile-high-fidelity-draft", "build-canvas-plan"],
-    ["build-canvas-plan", "build-figma-transaction-plan"],
+    ["compile-high-fidelity-draft", "build-figma-transaction-plan"],
     ["build-figma-transaction-plan", "build-figma-apply-packet"],
     ["build-figma-apply-packet", "apply-figma-transaction-queue"],
     ["apply-figma-transaction-queue", "build-draft-component-lifecycle"],

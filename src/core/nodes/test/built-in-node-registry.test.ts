@@ -64,12 +64,18 @@ describe("built-in node registry", () => {
     );
   });
 
-  it("builds incremental Figma plans before the apply packet in create-screen", async () => {
+  it("builds incremental Figma plans before draft writes and the apply packet in create-screen", async () => {
     const flows = await loadBuiltInFlows();
     const createScreen = flows.find((flow) => flow.id === "create-screen");
     if (createScreen === undefined) throw new Error("Missing create-screen flow.");
 
-    expect(nodeIndex(createScreen, "draft.compileHighFidelityDraft")).toBeLessThan(
+    expect(nodeIndex(createScreen, "figma.ensureDraftTarget")).toBeLessThan(
+      nodeIndex(createScreen, "draft.buildCanvasPlan")
+    );
+    expect(nodeIndex(createScreen, "draft.buildCanvasPlan")).toBeLessThan(
+      nodeIndex(createScreen, "draftComponents.createOnDraftPage")
+    );
+    expect(nodeIndex(createScreen, "draft.compileHighFidelityDraft")).toBeGreaterThan(
       nodeIndex(createScreen, "draft.buildCanvasPlan")
     );
     expect(nodeIndex(createScreen, "draft.buildCanvasPlan")).toBeLessThan(

@@ -588,6 +588,11 @@ function figmaApplyInputSchema(): Tool["inputSchema"] {
         type: "string",
         description: "Design-system component key when available.",
       },
+      componentKey: {
+        type: "string",
+        description:
+          "Figma component key for the top-level created or reused component in this transaction.",
+      },
       figmaFileKey: {
         type: "string",
         description: "Figma file key containing the applied node.",
@@ -612,8 +617,8 @@ function figmaApplyInputSchema(): Tool["inputSchema"] {
       },
       figmaNodeKind: {
         type: "string",
-        enum: ["page", "frame", "instance", "node"],
-        description: "Kind of Figma node created or updated by this step.",
+        description:
+          "Figma node type created or updated by this step, for example FRAME, INSTANCE, COMPONENT, or SECTION.",
       },
       figmaNodeName: {
         type: "string",
@@ -735,11 +740,12 @@ function figmaApplyMetadataFrom(input: Record<string, unknown>): Record<string, 
     ...(stringField(input, "figmaSectionName") !== undefined
       ? { sectionName: stringField(input, "figmaSectionName") }
       : {}),
+    ...(stringField(input, "figmaNodeKind") !== undefined
+      ? { figmaNodeKind: stringField(input, "figmaNodeKind") }
+      : {}),
     nodes: figmaApplyNodesFrom(input),
     ...(boundsFrom(input.bounds) !== undefined ? { bounds: boundsFrom(input.bounds) } : {}),
-    ...(stringArray(input.componentRefs) !== undefined
-      ? { componentRefs: stringArray(input.componentRefs) }
-      : {}),
+    ...(componentRefsFrom(input).length > 0 ? { componentRefs: componentRefsFrom(input) } : {}),
     ...(componentSourceField(input) !== undefined
       ? { componentSource: componentSourceField(input) }
       : {}),
@@ -787,9 +793,7 @@ function figmaApplyNodesFrom(input: Record<string, unknown>): Record<string, unk
     ...(stringField(input, "draftComponentId") !== undefined
       ? { draftComponentId: stringField(input, "draftComponentId") }
       : {}),
-    ...(stringField(input, "dsKey") !== undefined
-      ? { componentKey: stringField(input, "dsKey") }
-      : {}),
+    ...(componentKeyFrom(input) !== undefined ? { componentKey: componentKeyFrom(input) } : {}),
     ...(stringArray(input.iconRefs) !== undefined ? { iconRefs: stringArray(input.iconRefs) } : {}),
     ...(stringField(input, "iconKey") !== undefined
       ? { iconKey: stringField(input, "iconKey") }
@@ -851,6 +855,14 @@ function compactApplyNodeFrom(input: Record<string, unknown>): Record<string, un
       ? { autoLayout: booleanField(input, "autoLayout") }
       : {}),
   };
+}
+
+function componentRefsFrom(input: Record<string, unknown>): string[] {
+  return uniqueStrings([...(stringArray(input.componentRefs) ?? []), componentKeyFrom(input)]);
+}
+
+function componentKeyFrom(input: Record<string, unknown>): string | undefined {
+  return stringField(input, "componentKey") ?? stringField(input, "dsKey");
 }
 
 function componentSourceField(
@@ -956,6 +968,10 @@ function stringArray(value: unknown): string[] | undefined {
   return Array.isArray(value) && value.every((item) => typeof item === "string" && item.length > 0)
     ? value
     : undefined;
+}
+
+function uniqueStrings(values: (string | undefined)[]): string[] {
+  return Array.from(new Set(values.filter((value): value is string => value !== undefined)));
 }
 
 function stateRepresentationField(input: Record<string, unknown>): string | undefined {

@@ -287,12 +287,15 @@ describe("MCP facade tools", () => {
     expect(applyTool?.inputSchema.properties).toHaveProperty("bounds");
     expect(applyTool?.inputSchema.properties).toHaveProperty("componentRefs");
     expect(applyTool?.inputSchema.properties).toHaveProperty("componentSource");
+    expect(applyTool?.inputSchema.properties).toHaveProperty("figmaNodeKind");
+    expect(applyTool?.inputSchema.properties).toHaveProperty("componentKey");
     expect(applyTool?.inputSchema.properties).toHaveProperty("variableRefs");
     expect(applyTool?.inputSchema.properties).toHaveProperty("iconRefs");
     expect(applyTool?.inputSchema.properties).toHaveProperty("iconPlaceholder");
     expect(applyTool?.inputSchema.properties).toHaveProperty("representation");
     expect(applyTool?.inputSchema.properties).toHaveProperty("autoLayout");
     expect(applyTool?.inputSchema.properties).toHaveProperty("nodes");
+    expect(applyTool?.inputSchema.properties?.figmaNodeKind).not.toHaveProperty("enum");
   });
 
   it("records incremental transaction metadata into graph apply metadata", async () => {
@@ -791,6 +794,67 @@ describe("MCP facade tools", () => {
         partId: "email-input",
         draftComponentId: "draft-email-input",
         componentKey: "draft:email-input",
+      }),
+    ]);
+  });
+
+  it("records real Figma component proof for draft component transactions", async () => {
+    let applyMetadata: Record<string, unknown> | undefined;
+    const runtime = {
+      ...makeRuntime(),
+      async getRunState(): Promise<KotikitGraphState> {
+        return {
+          ...makeState("waiting-for-figma"),
+          activeFigmaTransaction: activeFigmaTransaction("txn-draft-page-shell"),
+        };
+      },
+      async patchRunState(input): Promise<RuntimeRunResult> {
+        applyMetadata = input.statePatch.applyMetadata as Record<string, unknown>;
+        return {
+          runId: "run-1",
+          status: "waiting-for-figma",
+          state: {
+            ...makeState("waiting-for-figma"),
+            applyMetadata,
+          },
+        };
+      },
+    } satisfies FacadeRuntime;
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx(), { runtime });
+
+    await callTool(registry, "kotikit_record_figma_apply", {
+      runId: "run-1",
+      scope: "members",
+      stepIndex: 0,
+      outcome: "ok",
+      transactionId: "txn-draft-page-shell",
+      figmaFileKey: "FILE",
+      figmaPageId: "1:2",
+      figmaSectionName: "kotikit / members / 2026-06-30",
+      figmaNodeId: "3:5",
+      figmaNodeName: "draft/page shell",
+      figmaNodeKind: "COMPONENT",
+      bounds: { x: 120, y: 160, width: 320, height: 117 },
+      componentKey: "figma-local-component-key",
+      componentSource: "draft-component",
+      variableRefs: [],
+      autoLayout: true,
+      representation: "component-state",
+      draftComponentId: "draft-page-shell",
+      componentName: "page shell",
+    });
+
+    expect(applyMetadata).toMatchObject({
+      figmaNodeKind: "COMPONENT",
+      componentRefs: ["figma-local-component-key"],
+    });
+    expect(applyMetadata?.nodes).toEqual([
+      expect.objectContaining({
+        id: "3:5",
+        kind: "COMPONENT",
+        componentKey: "figma-local-component-key",
+        draftComponentId: "draft-page-shell",
       }),
     ]);
   });
