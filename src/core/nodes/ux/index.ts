@@ -4,7 +4,11 @@ import { KotikitError } from "../../../util/result.js";
 import { buildStateMatrix, buildUxEnvelope } from "../../domain/ux-envelope.js";
 import { selectPatternPack } from "../../domain/ux-pattern-pack.js";
 import type { NodeDefinition } from "../../graph/node-registry.js";
-import { type Artifact, ArtifactSchemaVersionByType } from "../../schemas/artifact.js";
+import {
+  type Artifact,
+  ArtifactSchemaVersionByType,
+  type DesignApproach,
+} from "../../schemas/artifact.js";
 import type { KotikitGraphState } from "../../schemas/graph-state.js";
 
 type RuntimeNodeOutput = {
@@ -15,6 +19,31 @@ type RuntimeNodeOutput = {
 const EmptyParamsSchema = z.strictObject({});
 
 export const uxNodeDefinitions: NodeDefinition[] = [
+  node({
+    key: "ux.brainstormApproach",
+    stateReads: ["userIntent", "screen", "designSystem"],
+    stateWrites: ["designApproach"],
+    requiredCapabilities: ["ux.brainstorm"],
+    run: async (input) => {
+      const state = graphState(input.state);
+      const screen = screenFrom(state.screen);
+      const approach = buildDesignApproach({
+        userIntent: state.userIntent ?? "Create a product screen.",
+        screen,
+      });
+      return {
+        statePatch: { designApproach: approach },
+        artifacts: [
+          artifactFor({
+            state,
+            key: "ux.brainstormApproach",
+            type: "design-approach",
+            payload: approach,
+          }),
+        ],
+      } satisfies RuntimeNodeOutput;
+    },
+  }),
   node({
     key: "ux.buildEnvelope",
     stateReads: ["userIntent", "screen"],
@@ -74,7 +103,7 @@ export const uxNodeDefinitions: NodeDefinition[] = [
 function artifactFor(input: {
   state: KotikitGraphState;
   key: string;
-  type: "ux-envelope" | "state-matrix";
+  type: "design-approach" | "ux-envelope" | "state-matrix";
   payload: Artifact["payload"];
 }): Artifact {
   const now = nowIso();
@@ -87,6 +116,76 @@ function artifactFor(input: {
     updatedAt: now,
     sourceNode: { key: input.key, version: "1.0.0" },
     payload: input.payload,
+  };
+}
+
+function buildDesignApproach(input: {
+  userIntent: string;
+  screen: ReturnType<typeof screenFrom>;
+}): DesignApproach {
+  const envelope = buildUxEnvelope(input);
+  const title = input.screen.title ?? envelope.primaryGoal;
+  const uiParts = input.screen.requiredUiParts ?? [];
+  const partsSummary =
+    uiParts.length > 0 ? uiParts.join(", ") : "the core product regions needed for the task";
+  const requestedStates = uniqueStrings([...(input.screen.states ?? []), ...envelope.edgeCases]);
+  const stateSummary =
+    requestedStates.length > 0
+      ? requestedStates.join(", ")
+      : "filled, loading, empty, and error when relevant";
+  const confidenceRisk =
+    envelope.confidence === "low"
+      ? [
+          "The request does not match a strong built-in UX pattern, so the first draft should stay easy to revise.",
+        ]
+      : [];
+
+  return {
+    schemaVersion: "DesignApproach/v1",
+    goal: title,
+    userWorkflow: `${envelope.actor} should complete "${envelope.primaryTask}" in ${title} without extra setup or technical decisions.`,
+    recommendedApproach: `Compose the screen first from ${partsSummary}, then let the designer decide whether any missing pieces should be extracted as draft components.`,
+    alternativesConsidered: [
+      {
+        name: "Design-system-first composition",
+        tradeoff:
+          "Fastest reliable path because existing local components, variables, and icons ground the draft.",
+      },
+      {
+        name: "Wireframe-first exploration",
+        tradeoff:
+          "Useful for unclear product strategy, but slower and less likely to produce a production-looking first draft.",
+      },
+      {
+        name: "Component-extraction-first",
+        tradeoff:
+          "Can help library work, but it slows screen creation and risks detached components before the design is validated.",
+      },
+    ],
+    stateStrategy: `Create real screen or region states for ${stateSummary}; do not reduce required states to decorative preview cards.`,
+    layoutStrategy:
+      "Use auto layout, place sibling screen states with clear canvas gaps, and keep navigation, controls, content, and feedback in context-aware regions.",
+    designSystemStrategy:
+      "Search the local design system first, reuse matching components and variables, and use screen-draft parts only for genuine gaps.",
+    iconStrategy:
+      "Use local design-system icons for visible affordances and avoid placeholder glyphs or manually invented icon shapes.",
+    assumptions: uniqueStrings([
+      ...envelope.assumptions,
+      "The designer wants the fastest path to an editable high-fidelity draft.",
+      "Draft component extraction should happen only after the visible screen exists.",
+    ]).slice(0, 8),
+    risks: uniqueStrings([
+      ...confidenceRisk,
+      "Missing local design-system coverage can tempt the agent to imitate components with primitives.",
+      "State variants can become review cards unless the apply step creates each required state in context.",
+    ]).slice(0, 8),
+    ...(envelope.confidence === "low"
+      ? {
+          openQuestion:
+            "Which user task should this screen optimize for first if the draft needs a stronger product direction?",
+        }
+      : {}),
+    decision: envelope.confidence === "low" ? "ask-designer" : "proceed",
   };
 }
 
@@ -139,4 +238,8 @@ function stringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
 }

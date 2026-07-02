@@ -62,19 +62,24 @@ is available on `PATH`.
    with `kotikit_answer`.
 5. If the run needs a Figma target, ask for the exact draft page URL and
    bind it with `kotikit_bind_figma_target`.
-6. If the run produces a `design-system-reuse-plan` artifact, read it before
+6. If the run produces a `design-approach` artifact, read it before drafting.
+   Use it as the lightweight brainstorm result: follow the recommended
+   workflow, state strategy, layout strategy, design-system strategy, icon
+   strategy, assumptions, and risks. Do not recite the artifact to the designer
+   unless they ask.
+7. If the run produces a `design-system-reuse-plan` artifact, read it before
    drafting. Reuse exact design-system components, validate substitutes, and
    compose close candidates directly in the screen. Do not create draft
    components before the main screen or flow exists.
-7. If the run produces an apply-packet artifact, read it with
+8. If the run produces an apply-packet artifact, read it with
    `kotikit_get_artifact`, apply only the active Figma transaction through
    official Figma MCP tools, then call `kotikit_record_figma_apply` with the
    `runId`, `transactionId`, node id, Figma node type, bounds, component refs
    or componentKey, component source, variable refs, required icon refs, and
    auto-layout metadata.
-8. Call `kotikit_continue` after external Figma work is recorded. Repeat until
+9. Call `kotikit_continue` after external Figma work is recorded. Repeat until
    kotikit reports no active Figma transaction.
-9. If the run produces a `design-system-usage-report`, use it in the final
+10. If the run produces a `design-system-usage-report`, use it in the final
    answer to summarize reused design-system components, screen-draft parts,
    draft components, icon refs, and primitive exceptions. After the design is
    visible, ask whether the designer wants reusable missing parts extracted as

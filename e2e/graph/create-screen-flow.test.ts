@@ -34,6 +34,19 @@ describe("create-screen graph flow", () => {
       expect(started.state.stateMatrix).toMatchObject({
         schemaVersion: "StateMatrix/v1",
       });
+      expect(recordFrom(started.state).designApproach).toMatchObject({
+        schemaVersion: "DesignApproach/v1",
+        decision: "proceed",
+      });
+      await expect(
+        artifactStore.getArtifact(`${started.runId}-design-approach`)
+      ).resolves.toMatchObject({
+        type: "design-approach",
+        payload: {
+          schemaVersion: "DesignApproach/v1",
+          designSystemStrategy: expect.stringContaining("local design system"),
+        },
+      });
 
       const waitingForApply = await runtime.answerRun({
         runId: started.runId,
@@ -82,6 +95,7 @@ describe("create-screen graph flow", () => {
       expect(completed.artifacts.map((artifact) => artifact.type)).toEqual(
         expect.arrayContaining([
           "design-brief",
+          "design-approach",
           "ux-envelope",
           "state-matrix",
           "figma-apply-packet",

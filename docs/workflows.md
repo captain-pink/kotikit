@@ -36,16 +36,18 @@ buttons, and status components.
 The assistant should:
 
 1. Start the `create-screen` flow with your intent.
-2. Search the local design-system cache before inventing anything.
-3. Ask only blocking questions, such as literal variable fallback approval or
+2. Let kotikit save a compact design approach: goal, workflow, chosen
+   strategy, alternatives considered, state strategy, and key risks.
+3. Search the local design-system cache before inventing anything.
+4. Ask only blocking questions, such as literal variable fallback approval or
    the exact Figma draft page target.
-4. Read the apply-packet artifact and active Figma transaction.
-5. Use the official Figma assistant integration to apply one screen state or
+5. Read the apply-packet artifact and active Figma transaction.
+6. Use the official Figma assistant integration to apply one screen state or
    region state at the canvas plan bounds.
-6. Record Figma node metadata back into kotikit.
-7. Continue the run and repeat one screen state at a time until the transaction
+7. Record Figma node metadata back into kotikit.
+8. Continue the run and repeat one screen state at a time until the transaction
    queue is complete.
-8. Let the UI quality gate check common broken-output issues.
+9. Let the UI quality gate check common broken-output issues.
 
 Kotikit applies Figma drafts through incremental Figma transactions. It creates
 the actual screen states first using local design-system components, icons,
@@ -72,9 +74,16 @@ After kotikit creates a draft, verify:
 
 ## Screen States
 
-Kotikit plans state coverage before it composes the Figma screen. The graph
-stores this as a `StateMatrix`, so filled, loading, empty, no-results, error,
-and permission states are treated as page, region, component, or flow states.
+Kotikit plans the design approach and state coverage before it composes the
+Figma screen. The graph stores the approach as `DesignApproach` and state
+coverage as `StateMatrix`, so filled, loading, empty, no-results, error, and
+permission states are treated as page, region, component, or flow states.
+
+The design approach is the lightweight brainstorm step. It considers the likely
+workflow, alternatives, layout strategy, design-system strategy, icon strategy,
+assumptions, and risks. Quick mode records this silently and proceeds when the
+request is clear; kotikit should only ask the designer when an unresolved choice
+would materially change the design.
 
 For data tables and lists, loading, empty, and error output should replace the
 affected data region. It should not appear as extra cards below the screen.

@@ -16,6 +16,7 @@
       "type": "string",
       "enum": [
         "design-brief",
+        "design-approach",
         "screen-model",
         "flow-model",
         "ux-envelope",
@@ -99,6 +100,102 @@
             }
           },
           "required": ["schemaVersion"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "schemaVersion": {
+              "type": "string",
+              "const": "DesignApproach/v1"
+            },
+            "goal": {
+              "type": "string",
+              "minLength": 1
+            },
+            "userWorkflow": {
+              "type": "string",
+              "minLength": 1
+            },
+            "recommendedApproach": {
+              "type": "string",
+              "minLength": 1
+            },
+            "alternativesConsidered": {
+              "minItems": 2,
+              "maxItems": 3,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "tradeoff": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": ["name", "tradeoff"],
+                "additionalProperties": false
+              }
+            },
+            "stateStrategy": {
+              "type": "string",
+              "minLength": 1
+            },
+            "layoutStrategy": {
+              "type": "string",
+              "minLength": 1
+            },
+            "designSystemStrategy": {
+              "type": "string",
+              "minLength": 1
+            },
+            "iconStrategy": {
+              "type": "string",
+              "minLength": 1
+            },
+            "assumptions": {
+              "maxItems": 8,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "risks": {
+              "maxItems": 8,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "openQuestion": {
+              "type": "string",
+              "minLength": 1
+            },
+            "decision": {
+              "type": "string",
+              "enum": ["proceed", "ask-designer"]
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "goal",
+            "userWorkflow",
+            "recommendedApproach",
+            "alternativesConsidered",
+            "stateStrategy",
+            "layoutStrategy",
+            "designSystemStrategy",
+            "iconStrategy",
+            "assumptions",
+            "risks",
+            "decision"
+          ],
           "additionalProperties": false
         },
         {
@@ -2039,6 +2136,161 @@
             }
           },
           "required": ["schemaVersion"],
+          "additionalProperties": false
+        },
+        "filesystemPath": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "runId",
+        "type",
+        "schemaVersion",
+        "createdAt",
+        "updatedAt",
+        "sourceNode",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "const": "design-approach"
+        },
+        "schemaVersion": {
+          "type": "string",
+          "const": "DesignApproach/v1"
+        },
+        "createdAt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "updatedAt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceNode": {
+          "type": "object",
+          "properties": {
+            "key": {
+              "type": "string",
+              "minLength": 1
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": ["key", "version"],
+          "additionalProperties": false
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "schemaVersion": {
+              "type": "string",
+              "const": "DesignApproach/v1"
+            },
+            "goal": {
+              "type": "string",
+              "minLength": 1
+            },
+            "userWorkflow": {
+              "type": "string",
+              "minLength": 1
+            },
+            "recommendedApproach": {
+              "type": "string",
+              "minLength": 1
+            },
+            "alternativesConsidered": {
+              "minItems": 2,
+              "maxItems": 3,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "tradeoff": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": ["name", "tradeoff"],
+                "additionalProperties": false
+              }
+            },
+            "stateStrategy": {
+              "type": "string",
+              "minLength": 1
+            },
+            "layoutStrategy": {
+              "type": "string",
+              "minLength": 1
+            },
+            "designSystemStrategy": {
+              "type": "string",
+              "minLength": 1
+            },
+            "iconStrategy": {
+              "type": "string",
+              "minLength": 1
+            },
+            "assumptions": {
+              "maxItems": 8,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "risks": {
+              "maxItems": 8,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "openQuestion": {
+              "type": "string",
+              "minLength": 1
+            },
+            "decision": {
+              "type": "string",
+              "enum": ["proceed", "ask-designer"]
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "goal",
+            "userWorkflow",
+            "recommendedApproach",
+            "alternativesConsidered",
+            "stateStrategy",
+            "layoutStrategy",
+            "designSystemStrategy",
+            "iconStrategy",
+            "assumptions",
+            "risks",
+            "decision"
+          ],
           "additionalProperties": false
         },
         "filesystemPath": {

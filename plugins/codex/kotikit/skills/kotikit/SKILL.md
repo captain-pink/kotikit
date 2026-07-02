@@ -20,6 +20,9 @@ Use this designer-first skill when the user asks for `kotikit:auto`, a new Figma
 
 - Keep the conversation plain-language and designer-facing.
 - Create the Figma design; do not redirect the user into implementation work.
+- Read and follow the `design-approach` artifact before drafting; treat it as
+  kotikit's lightweight brainstorm result, not as text to recite to the
+  designer.
 - Prefer existing design-system components, variables, styles, and icons.
 - Compose the visible screen and real states before asking whether missing parts should be extracted as draft components.
 - Apply Figma drafts through incremental Figma transactions: create exactly one

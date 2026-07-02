@@ -5,6 +5,7 @@ export const KOTIKIT_ARTIFACT_SCHEMA_ID =
 
 export const ArtifactTypeSchema = z.enum([
   "design-brief",
+  "design-approach",
   "screen-model",
   "flow-model",
   "ux-envelope",
@@ -34,6 +35,7 @@ export type ArtifactType = z.infer<typeof ArtifactTypeSchema>;
 
 export const ArtifactSchemaVersionByType = {
   "design-brief": "DesignBrief/v1",
+  "design-approach": "DesignApproach/v1",
   "screen-model": "ScreenModel/v1",
   "flow-model": "FlowModel/v1",
   "ux-envelope": "UXEnvelope/v1",
@@ -495,6 +497,27 @@ export const DraftComponentPlanSchema = z.strictObject({
   components: z.array(DraftComponentSpecSchema),
 });
 
+const DesignApproachAlternativeSchema = z.strictObject({
+  name: z.string().min(1),
+  tradeoff: z.string().min(1),
+});
+
+export const DesignApproachSchema = z.strictObject({
+  schemaVersion: z.literal("DesignApproach/v1"),
+  goal: z.string().min(1),
+  userWorkflow: z.string().min(1),
+  recommendedApproach: z.string().min(1),
+  alternativesConsidered: z.array(DesignApproachAlternativeSchema).min(2).max(3),
+  stateStrategy: z.string().min(1),
+  layoutStrategy: z.string().min(1),
+  designSystemStrategy: z.string().min(1),
+  iconStrategy: z.string().min(1),
+  assumptions: z.array(z.string().min(1)).max(8),
+  risks: z.array(z.string().min(1)).max(8),
+  openQuestion: z.string().min(1).optional(),
+  decision: z.enum(["proceed", "ask-designer"]),
+});
+
 export const UXEnvelopeSchema = z.strictObject({
   schemaVersion: z.literal("UXEnvelope/v1"),
   screenArchetype: z.enum([
@@ -718,6 +741,7 @@ const RevisionPlanPayloadSchema = createGenericArtifactPayloadSchema(
 
 export const ArtifactPayloadSchema = z.union([
   DesignBriefPayloadSchema,
+  DesignApproachSchema,
   ScreenModelPayloadSchema,
   FlowModelPayloadSchema,
   UXEnvelopeSchema,
@@ -768,6 +792,7 @@ function createArtifactVariantSchema<Type extends ArtifactType>(
 
 export const ArtifactVariantSchema = z.union([
   createArtifactVariantSchema("design-brief", DesignBriefPayloadSchema),
+  createArtifactVariantSchema("design-approach", DesignApproachSchema),
   createArtifactVariantSchema("screen-model", ScreenModelPayloadSchema),
   createArtifactVariantSchema("flow-model", FlowModelPayloadSchema),
   createArtifactVariantSchema("ux-envelope", UXEnvelopeSchema),
@@ -823,6 +848,7 @@ function schemaVersionForArtifactType(type: ArtifactType): string {
 }
 
 export type Artifact = z.infer<typeof ArtifactSchema>;
+export type DesignApproach = z.infer<typeof DesignApproachSchema>;
 export type UXEnvelope = z.infer<typeof UXEnvelopeSchema>;
 export type StateMatrix = z.infer<typeof StateMatrixSchema>;
 export type UICompositionContract = z.infer<typeof UICompositionContractSchema>;

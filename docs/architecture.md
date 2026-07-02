@@ -40,8 +40,8 @@ The target project owns:
 
 Specs, graph runs, and graph artifacts are JSON. Runs persist flow ids, graph
 hashes, node versions, status, and state; artifacts hold compact contracts such
-as briefs, fit reports, apply packets, comment evidence maps, revision plans,
-usage reports, and QA reports.
+as briefs, design approaches, fit reports, apply packets, comment evidence
+maps, revision plans, usage reports, and QA reports.
 
 ### Design-System Indexes
 
@@ -105,8 +105,9 @@ This gives teams without Figma branches a practical safety boundary.
    indexes.
 
 3. **Draft planning**
-   Graph nodes turn intent, local design-system evidence, screen-draft
-   structure, icons, and variables into an apply-packet artifact.
+   Graph nodes turn intent into a compact design approach, then combine local
+   design-system evidence, screen-draft structure, icons, and variables into an
+   apply-packet artifact.
 
 4. **Official Figma apply**
    The assistant uses the official Figma integration to drain incremental Figma

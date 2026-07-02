@@ -220,6 +220,18 @@ describe("flow catalog", () => {
     });
   });
 
+  it("create-screen brainstorms a compact design approach before UX envelope planning", async () => {
+    const createScreen = requireFlow(await loadBuiltInFlows(), "create-screen");
+    const uses = createScreen.nodes.map((node) => node.uses);
+
+    expect(uses).toContain("ux.brainstormApproach");
+    expect(uses.indexOf("brief.inferScreenBlueprint")).toBeLessThan(
+      uses.indexOf("ux.brainstormApproach")
+    );
+    expect(uses.indexOf("ux.brainstormApproach")).toBeLessThan(uses.indexOf("ux.buildEnvelope"));
+    expect(createScreen.requiredCapabilities).toContain("ux.brainstorm");
+  });
+
   it("review-screen keeps Figma comment feedback as a lightweight post-screen flow", async () => {
     const reviewScreen = requireFlow(await loadBuiltInFlows(), "review-screen");
 

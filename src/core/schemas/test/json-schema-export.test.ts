@@ -68,6 +68,7 @@ describe("kotikit JSON Schema export", () => {
     expect(artifactType.enum).toEqual(
       expect.arrayContaining([
         "ui-composition-contract",
+        "design-approach",
         "layout-contract",
         "variable-binding-plan",
         "draft-component-plan",
@@ -76,6 +77,7 @@ describe("kotikit JSON Schema export", () => {
     );
 
     const graphStateProperties = asObject(graphState.properties);
+    expect(graphStateProperties.designApproach).toBeDefined();
     expect(graphStateProperties.uiComposition).toBeDefined();
     expect(graphStateProperties.layoutContract).toBeDefined();
     expect(graphStateProperties.variableBindingPlan).toBeDefined();

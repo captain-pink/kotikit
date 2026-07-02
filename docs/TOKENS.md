@@ -53,11 +53,11 @@ client, so treat these numbers as regression signals, not exact billing data.
 | tool | bytes | ~tokens |
 | --- | ---: | ---: |
 | `kotikit_config_status` | 210 | 55 |
-| `kotikit_config_get` | 607 | 160 |
-| `kotikit_flow_list` | 3,794 | 998 |
-| `kotikit_flow_validate` | 799 | 210 |
-| `kotikit_start` create-screen | 662 | 174 |
-| `kotikit_list_artifacts` all | 86 | 23 |
+| `kotikit_config_get` | 732 | 193 |
+| `kotikit_flow_list` | 1,209 | 318 |
+| `kotikit_flow_validate` | 811 | 213 |
+| `kotikit_start` create-screen | 1,166 | 307 |
+| `kotikit_list_artifacts` all | 926 | 244 |
 | `kotikit_doctor` | 2,029 | 534 |
 | `kotikit_ds_search` | 247 | 65 |
 | `kotikit_search_design_system` | 247 | 65 |

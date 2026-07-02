@@ -7,6 +7,7 @@
   "stateSchema": "KotikitGraphState/v1",
   "requiredCapabilities": [
     "brief.write",
+    "ux.brainstorm",
     "ux.plan",
     "designSystem.search.local",
     "designSystem.fit",
@@ -37,6 +38,11 @@
     {
       "id": "infer-screen-blueprint",
       "uses": "brief.inferScreenBlueprint",
+      "params": {}
+    },
+    {
+      "id": "brainstorm-design-approach",
+      "uses": "ux.brainstormApproach",
       "params": {}
     },
     {
@@ -168,7 +174,8 @@
   "edges": [
     ["classify-intent", "capture-minimal-intent"],
     ["capture-minimal-intent", "infer-screen-blueprint"],
-    ["infer-screen-blueprint", "build-ux-envelope"],
+    ["infer-screen-blueprint", "brainstorm-design-approach"],
+    ["brainstorm-design-approach", "build-ux-envelope"],
     ["build-ux-envelope", "plan-state-matrix"],
     ["plan-state-matrix", "summarize-brief-for-approval"],
     ["summarize-brief-for-approval", "ask-brief-approval"],

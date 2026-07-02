@@ -39,6 +39,10 @@ The graph facade keeps designer work resumable by storing durable artifacts
 instead of asking the assistant to remember every previous detail. The main UX
 quality contracts are:
 
+- `DesignApproach`: compact micro-brainstorm artifact with goal, likely
+  workflow, recommended approach, alternatives considered, state strategy,
+  layout strategy, design-system strategy, icon strategy, assumptions, risks,
+  and whether the run can proceed without another designer question.
 - `StateMatrix`: planned filled, loading, empty, no-results, error, and
   permission states before visual composition.
 - `CanvasPlan`: deterministic screen-state zones, plus optional post-screen
