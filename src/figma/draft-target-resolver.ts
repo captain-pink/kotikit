@@ -8,7 +8,7 @@ import {
   parseFigmaDesignUrl,
 } from "./draft-target.js";
 
-export interface FigmaDraftTargetClient {
+interface FigmaDraftTargetClient {
   getNodes(fileKey: string, ids: string[]): Promise<Record<string, FigmaNode>>;
 }
 

@@ -22,7 +22,7 @@ export type LocalCacheSetupAction = {
   hint: string;
 };
 
-export type LocalAdapterReady<T> = {
+type LocalAdapterReady<T> = {
   status: "ready";
   source: "local-cache";
   results: T[];

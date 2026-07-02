@@ -5,7 +5,7 @@ import { loadDotEnv } from "../util/env.js";
 
 const DEFAULT_FIGMA_TOKEN_REF = "$" + "{FIGMA_TOKEN}";
 
-export const figmaTokenRef = (configToken: string | undefined): string => {
+const figmaTokenRef = (configToken: string | undefined): string => {
   const trimmed = configToken?.trim();
   return trimmed === undefined || trimmed === "" ? DEFAULT_FIGMA_TOKEN_REF : trimmed;
 };

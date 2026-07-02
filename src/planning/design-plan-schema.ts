@@ -13,14 +13,9 @@ export const DESIGN_PLAN_STEP_KINDS = [
   "bind-variable",
 ] as const;
 
-export const DesignPlanStepKindSchema = z.enum(DESIGN_PLAN_STEP_KINDS);
-export type DesignPlanStepKind = z.infer<typeof DesignPlanStepKindSchema>;
+const ComponentRoleSchema = z.enum(COMPONENT_ROLES);
 
-export const ComponentRoleSchema = z.enum(COMPONENT_ROLES);
-export type ComponentRole = z.infer<typeof ComponentRoleSchema>;
-
-export const LayoutZoneIdSchema = z.enum(LAYOUT_ZONE_IDS);
-export type LayoutZoneId = z.infer<typeof LayoutZoneIdSchema>;
+const LayoutZoneIdSchema = z.enum(LAYOUT_ZONE_IDS);
 
 const StateFrameStepSchema = z.object({
   kind: z.literal("define-state-frame"),
@@ -96,7 +91,6 @@ const LayoutContractSchema = z.object({
     })
   ),
 });
-export type DesignLayoutContract = z.infer<typeof LayoutContractSchema>;
 
 export const DesignPlanSchema = z.object({
   version: z.literal(1),

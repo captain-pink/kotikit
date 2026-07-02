@@ -16,7 +16,7 @@ import {
   writeBridgeConfig,
 } from "./token.js";
 
-export interface BridgeStatus {
+interface BridgeStatus {
   running: boolean;
   staleConfig: boolean;
   projectRoot: string;
@@ -27,7 +27,7 @@ export interface BridgeStatus {
   setupWarning?: string;
 }
 
-export interface BridgeStopResult {
+interface BridgeStopResult {
   stopped: boolean;
   clearedConfig: boolean;
 }

@@ -50,10 +50,8 @@ const SingleDraftSchema = z.object({
   screen: ScreenDraftSchema,
 });
 
-export type ScreenDraft = z.infer<typeof ScreenDraftSchema>;
 export type FlowDraft = z.infer<typeof FlowDraftSchema>;
 export type SingleDraft = z.infer<typeof SingleDraftSchema>;
-export type ScreenComponentDraft = z.infer<typeof ScreenComponentDraftSchema>;
 
 // ─── Type guard ───────────────────────────────────────────────────────────────
 

@@ -1,8 +1,8 @@
 import type { FileCheckpoint } from "./checkpoint.js";
 
-export type Stage = FileCheckpoint["stage"];
+type Stage = FileCheckpoint["stage"];
 
-export interface StageProgress {
+interface StageProgress {
   processed: number;
   total: number;
   /** Optional human-readable label appended to the line, e.g. "47.1s" or "library not published". */

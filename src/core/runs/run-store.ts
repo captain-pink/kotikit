@@ -5,7 +5,7 @@ import type { KotikitGraphState } from "../schemas/graph-state.js";
 import { KotikitGraphStateSchema } from "../schemas/graph-state.js";
 import { assertSafeLocalId } from "./safe-id.js";
 
-export type RunStatus = KotikitGraphState["status"];
+type RunStatus = KotikitGraphState["status"];
 
 export type RunRecord = {
   id: string;

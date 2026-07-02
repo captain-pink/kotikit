@@ -55,7 +55,7 @@ export interface FigmaPublishedComponent {
  * Variant properties have `type: "VARIANT"` and `variantOptions: string[]`.
  * Other types: BOOLEAN, TEXT, INSTANCE_SWAP — with optional defaultValue.
  */
-export interface FigmaPropertyDefinition {
+interface FigmaPropertyDefinition {
   type: string; // z.string() in schema — unknown Figma types are skipped in buildComponentJson
   defaultValue?: unknown; // INSTANCE_SWAP sends object refs; guarded at use site
   variantOptions?: string[];

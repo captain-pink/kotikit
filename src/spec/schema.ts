@@ -11,12 +11,11 @@ const InheritOr = <T extends z.ZodTypeAny>(overrides: T) =>
 
 // ─── Component resolution ───────────────────────────────────────────────────
 
-export const ComponentVariablePolicySchema = z.enum([
+const ComponentVariablePolicySchema = z.enum([
   "require-existing-variables",
   "suggest-plugin-sync",
   "allow-literals-after-user-confirmation",
 ]);
-export type ComponentVariablePolicy = z.infer<typeof ComponentVariablePolicySchema>;
 
 export const ComponentResolutionSchema = z.discriminatedUnion("kind", [
   z.object({
@@ -36,7 +35,6 @@ export const ComponentResolutionSchema = z.discriminatedUnion("kind", [
     variablePolicy: ComponentVariablePolicySchema.default("require-existing-variables"),
   }),
 ]);
-export type ComponentResolution = z.infer<typeof ComponentResolutionSchema>;
 
 const ScreenComponentSchema = z
   .object({
@@ -59,7 +57,6 @@ const ScreenComponentSchema = z
           }
         : {}),
   }));
-export type ScreenComponent = z.infer<typeof ScreenComponentSchema>;
 
 // ─── Screen Spec ─────────────────────────────────────────────────────────────
 

@@ -1,11 +1,11 @@
-export type RemoteDesignSystemComponentRef = {
+type RemoteDesignSystemComponentRef = {
   name: string;
   key: string;
   fileKey?: string;
   sourceUrl?: string;
 };
 
-export type RemoteDesignSystemSearchResult =
+type RemoteDesignSystemSearchResult =
   | {
       status: "ready";
       source: "figma-remote";

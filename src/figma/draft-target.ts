@@ -1,13 +1,12 @@
 import { z } from "zod";
 import { KotikitError } from "../util/result.js";
 
-export const FigmaDraftSectionSchema = z.object({
+const FigmaDraftSectionSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1),
 });
-export type FigmaDraftSection = z.infer<typeof FigmaDraftSectionSchema>;
 
-export const FigmaDraftTargetSafetySchema = z
+const FigmaDraftTargetSafetySchema = z
   .object({
     requireDraftPageName: z.literal(true).default(true),
     allowPageCreation: z.literal(false).default(false),
@@ -18,7 +17,6 @@ export const FigmaDraftTargetSafetySchema = z
     allowPageCreation: false,
     requireKotikitSection: true,
   });
-export type FigmaDraftTargetSafety = z.infer<typeof FigmaDraftTargetSafetySchema>;
 
 export const FigmaDraftTargetSchema = z.object({
   fileKey: z.string().min(1),

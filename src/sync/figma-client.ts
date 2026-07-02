@@ -335,6 +335,4 @@ export class FigmaClient {
     return new Error(String(err));
   }
 }
-
 // Re-export FigmaResponseError so tests can construct it if needed
-export { FigmaResponseError };

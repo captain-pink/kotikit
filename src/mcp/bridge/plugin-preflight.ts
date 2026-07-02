@@ -10,11 +10,7 @@ export interface CommandResult {
   stderr: string;
 }
 
-export type CommandRunner = (
-  command: string,
-  args: string[],
-  cwd: string
-) => Promise<CommandResult>;
+type CommandRunner = (command: string, args: string[], cwd: string) => Promise<CommandResult>;
 
 export interface PreparePluginBuildDeps {
   runCommand?: CommandRunner;

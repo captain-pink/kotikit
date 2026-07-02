@@ -15,12 +15,12 @@ export interface CoAuthor {
   email: string;
 }
 
-export const DEFAULT_CO_AUTHOR: CoAuthor = {
+const DEFAULT_CO_AUTHOR: CoAuthor = {
   name: "Claude Code",
   email: "noreply@anthropic.com",
 };
 
-export interface AutoCommitOpts {
+interface AutoCommitOpts {
   root: string;
   scope: string;
   kind: CommitKind;
@@ -50,7 +50,7 @@ export function formatCoAuthorFooter(coAuthor: CoAuthor): string {
  * Generic auto-commit. Stages the given files and creates a local
  * conventional commit. Never pushes. Never creates or switches branches.
  */
-export async function autoCommit(opts: AutoCommitOpts): Promise<CommitResult> {
+async function autoCommit(opts: AutoCommitOpts): Promise<CommitResult> {
   const scopePrefix = opts.subjectScope ?? "spec";
   const suffix = opts.subjectSuffix ?? "";
   const subject = `feat(${scopePrefix}): ${opts.kind} ${opts.scope}${suffix}`;

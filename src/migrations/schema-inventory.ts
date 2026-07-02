@@ -5,7 +5,7 @@ import { CONFIG_SCHEMA_VERSION } from "../config/schema.js";
 import { FLOW_MANIFEST_SCHEMA_VERSION, SCREEN_SPEC_SCHEMA_VERSION } from "../spec/schema.js";
 import { configPath, scopeDir } from "../util/paths.js";
 
-export type SchemaArtifactKind = "config" | "screen" | "flow";
+type SchemaArtifactKind = "config" | "screen" | "flow";
 
 export type SchemaArtifactStatus = "current" | "legacy-or-older" | "future" | "unreadable";
 

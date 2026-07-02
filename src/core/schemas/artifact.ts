@@ -682,37 +682,37 @@ function createGenericArtifactPayloadSchema<SchemaVersion extends string>(
   });
 }
 
-export const DesignBriefPayloadSchema = createGenericArtifactPayloadSchema(
+const DesignBriefPayloadSchema = createGenericArtifactPayloadSchema(
   ArtifactSchemaVersionByType["design-brief"]
 );
-export const ScreenModelPayloadSchema = createGenericArtifactPayloadSchema(
+const ScreenModelPayloadSchema = createGenericArtifactPayloadSchema(
   ArtifactSchemaVersionByType["screen-model"]
 );
-export const FlowModelPayloadSchema = createGenericArtifactPayloadSchema(
+const FlowModelPayloadSchema = createGenericArtifactPayloadSchema(
   ArtifactSchemaVersionByType["flow-model"]
 );
-export const DesignSystemFitReportPayloadSchema = createGenericArtifactPayloadSchema(
+const DesignSystemFitReportPayloadSchema = createGenericArtifactPayloadSchema(
   ArtifactSchemaVersionByType["design-system-fit-report"]
 );
-export const DesignSystemReusePlanPayloadSchema = createGenericArtifactPayloadSchema(
+const DesignSystemReusePlanPayloadSchema = createGenericArtifactPayloadSchema(
   ArtifactSchemaVersionByType["design-system-reuse-plan"]
 );
-export const DesignSystemUsageReportPayloadSchema = createGenericArtifactPayloadSchema(
+const DesignSystemUsageReportPayloadSchema = createGenericArtifactPayloadSchema(
   ArtifactSchemaVersionByType["design-system-usage-report"]
 );
-export const FigmaTargetPayloadSchema = createGenericArtifactPayloadSchema(
+const FigmaTargetPayloadSchema = createGenericArtifactPayloadSchema(
   ArtifactSchemaVersionByType["figma-target"]
 );
-export const DraftPlanPayloadSchema = createGenericArtifactPayloadSchema(
+const DraftPlanPayloadSchema = createGenericArtifactPayloadSchema(
   ArtifactSchemaVersionByType["draft-plan"]
 );
-export const FigmaApplyPacketPayloadSchema = createGenericArtifactPayloadSchema(
+const FigmaApplyPacketPayloadSchema = createGenericArtifactPayloadSchema(
   ArtifactSchemaVersionByType["figma-apply-packet"]
 );
-export const FigmaApplyReportPayloadSchema = createGenericArtifactPayloadSchema(
+const FigmaApplyReportPayloadSchema = createGenericArtifactPayloadSchema(
   ArtifactSchemaVersionByType["figma-apply-report"]
 );
-export const RevisionPlanPayloadSchema = createGenericArtifactPayloadSchema(
+const RevisionPlanPayloadSchema = createGenericArtifactPayloadSchema(
   ArtifactSchemaVersionByType["revision-plan"]
 );
 
@@ -743,7 +743,7 @@ export const ArtifactPayloadSchema = z.union([
   RevisionPlanPayloadSchema,
 ]);
 
-export const ArtifactEnvelopeSchema = z.strictObject({
+const ArtifactEnvelopeSchema = z.strictObject({
   id: z.string().min(1),
   runId: z.string().min(1),
   type: ArtifactTypeSchema,

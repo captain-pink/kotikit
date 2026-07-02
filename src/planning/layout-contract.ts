@@ -31,9 +31,9 @@ export const LAYOUT_ZONE_IDS = [
 
 export type LayoutZoneId = (typeof LAYOUT_ZONE_IDS)[number];
 
-export type LayoutDirection = "VERTICAL" | "HORIZONTAL";
+type LayoutDirection = "VERTICAL" | "HORIZONTAL";
 
-export interface LayoutZoneContract {
+interface LayoutZoneContract {
   id: LayoutZoneId;
   parent: LayoutZoneId;
   direction: LayoutDirection;
@@ -42,7 +42,7 @@ export interface LayoutZoneContract {
   minTargetSize: number;
 }
 
-export interface ComponentPlacementContract {
+interface ComponentPlacementContract {
   componentName: string;
   role: ComponentRole;
   zone: LayoutZoneId;

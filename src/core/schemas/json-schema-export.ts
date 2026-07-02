@@ -97,7 +97,7 @@ export function findDisallowedJsonSchemaConstructs(schema: unknown): string[] {
   return Array.from(found).sort();
 }
 
-export async function writeKotikitJsonSchemaFiles(
+async function writeKotikitJsonSchemaFiles(
   outputDir: URL = new URL("../../../schemas/", import.meta.url)
 ): Promise<void> {
   const { artifact, flow } = exportKotikitJsonSchemas();

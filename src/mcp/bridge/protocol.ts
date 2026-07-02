@@ -6,7 +6,6 @@ export const BridgeRequestSchema = z.object({
   method: z.string(),
   params: z.unknown().optional(),
 });
-export type BridgeRequest = z.infer<typeof BridgeRequestSchema>;
 
 export interface BridgeResponse<T = unknown> {
   jsonrpc: "2.0";

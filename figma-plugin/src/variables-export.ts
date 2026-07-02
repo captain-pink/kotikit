@@ -1,6 +1,6 @@
-export type PluginVariableResolvedType = "BOOLEAN" | "FLOAT" | "STRING" | "COLOR";
+type PluginVariableResolvedType = "BOOLEAN" | "FLOAT" | "STRING" | "COLOR";
 
-export interface PluginVariableMode {
+interface PluginVariableMode {
   modeId: string;
   name: string;
 }

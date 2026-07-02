@@ -44,7 +44,7 @@ export const PluginVariablesPayloadSchema = z.object({
   collections: z.array(PluginVariableCollectionSchema).default([]),
   variables: z.array(PluginVariableSchema).default([]),
 });
-export type PluginVariablesPayload = z.infer<typeof PluginVariablesPayloadSchema>;
+type PluginVariablesPayload = z.infer<typeof PluginVariablesPayloadSchema>;
 
 export interface PluginVariablesImportResult {
   imported: number;

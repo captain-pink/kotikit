@@ -3,16 +3,16 @@ export interface ToolResult {
   isError?: boolean;
 }
 
-export type ChecklistStatus = "pending" | "ready" | "done" | "attention";
+type ChecklistStatus = "pending" | "ready" | "done" | "attention";
 
-export interface ChecklistItem {
+interface ChecklistItem {
   id: string;
   label: string;
   status: ChecklistStatus;
   detail: string;
 }
 
-export interface ReviewSummary {
+interface ReviewSummary {
   open: number;
   fixed: number;
   pendingReplies: number;

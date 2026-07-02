@@ -1,13 +1,5 @@
-import {
-  type FigmaDraftTarget,
-  isDraftPageName,
-  parseFigmaDesignUrl,
-} from "../../../figma/draft-target.js";
+import { type FigmaDraftTarget, isDraftPageName } from "../../../figma/draft-target.js";
 import { KotikitError } from "../../../util/result.js";
-
-export function validateDraftTargetUrl(url: string): ReturnType<typeof parseFigmaDesignUrl> {
-  return parseFigmaDesignUrl(url);
-}
 
 export function ensureDraftTarget(target: unknown): FigmaDraftTarget {
   const candidate = target as Partial<FigmaDraftTarget> | undefined;
@@ -34,20 +26,4 @@ export function ensureDraftTarget(target: unknown): FigmaDraftTarget {
     );
   }
   return candidate as FigmaDraftTarget;
-}
-
-export function bindDraftTarget(input: {
-  scope: string;
-  screen?: string | null;
-  pageUrl: string;
-}): {
-  scope: string;
-  screen: string | null;
-  parsed: ReturnType<typeof parseFigmaDesignUrl>;
-} {
-  return {
-    scope: input.scope,
-    screen: input.screen ?? null,
-    parsed: validateDraftTargetUrl(input.pageUrl),
-  };
 }

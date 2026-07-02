@@ -1,10 +1,6 @@
 import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
-export const KOTIKIT_DIR = ".kotikit";
-
-export const DESIGN_SYSTEM_DIR = "design-system";
-
 export const designSystemDir = (root: string): string => `${root}/design-system`;
 
 export const componentsDbPath = (root: string): string => `${root}/design-system/components.db`;

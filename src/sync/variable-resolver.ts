@@ -1,6 +1,4 @@
-import { readFile } from "node:fs/promises";
-import { variablesJsonPath } from "../util/paths.js";
-import { type VariableEntry, type VariablesJson, VariablesJsonSchema } from "./variables.js";
+import type { VariableEntry, VariablesJson } from "./variables.js";
 
 export interface ResolveVariableInput {
   kind: VariableEntry["kind"];
@@ -63,14 +61,4 @@ export function summarizeVariableAvailability(
     hasUsableVariables: usable,
     shouldSuggestPluginSync: !usable,
   };
-}
-
-export async function readVariablesJson(root: string): Promise<VariablesJson | null> {
-  try {
-    const text = await readFile(variablesJsonPath(root), "utf-8");
-    return VariablesJsonSchema.parse(JSON.parse(text));
-  } catch (err) {
-    if (err instanceof Error && "code" in err && err.code === "ENOENT") return null;
-    throw err;
-  }
 }

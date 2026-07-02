@@ -35,8 +35,6 @@ export const FACADE_TOOL_NAMES = [
   "kotikit_doctor",
 ] as const;
 
-export type FacadeToolName = (typeof FACADE_TOOL_NAMES)[number];
-
 export type FacadeRuntime = Pick<
   GraphRuntime,
   "startFlow" | "continueRun" | "answerRun" | "patchRunState" | "getRunState" | "getArtifact"

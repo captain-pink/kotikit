@@ -24,7 +24,7 @@ const statusLabel = (status: SchemaArtifactStatus): string => {
 const relativePath = (root: string, path: string): string =>
   relative(root, path).replaceAll("\\", "/");
 
-export const formatSchemaFinding = (root: string, finding: SchemaArtifactFinding): string => {
+const formatSchemaFinding = (root: string, finding: SchemaArtifactFinding): string => {
   const schemaVersion =
     finding.schemaVersion === null
       ? "no usable schemaVersion"

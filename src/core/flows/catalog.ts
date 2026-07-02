@@ -21,7 +21,7 @@ export type FlowCatalogConfig = {
   };
 };
 
-export type ExtensionFlowAllowlistEntry = {
+type ExtensionFlowAllowlistEntry = {
   id: string;
   source: string;
   enabled?: boolean;

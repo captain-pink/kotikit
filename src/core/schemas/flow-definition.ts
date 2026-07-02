@@ -1,20 +1,20 @@
 import { z } from "zod";
 
 export const KOTIKIT_FLOW_SCHEMA_ID = "https://kotikit.dev/schemas/kotikit-flow.schema.json";
-export const FLOW_DEFINITION_SCHEMA_VERSION = 1;
+const FLOW_DEFINITION_SCHEMA_VERSION = 1;
 
 const FlowIdSchema = z.string().min(1);
 const FlowNodeIdSchema = z.string().min(1);
 const CapabilitySchema = z.string().min(1);
 
-export const FlowNodeSchema = z.strictObject({
+const FlowNodeSchema = z.strictObject({
   id: FlowNodeIdSchema,
   uses: z.string().min(1),
   params: z.record(z.string(), z.unknown()).optional(),
   interrupt: z.enum(["ask-user", "external-action"]).optional(),
 });
 
-export const FlowEdgeSchema = z.array(FlowNodeIdSchema).length(2);
+const FlowEdgeSchema = z.array(FlowNodeIdSchema).length(2);
 
 export const FlowDefinitionSchema = z.strictObject({
   schemaVersion: z.literal(FLOW_DEFINITION_SCHEMA_VERSION),
@@ -32,5 +32,4 @@ export const FlowDefinitionSchema = z.strictObject({
 });
 
 export type FlowNode = z.infer<typeof FlowNodeSchema>;
-export type FlowEdge = z.infer<typeof FlowEdgeSchema>;
 export type FlowDefinition = z.infer<typeof FlowDefinitionSchema>;

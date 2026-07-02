@@ -44,7 +44,7 @@ const FigmaSectionDefaultsSchema = z
     },
   });
 
-export const ConfigSchema = z.object({
+const ConfigSchema = z.object({
   schemaVersion: z
     .number()
     .int()

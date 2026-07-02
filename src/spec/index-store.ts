@@ -39,12 +39,3 @@ export async function upsertIndexEntry(root: string, entry: IndexEntry): Promise
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(existing, null, 2)}\n`, "utf-8");
 }
-
-/** Remove the entry for a scope from the index (no-op if not present). */
-export async function removeIndexEntry(root: string, scope: string): Promise<void> {
-  const existing = await readIndex(root);
-  const filtered = existing.filter((e) => e.scope !== scope);
-  const path = indexPath(root);
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify(filtered, null, 2)}\n`, "utf-8");
-}

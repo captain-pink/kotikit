@@ -201,7 +201,7 @@ function isKotikitCodexSection(line: string): boolean {
   return trimmed === "[mcp_servers.kotikit]" || trimmed.startsWith("[mcp_servers.kotikit.");
 }
 
-export function upsertCodexConfig(
+function upsertCodexConfig(
   existing: string | null,
   kotikitRoot: string,
   targetRoot: string

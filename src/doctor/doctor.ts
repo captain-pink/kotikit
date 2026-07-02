@@ -15,9 +15,9 @@ import {
   manifestPath,
 } from "../util/paths.js";
 
-export type DoctorStatus = "ok" | "warn" | "error";
+type DoctorStatus = "ok" | "warn" | "error";
 
-export interface DoctorCheck {
+interface DoctorCheck {
   id: string;
   label: string;
   status: DoctorStatus;

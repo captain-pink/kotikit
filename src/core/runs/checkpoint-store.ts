@@ -4,14 +4,14 @@ import { z } from "zod";
 import { KotikitError } from "../../util/result.js";
 import { assertSafeLocalId } from "./safe-id.js";
 
-export const CheckpointRecordSchema = z.strictObject({
+const CheckpointRecordSchema = z.strictObject({
   runId: z.string().min(1),
   graphHash: z.string().min(1),
   nextNodeIndex: z.number().int().nonnegative(),
   savedAt: z.iso.datetime(),
 });
 
-export type CheckpointRecord = {
+type CheckpointRecord = {
   runId: string;
   graphHash: string;
   nextNodeIndex: number;

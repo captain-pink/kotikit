@@ -1,9 +1,9 @@
 import type { z } from "zod";
 import { KotikitError } from "../../util/result.js";
 
-export type NodeKind = "deterministic" | "llm" | "interrupt" | "external-action" | "subgraph";
+type NodeKind = "deterministic" | "llm" | "interrupt" | "external-action" | "subgraph";
 
-export type NodeSideEffect =
+type NodeSideEffect =
   | "none"
   | "filesystem"
   | "sqlite"
@@ -11,13 +11,13 @@ export type NodeSideEffect =
   | "figma-write"
   | "comments-write";
 
-export type NodeRunnerInput = {
+type NodeRunnerInput = {
   nodeId: string;
   params: unknown;
   state: unknown;
 };
 
-export type NodeRunner = (input: NodeRunnerInput) => Promise<unknown>;
+type NodeRunner = (input: NodeRunnerInput) => Promise<unknown>;
 
 export type NodeDefinition = {
   key: string;

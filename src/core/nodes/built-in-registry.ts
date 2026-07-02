@@ -16,7 +16,7 @@ export function createBuiltInNodeRegistry(): NodeRegistry {
   return createNodeRegistry(builtInNodeDefinitions());
 }
 
-export function builtInNodeDefinitions(): NodeDefinition[] {
+function builtInNodeDefinitions(): NodeDefinition[] {
   return [
     ...briefNodeDefinitions,
     ...uxNodeDefinitions,

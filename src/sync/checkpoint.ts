@@ -6,7 +6,7 @@ import { checkpointPath } from "../util/paths.js";
 
 const DEFAULT_CHECKPOINT_MAX_AGE_MS = 6 * 60 * 60 * 1_000;
 
-export const CheckpointStageSchema = z.enum([
+const CheckpointStageSchema = z.enum([
   "metadata",
   "components",
   "component_sets",
@@ -16,9 +16,8 @@ export const CheckpointStageSchema = z.enum([
   "icons",
   "done",
 ]);
-export type CheckpointStage = z.infer<typeof CheckpointStageSchema>;
 
-export const FileCheckpointSchema = z.object({
+const FileCheckpointSchema = z.object({
   fileKey: z.string(),
   stage: CheckpointStageSchema,
   cursor: z
@@ -30,7 +29,7 @@ export const FileCheckpointSchema = z.object({
 });
 export type FileCheckpoint = z.infer<typeof FileCheckpointSchema>;
 
-export const CheckpointSchema = z.object({
+const CheckpointSchema = z.object({
   version: z.literal(1),
   startedAt: z.string(),
   files: z.array(FileCheckpointSchema),

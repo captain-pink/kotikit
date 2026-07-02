@@ -1,7 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { buildNameTokens } from "./camel-tokens.js";
 
-export type IconSignal = "page" | "prefix" | "slash";
+type IconSignal = "page" | "prefix" | "slash";
 
 export interface IconRow {
   name: string; // "arrow-right"

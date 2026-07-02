@@ -15,7 +15,7 @@ export const KOTIKIT_AUTO_APPROVED_TOOL_NAMES = [
   "kotikit_config_status",
 ] as const;
 
-export const KOTIKIT_TOOL_NAMES = [
+const KOTIKIT_TOOL_NAMES = [
   ...KOTIKIT_AUTO_APPROVED_TOOL_NAMES,
   "kotikit_doctor",
   "kotikit_config_get",
@@ -33,7 +33,7 @@ export const KOTIKIT_TOOL_NAMES = [
   "kotikit_record_figma_apply",
 ] as const;
 
-export type KotikitToolName = (typeof KOTIKIT_TOOL_NAMES)[number];
+type KotikitToolName = (typeof KOTIKIT_TOOL_NAMES)[number];
 
 interface ToolSafety {
   autoApprove: boolean;
@@ -61,7 +61,7 @@ const remoteOrSecretAnnotations: ToolAnnotations = {
   openWorldHint: true,
 };
 
-export const KOTIKIT_TOOL_SAFETY = Object.fromEntries(
+const KOTIKIT_TOOL_SAFETY = Object.fromEntries(
   KOTIKIT_TOOL_NAMES.map((name) => {
     const autoApprove = KOTIKIT_AUTO_APPROVED_TOOL_NAMES.includes(
       name as (typeof KOTIKIT_AUTO_APPROVED_TOOL_NAMES)[number]

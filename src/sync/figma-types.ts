@@ -32,7 +32,7 @@ const ComponentPropertyDefSchema = z
 
 // ─── GET /v1/files/:key ──────────────────────────────────────────────────────
 
-export const FigmaPageSchema = z
+const FigmaPageSchema = z
   .object({
     id: z.string(),
     name: z.string(),
@@ -66,7 +66,7 @@ export type FigmaFile = z.infer<typeof FigmaFileSchema>;
 
 // ─── GET /v1/files/:key/components ───────────────────────────────────────────
 
-export const FigmaPublishedComponentSchema = z
+const FigmaPublishedComponentSchema = z
   .object({
     key: z.string(),
     node_id: z.string(),
@@ -89,7 +89,7 @@ const FigmaComponentsResponseSchema = z
 
 // ─── GET /v1/files/:key/component_sets ───────────────────────────────────────
 
-export const FigmaComponentSetSchema = z
+const FigmaComponentSetSchema = z
   .object({
     key: z.string(),
     node_id: z.string().optional(),
@@ -111,7 +111,7 @@ const FigmaComponentSetsResponseSchema = z
 
 // ─── GET /v1/files/:key/styles ───────────────────────────────────────────────
 
-export const FigmaStyleSchema = z
+const FigmaStyleSchema = z
   .object({
     key: z.string(),
     name: z.string(),
@@ -132,7 +132,7 @@ const FigmaStylesResponseSchema = z
 
 // ─── GET /v1/files/:key/variables/local ──────────────────────────────────────
 
-export const FigmaLocalVariablesSchema = z
+const FigmaLocalVariablesSchema = z
   .object({
     variables: z
       .record(
@@ -177,7 +177,7 @@ const FigmaVariablesResponseSchema = z
 
 // ─── GET /v1/files/:key/nodes ────────────────────────────────────────────────
 
-export const FigmaNodeSchema = z
+const FigmaNodeSchema = z
   .object({
     document: z
       .object({
