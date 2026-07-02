@@ -50,6 +50,18 @@ const ApprovalRequestSchema = z.strictObject({
   artifactIds: z.array(z.string().min(1)).optional(),
 });
 
+const FigmaDefaultsSchema = z.strictObject({
+  section: z.strictObject({
+    background: z.strictObject({
+      color: z
+        .string()
+        .regex(/^[0-9A-F]{6}$/)
+        .default("AED0FF"),
+      opacity: z.number().min(0).max(1).default(0.1),
+    }),
+  }),
+});
+
 export const KotikitGraphStateSchema = z.strictObject({
   schemaVersion: z.literal(KOTIKIT_GRAPH_STATE_SCHEMA_VERSION),
   runId: z.string().min(1),
@@ -66,6 +78,7 @@ export const KotikitGraphStateSchema = z.strictObject({
   designSystem: z.unknown().optional(),
   fitReport: z.unknown().optional(),
   figmaTarget: z.unknown().optional(),
+  figmaDefaults: FigmaDefaultsSchema.optional(),
   applyMetadata: z.unknown().optional(),
   uxEnvelope: UXEnvelopeSchema.optional(),
   stateMatrix: StateMatrixSchema.optional(),

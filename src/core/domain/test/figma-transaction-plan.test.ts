@@ -46,7 +46,15 @@ describe("buildFigmaTransactionPlan", () => {
       placementId: "draft-table-row",
       draftComponentId: "table-row",
       status: "pending",
-      requiredMetadata: ["node-id", "bounds", "auto-layout", "component-refs", "variable-refs"],
+      requiredMetadata: [
+        "node-id",
+        "bounds",
+        "auto-layout",
+        "component-refs",
+        "component-source",
+        "icon-refs",
+        "variable-refs",
+      ],
     });
     expect(nextPendingTransaction(plan)?.id).toBe("txn-draft-table-row");
   });

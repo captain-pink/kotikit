@@ -31,6 +31,12 @@ describe("draft graph nodes", () => {
     expect(result.statePatch?.canvasPlan).toMatchObject({
       schemaVersion: "CanvasPlan/v1",
       section: { id: "section-1", name: "kotikit / members / 2026-06-30" },
+      sectionStyle: {
+        background: {
+          color: "AED0FF",
+          opacity: 0.1,
+        },
+      },
       placements: [
         {
           id: "draft-table-row",
@@ -106,6 +112,29 @@ describe("draft graph nodes", () => {
     });
   });
 
+  it("skips draft component transactions that already have real created component keys", async () => {
+    const result = await runNode("draft.buildFigmaTransactionPlan", {
+      canvasPlan: sampleCanvasPlan(),
+      draftPlan: {
+        createdDraftComponents: [{ id: "table-row", componentKey: "real-table-row-key" }],
+      },
+    });
+
+    expect(result.statePatch?.figmaTransactionPlan).toMatchObject({
+      schemaVersion: "FigmaTransactionPlan/v1",
+      transactions: [
+        {
+          id: "txn-state-filled",
+          order: 1,
+          kind: "create-screen-state",
+          placementId: "state-filled",
+          stateId: "filled",
+          status: "pending",
+        },
+      ],
+    });
+  });
+
   it("allows quick high-fidelity packets from a screen blueprint and assumptions", async () => {
     const result = await runNode("draft.buildFigmaApplyPacket", {
       brief: { lane: "quick", assumptions: ["Use existing design-system components first."] },
@@ -123,44 +152,78 @@ describe("draft graph nodes", () => {
       },
     });
 
-    expect(result.statePatch?.draftPlan).toMatchObject({
-      applyPacket: expect.objectContaining({
-        mode: "official-figma-mcp",
-        target: expect.objectContaining({ fileKey: "FILE" }),
-        canvasPlanSummary: {
-          sectionName: "kotikit / members / 2026-06-30",
-          placementCount: 2,
-          zoneCount: 2,
-        },
-        transactionPlanSummary: {
-          transactionCount: 2,
-          transactions: [
-            {
-              id: "txn-draft-table-row",
-              order: 1,
-              kind: "create-draft-component",
-              label: "Table row",
-              placementId: "draft-table-row",
-              draftComponentId: "table-row",
-            },
-            {
-              id: "txn-state-filled",
-              order: 2,
-              kind: "create-screen-state",
-              label: "Members - Filled",
-              placementId: "state-filled",
-              stateId: "filled",
-            },
-          ],
-        },
-        repeatedItems: [{ id: "members", instances: ["row-key"] }],
-        textTransforms: [{ id: "button-label", transform: "none" }],
-        metadata: expect.objectContaining({ incrementalTransactions: true }),
-      }),
-    });
     const applyPacket = (result.statePatch?.draftPlan as { applyPacket?: Record<string, unknown> })
       .applyPacket;
-    expect(applyPacket).not.toHaveProperty("canvasPlan");
+    if (applyPacket === undefined) throw new Error("Expected apply packet");
+    expect(applyPacket.mode).toBe("official-figma-mcp");
+    expect(recordFrom(applyPacket.target).fileKey).toBe("FILE");
+    expect(applyPacket.canvasPlanSummary).toEqual({
+      sectionName: "kotikit / members / 2026-06-30",
+      placementCount: 2,
+      zoneCount: 2,
+    });
+    expect(applyPacket.canvasPlan).toMatchObject({
+      minGap: 160,
+      sectionStyle: {
+        background: {
+          color: "AED0FF",
+          opacity: 0.1,
+        },
+      },
+      zones: [
+        expect.objectContaining({ id: "zone-draft-components", kind: "draft-components" }),
+        expect.objectContaining({ id: "zone-screen-states", kind: "screen-states" }),
+      ],
+      placements: [
+        expect.objectContaining({
+          id: "draft-table-row",
+          bounds: { x: 0, y: 0, width: 360, height: 240 },
+          parentZoneId: "zone-draft-components",
+        }),
+        expect.objectContaining({
+          id: "state-filled",
+          bounds: { x: 560, y: 0, width: 1440, height: 900 },
+          parentZoneId: "zone-screen-states",
+        }),
+      ],
+    });
+    expect(recordFrom(applyPacket.transactionPlanSummary).transactions).toEqual([
+      expect.objectContaining({
+        id: "txn-draft-table-row",
+        kind: "create-draft-component",
+        expectedNodeKind: "COMPONENT",
+        placement: expect.objectContaining({
+          parentZoneId: "zone-draft-components",
+          bounds: { x: 0, y: 0, width: 360, height: 240 },
+        }),
+      }),
+      expect.objectContaining({
+        id: "txn-state-filled",
+        kind: "create-screen-state",
+        expectedNodeKind: "FRAME",
+        placement: expect.objectContaining({
+          parentZoneId: "zone-screen-states",
+          bounds: { x: 560, y: 0, width: 1440, height: 900 },
+        }),
+      }),
+    ]);
+    expect(applyPacket.iconRequirements).toEqual([
+      expect.objectContaining({
+        id: "primary-action-icon",
+        semantic: "add-user",
+        source: "local-design-system",
+        partId: "button",
+      }),
+    ]);
+    expect(applyPacket.repeatedItems).toEqual([{ id: "members", instances: ["row-key"] }]);
+    expect(applyPacket.textTransforms).toEqual([{ id: "button-label", transform: "none" }]);
+    expect(applyPacket.metadata).toEqual(
+      expect.objectContaining({
+        incrementalTransactions: true,
+        verifyIcons: true,
+        verifyActualComponentInstances: true,
+      })
+    );
     expect(applyPacket).not.toHaveProperty("transactionPlan");
   });
 
@@ -213,6 +276,15 @@ describe("draft graph nodes", () => {
             placementCount: 2,
             zoneCount: 2,
           },
+          canvasPlan: expect.objectContaining({
+            sectionStyle: {
+              background: {
+                color: "AED0FF",
+                opacity: 0.1,
+              },
+            },
+            minGap: 160,
+          }),
           transactionPlanSummary: {
             transactionCount: 2,
             transactions: [
@@ -239,9 +311,7 @@ describe("draft graph nodes", () => {
     });
     const data = (result.artifacts?.[0] as { payload?: { data?: Record<string, unknown> } }).payload
       ?.data;
-    expect(data).not.toHaveProperty("canvasPlan");
     expect(data).not.toHaveProperty("transactionPlan");
-    expect(data).not.toHaveProperty("transactions");
   });
 
   it("keeps graph state compact after building an apply packet for multiple states", async () => {
@@ -331,6 +401,12 @@ function state(patch: Partial<KotikitGraphState>): KotikitGraphState {
   };
 }
 
+function recordFrom(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
 function composition(): NonNullable<KotikitGraphState["uiComposition"]> {
   return {
     schemaVersion: "UICompositionContract/v1",
@@ -341,6 +417,16 @@ function composition(): NonNullable<KotikitGraphState["uiComposition"]> {
         role: "primary-action",
         source: "existing-component",
         componentKey: "button-key",
+        iconAffordances: [
+          {
+            id: "primary-action-icon",
+            semantic: "add-user",
+            source: "local-design-system",
+            iconKey: "icon-add-user-key",
+            required: true,
+            reason: "The primary action benefits from a local design-system icon.",
+          },
+        ],
       },
     ],
   };
@@ -387,6 +473,12 @@ function sampleCanvasPlan(): NonNullable<KotikitGraphState["canvasPlan"]> {
     coordinateSpace: "section-relative",
     screenSize: { width: 1440, height: 900 },
     minGap: 160,
+    sectionStyle: {
+      background: {
+        color: "AED0FF",
+        opacity: 0.1,
+      },
+    },
     zones: [
       {
         id: "zone-draft-components",
@@ -495,7 +587,15 @@ function sampleTransactionPlan(): NonNullable<KotikitGraphState["figmaTransactio
         placementId: "draft-table-row",
         draftComponentId: "table-row",
         status: "pending",
-        requiredMetadata: ["node-id", "bounds", "auto-layout", "component-refs", "variable-refs"],
+        requiredMetadata: [
+          "node-id",
+          "bounds",
+          "auto-layout",
+          "component-refs",
+          "component-source",
+          "icon-refs",
+          "variable-refs",
+        ],
       },
       {
         id: "txn-state-filled",
@@ -505,7 +605,15 @@ function sampleTransactionPlan(): NonNullable<KotikitGraphState["figmaTransactio
         placementId: "state-filled",
         stateId: "filled",
         status: "pending",
-        requiredMetadata: ["node-id", "bounds", "auto-layout", "component-refs", "variable-refs"],
+        requiredMetadata: [
+          "node-id",
+          "bounds",
+          "auto-layout",
+          "component-refs",
+          "component-source",
+          "icon-refs",
+          "variable-refs",
+        ],
       },
     ],
   };

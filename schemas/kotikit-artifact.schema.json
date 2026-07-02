@@ -502,6 +502,43 @@
                   "primitiveReason": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "iconAffordances": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "semantic": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": ["local-design-system", "approved-external"]
+                        },
+                        "iconKey": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "iconName": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "required": {
+                          "type": "boolean"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": ["id", "semantic", "source"],
+                      "additionalProperties": false
+                    }
                   }
                 },
                 "required": ["id", "name", "role", "source"],
@@ -952,6 +989,37 @@
               "minimum": 0,
               "maximum": 100000
             },
+            "sectionStyle": {
+              "default": {
+                "background": {
+                  "color": "AED0FF",
+                  "opacity": 0.1
+                }
+              },
+              "type": "object",
+              "properties": {
+                "background": {
+                  "type": "object",
+                  "properties": {
+                    "color": {
+                      "default": "AED0FF",
+                      "type": "string",
+                      "pattern": "^[0-9A-F]{6}$"
+                    },
+                    "opacity": {
+                      "default": 0.1,
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    }
+                  },
+                  "required": ["color", "opacity"],
+                  "additionalProperties": false
+                }
+              },
+              "required": ["background"],
+              "additionalProperties": false
+            },
             "zones": {
               "maxItems": 500,
               "type": "array",
@@ -1111,6 +1179,7 @@
             "coordinateSpace",
             "screenSize",
             "minGap",
+            "sectionStyle",
             "zones",
             "placements",
             "strategy"
@@ -1184,6 +1253,8 @@
                         "bounds",
                         "auto-layout",
                         "component-refs",
+                        "component-source",
+                        "icon-refs",
                         "variable-refs"
                       ]
                     }
@@ -1327,6 +1398,10 @@
                       "maxLength": 2048
                     }
                   },
+                  "componentSource": {
+                    "type": "string",
+                    "enum": ["existing-component", "draft-component", "approved-primitive"]
+                  },
                   "variableRefs": {
                     "maxItems": 500,
                     "type": "array",
@@ -1335,6 +1410,23 @@
                       "minLength": 1,
                       "maxLength": 2048
                     }
+                  },
+                  "iconRefs": {
+                    "maxItems": 500,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2048
+                    }
+                  },
+                  "iconKey": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2048
+                  },
+                  "iconPlaceholder": {
+                    "type": "boolean"
                   },
                   "autoLayout": {
                     "type": "boolean"
@@ -2750,6 +2842,43 @@
                   "primitiveReason": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "iconAffordances": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "semantic": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": ["local-design-system", "approved-external"]
+                        },
+                        "iconKey": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "iconName": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "required": {
+                          "type": "boolean"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": ["id", "semantic", "source"],
+                      "additionalProperties": false
+                    }
                   }
                 },
                 "required": ["id", "name", "role", "source"],
@@ -3672,6 +3801,37 @@
               "minimum": 0,
               "maximum": 100000
             },
+            "sectionStyle": {
+              "default": {
+                "background": {
+                  "color": "AED0FF",
+                  "opacity": 0.1
+                }
+              },
+              "type": "object",
+              "properties": {
+                "background": {
+                  "type": "object",
+                  "properties": {
+                    "color": {
+                      "default": "AED0FF",
+                      "type": "string",
+                      "pattern": "^[0-9A-F]{6}$"
+                    },
+                    "opacity": {
+                      "default": 0.1,
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    }
+                  },
+                  "required": ["color", "opacity"],
+                  "additionalProperties": false
+                }
+              },
+              "required": ["background"],
+              "additionalProperties": false
+            },
             "zones": {
               "maxItems": 500,
               "type": "array",
@@ -3831,6 +3991,7 @@
             "coordinateSpace",
             "screenSize",
             "minGap",
+            "sectionStyle",
             "zones",
             "placements",
             "strategy"
@@ -3963,6 +4124,8 @@
                         "bounds",
                         "auto-layout",
                         "component-refs",
+                        "component-source",
+                        "icon-refs",
                         "variable-refs"
                       ]
                     }
@@ -4165,6 +4328,10 @@
                       "maxLength": 2048
                     }
                   },
+                  "componentSource": {
+                    "type": "string",
+                    "enum": ["existing-component", "draft-component", "approved-primitive"]
+                  },
                   "variableRefs": {
                     "maxItems": 500,
                     "type": "array",
@@ -4173,6 +4340,23 @@
                       "minLength": 1,
                       "maxLength": 2048
                     }
+                  },
+                  "iconRefs": {
+                    "maxItems": 500,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2048
+                    }
+                  },
+                  "iconKey": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2048
+                  },
+                  "iconPlaceholder": {
+                    "type": "boolean"
                   },
                   "autoLayout": {
                     "type": "boolean"

@@ -127,6 +127,14 @@ function makeRuntime(): FacadeRuntime {
         input: {
           project: { root: "/tmp/kotikit-facade-test" },
           userIntent: "Create a settings screen",
+          figmaDefaults: {
+            section: {
+              background: {
+                color: "AED0FF",
+                opacity: 0.1,
+              },
+            },
+          },
         },
       });
       return { runId: "run-1", status: "waiting-for-user", state: makeState("waiting-for-user") };
@@ -278,7 +286,10 @@ describe("MCP facade tools", () => {
     expect(applyTool?.inputSchema.properties).toHaveProperty("transactionId");
     expect(applyTool?.inputSchema.properties).toHaveProperty("bounds");
     expect(applyTool?.inputSchema.properties).toHaveProperty("componentRefs");
+    expect(applyTool?.inputSchema.properties).toHaveProperty("componentSource");
     expect(applyTool?.inputSchema.properties).toHaveProperty("variableRefs");
+    expect(applyTool?.inputSchema.properties).toHaveProperty("iconRefs");
+    expect(applyTool?.inputSchema.properties).toHaveProperty("iconPlaceholder");
     expect(applyTool?.inputSchema.properties).toHaveProperty("representation");
     expect(applyTool?.inputSchema.properties).toHaveProperty("autoLayout");
     expect(applyTool?.inputSchema.properties).toHaveProperty("nodes");
@@ -342,6 +353,9 @@ describe("MCP facade tools", () => {
       representation: "region-state",
       componentRefs: ["button-key"],
       variableRefs: ["var-color-primary"],
+      componentSource: "existing-component",
+      iconRefs: ["icon-add-user-key"],
+      iconKey: "icon-add-user-key",
       autoLayout: true,
       nodes: [
         {
@@ -350,9 +364,11 @@ describe("MCP facade tools", () => {
           kind: "instance",
           partId: "primary-action",
           draftComponentId: "draft-primary-action",
+          componentSource: "draft-component",
           bounds: { x: 1200, y: 72, width: 160, height: 40 },
           componentRefs: ["draft-primary-action"],
           variableRefs: ["var-color-primary"],
+          iconPlaceholder: true,
           autoLayout: true,
         },
       ],
@@ -368,13 +384,23 @@ describe("MCP facade tools", () => {
       representation: "region-state",
       componentRefs: ["button-key"],
       variableRefs: ["var-color-primary"],
+      componentSource: "existing-component",
+      iconRefs: ["icon-add-user-key"],
+      iconKey: "icon-add-user-key",
       autoLayout: true,
     });
     expect(applyMetadata?.nodes).toEqual([
-      expect.objectContaining({ id: "node-1", kind: "frame" }),
+      expect.objectContaining({
+        id: "node-1",
+        kind: "frame",
+        componentSource: "existing-component",
+        iconRefs: ["icon-add-user-key"],
+      }),
       expect.objectContaining({
         id: "node-2",
         draftComponentId: "draft-primary-action",
+        componentSource: "draft-component",
+        iconPlaceholder: true,
         bounds: { x: 1200, y: 72, width: 160, height: 40 },
       }),
     ]);

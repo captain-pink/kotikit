@@ -4,7 +4,11 @@ import { draftComponentNodeDefinitions } from "../index.js";
 
 type NodeOutput = {
   statePatch?: Partial<KotikitGraphState>;
-  interrupt?: { pendingQuestion?: { id: string; choices?: string[] } };
+  interrupt?: {
+    status?: "waiting-for-user" | "waiting-for-figma";
+    resume?: "same-node" | "next-node";
+    pendingQuestion?: { id: string; choices?: string[] };
+  };
 };
 type StatePatch = Partial<KotikitGraphState> & Record<string, unknown>;
 
@@ -70,7 +74,7 @@ describe("draft component graph nodes", () => {
     expect(result.statePatch?.draftComponentPlan).toBeUndefined();
   });
 
-  it("creates draft components before screen composition starts", async () => {
+  it("pauses for real Figma draft component creation before screen composition starts", async () => {
     const result = await runNode("draftComponents.createOnDraftPage", {
       figmaTarget: draftTarget(),
       draftComponentPlan: {
@@ -78,17 +82,112 @@ describe("draft component graph nodes", () => {
         sectionName: "Kotikit Draft Components",
         components: [{ id: "draft-email-input", name: "email input", reason: "Missing input" }],
       },
+      canvasPlan: canvasPlan(),
+    });
+
+    expect(result.interrupt).toEqual({ status: "waiting-for-figma", resume: "same-node" });
+    expect(result.statePatch?.activeFigmaTransaction).toMatchObject({
+      id: "txn-draft-draft-email-input",
+      kind: "create-draft-component",
+      draftComponentId: "draft-email-input",
+      placementId: "draft-draft-email-input",
+    });
+  });
+
+  it("records real Figma draft component metadata and rejects fake draft keys", async () => {
+    await expect(
+      runNode("draftComponents.createOnDraftPage", {
+        figmaTarget: draftTarget(),
+        draftComponentPlan: {
+          schemaVersion: "DraftComponentPlan/v1",
+          sectionName: "Kotikit Draft Components",
+          components: [{ id: "draft-email-input", name: "email input", reason: "Missing input" }],
+        },
+        activeFigmaTransaction: {
+          id: "txn-draft-draft-email-input",
+          order: 1,
+          kind: "create-draft-component",
+          label: "email input",
+          placementId: "draft-draft-email-input",
+          draftComponentId: "draft-email-input",
+          requiredMetadata: [
+            "node-id",
+            "bounds",
+            "auto-layout",
+            "component-refs",
+            "component-source",
+            "icon-refs",
+            "variable-refs",
+          ],
+        },
+        applyMetadata: {
+          transactionId: "txn-draft-draft-email-input",
+          fileKey: "FILE",
+          pageId: "1:2",
+          sectionName: "kotikit / members / 2026-06-30",
+          figmaNodeId: "6:2",
+          figmaNodeName: "Draft/email input",
+          figmaNodeKind: "COMPONENT",
+          bounds: { x: 0, y: 0, width: 360, height: 240 },
+          componentRefs: ["draft:draft-email-input"],
+          variableRefs: [],
+          autoLayout: true,
+        },
+      })
+    ).rejects.toThrow("real Figma component key");
+
+    const result = await runNode("draftComponents.createOnDraftPage", {
+      figmaTarget: draftTarget(),
+      draftComponentPlan: {
+        schemaVersion: "DraftComponentPlan/v1",
+        sectionName: "Kotikit Draft Components",
+        components: [{ id: "draft-email-input", name: "email input", reason: "Missing input" }],
+      },
+      activeFigmaTransaction: {
+        id: "txn-draft-draft-email-input",
+        order: 1,
+        kind: "create-draft-component",
+        label: "email input",
+        placementId: "draft-draft-email-input",
+        draftComponentId: "draft-email-input",
+        requiredMetadata: [
+          "node-id",
+          "bounds",
+          "auto-layout",
+          "component-refs",
+          "component-source",
+          "icon-refs",
+          "variable-refs",
+        ],
+      },
+      applyMetadata: {
+        transactionId: "txn-draft-draft-email-input",
+        fileKey: "FILE",
+        pageId: "1:2",
+        sectionName: "kotikit / members / 2026-06-30",
+        figmaNodeId: "6:2",
+        figmaNodeName: "Draft/email input",
+        figmaNodeKind: "COMPONENT",
+        bounds: { x: 0, y: 0, width: 360, height: 240 },
+        componentRefs: ["figma-local-component-key"],
+        variableRefs: [],
+        autoLayout: true,
+      },
     });
 
     expect(result.statePatch?.draftPlan).toMatchObject({
       createdDraftComponents: [
-        expect.objectContaining({
+        {
           id: "draft-email-input",
           name: "email input",
+          componentKey: "figma-local-component-key",
+          componentNodeId: "6:2",
           sectionName: "Kotikit Draft Components",
-        }),
+        },
       ],
     });
+    expect(result.statePatch?.activeFigmaTransaction).toBeUndefined();
+    expect(result.statePatch?.applyMetadata).toBeUndefined();
   });
 
   it("refuses draft component creation on an unsafe Figma target", async () => {
@@ -120,6 +219,25 @@ describe("draft component graph nodes", () => {
         },
       })
     ).rejects.toThrow("component key");
+
+    await expect(
+      runNode("draftComponents.validateCreated", {
+        draftComponentPlan: {
+          schemaVersion: "DraftComponentPlan/v1",
+          sectionName: "Kotikit Draft Components",
+          components: [{ id: "draft-email-input", name: "email input", reason: "Missing input" }],
+        },
+        draftPlan: {
+          createdDraftComponents: [
+            {
+              id: "draft-email-input",
+              name: "email input",
+              componentKey: "draft:draft-email-input",
+            },
+          ],
+        },
+      })
+    ).rejects.toThrow("real Figma component key");
   });
 
   it("builds draft component lifecycle from created components and applied instances", async () => {
@@ -239,6 +357,52 @@ function draftTarget(): NonNullable<KotikitGraphState["figmaTarget"]> {
       requireDraftPageName: true,
       allowPageCreation: false,
       requireKotikitSection: true,
+    },
+  };
+}
+
+function canvasPlan(): NonNullable<KotikitGraphState["canvasPlan"]> {
+  return {
+    schemaVersion: "CanvasPlan/v1",
+    section: { id: "section-1", name: "kotikit / members / 2026-06-30" },
+    coordinateSpace: "section-relative",
+    screenSize: { width: 1440, height: 900 },
+    minGap: 160,
+    sectionStyle: {
+      background: {
+        color: "AED0FF",
+        opacity: 0.1,
+      },
+    },
+    zones: [
+      {
+        id: "zone-draft-components",
+        kind: "draft-components",
+        label: "Draft components",
+        bounds: { x: 0, y: 0, width: 360, height: 240 },
+      },
+      {
+        id: "zone-screen-states",
+        kind: "screen-states",
+        label: "Screen states",
+        bounds: { x: 560, y: 0, width: 1440, height: 900 },
+      },
+    ],
+    placements: [
+      {
+        id: "draft-draft-email-input",
+        kind: "draft-component",
+        draftComponentId: "draft-email-input",
+        label: "email input",
+        bounds: { x: 0, y: 0, width: 360, height: 240 },
+        parentZoneId: "zone-draft-components",
+        transactionId: "txn-draft-draft-email-input",
+      },
+    ],
+    strategy: {
+      primaryFirst: true,
+      creationOrder: ["draft-draft-email-input"],
+      designerNotes: ["Draft components stay in their own section."],
     },
   };
 }

@@ -112,8 +112,9 @@ instances in the composed screen.
 
 Each active Figma transaction creates exactly one draft component, screen state,
 or region state at the bounds from the canvas plan. After each write, record
-transactionId, node id, bounds, component refs, variable refs, and auto-layout
-metadata with `kotikit_record_figma_apply`, then continue the run.
+transactionId, node id, bounds, component refs, component source, variable
+refs, required icon refs, and auto-layout metadata with
+`kotikit_record_figma_apply`, then continue the run.
 
 ## Local Kotikit Plugin
 

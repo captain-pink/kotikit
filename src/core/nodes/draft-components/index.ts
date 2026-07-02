@@ -61,27 +61,69 @@ export const draftComponentNodeDefinitions: NodeDefinition[] = [
   }),
   node({
     key: "draftComponents.createOnDraftPage",
-    stateReads: ["figmaTarget", "draftComponentPlan", "draftPlan"],
-    stateWrites: ["draftPlan"],
+    stateReads: [
+      "figmaTarget",
+      "draftComponentPlan",
+      "draftPlan",
+      "canvasPlan",
+      "activeFigmaTransaction",
+      "applyMetadata",
+    ],
+    stateWrites: ["draftPlan", "activeFigmaTransaction", "applyMetadata"],
     sideEffects: "figma-write",
     requiredCapabilities: ["draftComponents.write"],
     run: async (input) => {
       const state = graphState(input.state);
-      ensureDraftTarget(state.figmaTarget);
+      const target = ensureDraftTarget(state.figmaTarget);
       const plan = state.draftComponentPlan;
       if (plan === undefined) return {} satisfies RuntimeNodeOutput;
+      if (state.activeFigmaTransaction?.kind === "create-draft-component") {
+        const metadata = recordFrom(state.applyMetadata);
+        if (Object.keys(metadata).length === 0) {
+          return {
+            interrupt: { status: "waiting-for-figma", resume: "same-node" },
+          } satisfies RuntimeNodeOutput;
+        }
+        const created = recordDraftComponentMetadata({
+          state,
+          target,
+          plan,
+          metadata,
+          draftComponentId: state.activeFigmaTransaction.draftComponentId,
+        });
+        const nextTransaction = nextDraftComponentTransaction({
+          state,
+          plan,
+          createdDraftComponents: created,
+        });
+
+        return {
+          statePatch: {
+            draftPlan: {
+              ...recordFrom(state.draftPlan),
+              createdDraftComponents: created,
+            },
+            activeFigmaTransaction: nextTransaction,
+            applyMetadata: undefined,
+          },
+          ...(nextTransaction === undefined
+            ? {}
+            : { interrupt: { status: "waiting-for-figma", resume: "same-node" as const } }),
+        } satisfies RuntimeNodeOutput;
+      }
+
+      const nextTransaction = nextDraftComponentTransaction({
+        state,
+        plan,
+        createdDraftComponents: createdDraftComponentsFrom(state),
+      });
+      if (nextTransaction === undefined) return {} satisfies RuntimeNodeOutput;
+
       return {
         statePatch: {
-          draftPlan: {
-            ...recordFrom(state.draftPlan),
-            createdDraftComponents: plan.components.map((component) => ({
-              id: component.id,
-              name: component.name,
-              componentKey: `draft:${component.id}`,
-              sectionName: plan.sectionName,
-            })),
-          },
+          activeFigmaTransaction: nextTransaction,
         },
+        interrupt: { status: "waiting-for-figma", resume: "same-node" },
       } satisfies RuntimeNodeOutput;
     },
   }),
@@ -95,11 +137,15 @@ export const draftComponentNodeDefinitions: NodeDefinition[] = [
       const created = recordArray(recordFrom(state.draftPlan).createdDraftComponents);
       const missing = planned.find((component) => {
         const match = created.find((item) => item.id === component.id);
-        return typeof match?.componentKey !== "string" || match.componentKey.length === 0;
+        return (
+          typeof match?.componentKey !== "string" ||
+          match.componentKey.length === 0 ||
+          match.componentKey.startsWith("draft:")
+        );
       });
       if (missing !== undefined) {
         throw new KotikitError(
-          `Draft component "${missing.name}" is missing a component key.`,
+          `Draft component "${missing.name}" is missing a real Figma component key.`,
           "Create and validate draft components in the active draft page before composing the screen."
         );
       }
@@ -180,6 +226,122 @@ function missingComponents(state: KotikitGraphState): string[] {
 
 function approvedPrimitiveExceptionsFrom(state: KotikitGraphState): string[] {
   return stringArray(recordFrom(state.fitReport).approvedPrimitiveExceptions);
+}
+
+function recordDraftComponentMetadata(input: {
+  state: KotikitGraphState;
+  target: ReturnType<typeof ensureDraftTarget>;
+  plan: NonNullable<KotikitGraphState["draftComponentPlan"]>;
+  metadata: Record<string, unknown>;
+  draftComponentId?: string;
+}): Record<string, unknown>[] {
+  if (input.draftComponentId === undefined) {
+    throw new KotikitError(
+      "The active draft component transaction is missing a draft component id.",
+      "Restart the draft component creation transaction."
+    );
+  }
+  if (input.metadata.transactionId !== input.state.activeFigmaTransaction?.id) {
+    throw new KotikitError(
+      "The Figma draft component metadata belongs to a different transaction.",
+      "Record metadata for the active draft component transaction before continuing."
+    );
+  }
+  if (input.metadata.fileKey !== input.target.fileKey) {
+    throw new KotikitError(
+      "The Figma draft component metadata came from a different file.",
+      "Apply the draft component transaction in the bound Figma draft file."
+    );
+  }
+  if (input.metadata.pageId !== input.target.pageId) {
+    throw new KotikitError(
+      "The Figma draft component metadata came from a different page.",
+      "Apply the draft component transaction in the bound Figma draft page."
+    );
+  }
+  if (input.metadata.sectionName !== input.target.section?.name) {
+    throw new KotikitError(
+      "The Figma draft component metadata came from outside the kotikit section.",
+      "Keep draft component creation inside the section recorded by kotikit."
+    );
+  }
+  if (input.metadata.figmaNodeKind !== "COMPONENT") {
+    throw new KotikitError(
+      "The draft component transaction did not create a Figma component.",
+      "Create a real component before composing screens from it."
+    );
+  }
+
+  const componentKey = realComponentKeyFrom(input.metadata);
+  const component = input.plan.components.find((item) => item.id === input.draftComponentId);
+  if (component === undefined) {
+    throw new KotikitError(
+      `The Figma draft component metadata references unknown component ${input.draftComponentId}.`,
+      "Regenerate the draft component plan before recording metadata."
+    );
+  }
+
+  return upsertCreatedDraftComponent(createdDraftComponentsFrom(input.state), {
+    id: component.id,
+    name: component.name,
+    componentKey,
+    componentNodeId: stringField(input.metadata, "figmaNodeId"),
+    sectionName: input.plan.sectionName,
+  });
+}
+
+function nextDraftComponentTransaction(input: {
+  state: KotikitGraphState;
+  plan: NonNullable<KotikitGraphState["draftComponentPlan"]>;
+  createdDraftComponents: Record<string, unknown>[];
+}): NonNullable<KotikitGraphState["activeFigmaTransaction"]> | undefined {
+  const nextComponent = input.plan.components.find(
+    (component) => !hasRealCreatedDraftComponent(input.createdDraftComponents, component.id)
+  );
+  if (nextComponent === undefined) return undefined;
+  const placement = input.state.canvasPlan?.placements.find(
+    (candidate) => candidate.draftComponentId === nextComponent.id
+  );
+  return {
+    id: placement?.transactionId ?? `txn-draft-${nextComponent.id}`,
+    order: Math.max(1, input.createdDraftComponents.length + 1),
+    kind: "create-draft-component",
+    label: nextComponent.name,
+    placementId: placement?.id ?? `draft-${nextComponent.id}`,
+    draftComponentId: nextComponent.id,
+    requiredMetadata: ["node-id", "bounds", "auto-layout", "component-refs", "variable-refs"],
+  };
+}
+
+function createdDraftComponentsFrom(state: KotikitGraphState): Record<string, unknown>[] {
+  return recordArray(recordFrom(state.draftPlan).createdDraftComponents);
+}
+
+function hasRealCreatedDraftComponent(
+  createdDraftComponents: Record<string, unknown>[],
+  draftComponentId: string
+): boolean {
+  const match = createdDraftComponents.find((item) => item.id === draftComponentId);
+  return typeof match?.componentKey === "string" && !match.componentKey.startsWith("draft:");
+}
+
+function upsertCreatedDraftComponent(
+  current: Record<string, unknown>[],
+  next: Record<string, unknown>
+): Record<string, unknown>[] {
+  const withoutCurrent = current.filter((item) => item.id !== next.id);
+  return [...withoutCurrent, next];
+}
+
+function realComponentKeyFrom(metadata: Record<string, unknown>): string {
+  const componentKey = stringArray(metadata.componentRefs).find((ref) => !ref.startsWith("draft:"));
+  if (componentKey === undefined) {
+    throw new KotikitError(
+      "Draft component creation must return a real Figma component key.",
+      "Use Figma component metadata from the created component, not a synthetic draft:* key."
+    );
+  }
+  return componentKey;
 }
 
 function answerFor(state: KotikitGraphState, questionId: string): string | undefined {

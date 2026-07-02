@@ -153,6 +153,305 @@ describe("figma graph nodes", () => {
     ).rejects.toThrow("repeated item structure");
   });
 
+  it("requires actual design-system instance and icon proof for incremental apply packets", async () => {
+    await expect(
+      runNode("figma.verifyDraftInvariants", {
+        figmaTarget: draftTarget(),
+        draftPlan: {
+          applyPacket: {
+            ...incrementalApplyPacket(),
+            iconRequirements: [
+              {
+                id: "primary-action-icon",
+                semantic: "add-user",
+                source: "local-design-system",
+              },
+            ],
+          },
+        },
+        applyReport: {
+          schemaVersion: "FigmaApplyReport/v1",
+          status: "recorded",
+          fileKey: "FILE",
+          pageId: "1:2",
+          sectionName: "kotikit / members / 2026-06-30",
+          nodes: [
+            {
+              id: "node-1",
+              partId: "button",
+              componentKey: "button-key",
+              componentSource: "draft-component",
+            },
+          ],
+          variableBindings: [
+            {
+              targetId: "button",
+              property: "fill",
+              source: "variable",
+              name: "color.bg",
+              variableRef: "color.bg",
+            },
+            {
+              targetId: "button-label",
+              property: "text",
+              source: "style",
+              id: "style-body",
+              variableRef: "style-body",
+            },
+          ],
+          layoutFrames: [{ id: "root", mode: "auto-layout", direction: "vertical" }],
+          repeatedItems: [{ id: "members", instances: ["row-key"] }],
+          textTransforms: [{ id: "button-label", transform: "none" }],
+        },
+      })
+    ).rejects.toThrow("actual design-system instance");
+
+    await expect(
+      runNode("figma.verifyDraftInvariants", {
+        figmaTarget: draftTarget(),
+        draftPlan: {
+          applyPacket: incrementalApplyPacket(),
+        },
+        applyReport: {
+          schemaVersion: "FigmaApplyReport/v1",
+          status: "recorded",
+          fileKey: "FILE",
+          pageId: "1:2",
+          sectionName: "kotikit / members / 2026-06-30",
+          nodes: [
+            {
+              id: "screen-node",
+              name: "Screen",
+              semanticRole: "screen-state",
+              componentRefs: ["button-key"],
+              autoLayout: true,
+            },
+            {
+              id: "button-node",
+              partId: "button",
+              componentRefs: ["button-key"],
+              componentSource: "existing-component",
+              autoLayout: true,
+            },
+          ],
+          variableBindings: [
+            {
+              targetId: "button",
+              property: "fill",
+              source: "variable",
+              name: "color.bg",
+              variableRef: "color.bg",
+            },
+            {
+              targetId: "button-label",
+              property: "text",
+              source: "style",
+              id: "style-body",
+              variableRef: "style-body",
+            },
+          ],
+          layoutFrames: [{ id: "root", mode: "auto-layout", direction: "vertical" }],
+          repeatedItems: [],
+          textTransforms: [],
+        },
+      })
+    ).resolves.toEqual({});
+
+    await expect(
+      runNode("figma.verifyDraftInvariants", {
+        figmaTarget: draftTarget(),
+        draftPlan: {
+          applyPacket: incrementalApplyPacket(),
+        },
+        applyReport: {
+          schemaVersion: "FigmaApplyReport/v1",
+          status: "recorded",
+          fileKey: "FILE",
+          pageId: "1:2",
+          sectionName: "kotikit / members / 2026-06-30",
+          nodes: [
+            {
+              id: "screen-node",
+              name: "Screen",
+              semanticRole: "screen-state",
+              componentRefs: ["button-key"],
+              autoLayout: true,
+            },
+            {
+              id: "button-node",
+              partId: "button",
+              componentRefs: ["wrong-button-key"],
+              componentSource: "existing-component",
+              autoLayout: true,
+            },
+          ],
+          variableBindings: [
+            {
+              targetId: "button",
+              property: "fill",
+              source: "variable",
+              name: "color.bg",
+              variableRef: "color.bg",
+            },
+            {
+              targetId: "button-label",
+              property: "text",
+              source: "style",
+              id: "style-body",
+              variableRef: "style-body",
+            },
+          ],
+          layoutFrames: [{ id: "root", mode: "auto-layout", direction: "vertical" }],
+          repeatedItems: [],
+          textTransforms: [],
+        },
+      })
+    ).rejects.toThrow("actual design-system instance");
+
+    await expect(
+      runNode("figma.verifyDraftInvariants", {
+        figmaTarget: draftTarget(),
+        draftPlan: {
+          applyPacket: {
+            ...incrementalApplyPacket(),
+            iconRequirements: [
+              {
+                id: "primary-action-icon",
+                semantic: "add-user",
+                source: "local-design-system",
+              },
+            ],
+          },
+        },
+        applyReport: {
+          schemaVersion: "FigmaApplyReport/v1",
+          status: "recorded",
+          fileKey: "FILE",
+          pageId: "1:2",
+          sectionName: "kotikit / members / 2026-06-30",
+          nodes: [
+            {
+              id: "node-1",
+              partId: "button",
+              componentKey: "button-key",
+              componentSource: "existing-component",
+              autoLayout: true,
+            },
+          ],
+          variableBindings: [
+            {
+              targetId: "button",
+              property: "fill",
+              source: "variable",
+              name: "color.bg",
+              variableRef: "color.bg",
+            },
+            {
+              targetId: "button-label",
+              property: "text",
+              source: "style",
+              id: "style-body",
+              variableRef: "style-body",
+            },
+          ],
+          layoutFrames: [{ id: "root", mode: "auto-layout", direction: "vertical" }],
+          repeatedItems: [{ id: "members", instances: ["row-key"] }],
+          textTransforms: [{ id: "button-label", transform: "none" }],
+          iconRefs: [],
+        },
+      })
+    ).rejects.toThrow("icon ref");
+
+    await expect(
+      runNode("figma.verifyDraftInvariants", {
+        figmaTarget: draftTarget(),
+        draftPlan: {
+          applyPacket: {
+            ...incrementalApplyPacket(),
+            uiComposition: {
+              schemaVersion: "UICompositionContract/v1",
+              parts: [
+                {
+                  id: "button",
+                  name: "primary button",
+                  role: "primary-action",
+                  source: "existing-component",
+                  componentKey: "button-key",
+                },
+                {
+                  id: "secondary-button",
+                  name: "secondary button",
+                  role: "secondary-action",
+                  source: "existing-component",
+                  componentKey: "secondary-button-key",
+                },
+              ],
+            },
+            iconRequirements: [
+              {
+                id: "primary-action-icon",
+                semantic: "add-user",
+                source: "local-design-system",
+                partId: "button",
+                iconKey: "icon-add-user-key",
+              },
+              {
+                id: "secondary-action-icon",
+                semantic: "close",
+                source: "local-design-system",
+                partId: "secondary-button",
+                iconKey: "icon-close-key",
+              },
+            ],
+          },
+        },
+        applyReport: {
+          schemaVersion: "FigmaApplyReport/v1",
+          status: "recorded",
+          fileKey: "FILE",
+          pageId: "1:2",
+          sectionName: "kotikit / members / 2026-06-30",
+          nodes: [
+            {
+              id: "button-node",
+              partId: "button",
+              componentRefs: ["button-key"],
+              componentSource: "existing-component",
+              iconRefs: ["icon-add-user-key"],
+              autoLayout: true,
+            },
+            {
+              id: "secondary-button-node",
+              partId: "secondary-button",
+              componentRefs: ["secondary-button-key"],
+              componentSource: "existing-component",
+              autoLayout: true,
+            },
+          ],
+          variableBindings: [
+            {
+              targetId: "button",
+              property: "fill",
+              source: "variable",
+              name: "color.bg",
+              variableRef: "color.bg",
+            },
+            {
+              targetId: "button-label",
+              property: "text",
+              source: "style",
+              id: "style-body",
+              variableRef: "style-body",
+            },
+          ],
+          layoutFrames: [{ id: "root", mode: "auto-layout", direction: "vertical" }],
+          repeatedItems: [],
+          textTransforms: [],
+        },
+      })
+    ).rejects.toThrow("icon ref");
+  });
+
   it("saves apply reports with applied node metadata", async () => {
     const result = await runNode("figma.saveApplyReport", {
       applyReport: {
@@ -204,7 +503,15 @@ describe("figma graph nodes", () => {
       label: "Members / Filled",
       placementId: "state-filled",
       stateId: "filled",
-      requiredMetadata: ["node-id", "bounds", "auto-layout", "component-refs", "variable-refs"],
+      requiredMetadata: [
+        "node-id",
+        "bounds",
+        "auto-layout",
+        "component-refs",
+        "component-source",
+        "icon-refs",
+        "variable-refs",
+      ],
     });
     expect(result.statePatch?.activeFigmaTransaction).not.toHaveProperty("status");
   });
@@ -236,6 +543,8 @@ describe("figma graph nodes", () => {
         bounds: { x: 560, y: 0, width: 1440, height: 900 },
         componentRefs: ["button-key"],
         variableRefs: ["var-color-primary"],
+        componentSource: "existing-component",
+        iconRefs: ["icon-add-user-key"],
         autoLayout: true,
       },
     });
@@ -268,6 +577,8 @@ describe("figma graph nodes", () => {
         bounds: { x: 560, y: 0, width: 1440, height: 900 },
         componentRefs: ["button-key"],
         variableRefs: ["var-color-primary"],
+        componentSource: "existing-component",
+        iconRefs: ["icon-add-user-key"],
         autoLayout: true,
       },
     });
@@ -289,6 +600,8 @@ describe("figma graph nodes", () => {
           bounds: { x: 560, y: 0, width: 1440, height: 900 },
           componentRefs: ["button-key"],
           variableRefs: ["var-color-primary"],
+          componentSource: "existing-component",
+          iconRefs: ["icon-add-user-key"],
           autoLayout: true,
         }),
       ],
@@ -311,9 +624,12 @@ describe("figma graph nodes", () => {
           bounds: { x: 560, y: 0, width: 1440, height: 900 },
           componentRefs: ["button-key"],
           variableRefs: ["var-color-primary"],
+          componentSource: "existing-component",
+          iconRefs: ["icon-add-user-key"],
           autoLayout: true,
         }),
       ],
+      iconRefs: ["icon-add-user-key"],
       layoutFrames: [expect.objectContaining({ id: "9:10", transactionId: "txn-filled" })],
     });
   });
@@ -338,6 +654,8 @@ describe("figma graph nodes", () => {
               "bounds",
               "auto-layout",
               "component-refs",
+              "component-source",
+              "icon-refs",
               "variable-refs",
             ],
           },
@@ -350,7 +668,15 @@ describe("figma graph nodes", () => {
         label: "Draft/Filter",
         placementId: "draft-filter",
         draftComponentId: "draft-filter",
-        requiredMetadata: ["node-id", "bounds", "auto-layout", "component-refs", "variable-refs"],
+        requiredMetadata: [
+          "node-id",
+          "bounds",
+          "auto-layout",
+          "component-refs",
+          "component-source",
+          "icon-refs",
+          "variable-refs",
+        ],
       },
       applyMetadata: {
         ...targetMetadata(),
@@ -399,6 +725,8 @@ describe("figma graph nodes", () => {
               "bounds",
               "auto-layout",
               "component-refs",
+              "component-source",
+              "icon-refs",
               "variable-refs",
             ],
           },
@@ -411,7 +739,15 @@ describe("figma graph nodes", () => {
         label: "Draft/Filter",
         placementId: "draft-filter",
         draftComponentId: "draft-filter",
-        requiredMetadata: ["node-id", "bounds", "auto-layout", "component-refs", "variable-refs"],
+        requiredMetadata: [
+          "node-id",
+          "bounds",
+          "auto-layout",
+          "component-refs",
+          "component-source",
+          "icon-refs",
+          "variable-refs",
+        ],
       },
       applyMetadata: {
         ...targetMetadata(),
@@ -765,6 +1101,7 @@ function applyMetadata(
   overrides: Partial<{
     componentRefs: string[];
     variableRefs: string[];
+    componentSource: "existing-component" | "draft-component";
     autoLayout: boolean;
   }> = {}
 ): Record<string, unknown> {
@@ -777,7 +1114,21 @@ function applyMetadata(
     bounds: { x: 560, y: 0, width: 1440, height: 900 },
     componentRefs: overrides.componentRefs ?? ["button-key"],
     variableRefs: overrides.variableRefs ?? ["color.bg"],
+    componentSource: overrides.componentSource ?? "existing-component",
     autoLayout: overrides.autoLayout ?? true,
+    nodes: [
+      {
+        id: "9:11",
+        name: "Primary button",
+        kind: "INSTANCE",
+        partId: "button",
+        componentRefs: overrides.componentRefs ?? ["button-key"],
+        variableRefs: overrides.variableRefs ?? ["color.bg"],
+        componentSource: overrides.componentSource ?? "existing-component",
+        bounds: { x: 1200, y: 72, width: 160, height: 40 },
+        autoLayout: true,
+      },
+    ],
   };
 }
 
@@ -802,7 +1153,15 @@ function transactionPlan(): NonNullable<KotikitGraphState["figmaTransactionPlan"
         placementId: "state-filled",
         stateId: "filled",
         status: "pending",
-        requiredMetadata: ["node-id", "bounds", "auto-layout", "component-refs", "variable-refs"],
+        requiredMetadata: [
+          "node-id",
+          "bounds",
+          "auto-layout",
+          "component-refs",
+          "component-source",
+          "icon-refs",
+          "variable-refs",
+        ],
       },
       {
         id: "txn-empty",
@@ -812,7 +1171,15 @@ function transactionPlan(): NonNullable<KotikitGraphState["figmaTransactionPlan"
         placementId: "state-empty",
         stateId: "empty",
         status: "pending",
-        requiredMetadata: ["node-id", "bounds", "auto-layout", "component-refs", "variable-refs"],
+        requiredMetadata: [
+          "node-id",
+          "bounds",
+          "auto-layout",
+          "component-refs",
+          "component-source",
+          "icon-refs",
+          "variable-refs",
+        ],
       },
     ],
   };

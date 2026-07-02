@@ -68,8 +68,8 @@ is available on `PATH`.
 7. If the run produces an apply-packet artifact, read it with
    `kotikit_get_artifact`, apply only the active Figma transaction through
    official Figma MCP tools, then call `kotikit_record_figma_apply` with the
-   `runId`, `transactionId`, node id, bounds, component refs, variable refs,
-   and auto-layout metadata.
+   `runId`, `transactionId`, node id, bounds, component refs, component
+   source, variable refs, required icon refs, and auto-layout metadata.
 8. Call `kotikit_continue` after external Figma work is recorded. Repeat until
    kotikit reports no active Figma transaction.
 
@@ -81,8 +81,9 @@ When applying a kotikit draft in Figma:
 - Place it at the bounds from the canvas plan.
 - Use auto layout, imported design-system component instances, and
   variables/styles.
-- Record `transactionId`, node id, bounds, component refs, variable refs, and
-  auto-layout metadata with `kotikit_record_figma_apply`.
+- Record `transactionId`, node id, bounds, component refs, component source,
+  variable refs, required icon refs, and auto-layout metadata with
+  `kotikit_record_figma_apply`.
 - Continue the run and repeat until kotikit reports no active Figma
   transaction.
 - Do not create every state on the canvas in one operation.

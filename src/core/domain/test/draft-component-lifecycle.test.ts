@@ -14,7 +14,12 @@ describe("draft component lifecycle", () => {
         components: [{ id: "draft-table-row", name: "Table row", reason: "Missing" }],
       },
       createdDraftComponents: [
-        { id: "draft-table-row", name: "Table row", componentKey: "component-key", nodeId: "1:2" },
+        {
+          id: "draft-table-row",
+          name: "Table row",
+          componentKey: "component-key",
+          componentNodeId: "1:2",
+        },
       ],
       appliedInstances: [{ draftComponentId: "draft-table-row", nodeId: "2:1" }],
     });
@@ -22,6 +27,7 @@ describe("draft component lifecycle", () => {
     expect(lifecycle.components).toEqual([
       expect.objectContaining({
         draftComponentId: "draft-table-row",
+        componentNodeId: "1:2",
         status: "used",
         requiredInstances: 1,
       }),

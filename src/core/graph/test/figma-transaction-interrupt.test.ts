@@ -89,7 +89,15 @@ const validActiveTransaction: NonNullable<KotikitGraphState["activeFigmaTransact
   label: "Members / Filled",
   placementId: "state-filled",
   stateId: "filled",
-  requiredMetadata: ["node-id", "bounds", "auto-layout", "component-refs"],
+  requiredMetadata: [
+    "node-id",
+    "bounds",
+    "auto-layout",
+    "component-refs",
+    "component-source",
+    "icon-refs",
+    "variable-refs",
+  ],
 };
 
 function createRuntime(input: { flow: FlowDefinition; nodes: NodeDefinition[] }) {

@@ -6,6 +6,12 @@ const ZONE_GAP = 200;
 const SCREEN_GAP = 160;
 const DRAFT_COMPONENT_HEIGHT = 240;
 const SCREEN_COLUMNS = 2;
+const DEFAULT_SECTION_STYLE = {
+  background: {
+    color: "AED0FF",
+    opacity: 0.1,
+  },
+} as const;
 
 type CanvasPlacement = CanvasPlan["placements"][number];
 type CanvasZone = CanvasPlan["zones"][number];
@@ -18,6 +24,7 @@ export function buildCanvasPlan(input: {
   screenSize: { width: number; height: number };
   states: { id: string; label: string; kind: string }[];
   draftComponents: { id: string; name: string }[];
+  sectionStyle?: CanvasPlan["sectionStyle"];
 }): CanvasPlan {
   const draftPlacements = input.draftComponents.map(
     (component, index): CanvasPlacement => ({
@@ -65,6 +72,7 @@ export function buildCanvasPlan(input: {
     coordinateSpace: "section-relative",
     screenSize: input.screenSize,
     minGap: SCREEN_GAP,
+    sectionStyle: input.sectionStyle ?? DEFAULT_SECTION_STYLE,
     zones: [
       {
         id: "zone-draft-components",
