@@ -521,6 +521,78 @@ describe("MCP facade tools", () => {
     expect(patched).toEqual([]);
   });
 
+  it("rejects invalid component evidence before patching state so the transaction stays repairable", async () => {
+    const patched: string[] = [];
+    const runtime = {
+      ...makeRuntime(),
+      async getRunState(): Promise<KotikitGraphState> {
+        return {
+          ...makeState("waiting-for-figma"),
+          activeFigmaTransaction: activeFigmaTransaction("txn-active"),
+          draftPlan: {
+            fidelity: "high",
+            applyPacket: {
+              uiComposition: {
+                parts: [
+                  {
+                    id: "content-heading",
+                    name: "content heading",
+                    source: "existing-component",
+                    componentKey: "heading-key",
+                  },
+                ],
+              },
+              iconRequirements: [],
+            },
+          } as NonNullable<KotikitGraphState["draftPlan"]>,
+        };
+      },
+      async patchRunState(): Promise<RuntimeRunResult> {
+        patched.push("patch");
+        throw new Error("patchRunState should not be called");
+      },
+    } satisfies FacadeRuntime;
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx(), { runtime });
+
+    const result = await callTool(registry, "kotikit_record_figma_apply", {
+      runId: "run-1",
+      scope: "members",
+      stepIndex: 0,
+      outcome: "ok",
+      transactionId: "txn-active",
+      figmaFileKey: "FILE",
+      figmaPageId: "1:2",
+      figmaSectionName: "kotikit / members / 2026-06-30",
+      figmaNodeId: "node-1",
+      figmaNodeKind: "FRAME",
+      bounds: { x: 0, y: 0, width: 1440, height: 900 },
+      componentRefs: ["heading-key"],
+      variableRefs: [],
+      autoLayout: true,
+      evidenceSnapshot: {
+        schemaVersion: "FigmaEvidenceSnapshot/v1",
+        parts: [
+          {
+            partId: "content-heading",
+            id: "3:3746",
+            name: "Page title",
+            kind: "TEXT",
+            visible: true,
+            opacity: 1,
+            insideRoot: true,
+            bounds: { x: 300, y: 48, width: 240, height: 44 },
+          },
+        ],
+      },
+    });
+
+    expect(String(result.content[0]?.text)).toContain(
+      'found "Page title" as TEXT for "content heading"'
+    );
+    expect(patched).toEqual([]);
+  });
+
   it("advertises required nested project root for kotikit_start", () => {
     const registry = makeRegistry();
     registerFacadeTools(registry, makeCtx());

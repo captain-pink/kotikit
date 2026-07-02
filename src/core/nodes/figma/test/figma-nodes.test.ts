@@ -889,7 +889,7 @@ describe("figma graph nodes", () => {
           }),
         }),
       })
-    ).rejects.toThrow("expected an existing local design-system component");
+    ).rejects.toThrow("expected a visible INSTANCE of local design-system component key");
   });
 
   it("accepts variable key proof for incremental variable bindings", async () => {
@@ -949,7 +949,7 @@ describe("figma graph nodes", () => {
         draftPlan: { applyPacket: incrementalApplyPacket() },
         applyReport: apply.statePatch?.applyReport,
       })
-    ).rejects.toThrow("expected an existing local design-system component");
+    ).rejects.toThrow("expected a visible INSTANCE of local design-system component key");
   });
 
   it("rejects newly created local components as existing local DS proof", async () => {
@@ -972,7 +972,7 @@ describe("figma graph nodes", () => {
         draftPlan: { applyPacket: incrementalApplyPacket() },
         applyReport: apply.statePatch?.applyReport,
       })
-    ).rejects.toThrow("existing local design-system component");
+    ).rejects.toThrow("expected a visible INSTANCE of local design-system component key");
   });
 
   it("rejects compact incremental apply evidence without required component refs", async () => {

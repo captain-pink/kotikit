@@ -1608,6 +1608,16 @@
                   "autoLayout": {
                     "type": "boolean"
                   },
+                  "directVisibleChildCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "autoLayoutContainerCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
                   "screenshotReviewed": {
                     "type": "boolean"
                   },
@@ -4840,6 +4850,16 @@
                   },
                   "autoLayout": {
                     "type": "boolean"
+                  },
+                  "directVisibleChildCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "autoLayoutContainerCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
                   },
                   "screenshotReviewed": {
                     "type": "boolean"

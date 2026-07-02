@@ -89,6 +89,7 @@ export function runUiQualityGate(input: {
     checkIconRefs(input.nodes, input.iconRequirements ?? [], input.iconRefs ?? []),
     checkScreenStateAutoLayout(input.nodes),
     checkScreenshotReview(input.nodes),
+    checkScreenStateContainerStructure(input.nodes),
     checkMissingTransactionMetadata(input.nodes),
   ];
 
@@ -231,6 +232,33 @@ function checkScreenshotReview(nodes: AppliedNode[]): UIQualityGateReport["check
   return checkResult("screenshot-review", "Screenshot review", findings);
 }
 
+function checkScreenStateContainerStructure(
+  nodes: AppliedNode[]
+): UIQualityGateReport["checks"][number] {
+  const findings = nodes
+    .filter((node) => node.semanticRole === "screen-state")
+    .flatMap((node) => {
+      const directVisibleChildCount = numberField(node, "directVisibleChildCount");
+      const autoLayoutContainerCount = numberField(node, "autoLayoutContainerCount");
+      if (
+        directVisibleChildCount === undefined ||
+        autoLayoutContainerCount === undefined ||
+        directVisibleChildCount < 24 ||
+        autoLayoutContainerCount >= 4
+      ) {
+        return [];
+      }
+      return [
+        `${String(node.id ?? "unknown")} has ${directVisibleChildCount} direct visible children but only ${autoLayoutContainerCount} auto-layout container`,
+      ];
+    });
+  return checkResult(
+    "screen-state-container-structure",
+    "Screen state container structure",
+    findings
+  );
+}
+
 function topLevelCanvasNodes(nodes: AppliedNode[]): AppliedNode[] {
   return nodes.filter((node) =>
     ["screen-state", "draft-component"].includes(String(node.semanticRole ?? ""))
@@ -305,6 +333,8 @@ function recommendedActionFor(id: string): string {
       "Represent this as a page, region, component, or flow state instead of an extra state card.",
     "state-shell-drift": "Keep persistent shell regions aligned across related screen states.",
     "screen-state-auto-layout": "Rebuild the screen state as an auto-layout frame.",
+    "screen-state-container-structure":
+      "Group the screen into semantic auto-layout containers such as shell, sidebar, header, toolbar, content region, repeated rows, and footer.",
     "screenshot-review":
       "Take a screenshot of the generated screen state, inspect visible layout issues, and repair any findings before continuing.",
     "transaction-metadata": "Record transactionId and placementId for every generated node.",
@@ -344,6 +374,11 @@ function hasBounds(node: AppliedNode): node is AppliedNode & {
 function stringField(value: Record<string, unknown>, key: string): string | undefined {
   const candidate = value[key];
   return typeof candidate === "string" && candidate.length > 0 ? candidate : undefined;
+}
+
+function numberField(value: Record<string, unknown>, key: string): number | undefined {
+  const candidate = value[key];
+  return typeof candidate === "number" && Number.isFinite(candidate) ? candidate : undefined;
 }
 
 function stringArray(value: unknown): string[] {

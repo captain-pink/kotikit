@@ -41,7 +41,11 @@ function verifyExistingComponentParts(input: {
       if (candidates.some((node) => nodeSatisfiesExistingComponent(node, componentKey))) return;
 
       throw new KotikitError(
-        `Figma evidence shows "${partLabel(part)}" expected an existing local design-system component but did not use one.`,
+        evidenceMismatchMessage({
+          candidate: candidates[0],
+          partLabel: partLabel(part),
+          componentKey,
+        }),
         recoveryHintForComponentCandidate(candidates[0], componentKey)
       );
     });
@@ -155,7 +159,30 @@ function evidenceNodesFrom(snapshots: Record<string, unknown>[]): EvidenceNode[]
   return snapshots.flatMap((snapshot) => [
     ...recordArray(snapshot.parts),
     ...recordArray(snapshot.nodes),
+    ...recordArray(snapshot.componentInstances),
+    ...recordArray(snapshot.icons),
   ]);
+}
+
+function evidenceMismatchMessage(input: {
+  candidate: EvidenceNode | undefined;
+  partLabel: string;
+  componentKey: string;
+}): string {
+  if (input.candidate === undefined) {
+    return `Figma evidence shows "${input.partLabel}" expected an existing local design-system component but did not use one.`;
+  }
+  return `Figma evidence found "${nodeLabel(input.candidate)}" as ${nodeKind(input.candidate)} for "${input.partLabel}", but expected a visible INSTANCE of local design-system component key "${input.componentKey}".`;
+}
+
+function nodeLabel(node: EvidenceNode): string {
+  return String(node.name ?? node.id ?? "unknown node");
+}
+
+function nodeKind(node: EvidenceNode): string {
+  return String(
+    node.kind ?? node.nodeType ?? node.type ?? (node.isInstance === true ? "INSTANCE" : "node")
+  );
 }
 
 function evidencePartId(node: EvidenceNode): string | undefined {

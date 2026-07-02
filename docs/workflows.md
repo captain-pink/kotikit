@@ -60,7 +60,10 @@ recorded in the node ledger so future recovery and QA have real evidence.
 Design-system components must be the actual visible UI, not hidden or
 low-opacity proof layers. If evidence fails, the active transaction remains
 repairable so the assistant should fix the current frame instead of starting a
-new run or section.
+new run or section. A compact scanner snapshot should include visible
+component instances and layout metrics for the applied root frame; very flat
+screen states with many direct children and too few semantic auto-layout
+containers are blocked as unfinished structure.
 
 ### Manual QA For Generated Figma Drafts
 
@@ -75,6 +78,8 @@ After kotikit creates a draft, verify:
 - important controls use design-system component instances;
 - required icons come from the local design-system icon index, not placeholders;
 - variables/styles are bound where available;
+- screen states are grouped into semantic auto-layout containers such as shell,
+  sidebar, header, toolbar, content region, repeated rows, and footer;
 - screen-state frames were reviewed from a screenshot after visible component
   placement;
 - all frames stay editable and selectable without manual cleanup.

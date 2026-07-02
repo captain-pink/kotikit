@@ -293,6 +293,7 @@ function buildApplyPacketArtifact(state: KotikitGraphState, packet: FigmaApplyPa
         canvasPlan: toJson(packet.canvasPlan),
         transactionPlanSummary: toJson(packet.transactionPlanSummary),
         iconRequirements: toJson(packet.iconRequirements),
+        evidenceChecklist: toJson(packet.evidenceChecklist),
         visualReview: toJson(packet.visualReview),
       },
     },

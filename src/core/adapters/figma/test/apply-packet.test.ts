@@ -117,6 +117,44 @@ describe("buildFigmaApplyPacket", () => {
     });
     expect(packet.metadata).toMatchObject({ requiresScreenshotReview: true });
   });
+
+  it("describes visible existing-component proof and compact scanner output", () => {
+    const packet = buildFigmaApplyPacket({
+      target: draftTarget(),
+      screenTitle: "Members",
+      uiComposition: {
+        schemaVersion: "UICompositionContract/v1",
+        parts: [
+          {
+            id: "content-heading",
+            name: "content heading",
+            role: "content",
+            source: "existing-component",
+            componentKey: "heading-key",
+          },
+        ],
+      },
+      layoutContract: layoutContract(),
+      variableBindingPlan: variableBindingPlan(),
+      canvasPlan: canvasPlan(),
+      transactionPlan: transactionPlan(),
+    });
+
+    expect(packet.evidenceChecklist.existingComponents).toEqual([
+      {
+        partId: "content-heading",
+        partName: "content heading",
+        componentKey: "heading-key",
+        expectedNodeKind: "INSTANCE",
+        mustBeVisible: true,
+        evidenceOnlyAllowed: false,
+      },
+    ]);
+    expect(packet.evidenceChecklist.scannerOutput).toMatchObject({
+      schemaVersion: "FigmaEvidenceSnapshot/v1",
+      arrays: ["parts", "componentInstances", "layoutFrames", "icons"],
+    });
+  });
 });
 
 function draftTarget(): FigmaDraftTarget {

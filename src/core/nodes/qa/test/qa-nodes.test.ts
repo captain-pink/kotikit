@@ -140,6 +140,41 @@ describe("qa graph nodes", () => {
     });
   });
 
+  it("blocks flat screen-state frames without semantic auto-layout containers", async () => {
+    const result = await runNode("qa.runUiQualityGate", {
+      applyReport: {
+        schemaVersion: "FigmaApplyReport/v1",
+        nodes: [
+          {
+            id: "state-filled",
+            semanticRole: "screen-state",
+            transactionId: "txn-filled",
+            placementId: "state-filled",
+            bounds: { x: 0, y: 0, width: 1440, height: 900 },
+            autoLayout: true,
+            screenshotReviewed: true,
+            directVisibleChildCount: 96,
+            autoLayoutContainerCount: 1,
+            overlaps: [],
+          },
+        ],
+      },
+    });
+
+    expect(result.statePatch?.uiQualityGate).toMatchObject({
+      status: "blocked",
+      checks: expect.arrayContaining([
+        expect.objectContaining({
+          id: "screen-state-container-structure",
+          status: "blocked",
+          findings: [
+            "state-filled has 96 direct visible children but only 1 auto-layout container",
+          ],
+        }),
+      ]),
+    });
+  });
+
   it("blocks screen-state frames that were not reviewed from a screenshot", async () => {
     const result = await runNode("qa.runUiQualityGate", {
       applyReport: {

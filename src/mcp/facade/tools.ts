@@ -1,6 +1,7 @@
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { ensureDraftTarget } from "../../core/adapters/figma/target.js";
+import { verifyFigmaEvidenceAgainstApplyPacket } from "../../core/domain/figma-evidence.js";
 import { loadBuiltInFlows } from "../../core/flows/catalog.js";
 import { computeStableHash } from "../../core/graph/graph-hash.js";
 import type {
@@ -1241,6 +1242,33 @@ async function validateFigmaApplyRecord(
       "Continue the kotikit run so the graph records the pending metadata before recording another transaction."
     );
   }
+
+  validateRepairableFigmaEvidence(state, applyMetadata);
+}
+
+function validateRepairableFigmaEvidence(
+  state: KotikitGraphState,
+  applyMetadata: Record<string, unknown>
+): void {
+  const active = recordFrom(state.activeFigmaTransaction);
+  const kind = stringField(active, "kind");
+  if (kind !== "create-screen-state" && kind !== "create-region-state") return;
+
+  const packet = recordFrom(recordFrom(state.draftPlan).applyPacket);
+  if (Object.keys(packet).length === 0) return;
+
+  const evidenceSnapshot = recordFrom(applyMetadata.evidenceSnapshot);
+  if (Object.keys(evidenceSnapshot).length === 0) {
+    throw new KotikitError(
+      "Figma apply metadata is missing the compact evidence snapshot.",
+      "Run the compact Figma evidence scanner on the applied root frame, then record the same active transaction again."
+    );
+  }
+
+  verifyFigmaEvidenceAgainstApplyPacket({
+    packet,
+    evidenceSnapshots: [evidenceSnapshot],
+  });
 }
 
 function compactFlow(flow: FlowDefinition): Record<string, unknown> {

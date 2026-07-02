@@ -74,7 +74,7 @@ is available on `PATH`.
    components before the main screen or flow exists.
 8. If the run produces an apply-packet artifact, read it with
    `kotikit_get_artifact`, apply only the active Figma transaction through
-   official Figma MCP tools, scan the applied root node, then call
+   official Figma MCP tools, read its `evidenceChecklist`, scan the applied root node, then call
    `kotikit_record_figma_apply` with the `runId`, `transactionId`, node id,
    Figma node type, bounds, component refs or componentKey, component source,
    variable refs, required icon refs, auto-layout metadata, and
@@ -94,9 +94,15 @@ When applying a kotikit draft in Figma:
 - Place it at the bounds from the canvas plan.
 - Use auto layout, imported design-system component instances, and
   variables/styles.
+- Treat every `evidenceChecklist.existingComponents[]` item as a visible UI
+  requirement. The matching Figma node must be a visible `INSTANCE` whose
+  component key is the listed local design-system key.
 - After the write, scan the applied root node and include compact evidence for
   visible component instances, local DS component/icon keys, layout mode,
   bounds, visibility, opacity, and layout metrics.
+- Shape scanner output as `FigmaEvidenceSnapshot/v1` with compact arrays named
+  `parts`, `componentInstances`, `layoutFrames`, and `icons`, plus
+  `summary.directVisibleChildCount` and `summary.autoLayoutContainerCount`.
 - Take a screenshot of the applied root frame after placing or changing visible
   design-system components. Inspect it for overlap, clipped or mirrored text,
   broken component internals, and layout drift.
@@ -110,6 +116,9 @@ When applying a kotikit draft in Figma:
 - Do not create draft components before composing the actual screen or flow.
 - Do not add visible or low-opacity proof nodes. If evidence fails, repair the
   same active transaction by using the planned DS component as the real UI.
+- Do not hand-build text or rectangles for a part that the apply packet marked
+  as `existing-component`; import and place the design-system instance first,
+  then compose surrounding screen-draft structure around it.
 - Newly created local components do not count as existing design-system reuse.
   Existing DS reuse means a visible instance whose main component key came from
   the pre-run local design-system search result.

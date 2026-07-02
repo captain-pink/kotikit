@@ -336,6 +336,13 @@ function appendLedgerNode(
   }
   const representation = stateRepresentationForTransaction(input.active, input.metadata);
   const recordedAt = nowIso();
+  const evidenceSummary = recordFrom(recordFrom(input.metadata.evidenceSnapshot).summary);
+  const directVisibleChildCount =
+    numberField(input.metadata, "directVisibleChildCount") ??
+    numberField(evidenceSummary, "directVisibleChildCount");
+  const autoLayoutContainerCount =
+    numberField(input.metadata, "autoLayoutContainerCount") ??
+    numberField(evidenceSummary, "autoLayoutContainerCount");
 
   const node = {
     nodeId,
@@ -372,6 +379,8 @@ function appendLedgerNode(
       ? {}
       : { iconPlaceholder: booleanField(input.metadata, "iconPlaceholder") }),
     autoLayout,
+    ...(directVisibleChildCount === undefined ? {} : { directVisibleChildCount }),
+    ...(autoLayoutContainerCount === undefined ? {} : { autoLayoutContainerCount }),
     ...(booleanField(input.metadata, "screenshotReviewed") === undefined
       ? {}
       : { screenshotReviewed: booleanField(input.metadata, "screenshotReviewed") }),
@@ -724,6 +733,12 @@ function compactReportNode(node: FigmaNodeLedger["nodes"][number]): Record<strin
     ...(node.iconKey === undefined ? {} : { iconKey: node.iconKey }),
     ...(node.iconPlaceholder === undefined ? {} : { iconPlaceholder: node.iconPlaceholder }),
     autoLayout: node.autoLayout,
+    ...(node.directVisibleChildCount === undefined
+      ? {}
+      : { directVisibleChildCount: node.directVisibleChildCount }),
+    ...(node.autoLayoutContainerCount === undefined
+      ? {}
+      : { autoLayoutContainerCount: node.autoLayoutContainerCount }),
     ...(node.screenshotReviewed === undefined
       ? {}
       : { screenshotReviewed: node.screenshotReviewed }),
@@ -1148,6 +1163,11 @@ function stringField(value: Record<string, unknown>, key: string): string | unde
 function booleanField(value: Record<string, unknown>, key: string): boolean | undefined {
   const candidate = value[key];
   return typeof candidate === "boolean" ? candidate : undefined;
+}
+
+function numberField(value: Record<string, unknown>, key: string): number | undefined {
+  const candidate = value[key];
+  return typeof candidate === "number" && Number.isFinite(candidate) ? candidate : undefined;
 }
 
 function componentSourceField(

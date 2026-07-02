@@ -44,6 +44,7 @@ export type FigmaApplyPacket = {
   canvasPlan: CanvasPlan;
   transactionPlanSummary: FigmaTransactionPlanSummary;
   iconRequirements: IconRequirement[];
+  evidenceChecklist: EvidenceChecklist;
   steps: unknown[];
   repeatedItems: unknown[];
   textTransforms: unknown[];
@@ -73,6 +74,24 @@ type IconRequirement = {
   iconKey?: string;
   iconName?: string;
   required?: boolean;
+};
+
+type EvidenceChecklist = {
+  existingComponents: ExistingComponentEvidenceRequirement[];
+  scannerOutput: {
+    schemaVersion: "FigmaEvidenceSnapshot/v1";
+    arrays: ["parts", "componentInstances", "layoutFrames", "icons"];
+    summaryFields: ["directVisibleChildCount", "autoLayoutContainerCount"];
+  };
+};
+
+type ExistingComponentEvidenceRequirement = {
+  partId: string;
+  partName: string;
+  componentKey: string;
+  expectedNodeKind: "INSTANCE";
+  mustBeVisible: true;
+  evidenceOnlyAllowed: false;
 };
 
 export function buildFigmaApplyPacket(input: {
@@ -112,6 +131,7 @@ export function buildFigmaApplyPacket(input: {
     canvasPlan: input.canvasPlan,
     transactionPlanSummary: summarizeTransactionPlan(input.transactionPlan, input.canvasPlan),
     iconRequirements: iconRequirementsFrom(input.uiComposition),
+    evidenceChecklist: evidenceChecklistFrom(input.uiComposition),
     steps: input.steps ?? [],
     repeatedItems: input.repeatedItems ?? [],
     textTransforms: input.textTransforms ?? [],
@@ -182,6 +202,29 @@ function summarizeTransactionPlan(
         parentZone,
       };
     }),
+  };
+}
+
+function evidenceChecklistFrom(uiComposition: UICompositionContract): EvidenceChecklist {
+  return {
+    existingComponents: uiComposition.parts.flatMap((part) => {
+      if (part.source !== "existing-component" || part.componentKey === undefined) return [];
+      return [
+        {
+          partId: part.id,
+          partName: part.name,
+          componentKey: part.componentKey,
+          expectedNodeKind: "INSTANCE" as const,
+          mustBeVisible: true as const,
+          evidenceOnlyAllowed: false as const,
+        },
+      ];
+    }),
+    scannerOutput: {
+      schemaVersion: "FigmaEvidenceSnapshot/v1",
+      arrays: ["parts", "componentInstances", "layoutFrames", "icons"],
+      summaryFields: ["directVisibleChildCount", "autoLayoutContainerCount"],
+    },
   };
 }
 

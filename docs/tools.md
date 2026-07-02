@@ -159,11 +159,18 @@ components after designer-approved extraction, and record `iconRefs` when the
 apply packet lists required icon affordances. For screen and region writes,
 include a compact `evidenceSnapshot` gathered from the applied Figma root node:
 visible component instances, local design-system component/icon keys,
-auto-layout mode, bounds, visibility, opacity, and layout metrics. Newly
-created local components do not satisfy existing design-system reuse.
+auto-layout mode, bounds, visibility, opacity, and layout metrics. The compact
+scanner should emit `FigmaEvidenceSnapshot/v1` arrays named `parts`,
+`componentInstances`, `layoutFrames`, and `icons`, plus
+`summary.directVisibleChildCount` and `summary.autoLayoutContainerCount`.
+Every apply-packet `evidenceChecklist.existingComponents[]` item must be a
+visible `INSTANCE` of that exact local design-system component key in the real
+UI, not a hidden proof layer or hand-built substitute. Newly created local
+components do not satisfy existing design-system reuse.
 Take a screenshot after visible DS component placement, inspect it, record
 `screenshotReviewed: true`, and include visible issues in
-`screenshotFindings`.
+`screenshotFindings`. If evidence is invalid, the tool rejects it before
+patching graph state so the same active transaction remains repairable.
 
 ### kotikit_doctor
 

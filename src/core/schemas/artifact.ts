@@ -362,6 +362,8 @@ const FigmaNodeLedgerEntrySchema = z.strictObject({
   iconKey: IncrementalRefSchema.optional(),
   iconPlaceholder: z.boolean().optional(),
   autoLayout: z.boolean(),
+  directVisibleChildCount: z.number().int().nonnegative().optional(),
+  autoLayoutContainerCount: z.number().int().nonnegative().optional(),
   screenshotReviewed: z.boolean().optional(),
   screenshotFindings: z.array(IncrementalTextSchema).max(INCREMENTAL_ARRAY_MAX).optional(),
   recordedAt: IncrementalRefSchema,

@@ -100,9 +100,14 @@ refs, auto-layout metadata, screenshot review status, and a compact
 `kotikit_record_figma_apply`, then continue the run. The evidence snapshot
 should be scanner-derived from actual Figma nodes and include visible component
 instances, local design-system component/icon keys, bounds, layout mode,
-visibility, opacity, and compact layout metrics. Take a screenshot after
-placing visible DS components, inspect it for overlap, clipped or mirrored
-text, broken component internals, and layout drift, then record
+visibility, opacity, and compact layout metrics. Scanner output should use
+`FigmaEvidenceSnapshot/v1` with `parts`, `componentInstances`, `layoutFrames`,
+and `icons` arrays plus direct-child and auto-layout-container counts in
+`summary`. Existing-component proof must be the actual visible UI instance for
+that part. Hidden references, low-opacity proof layers, imported-but-unused
+components, and hand-built text or rectangles do not count. Take a screenshot
+after placing visible DS components, inspect it for overlap, clipped or
+mirrored text, broken component internals, and layout drift, then record
 `screenshotReviewed: true` plus any `screenshotFindings`. Newly created local
 components do not count as existing design-system reuse.
 
