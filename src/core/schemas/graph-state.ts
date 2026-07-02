@@ -91,6 +91,7 @@ export const KotikitGraphStateSchema = z.strictObject({
   figmaTarget: z.unknown().optional(),
   figmaDefaults: FigmaDefaultsSchema.optional(),
   applyMetadata: z.unknown().optional(),
+  figmaEvidenceSnapshots: z.array(z.unknown()).optional(),
   designApproach: DesignApproachSchema.optional(),
   uxEnvelope: UXEnvelopeSchema.optional(),
   stateMatrix: StateMatrixSchema.optional(),

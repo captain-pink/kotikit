@@ -297,6 +297,7 @@ describe("MCP facade tools", () => {
     expect(applyTool?.inputSchema.properties).toHaveProperty("representation");
     expect(applyTool?.inputSchema.properties).toHaveProperty("autoLayout");
     expect(applyTool?.inputSchema.properties).toHaveProperty("nodes");
+    expect(applyTool?.inputSchema.properties).toHaveProperty("evidenceSnapshot");
     expect(applyTool?.inputSchema.properties?.figmaNodeKind).not.toHaveProperty("enum");
   });
 
@@ -377,6 +378,24 @@ describe("MCP facade tools", () => {
           autoLayout: true,
         },
       ],
+      evidenceSnapshot: {
+        schemaVersion: "FigmaEvidenceSnapshot/v1",
+        transactionId: "txn-filled",
+        parts: [
+          {
+            partId: "primary-action",
+            nodeId: "node-2",
+            nodeType: "INSTANCE",
+            source: "existing-ds-component",
+            isInstance: true,
+            mainComponentKey: "button-key",
+            effectiveVisible: true,
+            effectiveOpacity: 1,
+            insideRoot: true,
+            bounds: { x: 1200, y: 72, width: 160, height: 40 },
+          },
+        ],
+      },
     });
     const detail = detailOf<{
       activeFigmaTransaction?: { id: string };
@@ -393,6 +412,10 @@ describe("MCP facade tools", () => {
       iconRefs: ["icon-add-user-key"],
       iconKey: "icon-add-user-key",
       autoLayout: true,
+      evidenceSnapshot: expect.objectContaining({
+        schemaVersion: "FigmaEvidenceSnapshot/v1",
+        transactionId: "txn-filled",
+      }),
     });
     expect(applyMetadata?.nodes).toEqual([
       expect.objectContaining({

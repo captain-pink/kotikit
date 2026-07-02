@@ -147,7 +147,7 @@ Output: compact component refs.
 ### kotikit_record_figma_apply
 
 Purpose: Record official Figma MCP apply metadata into the active graph run.
-Input: `{ runId: string; scope: string; stepIndex: number; outcome: "ok" | "warned" | "failed"; transactionId: string; figmaFileKey?; figmaPageId?; figmaSectionName?; figmaNodeId?; figmaNodeKind?; figmaNodeName?; bounds?; componentRefs?; componentKey?; componentSource?; variableRefs?; iconRefs?; iconKey?; iconPlaceholder?; representation?; autoLayout?; nodes?; partId?; draftComponentId?; componentName?; dsKey?; variableBindings?; layoutFrames?; repeatedItems?; textTransforms? }`
+Input: `{ runId: string; scope: string; stepIndex: number; outcome: "ok" | "warned" | "failed"; transactionId: string; figmaFileKey?; figmaPageId?; figmaSectionName?; figmaNodeId?; figmaNodeKind?; figmaNodeName?; bounds?; componentRefs?; componentKey?; componentSource?; variableRefs?; iconRefs?; iconKey?; iconPlaceholder?; representation?; autoLayout?; nodes?; partId?; draftComponentId?; componentName?; dsKey?; variableBindings?; layoutFrames?; repeatedItems?; textTransforms?; evidenceSnapshot? }`
 Output: `{ runId; status; activeFigmaTransaction?; figmaTransactionProgress?; pendingQuestion?; artifacts; errors }`
 
 Use this after applying the active incremental Figma transaction. Do not record
@@ -156,7 +156,11 @@ a later transaction before the graph consumes the current metadata. Use
 `componentSource: "screen-draft"` for composed missing structure that may be
 extracted later, `componentSource: "draft-component"` for linked kotikit draft
 components after designer-approved extraction, and record `iconRefs` when the
-apply packet lists required icon affordances.
+apply packet lists required icon affordances. For screen and region writes,
+include a compact `evidenceSnapshot` gathered from the applied Figma root node:
+visible component instances, local design-system component/icon keys,
+auto-layout mode, bounds, visibility, opacity, and layout metrics. Newly
+created local components do not satisfy existing design-system reuse.
 
 ### kotikit_doctor
 

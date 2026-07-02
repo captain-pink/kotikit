@@ -847,6 +847,14 @@ describe("figma graph nodes", () => {
     const apply = await completeTransactionQueue({
       componentRefs: ["button-key"],
       variableRefs: ["color.bg", "style-body"],
+      evidenceSnapshot: evidenceSnapshot({
+        partNode: {
+          nodeType: "INSTANCE",
+          isInstance: true,
+          mainComponentKey: "button-key",
+          source: "existing-ds-component",
+        },
+      }),
     });
 
     await expect(
@@ -858,10 +866,64 @@ describe("figma graph nodes", () => {
     ).resolves.toEqual({});
   });
 
+  it("rejects evidence where primitives are used for an existing local DS part", async () => {
+    const apply = await completeTransactionQueue({
+      componentRefs: ["button-key"],
+      variableRefs: ["color.bg", "style-body"],
+      evidenceSnapshot: evidenceSnapshot({
+        partNode: {
+          nodeType: "FRAME",
+          isInstance: false,
+          mainComponentKey: undefined,
+          source: "primitive",
+        },
+      }),
+    });
+
+    await expect(
+      runNode("figma.verifyDraftInvariants", {
+        figmaTarget: draftTarget(),
+        draftPlan: { applyPacket: incrementalApplyPacket() },
+        applyReport: apply.statePatch?.applyReport,
+      })
+    ).rejects.toThrow("expected an existing local design-system component");
+  });
+
+  it("rejects newly created local components as existing local DS proof", async () => {
+    const apply = await completeTransactionQueue({
+      componentRefs: ["button-key"],
+      variableRefs: ["color.bg", "style-body"],
+      evidenceSnapshot: evidenceSnapshot({
+        partNode: {
+          nodeType: "INSTANCE",
+          isInstance: true,
+          mainComponentKey: "new-local-button-key",
+          source: "local-new-component",
+        },
+      }),
+    });
+
+    await expect(
+      runNode("figma.verifyDraftInvariants", {
+        figmaTarget: draftTarget(),
+        draftPlan: { applyPacket: incrementalApplyPacket() },
+        applyReport: apply.statePatch?.applyReport,
+      })
+    ).rejects.toThrow("existing local design-system component");
+  });
+
   it("rejects compact incremental apply evidence without required component refs", async () => {
     const apply = await completeTransactionQueue({
       componentRefs: [],
       variableRefs: ["color.bg", "style-body"],
+      evidenceSnapshot: evidenceSnapshot({
+        partNode: {
+          nodeType: "INSTANCE",
+          isInstance: true,
+          mainComponentKey: "button-key",
+          source: "existing-ds-component",
+        },
+      }),
     });
 
     await expect(
@@ -1085,6 +1147,7 @@ function incrementalApplyPacket(): Record<string, unknown> {
 async function completeTransactionQueue(input: {
   componentRefs: string[];
   variableRefs: string[];
+  evidenceSnapshot?: Record<string, unknown>;
 }): Promise<NodeOutput> {
   return runNode("figma.applyTransactionQueue", {
     figmaTarget: draftTarget(),
@@ -1093,6 +1156,7 @@ async function completeTransactionQueue(input: {
     applyMetadata: applyMetadata({
       componentRefs: input.componentRefs,
       variableRefs: input.variableRefs,
+      evidenceSnapshot: input.evidenceSnapshot,
     }),
   });
 }
@@ -1103,6 +1167,7 @@ function applyMetadata(
     variableRefs: string[];
     componentSource: "existing-component" | "draft-component";
     autoLayout: boolean;
+    evidenceSnapshot: Record<string, unknown>;
   }> = {}
 ): Record<string, unknown> {
   return {
@@ -1116,6 +1181,9 @@ function applyMetadata(
     variableRefs: overrides.variableRefs ?? ["color.bg"],
     componentSource: overrides.componentSource ?? "existing-component",
     autoLayout: overrides.autoLayout ?? true,
+    ...(overrides.evidenceSnapshot === undefined
+      ? {}
+      : { evidenceSnapshot: overrides.evidenceSnapshot }),
     nodes: [
       {
         id: "9:11",
@@ -1127,6 +1195,54 @@ function applyMetadata(
         componentSource: overrides.componentSource ?? "existing-component",
         bounds: { x: 1200, y: 72, width: 160, height: 40 },
         autoLayout: true,
+      },
+    ],
+  };
+}
+
+function evidenceSnapshot(input: {
+  partNode: {
+    nodeType: string;
+    isInstance: boolean;
+    mainComponentKey?: string;
+    source: string;
+  };
+}): Record<string, unknown> {
+  return {
+    schemaVersion: "FigmaEvidenceSnapshot/v1",
+    transactionId: "txn-filled",
+    root: {
+      id: "9:10",
+      name: "Members / Filled",
+      nodeType: "FRAME",
+      bounds: { x: 560, y: 0, width: 1440, height: 900 },
+      layoutMode: "VERTICAL",
+      effectiveVisible: true,
+      effectiveOpacity: 1,
+    },
+    summary: {
+      nodeCount: 2,
+      visibleNodeCount: 2,
+      instanceCount: input.partNode.isInstance ? 1 : 0,
+      zeroOriginChildCount: 0,
+      overlappingVisiblePairs: 0,
+      hiddenInstanceCount: 0,
+      lowOpacityInstanceCount: 0,
+    },
+    parts: [
+      {
+        partId: "button",
+        nodeId: "9:11",
+        nodeType: input.partNode.nodeType,
+        source: input.partNode.source,
+        isInstance: input.partNode.isInstance,
+        ...(input.partNode.mainComponentKey === undefined
+          ? {}
+          : { mainComponentKey: input.partNode.mainComponentKey }),
+        bounds: { x: 1200, y: 72, width: 160, height: 40 },
+        effectiveVisible: true,
+        effectiveOpacity: 1,
+        insideRoot: true,
       },
     ],
   };

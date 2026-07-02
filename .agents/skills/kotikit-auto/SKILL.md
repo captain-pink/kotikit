@@ -74,10 +74,11 @@ is available on `PATH`.
    components before the main screen or flow exists.
 8. If the run produces an apply-packet artifact, read it with
    `kotikit_get_artifact`, apply only the active Figma transaction through
-   official Figma MCP tools, then call `kotikit_record_figma_apply` with the
-   `runId`, `transactionId`, node id, Figma node type, bounds, component refs
-   or componentKey, component source, variable refs, required icon refs, and
-   auto-layout metadata.
+   official Figma MCP tools, scan the applied root node, then call
+   `kotikit_record_figma_apply` with the `runId`, `transactionId`, node id,
+   Figma node type, bounds, component refs or componentKey, component source,
+   variable refs, required icon refs, auto-layout metadata, and
+   `evidenceSnapshot`.
 9. Call `kotikit_continue` after external Figma work is recorded. Repeat until
    kotikit reports no active Figma transaction.
 10. If the run produces a `design-system-usage-report`, use it in the final
@@ -93,14 +94,20 @@ When applying a kotikit draft in Figma:
 - Place it at the bounds from the canvas plan.
 - Use auto layout, imported design-system component instances, and
   variables/styles.
+- After the write, scan the applied root node and include compact evidence for
+  visible component instances, local DS component/icon keys, layout mode,
+  bounds, visibility, opacity, and layout metrics.
 - Record `transactionId`, node id, Figma node type, bounds, component refs or
-  componentKey, component source, variable refs, required icon refs, and
-  auto-layout metadata with
+  componentKey, component source, variable refs, required icon refs,
+  auto-layout metadata, and `evidenceSnapshot` with
   `kotikit_record_figma_apply`.
 - Continue the run and repeat until kotikit reports no active Figma
   transaction.
 - Do not create every state on the canvas in one operation.
 - Do not create draft components before composing the actual screen or flow.
+- Newly created local components do not count as existing design-system reuse.
+  Existing DS reuse means a visible instance whose main component key came from
+  the pre-run local design-system search result.
 - Do not finish or summarize manual Figma work while kotikit is blocked or
   waiting for an active transaction. Follow the recovery action or report the
   blocker plainly.

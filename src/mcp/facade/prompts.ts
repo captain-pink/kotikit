@@ -74,7 +74,7 @@ const PROMPTS: Record<KotikitPromptName, PromptDefinition> = {
         "Use kotikit_flow_list, choose create-screen, then call kotikit_start.",
         "Read the active Figma transaction from the run result or apply-packet artifact.",
         "Apply one screen state or region state with use_figma at the canvas plan bounds.",
-        "Record transactionId, node id, Figma node type, bounds, component refs or componentKey, component source, variable refs, required icon refs, and autoLayout with kotikit_record_figma_apply.",
+        "Scan the applied root node and record transactionId, node id, Figma node type, bounds, component refs or componentKey, component source, variable refs, required icon refs, autoLayout, and evidenceSnapshot with kotikit_record_figma_apply.",
         "Continue the run and repeat until no active Figma transaction remains.",
         "Compose the visible screen first; ask about draft component extraction only after the design is visible.",
         "Do not finish manually while the graph is blocked or waiting for a transaction; use the recovery action instead.",

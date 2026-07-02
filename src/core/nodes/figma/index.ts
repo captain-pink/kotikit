@@ -2,6 +2,7 @@ import { type JSONType, z } from "zod";
 import { nowIso } from "../../../util/ids.js";
 import { KotikitError } from "../../../util/result.js";
 import { ensureDraftTarget } from "../../adapters/figma/target.js";
+import { verifyFigmaEvidenceAgainstApplyPacket } from "../../domain/figma-evidence.js";
 import {
   markTransactionActive,
   nextPendingTransaction,
@@ -57,11 +58,13 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
       "figmaTransactionPlan",
       "activeFigmaTransaction",
       "applyMetadata",
+      "figmaEvidenceSnapshots",
       "figmaNodeLedger",
     ],
     stateWrites: [
       "figmaTransactionPlan",
       "activeFigmaTransaction",
+      "figmaEvidenceSnapshots",
       "figmaNodeLedger",
       "applyReport",
       "applyMetadata",
@@ -117,6 +120,10 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
         metadata,
         target,
       });
+      const evidenceSnapshots = appendEvidenceSnapshot(
+        recordArray(state.figmaEvidenceSnapshots),
+        metadata.evidenceSnapshot
+      );
       const recordedPlan = recordTransactionMetadata(plan, { transactionId: active.id });
 
       if (transactionPlanComplete(recordedPlan)) {
@@ -124,9 +131,10 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
           statePatch: {
             figmaTransactionPlan: recordedPlan,
             figmaNodeLedger: ledger,
+            figmaEvidenceSnapshots: evidenceSnapshots,
             activeFigmaTransaction: undefined,
             applyMetadata: undefined,
-            applyReport: applyReportFromLedger(ledger),
+            applyReport: applyReportFromLedger(ledger, evidenceSnapshots),
           },
         } satisfies RuntimeNodeOutput;
       }
@@ -137,9 +145,10 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
           statePatch: {
             figmaTransactionPlan: recordedPlan,
             figmaNodeLedger: ledger,
+            figmaEvidenceSnapshots: evidenceSnapshots,
             activeFigmaTransaction: undefined,
             applyMetadata: undefined,
-            applyReport: applyReportFromLedger(ledger),
+            applyReport: applyReportFromLedger(ledger, evidenceSnapshots),
           },
         } satisfies RuntimeNodeOutput;
       }
@@ -148,6 +157,7 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
         statePatch: {
           figmaTransactionPlan: activePlan,
           figmaNodeLedger: ledger,
+          figmaEvidenceSnapshots: evidenceSnapshots,
           activeFigmaTransaction: activeTransactionFrom(next),
           applyMetadata: undefined,
         },
@@ -179,6 +189,8 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
             repeatedItems: recordArray(metadata.repeatedItems),
             textTransforms: recordArray(metadata.textTransforms),
             iconRefs: stringArray(metadata.iconRefs),
+            evidenceSnapshots:
+              metadata.evidenceSnapshot === undefined ? [] : [metadata.evidenceSnapshot],
             states: recordArray(metadata.states),
             draftComponentInstances: recordArray(metadata.draftComponentInstances),
             draftComponentPlacements: recordArray(metadata.draftComponentPlacements),
@@ -231,6 +243,7 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
             layoutFrames: toJson(recordArray(report.layoutFrames)),
             repeatedItems: toJson(recordArray(report.repeatedItems)),
             textTransforms: toJson(recordArray(report.textTransforms)),
+            evidenceSnapshots: toJson(recordArray(report.evidenceSnapshots)),
             states: toJson(recordArray(report.states)),
             draftComponentInstances: toJson(recordArray(report.draftComponentInstances)),
             draftComponentPlacements: toJson(recordArray(report.draftComponentPlacements)),
@@ -565,7 +578,19 @@ function stateRepresentationForTransaction(
   return undefined;
 }
 
-function applyReportFromLedger(ledger: FigmaNodeLedger): Record<string, unknown> {
+function appendEvidenceSnapshot(
+  existing: Record<string, unknown>[],
+  value: unknown
+): Record<string, unknown>[] {
+  const snapshot = recordFrom(value);
+  if (Object.keys(snapshot).length === 0) return existing;
+  return [...existing, snapshot];
+}
+
+function applyReportFromLedger(
+  ledger: FigmaNodeLedger,
+  evidenceSnapshots: Record<string, unknown>[] = []
+): Record<string, unknown> {
   const nodes = ledger.nodes.map((node) => compactReportNode(node));
   return {
     schemaVersion: "FigmaApplyReport/v1",
@@ -592,6 +617,7 @@ function applyReportFromLedger(ledger: FigmaNodeLedger): Record<string, unknown>
       })),
     repeatedItems: [],
     textTransforms: [],
+    evidenceSnapshots,
     states: ledger.nodes
       .filter((node) => node.stateId !== undefined)
       .map((node) => ({
@@ -718,6 +744,10 @@ function verifyIncrementalApplyPacket(
   report: Record<string, unknown>
 ): void {
   const nodes = recordArray(report.nodes);
+  verifyFigmaEvidenceAgainstApplyPacket({
+    packet,
+    evidenceSnapshots: recordArray(report.evidenceSnapshots),
+  });
   const componentRefs = stringSetFromArrays(nodes.map((node) => node.componentRefs));
   stringSetFromArrays(nodes.map((node) => node.componentKey)).forEach((componentRef) => {
     componentRefs.add(componentRef);

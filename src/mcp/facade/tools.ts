@@ -773,6 +773,11 @@ function figmaApplyInputSchema(): Tool["inputSchema"] {
         description: "Text transform metadata for post-apply verification.",
         items: { type: "object" },
       },
+      evidenceSnapshot: {
+        type: "object",
+        description:
+          "Compact Figma evidence snapshot collected from the applied root node by the scanner.",
+      },
     },
     required: ["runId", "scope", "stepIndex", "outcome"],
   };
@@ -821,6 +826,9 @@ function figmaApplyMetadataFrom(input: Record<string, unknown>): Record<string, 
     layoutFrames: recordArray(input.layoutFrames),
     repeatedItems: recordArray(input.repeatedItems),
     textTransforms: recordArray(input.textTransforms),
+    ...(Object.keys(recordFrom(input.evidenceSnapshot)).length === 0
+      ? {}
+      : { evidenceSnapshot: recordFrom(input.evidenceSnapshot) }),
   };
 }
 

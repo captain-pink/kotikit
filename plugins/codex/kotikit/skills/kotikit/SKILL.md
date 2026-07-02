@@ -30,8 +30,12 @@ Use this designer-first skill when the user asks for `kotikit:auto`, a new Figma
 - Compose the visible screen and real states before asking whether missing parts should be extracted as draft components.
 - Apply Figma drafts through incremental Figma transactions: create exactly one
   screen state or region state per write, place it at the
-  canvas plan bounds, record `transactionId`, node id, bounds, component refs,
-  variable refs, and auto-layout metadata, then continue the run.
+  canvas plan bounds, scan the applied root node, record `transactionId`, node
+  id, bounds, component refs, variable refs, auto-layout metadata, and
+  `evidenceSnapshot`, then continue the run.
+- Newly created local components do not count as existing design-system reuse.
+  Existing DS reuse means a visible instance whose main component key came from
+  the pre-run local design-system search result.
 - Keep human approval points clear: literal variable fallbacks and post-design draft component extraction.
 - For comment feedback, read a compact snapshot, let `review-screen` create the
   evidence map and revision plan, then ask before applying changes.
