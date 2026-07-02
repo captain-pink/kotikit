@@ -640,17 +640,17 @@ describe("canvas and figma ledger artifact schemas", () => {
       section: { name: "kotikit / members / 2026-07-01" },
       screenSize: { width: 1440, height: 900 },
       zones: [
-        expect.objectContaining({ id: "zone-draft-components", kind: "draft-components" }),
         expect.objectContaining({ id: "zone-screen-states", kind: "screen-states" }),
+        expect.objectContaining({ id: "zone-draft-components", kind: "draft-components" }),
       ],
     });
     expect(plan.strategy.creationOrder).toEqual([
-      "draft-draft-table-row",
       "state-filled",
       "state-loading",
       "state-empty",
       "state-error",
       "state-permission",
+      "draft-draft-table-row",
     ]);
     expect(() => verifyCanvasPlan(plan)).not.toThrow();
 
@@ -715,6 +715,6 @@ describe("canvas and figma ledger artifact schemas", () => {
       draftComponents: [],
     });
 
-    expect(plan.placements.map((placement) => placement.bounds.x)).toEqual([560, 2000, 560, 2000]);
+    expect(plan.placements.map((placement) => placement.bounds.x)).toEqual([0, 1440, 0, 1440]);
   });
 });

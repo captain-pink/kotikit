@@ -123,14 +123,16 @@ on stabilizing design creation, review, and design-system use.
 - Official Figma MCP apply packets for creating draft designs in Figma.
 - `StateMatrix` planning for filled, loading, empty, no-results, error, and
   permission states before visual composition starts.
-- `DraftComponentLifecycle` checks so draft components are created only for
-  design-system gaps and must be used by the generated screen.
+- Compose-first Figma drafting that uses local design-system components, icons,
+  variables, and auto layout before asking about optional draft component
+  extraction.
 - Variable import fallback through the plugin for non-Enterprise Figma plans.
 - Browserless Figma comment review.
 - `CommentEvidenceMap` artifacts for REST-backed Figma comment review without
   large raw comment payloads in graph state.
 - Final design-system usage reports after QA so teams can see reused
-  components, draft components, icons, and primitive exceptions.
+  components, screen-draft parts, optional draft components, icons, and
+  primitive exceptions.
 - Repeated validator failure diagnostics with expected/found/action details.
 - Standalone design-quality review for exact Figma targets.
 - Optional posting of approved review comments back to Figma.
@@ -297,7 +299,7 @@ artifact when needed instead of loading every previous design decision into
 context. Context durability keeps long-lived graph state compact by replacing
 raw Figma snapshots, comment snapshots, and research payloads with bounded
 artifacts such as `StateMatrix`, `CommentEvidenceMap`, and
-`DraftComponentLifecycle`.
+`CanvasPlan`.
 
 Most users do not need the detailed token table. It exists mainly for
 maintainers and agent-workflow builders who are checking MCP payload sizes. See
@@ -310,7 +312,7 @@ Near term:
 - More reliable Figma draft creation across different design systems.
 - Better design-review drilldown without large context payloads.
 - Better incremental Figma apply guidance.
-- Stronger component creation workflow for missing design-system pieces.
+- Better optional draft-component extraction from completed screen drafts.
 - Better variable and library import flows.
 
 Later:

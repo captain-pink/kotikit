@@ -20,9 +20,10 @@ flow hashes, and manifest hashes.
 
 Figma draft creation is also graph-backed now. The create-screen graph builds a
 canvas plan and a transaction queue, then drains the queue through repeated
-Figma interrupts one draft component, screen state, or region state at a time.
-This keeps generated frames non-overlapping, preserves node-ledger context for
-comment review, and avoids large one-step apply payloads.
+Figma interrupts one screen state, region state, or approved post-screen draft
+component at a time. This keeps generated frames non-overlapping, preserves
+node-ledger context for comment review, and avoids large one-step apply
+payloads.
 
 Do not add new code to this module. New resumable behavior belongs in graph
 nodes, flow manifests, runtime stores, or facade tools.

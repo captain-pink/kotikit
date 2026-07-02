@@ -143,24 +143,26 @@ affected page, region, component, or flow state.
 
 ## Draft Components Are Created But Not Used
 
-Draft components are allowed only for real design-system gaps. Kotikit tracks
-them with `DraftComponentLifecycle`.
+Draft components are optional post-screen extraction output. The create-screen
+happy path should produce the visible screen first; extracted draft components
+stay on the same draft page and should not overlap the finished screen.
 
 If a draft component area overlaps the main screen, or if components were
-created but no linked instances appear in the screen, treat the run as failed.
-Ask kotikit to run the UI quality gate or recreate the screen after resolving
-the missing component decision.
+created before the screen exists, treat the run as failed. Ask kotikit to
+recreate the screen with the compose-first path, then decide whether extraction
+is useful.
 
 ## Kotikit Reused The Wrong Amount Of Design System
 
 Before Figma writes, kotikit saves a `DesignSystemReusePlan`. Check it when the
 draft looks too custom or when a close component was ignored. The plan separates
 exact reuse, substitutes to validate, close candidates that should be wrapped or
-composed, and true gaps that need draft components.
+composed, and true gaps that should remain screen-draft work until extraction
+is explicitly approved.
 
 After QA, kotikit saves a `DesignSystemUsageReport`. Use it to confirm which
-design-system components, draft components, icons, and primitive exceptions were
-actually recorded from Figma metadata.
+design-system components, screen-draft parts, optional draft components, icons,
+and primitive exceptions were actually recorded from Figma metadata.
 
 ## Kotikit Blocks On The Same Validator Twice
 

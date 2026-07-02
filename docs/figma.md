@@ -105,15 +105,15 @@ owns the spec, design-system search, draft target, canvas plan, apply packet,
 and audit logging.
 
 Kotikit draft output should use imported design-system component instances,
-design variables, auto layout, and graph-approved draft components. When a
-needed component does not exist, kotikit should create it on the active draft
-page first, track it with `DraftComponentLifecycle`, and then use linked
-instances in the composed screen.
+icons, design variables, and auto layout. When a reusable component does not
+exist, kotikit should still compose the visible screen first with screen-draft
+structure, then ask whether the designer wants those reusable parts extracted
+as draft components on the same draft page.
 
-Each active Figma transaction creates exactly one draft component, screen state,
-or region state at the bounds from the canvas plan. After each write, record
-transactionId, node id, bounds, component refs, component source, variable
-refs, required icon refs, and auto-layout metadata with
+Each active Figma transaction creates exactly one screen state, region state,
+or approved post-screen draft component at the bounds from the canvas plan.
+After each write, record transactionId, node id, bounds, component refs,
+component source, variable refs, required icon refs, and auto-layout metadata with
 `kotikit_record_figma_apply`, then continue the run.
 
 ## Local Kotikit Plugin

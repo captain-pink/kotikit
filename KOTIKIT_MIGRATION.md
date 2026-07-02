@@ -18,15 +18,44 @@ Completed on branch `feature/kotikit-safe-tool-approvals`.
 
 Kotikit no longer treats Figma apply as one large write. The graph creates a
 canvas plan and transaction queue, then drains the queue through resumable Figma
-interrupts. Each write creates exactly one draft component, screen state, or
-region state, records a compact Figma node ledger, and resumes the run from
-persisted state.
+interrupts. Each write creates exactly one screen state, region state, or
+approved post-screen draft component, records a compact Figma node ledger, and
+resumes the run from persisted state.
 
-This keeps the canvas clean for designers: draft components stay in their own
-zone, screen states are placed one screen state at a time in a non-overlapping
-grid, and comment review reconciles moved or renamed frames before mapping
-feedback. Placement-aware QA now blocks overlapping top-level frames, missing
-transaction metadata, and screen-state frames that are not auto layout.
+This keeps the canvas clean for designers: screen states are placed one screen
+state at a time in a non-overlapping grid, optional extracted draft components
+stay in their own zone below the completed screens, and comment review
+reconciles moved or renamed frames before mapping feedback. Placement-aware QA
+now blocks overlapping top-level frames, missing transaction metadata, and
+screen-state frames that are not auto layout.
+
+## Implementation Update: Compose-First Lightweight Screen Drafting
+
+In progress on the current branch.
+
+Live Figma runs showed that forcing draft components before the visible screen
+made kotikit slower, easier to block, and harder for non-technical designers to
+reason about. The create-screen happy path now prioritizes a fast production
+looking result:
+
+- local design-system components, icons, variables, and auto layout remain the
+  first source of truth;
+- missing reusable structure no longer blocks screen composition or triggers an
+  early draft-component queue;
+- unresolved but meaningful parts are recorded as `screen-draft` extraction
+  candidates in `UICompositionContract/v1`;
+- screen-state transactions are generated first in a deterministic grid with
+  no reserved draft-component lane unless approved extraction work exists;
+- after the design is visible, the assistant asks whether the designer wants
+  reusable missing parts extracted as draft components on the same draft page;
+- `DesignSystemUsageReport/v1` now distinguishes reused design-system
+  components, screen-draft parts, optional draft components, icons, and
+  primitive exceptions.
+
+This is intentionally lighter than the previous component-first plan. It keeps
+LangGraph responsible for context, recovery, apply ledgers, and QA, but removes
+the fragile point where the graph demanded a complete table/list component
+family before a designer could see any useful screen.
 
 ## Implementation Update: UX Quality Contracts
 
@@ -45,9 +74,10 @@ quality contracts:
   no-results, error, and permission states page or region states by default, so
   table states replace the table region instead of appearing as loose preview
   cards;
-- `DraftComponentLifecycle/v1` requires every Kotikit-created draft component
-  to live in the reserved draft section, be instantiated in the generated
-  design, and avoid overlapping the final screen;
+- `DraftComponentLifecycle/v1` remains valid for approved post-screen
+  extraction work, where every Kotikit-created draft component must live in the
+  reserved draft section, be instantiated when used by a generated design, and
+  avoid overlapping the final screen;
 - `CommentEvidenceMap/v1` maps Figma REST comment snapshots to Figma node/apply
   metadata, preserves unmapped comments explicitly, skips resolved comments by
   default, and stores compact client metadata instead of raw snapshots;
@@ -90,10 +120,10 @@ contracts instead of product-specific rules:
 
 - `DesignSystemReusePlan/v1` is saved before missing-component decisions, so
   agents can see exact component reuse, substitutes to validate, close
-  candidates to wrap or compose, and true draft-component gaps;
+  candidates to wrap or compose, and true gaps;
 - `DesignSystemUsageReport/v1` is saved after QA, proving which design-system
-  components, draft components, icons, and primitive exceptions were actually
-  recorded from Figma metadata;
+  components, screen-draft parts, optional draft components, icons, and
+  primitive exceptions were actually recorded from Figma metadata;
 - fit reports can classify close repeated-pattern candidates as wrap-needed
   rather than forcing a binary exact-match or missing-component decision;
 - UI composition can consume those wrap candidates while still requiring draft
@@ -152,18 +182,17 @@ Completed on branch `feature/kotikit-migration`.
 
 The migration now has deterministic graph nodes for the core draft path:
 
-- UI composition contracts require every meaningful UI part to resolve to an
-  existing component, kotikit-created draft component, or explicit primitive
-  exception;
-- table/list repeated patterns require a component family or draft components
-  for container, header row, data row, and cell coverage before screen
-  composition continues;
+- UI composition contracts prefer existing components, accept approved
+  post-screen draft components, and otherwise mark meaningful gaps as
+  `screen-draft` extraction candidates instead of blocking first composition;
+- table/list repeated patterns no longer require a complete pre-created
+  component family before the first visible screen can be composed;
 - layout contracts require auto-layout/grid structural frames;
 - variable binding plans pause when any required color, typography, radius,
   spacing, stroke, shadow, or effect token would need an unapproved literal;
-- missing component planning creates and validates `Kotikit Draft Components`
-  before screen composition, and composition only accepts created draft
-  component keys;
+- missing reusable parts are composed as screen-draft structure first; optional
+  draft-component extraction happens after the designer can review the visible
+  screen;
 - draft nodes compile high-fidelity draft plans and build official Figma MCP
   apply packets only after safe draft target and brief rules pass, and persist
   packet artifacts with component, draft-origin, canvas placement,
@@ -341,9 +370,10 @@ Completed on branch `feature/kotikit-migration`.
 The migration now has offline end-to-end smoke coverage for the built-in graph
 flows:
 
-- `create-screen` quick lane resolves missing components into draft components,
-  builds composition/layout/variable contracts, emits an apply packet, accepts
-  fake Figma apply metadata, verifies draft invariants, and saves QA;
+- `create-screen` quick lane composes missing parts as screen-draft extraction
+  candidates, builds composition/layout/variable contracts, emits an apply
+  packet, accepts fake Figma apply metadata, verifies draft invariants, and
+  saves QA;
 - `create-screen` guided lane pauses for brief approval, saves a design-brief
   artifact, then continues through the same draft artifact chain;
 - `create-product-flow` maps actor, goal, scenario, screens, and transitions,

@@ -40,23 +40,24 @@ quality contracts are:
 
 - `StateMatrix`: planned filled, loading, empty, no-results, error, and
   permission states before visual composition.
-- `CanvasPlan`: deterministic draft-component and screen-state zones used to
-  keep generated Figma frames same-sized and non-overlapping.
+- `CanvasPlan`: deterministic screen-state zones, plus optional post-screen
+  draft-component zones, used to keep generated Figma frames same-sized and
+  non-overlapping.
 - `FigmaTransactionPlan`: ordered incremental Figma transaction queue for one
-  draft component, screen state, or region state at a time.
+  screen state, region state, or approved post-screen draft component at a
+  time.
 - `FigmaNodeLedger`: compact record of created Figma nodes, bounds, component
   refs, variable refs, auto layout, state representation, and transaction ids.
 - `CanvasReconciliationReport`: current canvas map used before comment review
   so moved or renamed generated frames remain mapped by node id.
 - `CommentEvidenceMap`: REST-backed Figma comment evidence mapped to known
   pages, regions, components, or generated nodes where possible.
-- `DraftComponentLifecycle`: draft components created for design-system gaps,
-  with required linked instances in the final screen.
 - `DesignSystemReusePlan`: visible pre-apply plan showing exact reuse,
-  substitutes to validate, close candidates to wrap or compose, and true gaps
-  that need draft components.
+  substitutes to validate, close candidates to compose, and true gaps that
+  should stay as screen-draft work until the designer approves extraction.
 - `DesignSystemUsageReport`: final proof summary of reused design-system
-  components, linked draft components, icon refs, and primitive exceptions.
+  components, screen-draft parts, optional linked draft components, icon refs,
+  and primitive exceptions.
 
 Context durability checks keep long-lived graph state compact. Raw Figma,
 comment, and research payloads should move into artifacts after these contracts
@@ -132,10 +133,12 @@ Output: `{ runId; status; activeFigmaTransaction?; figmaTransactionProgress?; pe
 Use this after applying the active incremental Figma transaction. Do not record
 a later transaction before the graph consumes the current metadata. Use
 `componentSource: "existing-component"` for imported design-system instances,
-`componentSource: "draft-component"` for linked kotikit draft components, and
-record `iconRefs` when the apply packet lists required icon affordances. For
-draft component transactions, record `figmaNodeKind: "COMPONENT"` and either
-`componentRefs` or `componentKey` with the real Figma component key.
+`componentSource: "screen-draft"` for composed missing structure that may be
+extracted later, `componentSource: "draft-component"` for linked kotikit draft
+components, and record `iconRefs` when the apply packet lists required icon
+affordances. For draft component transactions, record
+`figmaNodeKind: "COMPONENT"` and either `componentRefs` or `componentKey` with
+the real Figma component key.
 
 ### kotikit_review_figma_target
 

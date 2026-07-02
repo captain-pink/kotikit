@@ -454,6 +454,13 @@ describe("design-system graph nodes", () => {
               source: "approved-primitive",
               primitiveReason: "Approved primitive separator.",
             },
+            {
+              id: "member-table",
+              name: "Member table",
+              role: "data-display",
+              source: "screen-draft",
+              extractionCandidate: true,
+            },
           ],
         },
         applyReport: {
@@ -485,9 +492,10 @@ describe("design-system graph nodes", () => {
       payload: {
         schemaVersion: "DesignSystemUsageReport/v1",
         summary:
-          "Reused 1 design-system component, used 1 draft component, used 1 icon, kept 1 primitive exception.",
+          "Reused 1 design-system component, kept 1 screen-draft part, used 1 draft component, used 1 icon, kept 1 primitive exception.",
         refs: [
           "reused: Primary button -> button-key",
+          "screen-draft: Member table",
           "drafted: Table row -> row-key",
           "icon: search-icon-key",
           "primitive: Divider",
@@ -509,13 +517,13 @@ describe("design-system graph nodes", () => {
     ).not.toThrow();
   });
 
-  it("compiles create-screen with reuse planning before missing-component decisions and usage reporting after QA", async () => {
+  it("compiles create-screen with reuse planning before composition and usage reporting after QA", async () => {
     const flow = requireFlow(await loadBuiltInFlows(), "create-screen");
     const saveReuseIndex = flow.nodes.findIndex(
       (node) => node.uses === "designSystem.saveReusePlan"
     );
-    const askMissingIndex = flow.nodes.findIndex(
-      (node) => node.uses === "designSystem.askMissingComponentDecision"
+    const compositionIndex = flow.nodes.findIndex(
+      (node) => node.uses === "ui.buildCompositionContract"
     );
     const usageReportIndex = flow.nodes.findIndex(
       (node) => node.uses === "designSystem.saveUsageReport"
@@ -523,7 +531,10 @@ describe("design-system graph nodes", () => {
     const qaIndex = flow.nodes.findIndex((node) => node.uses === "qa.postDraftQa");
 
     expect(saveReuseIndex).toBeGreaterThan(-1);
-    expect(askMissingIndex).toBeGreaterThan(saveReuseIndex);
+    expect(compositionIndex).toBeGreaterThan(saveReuseIndex);
+    expect(flow.nodes.map((node) => node.uses)).not.toContain(
+      "designSystem.askMissingComponentDecision"
+    );
     expect(usageReportIndex).toBeGreaterThan(qaIndex);
   });
 

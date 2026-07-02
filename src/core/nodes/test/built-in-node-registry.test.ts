@@ -15,28 +15,30 @@ describe("built-in node registry", () => {
     });
   });
 
-  it("runs missing component preflight before screen composition in create-screen", async () => {
+  it("keeps create-screen compose-first without pre-screen draft component writes", async () => {
     const flows = await loadBuiltInFlows();
     const createScreen = flows.find((flow) => flow.id === "create-screen");
     if (createScreen === undefined) throw new Error("Missing create-screen flow.");
 
+    const nodeUses = createScreen.nodes.map((node) => node.uses);
+    expect(createScreen.requiredCapabilities).not.toContain("draftComponents.write");
+    expect(nodeUses).not.toContain("designSystem.askMissingComponentDecision");
+    expect(nodeUses).not.toContain("draftComponents.planMissing");
+    expect(nodeUses).not.toContain("draftComponents.createOnDraftPage");
+    expect(nodeUses).not.toContain("draftComponents.validateCreated");
+    expect(nodeUses).not.toContain("draftComponents.buildLifecycle");
+    expect(nodeUses).not.toContain("draftComponents.verifyLifecycle");
     expect(nodeIndex(createScreen, "ux.buildEnvelope")).toBeLessThan(
       nodeIndex(createScreen, "ui.buildCompositionContract")
     );
     expect(nodeIndex(createScreen, "ux.planStateMatrix")).toBeLessThan(
       nodeIndex(createScreen, "ui.buildCompositionContract")
     );
-    expect(nodeIndex(createScreen, "draftComponents.planMissing")).toBeLessThan(
-      nodeIndex(createScreen, "ui.buildCompositionContract")
-    );
-    expect(nodeIndex(createScreen, "draftComponents.createOnDraftPage")).toBeLessThan(
-      nodeIndex(createScreen, "ui.buildCompositionContract")
-    );
-    expect(nodeIndex(createScreen, "draftComponents.validateCreated")).toBeLessThan(
+    expect(nodeIndex(createScreen, "designSystem.saveReusePlan")).toBeLessThan(
       nodeIndex(createScreen, "ui.buildCompositionContract")
     );
     expect(nodeIndex(createScreen, "figma.ensureDraftTarget")).toBeLessThan(
-      nodeIndex(createScreen, "draftComponents.createOnDraftPage")
+      nodeIndex(createScreen, "draft.buildCanvasPlan")
     );
   });
 
@@ -51,9 +53,6 @@ describe("built-in node registry", () => {
       nodeIndex(createScreen, "draft.buildFigmaApplyPacket")
     );
     expect(nodeIndex(createScreen, "figma.applyTransactionQueue")).toBeLessThan(
-      nodeIndex(createScreen, "draftComponents.buildLifecycle")
-    );
-    expect(nodeIndex(createScreen, "draftComponents.buildLifecycle")).toBeLessThan(
       nodeIndex(createScreen, "figma.verifyDraftInvariants")
     );
     expect(nodeIndex(createScreen, "figma.saveApplyReport")).toBeGreaterThan(
@@ -64,16 +63,13 @@ describe("built-in node registry", () => {
     );
   });
 
-  it("builds incremental Figma plans before draft writes and the apply packet in create-screen", async () => {
+  it("builds incremental Figma plans before the apply packet in create-screen", async () => {
     const flows = await loadBuiltInFlows();
     const createScreen = flows.find((flow) => flow.id === "create-screen");
     if (createScreen === undefined) throw new Error("Missing create-screen flow.");
 
     expect(nodeIndex(createScreen, "figma.ensureDraftTarget")).toBeLessThan(
       nodeIndex(createScreen, "draft.buildCanvasPlan")
-    );
-    expect(nodeIndex(createScreen, "draft.buildCanvasPlan")).toBeLessThan(
-      nodeIndex(createScreen, "draftComponents.createOnDraftPage")
     );
     expect(nodeIndex(createScreen, "draft.compileHighFidelityDraft")).toBeGreaterThan(
       nodeIndex(createScreen, "draft.buildCanvasPlan")

@@ -29,7 +29,6 @@ type CreatedDraftComponentLike = {
   componentKey?: string;
 };
 
-const REPEATED_FAMILY_ROLES = ["container", "header row", "data row", "cell"] as const;
 type UICompositionPart = UICompositionContract["parts"][number];
 type UIPlacement = NonNullable<UICompositionPart["placement"]>;
 
@@ -42,8 +41,6 @@ export function buildUiCompositionContract(input: {
   createdDraftComponents?: CreatedDraftComponentLike[];
   approvedPrimitiveExceptions?: string[];
 }): UICompositionContract {
-  assertRepeatedPatternCoverage(input.fitReport, input.draftComponentPlan, input.neededStates);
-
   const parts = input.requiredUiParts.map((part) => {
     const id = idFor(part);
     const role = roleFor(part);
@@ -102,10 +99,14 @@ export function buildUiCompositionContract(input: {
       };
     }
 
-    throw new KotikitError(
-      `The UI composition contract has meaningful UI parts without component refs: ${part}.`,
-      "Use an existing design-system component, create a draft component first, or explicitly approve a primitive exception."
-    );
+    return {
+      id,
+      name: part,
+      role,
+      ...(placement === undefined ? {} : { placement }),
+      source: "screen-draft" as const,
+      extractionCandidate: true,
+    };
   });
 
   return {
@@ -128,50 +129,6 @@ export function assertNoHardcodedImitation(input: { draftPlan?: unknown }): void
       "Build the repeated row/card/cell as a full component instance or create a draft component before composing the screen."
     );
   }
-}
-
-function assertRepeatedPatternCoverage(
-  fitReport: FitReportLike | undefined,
-  draftComponentPlan: DraftComponentPlanLike | undefined,
-  neededStates: string[] | undefined
-): void {
-  const repeatedPattern = fitReport?.repeatedPatterns?.find((pattern) =>
-    ["table", "list"].some((term) => pattern.pattern?.includes(term))
-  );
-  if (repeatedPattern === undefined) return;
-  const familyNames = [
-    ...(fitReport?.exactMatches ?? []).map((match) => match.componentName ?? match.requestedPart),
-    ...(fitReport?.substitutes ?? []).map((match) => match.componentName ?? match.requestedPart),
-    ...(fitReport?.wrapCandidates ?? []).map((match) => match.componentName ?? match.requestedPart),
-    ...(draftComponentPlan?.components ?? []).map((component) => component.name),
-  ].map(normalize);
-  const missingRoles = REPEATED_FAMILY_ROLES.filter(
-    (role) => !familyNames.some((name) => hasWords(name, role))
-  );
-  if (missingRoles.length > 0) {
-    throw new KotikitError(
-      `This screen needs a table/list component family before composition can continue: ${REPEATED_FAMILY_ROLES.join(", ")}.`,
-      "Create draft components for the table/list container, header row, data row, cells, and required states."
-    );
-  }
-  const normalizedNeededStates = (neededStates ?? [])
-    .map(normalize)
-    .filter((state) => state !== "");
-  const hasAllStates = normalizedNeededStates.every((state) =>
-    familyNames.some((name) => name.includes(state))
-  );
-  if (hasAllStates) return;
-  if (normalizedNeededStates.length > 0) {
-    throw new KotikitError(
-      `This screen needs table/list state coverage before composition can continue: ${normalizedNeededStates.join(", ")}.`,
-      "Create draft components for each table/list state before composing repeated structures."
-    );
-  }
-}
-
-function hasWords(value: string, required: string): boolean {
-  const valueWords = tokensFor(value);
-  return tokensFor(required).every((word) => valueWords.includes(word));
 }
 
 function findFit(part: string, matches: FitMatch[] | undefined): FitMatch | undefined {

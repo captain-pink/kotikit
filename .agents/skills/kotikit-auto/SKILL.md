@@ -66,8 +66,9 @@ is available on `PATH`.
 6. If the run needs any other Figma target, ask for the exact draft page URL and
    bind it with `kotikit_bind_figma_target`.
 7. If the run produces a `design-system-reuse-plan` artifact, read it before
-   drafting. Reuse exact design-system components, validate substitutes, wrap
-   or compose close candidates, and create draft components only for true gaps.
+   drafting. Reuse exact design-system components, validate substitutes, and
+   compose close candidates directly in the screen. Do not create draft
+   components before the main screen or flow exists.
 8. If the run produces an apply-packet artifact, read it with
    `kotikit_get_artifact`, apply only the active Figma transaction through
    official Figma MCP tools, then call `kotikit_record_figma_apply` with the
@@ -78,14 +79,16 @@ is available on `PATH`.
 9. Call `kotikit_continue` after external Figma work is recorded. Repeat until
    kotikit reports no active Figma transaction.
 10. If the run produces a `design-system-usage-report`, use it in the final
-   answer to summarize reused design-system components, draft components, icon
-   refs, and primitive exceptions.
+   answer to summarize reused design-system components, screen-draft parts,
+   draft components, icon refs, and primitive exceptions. After the design is
+   visible, ask whether the designer wants reusable missing parts extracted as
+   draft components on the same draft page.
 
 When applying a kotikit draft in Figma:
 
 - Use the apply packet's active transaction.
-- Create exactly one draft component, screen state, or region state per Figma
-  write.
+- Create exactly one screen state, region state, or approved post-screen draft
+  component per Figma write.
 - Place it at the bounds from the canvas plan.
 - Use auto layout, imported design-system component instances, and
   variables/styles.
@@ -98,6 +101,7 @@ When applying a kotikit draft in Figma:
 - Continue the run and repeat until kotikit reports no active Figma
   transaction.
 - Do not create every state on the canvas in one operation.
+- Do not create draft components before composing the actual screen or flow.
 - Do not finish or summarize manual Figma work while kotikit is blocked or
   waiting for an active transaction. Follow the recovery action or report the
   blocker plainly.

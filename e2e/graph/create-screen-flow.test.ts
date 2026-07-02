@@ -10,7 +10,7 @@ import {
 } from "./fixtures/fake-figma.js";
 
 describe("create-screen graph flow", () => {
-  it("quick lane resolves a missing component, waits for fake apply, and saves QA", async () => {
+  it("quick lane composes screen-draft parts, waits for fake apply, and saves QA", async () => {
     const root = await mkdtemp(join(tmpdir(), "kotikit-e2e-create-screen-"));
     try {
       seedLocalDesignSystem(root, { includePrimaryAction: false });
@@ -27,26 +27,13 @@ describe("create-screen graph flow", () => {
       });
 
       expect(started.status).toBe("waiting-for-user");
-      expect(started.state.pendingQuestion?.id).toBe("missing-components");
+      expect(started.state.pendingQuestion?.id).toBe("approve-literal-variable-fallback");
       expect(started.state.uxEnvelope).toMatchObject({
         schemaVersion: "UXEnvelope/v1",
       });
       expect(started.state.stateMatrix).toMatchObject({
         schemaVersion: "StateMatrix/v1",
       });
-
-      const missingResolved = await runtime.answerRun({
-        runId: started.runId,
-        answer: "create-draft-components",
-      });
-      expect(missingResolved.status).toBe("waiting-for-figma");
-      expect(missingResolved.state.draftComponentPlan?.components).toContainEqual(
-        expect.objectContaining({ name: "secondary action" })
-      );
-
-      const draftCreated = await drainFakeFigmaTransactions(runtime, started.runId);
-      expect(draftCreated.status).toBe("waiting-for-user");
-      expect(draftCreated.pendingQuestion?.id).toBe("approve-literal-variable-fallback");
 
       const waitingForApply = await runtime.answerRun({
         runId: started.runId,
@@ -60,8 +47,8 @@ describe("create-screen graph flow", () => {
       expect(waitingForApply.state.uiComposition?.parts).toContainEqual(
         expect.objectContaining({
           name: "secondary action",
-          source: "draft-component",
-          componentKey: "local-draft-draft-secondary-action-key",
+          source: "screen-draft",
+          extractionCandidate: true,
         })
       );
       expect(waitingForApply.state.stateRepresentation).toMatchObject({
@@ -84,12 +71,14 @@ describe("create-screen graph flow", () => {
       const completed = await drainFakeFigmaTransactions(runtime, started.runId);
 
       expect(completed.status).toBe("done");
-      expect(completed.draftComponentLifecycle).toMatchObject({
-        schemaVersion: "DraftComponentLifecycle/v1",
-        components: expect.arrayContaining([expect.objectContaining({ status: "used" })]),
-      });
       expectIncrementalQueueDone(completed);
       expect(completed.uiQualityGate?.status).toBe("passed");
+      await expect(
+        artifactStore.getArtifact(`${started.runId}-design-system-usage-report`)
+      ).resolves.toMatchObject({
+        type: "design-system-usage-report",
+        payload: { summary: expect.stringContaining("screen-draft part") },
+      });
       expect(completed.artifacts.map((artifact) => artifact.type)).toEqual(
         expect.arrayContaining([
           "design-brief",
@@ -97,7 +86,7 @@ describe("create-screen graph flow", () => {
           "state-matrix",
           "figma-apply-packet",
           "figma-apply-report",
-          "draft-component-lifecycle",
+          "design-system-usage-report",
           "ui-quality-gate-report",
         ])
       );
@@ -185,18 +174,13 @@ describe("create-screen graph flow", () => {
           figmaTarget: fakeDraftTarget("Draft - Restart Settings"),
         },
       });
-      const missingResolved = await first.runtime.answerRun({
-        runId: started.runId,
-        answer: "create-draft-components",
-      });
-      const draftCreated = await drainFakeFigmaTransactions(first.runtime, started.runId);
       const waitingForApply = await first.runtime.answerRun({
         runId: started.runId,
         answer: "approve-draft-only-literals",
       });
 
-      expect(missingResolved.status).toBe("waiting-for-figma");
-      expect(draftCreated.status).toBe("waiting-for-user");
+      expect(started.status).toBe("waiting-for-user");
+      expect(started.state.pendingQuestion?.id).toBe("approve-literal-variable-fallback");
       expect(waitingForApply.status).toBe("waiting-for-figma");
       expectIncrementalQueueReady(waitingForApply.state);
 

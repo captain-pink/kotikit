@@ -78,7 +78,7 @@ export const draftNodeDefinitions: NodeDefinition[] = [
   }),
   node({
     key: "draft.buildFigmaTransactionPlan",
-    stateReads: ["canvasPlan", "draftPlan"],
+    stateReads: ["canvasPlan", "draftPlan", "applyReport"],
     stateWrites: ["figmaTransactionPlan"],
     run: async (input) => {
       const state = graphState(input.state);
@@ -202,18 +202,23 @@ function transactionPlacementsForState(
   state: KotikitGraphState,
   canvasPlan: CanvasPlan
 ): CanvasPlan["placements"] {
+  const recordedPlacementIds = new Set(
+    recordArray(recordFrom(state.applyReport).nodes)
+      .map((node) => stringField(node, "placementId"))
+      .filter((placementId): placementId is string => placementId !== undefined)
+  );
   const createdDraftComponentIds = new Set(
     recordArray(recordFrom(state.draftPlan).createdDraftComponents)
       .filter((component) => hasRealComponentKey(component))
       .map((component) => stringField(component, "id"))
       .filter((id): id is string => id !== undefined)
   );
-  if (createdDraftComponentIds.size === 0) return canvasPlan.placements;
   return canvasPlan.placements.filter(
     (placement) =>
-      placement.kind !== "draft-component" ||
-      placement.draftComponentId === undefined ||
-      !createdDraftComponentIds.has(placement.draftComponentId)
+      !recordedPlacementIds.has(placement.id) &&
+      (placement.kind !== "draft-component" ||
+        placement.draftComponentId === undefined ||
+        !createdDraftComponentIds.has(placement.draftComponentId))
   );
 }
 

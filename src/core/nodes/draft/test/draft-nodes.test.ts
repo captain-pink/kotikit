@@ -39,19 +39,41 @@ describe("draft graph nodes", () => {
       },
       placements: [
         {
-          id: "draft-table-row",
-          kind: "draft-component",
-          draftComponentId: "table-row",
-          transactionId: "txn-draft-table-row",
-        },
-        {
           id: "state-filled",
           kind: "screen-state",
           stateId: "filled",
+          bounds: { x: 0, y: 0, width: 1440, height: 900 },
           transactionId: "txn-state-filled",
         },
+        {
+          id: "draft-table-row",
+          kind: "draft-component",
+          draftComponentId: "table-row",
+          bounds: { x: 0, y: 1100, width: 360, height: 240 },
+          transactionId: "txn-draft-table-row",
+        },
       ],
-      strategy: { creationOrder: ["draft-table-row", "state-filled"] },
+      strategy: { creationOrder: ["state-filled", "draft-table-row"] },
+    });
+  });
+
+  it("does not reserve a draft component lane when composing the first screen", async () => {
+    const result = await runNode("draft.buildCanvasPlan", {
+      screen: { title: "Members" },
+      figmaTarget: draftTarget(),
+      stateMatrix: stateMatrix(),
+    });
+
+    expect(result.statePatch?.canvasPlan).toMatchObject({
+      zones: [expect.objectContaining({ id: "zone-screen-states", kind: "screen-states" })],
+      placements: [
+        expect.objectContaining({
+          id: "state-filled",
+          kind: "screen-state",
+          bounds: { x: 0, y: 0, width: 1440, height: 900 },
+        }),
+      ],
+      strategy: { creationOrder: ["state-filled"] },
     });
   });
 
@@ -130,6 +152,27 @@ describe("draft graph nodes", () => {
           placementId: "state-filled",
           stateId: "filled",
           status: "pending",
+        },
+      ],
+    });
+  });
+
+  it("skips screen-state transactions already recorded in the apply report", async () => {
+    const result = await runNode("draft.buildFigmaTransactionPlan", {
+      canvasPlan: sampleCanvasPlan(),
+      applyReport: {
+        nodes: [{ placementId: "state-filled", transactionId: "txn-state-filled" }],
+      },
+    });
+
+    expect(result.statePatch?.figmaTransactionPlan).toMatchObject({
+      schemaVersion: "FigmaTransactionPlan/v1",
+      transactions: [
+        {
+          id: "txn-draft-table-row",
+          order: 1,
+          kind: "create-draft-component",
+          placementId: "draft-table-row",
         },
       ],
     });

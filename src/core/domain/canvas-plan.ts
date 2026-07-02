@@ -1,9 +1,9 @@
 import { KotikitError } from "../../util/result.js";
 import { type CanvasPlan, CanvasPlanSchema } from "../schemas/artifact.js";
 
-const DRAFT_LANE_WIDTH = 360;
 const ZONE_GAP = 200;
 const SCREEN_GAP = 160;
+const DRAFT_LANE_WIDTH = 360;
 const DRAFT_COMPONENT_HEIGHT = 240;
 const SCREEN_COLUMNS = 2;
 const DEFAULT_SECTION_STYLE = {
@@ -26,22 +26,14 @@ export function buildCanvasPlan(input: {
   draftComponents: { id: string; name: string }[];
   sectionStyle?: CanvasPlan["sectionStyle"];
 }): CanvasPlan {
-  const draftPlacements = input.draftComponents.map(
-    (component, index): CanvasPlacement => ({
-      id: `draft-${component.id}`,
-      kind: "draft-component",
-      draftComponentId: component.id,
-      label: component.name,
-      bounds: {
-        x: 0,
-        y: index * (DRAFT_COMPONENT_HEIGHT + SCREEN_GAP),
-        width: DRAFT_LANE_WIDTH,
-        height: DRAFT_COMPONENT_HEIGHT,
-      },
-      parentZoneId: "zone-draft-components",
-      transactionId: `txn-draft-${component.id}`,
-    })
-  );
+  const screenZone = screenZoneFor(input.screenSize, input.states.length);
+  const draftZone =
+    input.draftComponents.length === 0
+      ? undefined
+      : draftZoneFor({
+          y: screenZone.bounds.y + screenZone.bounds.height + ZONE_GAP,
+          draftComponentCount: input.draftComponents.length,
+        });
 
   const statePlacements = input.states.map((state, index): CanvasPlacement => {
     const column = index % SCREEN_COLUMNS;
@@ -52,7 +44,7 @@ export function buildCanvasPlan(input: {
       stateId: state.id,
       label: `${input.screenTitle} - ${state.label}`,
       bounds: {
-        x: DRAFT_LANE_WIDTH + ZONE_GAP + column * (input.screenSize.width + SCREEN_GAP),
+        x: column * (input.screenSize.width + SCREEN_GAP),
         y: row * (input.screenSize.height + SCREEN_GAP),
         width: input.screenSize.width,
         height: input.screenSize.height,
@@ -62,7 +54,24 @@ export function buildCanvasPlan(input: {
     };
   });
 
-  const placements = [...draftPlacements, ...statePlacements];
+  const draftPlacements = input.draftComponents.map(
+    (component, index): CanvasPlacement => ({
+      id: `draft-${component.id}`,
+      kind: "draft-component",
+      draftComponentId: component.id,
+      label: component.name,
+      bounds: {
+        x: 0,
+        y: (draftZone?.bounds.y ?? 0) + index * (DRAFT_COMPONENT_HEIGHT + SCREEN_GAP),
+        width: DRAFT_LANE_WIDTH,
+        height: DRAFT_COMPONENT_HEIGHT,
+      },
+      parentZoneId: "zone-draft-components",
+      transactionId: `txn-draft-${component.id}`,
+    })
+  );
+
+  const placements = [...statePlacements, ...draftPlacements];
   const plan: CanvasPlan = {
     schemaVersion: "CanvasPlan/v1",
     section: {
@@ -73,26 +82,13 @@ export function buildCanvasPlan(input: {
     screenSize: input.screenSize,
     minGap: SCREEN_GAP,
     sectionStyle: input.sectionStyle ?? DEFAULT_SECTION_STYLE,
-    zones: [
-      {
-        id: "zone-draft-components",
-        kind: "draft-components",
-        label: "Draft components",
-        bounds: draftZoneBounds(input.draftComponents.length),
-      },
-      {
-        id: "zone-screen-states",
-        kind: "screen-states",
-        label: "Screen states",
-        bounds: screenZoneBounds(input.screenSize, input.states.length),
-      },
-    ],
+    zones: [screenZone, ...(draftZone === undefined ? [] : [draftZone])],
     placements,
     strategy: {
       primaryFirst: true,
       creationOrder: placements.map((placement) => placement.id),
       designerNotes: [
-        "Draft components stay in the left lane; screen states use a deterministic two-column grid.",
+        "Create screen states first in a deterministic grid; optional draft components are placed below the completed screens.",
       ],
     },
   };
@@ -159,24 +155,34 @@ function boundsContain(parent: Bounds, child: Bounds): boolean {
   );
 }
 
-function draftZoneBounds(draftComponentCount: number): CanvasZone["bounds"] {
+function draftZoneFor(input: { y: number; draftComponentCount: number }): CanvasZone {
   return {
-    x: 0,
-    y: 0,
-    width: DRAFT_LANE_WIDTH,
-    height: gridHeight(draftComponentCount, DRAFT_COMPONENT_HEIGHT),
+    id: "zone-draft-components",
+    kind: "draft-components",
+    label: "Draft components",
+    bounds: {
+      x: 0,
+      y: input.y,
+      width: DRAFT_LANE_WIDTH,
+      height: gridHeight(input.draftComponentCount, DRAFT_COMPONENT_HEIGHT),
+    },
   };
 }
 
-function screenZoneBounds(
+function screenZoneFor(
   screenSize: { width: number; height: number },
   stateCount: number
-): CanvasZone["bounds"] {
+): CanvasZone {
   return {
-    x: DRAFT_LANE_WIDTH + ZONE_GAP,
-    y: 0,
-    width: screenSize.width * SCREEN_COLUMNS + SCREEN_GAP,
-    height: gridHeight(Math.ceil(stateCount / SCREEN_COLUMNS), screenSize.height),
+    id: "zone-screen-states",
+    kind: "screen-states",
+    label: "Screen states",
+    bounds: {
+      x: 0,
+      y: 0,
+      width: screenSize.width * SCREEN_COLUMNS + SCREEN_GAP,
+      height: gridHeight(Math.ceil(stateCount / SCREEN_COLUMNS), screenSize.height),
+    },
   };
 }
 

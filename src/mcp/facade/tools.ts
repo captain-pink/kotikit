@@ -642,7 +642,7 @@ function figmaApplyInputSchema(): Tool["inputSchema"] {
       },
       componentSource: {
         type: "string",
-        enum: ["existing-component", "draft-component", "approved-primitive"],
+        enum: ["existing-component", "draft-component", "screen-draft", "approved-primitive"],
         description:
           "Proof that the applied node is an actual design-system component, a kotikit draft component, or an approved primitive.",
       },
@@ -689,7 +689,7 @@ function figmaApplyInputSchema(): Tool["inputSchema"] {
             componentKey: { type: "string" },
             componentSource: {
               type: "string",
-              enum: ["existing-component", "draft-component", "approved-primitive"],
+              enum: ["existing-component", "draft-component", "screen-draft", "approved-primitive"],
             },
             bounds: { type: "object" },
             componentRefs: { type: "array", items: { type: "string" } },
@@ -867,10 +867,11 @@ function componentKeyFrom(input: Record<string, unknown>): string | undefined {
 
 function componentSourceField(
   value: Record<string, unknown>
-): "existing-component" | "draft-component" | "approved-primitive" | undefined {
+): "existing-component" | "draft-component" | "screen-draft" | "approved-primitive" | undefined {
   const candidate = value.componentSource;
   return candidate === "existing-component" ||
     candidate === "draft-component" ||
+    candidate === "screen-draft" ||
     candidate === "approved-primitive"
     ? candidate
     : undefined;

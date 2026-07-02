@@ -13,8 +13,7 @@
     "figma.target",
     "draft.compile",
     "figma.write.remote",
-    "qa.run",
-    "draftComponents.write"
+    "qa.run"
   ],
   "nodes": [
     {
@@ -81,16 +80,6 @@
       "params": {}
     },
     {
-      "id": "ask-missing-component-decision",
-      "uses": "designSystem.askMissingComponentDecision",
-      "params": {}
-    },
-    {
-      "id": "plan-missing-components",
-      "uses": "draftComponents.planMissing",
-      "params": {}
-    },
-    {
       "id": "ensure-draft-target",
       "uses": "figma.ensureDraftTarget",
       "params": {}
@@ -98,16 +87,6 @@
     {
       "id": "build-canvas-plan",
       "uses": "draft.buildCanvasPlan",
-      "params": {}
-    },
-    {
-      "id": "create-draft-components",
-      "uses": "draftComponents.createOnDraftPage",
-      "params": {}
-    },
-    {
-      "id": "validate-draft-components",
-      "uses": "draftComponents.validateCreated",
       "params": {}
     },
     {
@@ -156,11 +135,6 @@
       "params": {}
     },
     {
-      "id": "build-draft-component-lifecycle",
-      "uses": "draftComponents.buildLifecycle",
-      "params": {}
-    },
-    {
       "id": "verify-draft-invariants",
       "uses": "figma.verifyDraftInvariants",
       "params": {}
@@ -168,11 +142,6 @@
     {
       "id": "verify-state-representation",
       "uses": "ui.verifyStateRepresentation",
-      "params": {}
-    },
-    {
-      "id": "verify-draft-component-lifecycle",
-      "uses": "draftComponents.verifyLifecycle",
       "params": {}
     },
     {
@@ -207,13 +176,9 @@
     ["save-approved-brief", "search-local-design-system"],
     ["search-local-design-system", "build-fit-report"],
     ["build-fit-report", "save-reuse-plan"],
-    ["save-reuse-plan", "ask-missing-component-decision"],
-    ["ask-missing-component-decision", "plan-missing-components"],
-    ["plan-missing-components", "ensure-draft-target"],
+    ["save-reuse-plan", "ensure-draft-target"],
     ["ensure-draft-target", "build-canvas-plan"],
-    ["build-canvas-plan", "create-draft-components"],
-    ["create-draft-components", "validate-draft-components"],
-    ["validate-draft-components", "build-ui-composition-contract"],
+    ["build-canvas-plan", "build-ui-composition-contract"],
     ["build-ui-composition-contract", "build-state-representation-contract"],
     ["build-state-representation-contract", "build-layout-contract"],
     ["build-layout-contract", "build-variable-binding-plan"],
@@ -222,11 +187,9 @@
     ["compile-high-fidelity-draft", "build-figma-transaction-plan"],
     ["build-figma-transaction-plan", "build-figma-apply-packet"],
     ["build-figma-apply-packet", "apply-figma-transaction-queue"],
-    ["apply-figma-transaction-queue", "build-draft-component-lifecycle"],
-    ["build-draft-component-lifecycle", "verify-draft-invariants"],
+    ["apply-figma-transaction-queue", "verify-draft-invariants"],
     ["verify-draft-invariants", "verify-state-representation"],
-    ["verify-state-representation", "verify-draft-component-lifecycle"],
-    ["verify-draft-component-lifecycle", "save-apply-report"],
+    ["verify-state-representation", "save-apply-report"],
     ["save-apply-report", "run-ui-quality-gate"],
     ["run-ui-quality-gate", "post-draft-qa"],
     ["post-draft-qa", "save-design-system-usage-report"]

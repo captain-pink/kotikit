@@ -356,7 +356,7 @@ const FigmaNodeLedgerEntrySchema = z.strictObject({
   bounds: BoundsSchema,
   componentRefs: z.array(IncrementalRefSchema).max(INCREMENTAL_ARRAY_MAX),
   componentSource: z
-    .enum(["existing-component", "draft-component", "approved-primitive"])
+    .enum(["existing-component", "draft-component", "screen-draft", "approved-primitive"])
     .optional(),
   variableRefs: z.array(IncrementalRefSchema).max(INCREMENTAL_ARRAY_MAX),
   iconRefs: z.array(IncrementalRefSchema).max(INCREMENTAL_ARRAY_MAX).optional(),
@@ -439,9 +439,10 @@ const UICompositionPartSchema = z.strictObject({
       "unknown",
     ])
     .optional(),
-  source: z.enum(["existing-component", "draft-component", "approved-primitive"]),
+  source: z.enum(["existing-component", "draft-component", "screen-draft", "approved-primitive"]),
   componentKey: z.string().min(1).optional(),
   draftComponentId: z.string().min(1).optional(),
+  extractionCandidate: z.boolean().optional(),
   primitiveReason: z.string().min(1).optional(),
   iconAffordances: z.array(IconAffordanceSchema).optional(),
 });

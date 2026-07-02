@@ -32,9 +32,10 @@ describe("KOTIKIT_MCP_INSTRUCTIONS", () => {
     expect(KOTIKIT_MCP_INSTRUCTIONS).not.toContain("kotikit_spec_");
   });
 
-  it("tells agents to ask before planning missing components", () => {
-    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("missing-component strategy");
-    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("explicit designer approval");
+  it("tells agents to compose screens before extracting draft components", () => {
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("Compose screens before extracting");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("screen-draft work");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("same draft page");
   });
 
   it("requires a bound draft page before Figma design application", () => {

@@ -7,17 +7,30 @@ type NodeOutput = {
 };
 
 describe("ui composition graph nodes", () => {
-  it("rejects meaningful UI parts without an existing component, draft component, or approved primitive", async () => {
-    await expect(
-      runNode("ui.buildCompositionContract", {
-        screen: { requiredUiParts: ["primary button", "email input"] },
-        fitReport: {
-          exactMatches: [{ requestedPart: "primary button", componentKey: "button-key" }],
-          substitutes: [],
-          missingComponents: [{ requestedPart: "email input" }],
-        },
-      })
-    ).rejects.toThrow("meaningful UI parts");
+  it("allows missing UI parts as screen-draft candidates instead of blocking composition", async () => {
+    const result = await runNode("ui.buildCompositionContract", {
+      screen: { requiredUiParts: ["primary button", "email input"] },
+      fitReport: {
+        exactMatches: [{ requestedPart: "primary button", componentKey: "button-key" }],
+        substitutes: [],
+        missingComponents: [{ requestedPart: "email input" }],
+      },
+    });
+
+    expect(result.statePatch?.uiComposition).toMatchObject({
+      parts: [
+        expect.objectContaining({
+          name: "primary button",
+          source: "existing-component",
+          componentKey: "button-key",
+        }),
+        expect.objectContaining({
+          name: "email input",
+          source: "screen-draft",
+          extractionCandidate: true,
+        }),
+      ],
+    });
   });
 
   it("builds a contract from existing and draft component refs", async () => {
@@ -168,123 +181,28 @@ describe("ui composition graph nodes", () => {
     ]);
   });
 
-  it("rejects table/list repeated patterns without a component family or draft component", async () => {
-    await expect(
-      runNode("ui.buildCompositionContract", {
-        screen: { requiredUiParts: ["member table"], repeatedPatterns: ["table"] },
-        fitReport: {
-          exactMatches: [],
-          substitutes: [],
-          missingComponents: [{ requestedPart: "member table" }],
-          repeatedPatterns: [{ pattern: "table", status: "gap" }],
-        },
-      })
-    ).rejects.toThrow("table/list component family");
-  });
+  it("does not block table/list composition on pre-created component families", async () => {
+    const result = await runNode("ui.buildCompositionContract", {
+      screen: {
+        requiredUiParts: ["member table"],
+        repeatedPatterns: ["table"],
+        states: ["loading", "empty", "error"],
+      },
+      fitReport: {
+        exactMatches: [],
+        substitutes: [],
+        missingComponents: [{ requestedPart: "member table" }],
+        repeatedPatterns: [{ pattern: "table", status: "gap" }],
+      },
+    });
 
-  it("requires the full table/list draft family before repeated pattern composition", async () => {
-    await expect(
-      runNode("ui.buildCompositionContract", {
-        screen: { requiredUiParts: ["member table"], repeatedPatterns: ["table"] },
-        fitReport: {
-          exactMatches: [],
-          substitutes: [],
-          missingComponents: [{ requestedPart: "member table" }],
-          repeatedPatterns: [{ pattern: "table", status: "gap" }],
-        },
-        draftComponentPlan: {
-          schemaVersion: "DraftComponentPlan/v1",
-          sectionName: "Kotikit Draft Components",
-          components: [{ id: "draft-member-table", name: "member table", reason: "Missing" }],
-        },
-      })
-    ).rejects.toThrow("container, header row, data row, cell");
-  });
-
-  it("requires the full table/list family even when the repeated pattern is marked covered", async () => {
-    await expect(
-      runNode("ui.buildCompositionContract", {
-        screen: { requiredUiParts: ["member table"], repeatedPatterns: ["table"] },
-        fitReport: {
-          exactMatches: [
-            {
-              requestedPart: "member table",
-              componentName: "member table",
-              componentKey: "table-key",
-            },
-          ],
-          repeatedPatterns: [{ pattern: "table", status: "covered" }],
-        },
-      })
-    ).rejects.toThrow("container, header row, data row, cell");
-  });
-
-  it("requires needed table/list states before repeated pattern composition", async () => {
-    await expect(
-      runNode("ui.buildCompositionContract", {
-        screen: {
-          requiredUiParts: ["member table"],
-          repeatedPatterns: ["table"],
-          states: ["loading", "empty", "error"],
-        },
-        fitReport: {
-          repeatedPatterns: [{ pattern: "table", status: "gap" }],
-        },
-        draftComponentPlan: {
-          schemaVersion: "DraftComponentPlan/v1",
-          sectionName: "Kotikit Draft Components",
-          components: [
-            { id: "draft-table-container", name: "member table container", reason: "Missing" },
-            { id: "draft-table-header-row", name: "member table header row", reason: "Missing" },
-            { id: "draft-table-data-row", name: "member table data row", reason: "Missing" },
-            { id: "draft-table-cell", name: "member table cell", reason: "Missing" },
-            { id: "draft-table-loading", name: "member table loading state", reason: "Missing" },
-          ],
-        },
-      })
-    ).rejects.toThrow("loading, empty, error");
-  });
-
-  it("requires needed table/list states even when the repeated pattern is marked covered", async () => {
-    await expect(
-      runNode("ui.buildCompositionContract", {
-        screen: {
-          requiredUiParts: ["member table"],
-          repeatedPatterns: ["table"],
-          states: ["loading", "empty", "error"],
-        },
-        fitReport: {
-          exactMatches: [
-            {
-              requestedPart: "member table",
-              componentName: "member table",
-              componentKey: "table-key",
-            },
-            {
-              requestedPart: "table container",
-              componentName: "member table container",
-              componentKey: "container-key",
-            },
-            {
-              requestedPart: "table header row",
-              componentName: "member table header row",
-              componentKey: "header-key",
-            },
-            {
-              requestedPart: "table data row",
-              componentName: "member table data row",
-              componentKey: "row-key",
-            },
-            {
-              requestedPart: "table cell",
-              componentName: "member table cell",
-              componentKey: "cell-key",
-            },
-          ],
-          repeatedPatterns: [{ pattern: "table", status: "covered" }],
-        },
-      })
-    ).rejects.toThrow("loading, empty, error");
+    expect(result.statePatch?.uiComposition?.parts).toEqual([
+      expect.objectContaining({
+        name: "member table",
+        source: "screen-draft",
+        extractionCandidate: true,
+      }),
+    ]);
   });
 
   it("rejects partial component imitation in repeated rows/cards/cells", async () => {

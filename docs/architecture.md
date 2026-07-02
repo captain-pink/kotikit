@@ -102,12 +102,13 @@ This gives teams without Figma branches a practical safety boundary.
    indexes.
 
 3. **Draft planning**
-   Graph nodes turn intent, local design-system evidence, draft components, and
-   variables into an apply-packet artifact.
+   Graph nodes turn intent, local design-system evidence, screen-draft
+   structure, icons, and variables into an apply-packet artifact.
 
 4. **Official Figma apply**
    The assistant uses the official Figma integration to drain incremental Figma
-   transactions one draft component, screen state, or region state at a time.
+   transactions one screen state, region state, or approved post-screen draft
+   component at a time.
    Each write follows the canvas plan and records node-ledger metadata back to
    kotikit.
 

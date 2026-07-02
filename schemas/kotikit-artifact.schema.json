@@ -553,7 +553,12 @@
                   },
                   "source": {
                     "type": "string",
-                    "enum": ["existing-component", "draft-component", "approved-primitive"]
+                    "enum": [
+                      "existing-component",
+                      "draft-component",
+                      "screen-draft",
+                      "approved-primitive"
+                    ]
                   },
                   "componentKey": {
                     "type": "string",
@@ -562,6 +567,9 @@
                   "draftComponentId": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "extractionCandidate": {
+                    "type": "boolean"
                   },
                   "primitiveReason": {
                     "type": "string",
@@ -1464,7 +1472,12 @@
                   },
                   "componentSource": {
                     "type": "string",
-                    "enum": ["existing-component", "draft-component", "approved-primitive"]
+                    "enum": [
+                      "existing-component",
+                      "draft-component",
+                      "screen-draft",
+                      "approved-primitive"
+                    ]
                   },
                   "variableRefs": {
                     "maxItems": 500,
@@ -3073,7 +3086,12 @@
                   },
                   "source": {
                     "type": "string",
-                    "enum": ["existing-component", "draft-component", "approved-primitive"]
+                    "enum": [
+                      "existing-component",
+                      "draft-component",
+                      "screen-draft",
+                      "approved-primitive"
+                    ]
                   },
                   "componentKey": {
                     "type": "string",
@@ -3082,6 +3100,9 @@
                   "draftComponentId": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "extractionCandidate": {
+                    "type": "boolean"
                   },
                   "primitiveReason": {
                     "type": "string",
@@ -4574,7 +4595,12 @@
                   },
                   "componentSource": {
                     "type": "string",
-                    "enum": ["existing-component", "draft-component", "approved-primitive"]
+                    "enum": [
+                      "existing-component",
+                      "draft-component",
+                      "screen-draft",
+                      "approved-primitive"
+                    ]
                   },
                   "variableRefs": {
                     "maxItems": 500,

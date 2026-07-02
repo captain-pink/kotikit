@@ -1055,10 +1055,11 @@ function booleanField(value: Record<string, unknown>, key: string): boolean | un
 
 function componentSourceField(
   value: Record<string, unknown>
-): "existing-component" | "draft-component" | "approved-primitive" | undefined {
+): "existing-component" | "draft-component" | "screen-draft" | "approved-primitive" | undefined {
   const candidate = value.componentSource;
   return candidate === "existing-component" ||
     candidate === "draft-component" ||
+    candidate === "screen-draft" ||
     candidate === "approved-primitive"
     ? candidate
     : undefined;

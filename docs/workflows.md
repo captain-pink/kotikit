@@ -37,28 +37,32 @@ The assistant should:
 
 1. Start the `create-screen` flow with your intent.
 2. Search the local design-system cache before inventing anything.
-3. Ask only blocking questions, such as missing component strategy, literal
-   variable fallback approval, or the exact Figma draft page target.
+3. Ask only blocking questions, such as literal variable fallback approval or
+   the exact Figma draft page target.
 4. Read the apply-packet artifact and active Figma transaction.
-5. Use the official Figma assistant integration to apply one draft component,
-   screen state, or region state at the canvas plan bounds.
+5. Use the official Figma assistant integration to apply one screen state or
+   region state at the canvas plan bounds.
 6. Record Figma node metadata back into kotikit.
 7. Continue the run and repeat one screen state at a time until the transaction
    queue is complete.
 8. Let the UI quality gate check common broken-output issues.
 
 Kotikit applies Figma drafts through incremental Figma transactions. It creates
-draft components first, then creates the filled screen, then creates each
-required state one screen state at a time. Each generated node is placed by the
-canvas plan and recorded in the node ledger so comment review can still work
-after designers move frames.
+the actual screen states first using local design-system components, icons,
+variables, and auto layout. Missing reusable structure is kept as screen-draft
+work during composition. After the design is visible, the assistant should ask
+whether you want those missing reusable parts extracted into draft components on
+the same draft page. Each generated node is placed by the canvas plan and
+recorded in the node ledger so comment review can still work after designers
+move frames.
 
 ### Manual QA For Generated Figma Drafts
 
 After kotikit creates a draft, verify:
 
 - generated frames are in one clean kotikit Section;
-- draft components are in their own zone;
+- optional extracted draft components are in their own zone on the same draft
+  page;
 - state frames are same-sized and non-overlapping;
 - loading, empty, no-results, error, and permission states replace the affected
   region;
@@ -119,20 +123,15 @@ importable component keys for unpublished local components.
 If local design-system search cannot find a meaningful UI part, kotikit should
 not silently invent or imitate it.
 
-The assistant should ask you to choose:
+The create-screen happy path should compose the visible screen first using
+local design-system components, icons, variables, auto layout, and screen-draft
+structure for any true gaps. Once the result is visible, the assistant should
+ask whether you want reusable missing parts extracted into draft components.
+Extracted draft components stay on the same draft page; kotikit never publishes
+them into the real design system automatically.
 
-- Create reusable draft components first.
-- Use an approved primitive exception for this draft only.
-
-Reusable draft components are created and validated on the active draft page
-before the main screen composition continues. Literal color, typography,
-spacing, radius, stroke, shadow, or effect values are allowed only after you
-explicitly approve them.
-
-Each draft component is tracked through `DraftComponentLifecycle`: why it was
-created, where it lives, which component key it produced, and which generated
-screen instances use it. Orphan draft components and overlapping draft areas
-should fail QA instead of becoming hidden clutter on the page.
+Literal color, typography, spacing, radius, stroke, shadow, or effect values
+are allowed only after you explicitly approve them.
 
 ## Import Variables On Non-Enterprise Figma Plans
 

@@ -638,6 +638,7 @@ function reusePlanPayload(report: FitReport): Artifact["payload"] {
 function usageReportPayload(state: KotikitGraphState): Artifact["payload"] {
   const parts = recordArray(recordFrom(state.uiComposition).parts);
   const reused = parts.filter((part) => part.source === "existing-component");
+  const screenDrafts = parts.filter((part) => part.source === "screen-draft");
   const drafted = parts.filter((part) => part.source === "draft-component");
   const primitives = parts.filter((part) => part.source === "approved-primitive");
   const applyReport = recordFrom(state.applyReport);
@@ -653,9 +654,10 @@ function usageReportPayload(state: KotikitGraphState): Artifact["payload"] {
 
   return {
     schemaVersion: ArtifactSchemaVersionByType["design-system-usage-report"],
-    summary: `Reused ${counted(reused.length, "design-system component")}, used ${counted(drafted.length, "draft component")}, used ${counted(iconRefs.length, "icon")}, kept ${counted(primitives.length, "primitive exception")}.`,
+    summary: `Reused ${counted(reused.length, "design-system component")}, kept ${counted(screenDrafts.length, "screen-draft part")}, used ${counted(drafted.length, "draft component")}, used ${counted(iconRefs.length, "icon")}, kept ${counted(primitives.length, "primitive exception")}.`,
     refs: [
       ...reused.flatMap((part) => usageRef("reused", part)),
+      ...screenDrafts.flatMap((part) => screenDraftUsageRef(part)),
       ...drafted.flatMap((part) => usageRef("drafted", part)),
       ...iconRefs.map((ref) => `icon: ${ref}`),
       ...primitives.flatMap((part) => {
@@ -665,11 +667,17 @@ function usageReportPayload(state: KotikitGraphState): Artifact["payload"] {
     ],
     data: {
       reusedComponents: reused.length,
+      screenDraftParts: screenDrafts.length,
       draftComponents: drafted.length,
       iconRefs: iconRefs.length,
       primitiveExceptions: primitives.length,
     },
   };
+}
+
+function screenDraftUsageRef(part: Record<string, unknown>): string[] {
+  const name = stringField(part, "name");
+  return name === undefined ? [] : [`screen-draft: ${name}`];
 }
 
 function usageRef(prefix: string, part: Record<string, unknown>): string[] {

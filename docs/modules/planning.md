@@ -40,12 +40,12 @@ The design plan's steps use a discriminated union on `kind`. Each step kind carr
 
 Every design plan must include a bound `FigmaDraftTarget`. Graph target nodes validate the designer-provided page URL before draft planning begins. `generateDesignPlan` copies that target into the disposable plan so the agent can verify the official Figma write target, switch to the exact draft page, and create or reuse a Section named `kotikit / <scope> / <screen> / <date>`. All generated frames are parented to that Section, and graph apply metadata rejects nodes reported from a different file, page, or Section. This gives Professional-plan teams a branch-free safety boundary for production files.
 
-Missing component decisions happen inside graph nodes. When local
-design-system search cannot resolve a needed part, the graph asks the designer
-whether to create reusable draft components or use an approved primitive
-exception, stores that decision in `draftComponentPlan`, and blocks literal
-values unless the designer explicitly approves them. Kotikit does not create
-new variables in this flow.
+Missing reusable parts should not block the first visible screen. When local
+design-system search cannot resolve a needed part, the create-screen path keeps
+that structure as screen-draft work, composes the screen with auto layout, and
+asks about draft-component extraction only after the design is visible. Literal
+values still require explicit designer approval. Kotikit does not create new
+variables in this flow.
 
 Design layout is intentionally generic. `generateDesignPlan` does not know about MUI, shadcn, Ant, or a copied local kit. It reads `spec.components[]`, resolves each component to a broad role such as `primary-action`, `search-input`, `filter-control`, `data-display`, `binary-control`, or `destructive-action`, and maps the role to a stable zone such as `header-actions`, `controls`, `content`, `content-toggles`, or `content-actions`. The official Figma apply path then creates those zones with Figma auto-layout and appends imported component instances into the assigned zone. This prevents common failures where unrelated controls, tables, buttons, and switches are all placed into a single stack, while keeping design-system-specific names and variants outside the core planner.
 
