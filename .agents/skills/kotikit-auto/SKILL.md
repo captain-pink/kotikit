@@ -65,13 +65,19 @@ is available on `PATH`.
    `target-bound` with `kotikit_answer`.
 6. If the run needs any other Figma target, ask for the exact draft page URL and
    bind it with `kotikit_bind_figma_target`.
-7. If the run produces an apply-packet artifact, read it with
+7. If the run produces a `design-system-reuse-plan` artifact, read it before
+   drafting. Reuse exact design-system components, validate substitutes, wrap
+   or compose close candidates, and create draft components only for true gaps.
+8. If the run produces an apply-packet artifact, read it with
    `kotikit_get_artifact`, apply only the active Figma transaction through
    official Figma MCP tools, then call `kotikit_record_figma_apply` with the
    `runId`, `transactionId`, node id, bounds, component refs, component
    source, variable refs, required icon refs, and auto-layout metadata.
-8. Call `kotikit_continue` after external Figma work is recorded. Repeat until
+9. Call `kotikit_continue` after external Figma work is recorded. Repeat until
    kotikit reports no active Figma transaction.
+10. If the run produces a `design-system-usage-report`, use it in the final
+   answer to summarize reused design-system components, draft components, icon
+   refs, and primitive exceptions.
 
 When applying a kotikit draft in Figma:
 

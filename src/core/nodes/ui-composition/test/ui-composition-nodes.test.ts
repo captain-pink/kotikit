@@ -77,6 +77,56 @@ describe("ui composition graph nodes", () => {
     });
   });
 
+  it("uses wrap candidate component refs as existing component coverage", async () => {
+    const result = await runNode("ui.buildCompositionContract", {
+      screen: { requiredUiParts: ["member table"], repeatedPatterns: ["table"] },
+      fitReport: {
+        exactMatches: [],
+        substitutes: [],
+        wrapCandidates: [
+          {
+            requestedPart: "member table",
+            componentName: "Table preview",
+            componentKey: "table-preview-key",
+            candidateKind: "wrap-needed",
+          },
+        ],
+        repeatedPatterns: [{ pattern: "table", status: "partial" }],
+      },
+      draftComponentPlan: {
+        schemaVersion: "DraftComponentPlan/v1",
+        sectionName: "Kotikit Draft Components",
+        components: [
+          { id: "draft-table-container", name: "member table container", reason: "Missing" },
+          { id: "draft-table-header-row", name: "member table header row", reason: "Missing" },
+          { id: "draft-table-data-row", name: "member table data row", reason: "Missing" },
+          { id: "draft-table-cell", name: "member table cell", reason: "Missing" },
+        ],
+      },
+      draftPlan: {
+        createdDraftComponents: [
+          {
+            id: "draft-table-container",
+            name: "member table container",
+            componentKey: "container-key",
+          },
+          {
+            id: "draft-table-header-row",
+            name: "member table header row",
+            componentKey: "header-key",
+          },
+          { id: "draft-table-data-row", name: "member table data row", componentKey: "row-key" },
+          { id: "draft-table-cell", name: "member table cell", componentKey: "cell-key" },
+        ],
+      },
+    });
+
+    expect(result.statePatch?.uiComposition?.parts[0]).toMatchObject({
+      source: "existing-component",
+      componentKey: "table-preview-key",
+    });
+  });
+
   it("adds admin data table placement intent to composition parts", async () => {
     const result = await runNode("ui.buildCompositionContract", {
       screen: { requiredUiParts: ["page shell", "primary action", "member table"] },

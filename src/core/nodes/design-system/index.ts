@@ -45,6 +45,7 @@ type FitReport = {
   summary: string;
   exactMatches: FitMatch[];
   substitutes: FitMatch[];
+  wrapCandidates: WrapCandidate[];
   missingComponents: FitGap[];
   approvedPrimitiveExceptions?: string[];
   variableGaps: VariableGap[];
@@ -59,6 +60,10 @@ type FitMatch = {
   reason: string;
 };
 
+type WrapCandidate = FitMatch & {
+  candidateKind: "wrap-needed" | "partial";
+};
+
 type FitGap = {
   requestedPart: string;
   reason: string;
@@ -71,10 +76,14 @@ type VariableGap = {
 
 type PatternFit = {
   pattern: string;
-  status: "covered" | "gap";
+  status: "covered" | "partial" | "gap";
   componentKey?: string;
   reason: string;
 };
+
+type ComponentFitCandidate =
+  | { kind: "exact" | "substitute"; match: FitMatch }
+  | { kind: "wrap-needed"; match: WrapCandidate };
 
 type RuntimeNodeOutput = {
   statePatch?: Partial<KotikitGraphState>;
@@ -289,6 +298,53 @@ export function createDesignSystemNodeDefinitions(
         return { artifacts: [artifact] } satisfies RuntimeNodeOutput;
       },
     }),
+    node({
+      key: "designSystem.saveReusePlan",
+      paramsSchema: EmptyParamsSchema,
+      stateReads: ["fitReport"],
+      stateWrites: ["artifacts"],
+      sideEffects: "filesystem",
+      requiredCapabilities: ["designSystem.fit"],
+      run: async (input) => {
+        const state = graphState(input.state);
+        const report = fitReportFrom(state.fitReport);
+        const now = nowIso();
+        const artifact: Artifact = {
+          id: `${state.runId}-design-system-reuse-plan`,
+          runId: state.runId,
+          type: "design-system-reuse-plan",
+          schemaVersion: ArtifactSchemaVersionByType["design-system-reuse-plan"],
+          createdAt: now,
+          updatedAt: now,
+          sourceNode: { key: "designSystem.saveReusePlan", version: "1.0.0" },
+          payload: reusePlanPayload(report),
+        };
+        return { artifacts: [artifact] } satisfies RuntimeNodeOutput;
+      },
+    }),
+    node({
+      key: "designSystem.saveUsageReport",
+      paramsSchema: EmptyParamsSchema,
+      stateReads: ["uiComposition", "draftComponentLifecycle", "applyReport"],
+      stateWrites: ["artifacts"],
+      sideEffects: "filesystem",
+      requiredCapabilities: ["designSystem.fit"],
+      run: async (input) => {
+        const state = graphState(input.state);
+        const now = nowIso();
+        const artifact: Artifact = {
+          id: `${state.runId}-design-system-usage-report`,
+          runId: state.runId,
+          type: "design-system-usage-report",
+          schemaVersion: ArtifactSchemaVersionByType["design-system-usage-report"],
+          createdAt: now,
+          updatedAt: now,
+          sourceNode: { key: "designSystem.saveUsageReport", version: "1.0.0" },
+          payload: usageReportPayload(state),
+        };
+        return { artifacts: [artifact] } satisfies RuntimeNodeOutput;
+      },
+    }),
   ];
 }
 
@@ -314,9 +370,10 @@ function buildFitReport(state: KotikitGraphState): FitReport {
   const designSystem = designSystemFrom(state.designSystem);
   const components = designSystem.components ?? [];
   const parts = meaningfulParts(state);
+  const repeatedPatterns = repeatedPatternsFrom(state);
   const fit = parts.reduce(
     (acc, part) => {
-      const candidate = bestComponentForPart(part, components);
+      const candidate = bestComponentForPart(part, components, repeatedPatterns);
       if (candidate === undefined) {
         acc.missingComponents.push({
           requestedPart: part,
@@ -325,20 +382,20 @@ function buildFitReport(state: KotikitGraphState): FitReport {
         return acc;
       }
       if (candidate.kind === "substitute") acc.substitutes.push(candidate.match);
+      else if (candidate.kind === "wrap-needed") acc.wrapCandidates.push(candidate.match);
       else acc.exactMatches.push(candidate.match);
       return acc;
     },
     {
       exactMatches: [] as FitMatch[],
       substitutes: [] as FitMatch[],
+      wrapCandidates: [] as WrapCandidate[],
       missingComponents: [] as FitGap[],
     }
   );
-  const repeatedPatterns = repeatedPatternsFrom(state).map((pattern) =>
-    patternFit(pattern, components)
-  );
+  const patternFits = repeatedPatterns.map((pattern) => patternFit(pattern, components));
   const variableGaps = variableGapsFrom(designSystem.variables);
-  const summary = `${fit.exactMatches.length} exact match(es), ${fit.substitutes.length} substitute(s), ${fit.missingComponents.length} missing component(s).`;
+  const summary = `${fit.exactMatches.length} exact match(es), ${fit.substitutes.length} substitute(s), ${fit.wrapCandidates.length} wrap candidate(s), ${fit.missingComponents.length} missing component(s).`;
 
   return {
     schemaVersion: "DesignSystemFitReport/v1",
@@ -346,9 +403,10 @@ function buildFitReport(state: KotikitGraphState): FitReport {
     summary,
     exactMatches: fit.exactMatches,
     substitutes: fit.substitutes,
+    wrapCandidates: fit.wrapCandidates,
     missingComponents: fit.missingComponents,
     variableGaps,
-    repeatedPatterns,
+    repeatedPatterns: patternFits,
   };
 }
 
@@ -366,30 +424,42 @@ function localVariableRefs(root: string): LocalVariableRef[] {
 
 function bestComponentForPart(
   part: string,
-  components: LocalComponentRef[]
-): { kind: "exact" | "substitute"; match: FitMatch } | undefined {
+  components: LocalComponentRef[],
+  repeatedPatterns: string[]
+): ComponentFitCandidate | undefined {
   const scored = components
     .map((component) => ({
       component,
       score: componentFitScore(part, component.name),
-      kind: substituteKind(part, component.name),
+      kind: componentCandidateKind(part, component.name, repeatedPatterns),
     }))
     .filter((candidate) => candidate.score > 0)
     .sort((a, b) => b.score - a.score || a.component.name.localeCompare(b.component.name));
   const winner = scored[0];
   if (winner === undefined) return undefined;
+  const match: FitMatch = {
+    requestedPart: part,
+    componentName: winner.component.name,
+    componentKey: winner.component.key,
+    path: winner.component.path,
+    reason:
+      winner.kind === "exact"
+        ? "Component covers the requested UI role."
+        : winner.kind === "substitute"
+          ? "Component is a plausible substitute but still needs explicit draft validation."
+          : "Component is a close design-system candidate that should be wrapped or composed with draft coverage for missing parts.",
+  };
+
+  if (winner.kind === "wrap-needed") {
+    return {
+      kind: "wrap-needed",
+      match: { ...match, candidateKind: "wrap-needed" },
+    };
+  }
+
   return {
     kind: winner.kind,
-    match: {
-      requestedPart: part,
-      componentName: winner.component.name,
-      componentKey: winner.component.key,
-      path: winner.component.path,
-      reason:
-        winner.kind === "exact"
-          ? "Component covers the requested UI role."
-          : "Component is a plausible substitute but still needs explicit draft validation.",
-    },
+    match,
   };
 }
 
@@ -402,10 +472,17 @@ function componentFitScore(part: string, componentName: string): number {
   return 0;
 }
 
-function substituteKind(part: string, componentName: string): "exact" | "substitute" {
+function componentCandidateKind(
+  part: string,
+  componentName: string,
+  repeatedPatterns: string[]
+): "exact" | "substitute" | "wrap-needed" {
   const partTokens = tokenSet(part);
   const componentTokens = tokenSet(componentName);
   if (partTokens.includes("status") && componentTokens.includes("badge")) return "substitute";
+  if (isCloseRepeatedPatternCandidate(part, componentName, repeatedPatterns)) {
+    return "wrap-needed";
+  }
   return "exact";
 }
 
@@ -418,12 +495,38 @@ function patternFit(pattern: string, components: LocalComponentRef[]): PatternFi
       reason: "No design-system component family covers this repeated pattern.",
     };
   }
+  if (isPartialComponentName(component.name)) {
+    return {
+      pattern,
+      status: "partial",
+      componentKey: component.key,
+      reason: `${component.name} is a close reusable base, but missing coverage still needs a wrapper, draft components, or explicit validation.`,
+    };
+  }
   return {
     pattern,
     status: "covered",
     componentKey: component.key,
     reason: `${component.name} covers this repeated pattern.`,
   };
+}
+
+function isCloseRepeatedPatternCandidate(
+  part: string,
+  componentName: string,
+  repeatedPatterns: string[]
+): boolean {
+  const partTokens = tokenSet(part);
+  const componentTokens = tokenSet(componentName);
+  if (!isPartialComponentName(componentName)) return false;
+  return repeatedPatterns.some((pattern) =>
+    tokenSet(pattern).some((token) => partTokens.includes(token) && componentTokens.includes(token))
+  );
+}
+
+function isPartialComponentName(componentName: string): boolean {
+  const tokens = tokenSet(componentName);
+  return ["preview", "sample", "example", "placeholder"].some((token) => tokens.includes(token));
 }
 
 function variableGapsFrom(variables: unknown): VariableGap[] {
@@ -500,8 +603,85 @@ function fitReportRefs(report: FitReport): string[] {
     ...report.substitutes.map(
       (match) => `substitute: ${match.requestedPart} -> ${match.componentKey}`
     ),
+    ...report.wrapCandidates.map(
+      (match) => `wrap: ${match.requestedPart} -> ${match.componentKey}`
+    ),
     ...report.missingComponents.map((gap) => `missing: ${gap.requestedPart}`),
   ];
+}
+
+function reusePlanPayload(report: FitReport): Artifact["payload"] {
+  return {
+    schemaVersion: ArtifactSchemaVersionByType["design-system-reuse-plan"],
+    summary: `Reuse ${counted(report.exactMatches.length, "exact component")}, validate ${counted(report.substitutes.length, "substitute")}, wrap ${counted(report.wrapCandidates.length, "close candidate")}, draft ${counted(report.missingComponents.length, "gap")}.`,
+    refs: [
+      ...report.exactMatches.map(
+        (match) => `reuse: ${match.requestedPart} -> ${match.componentKey}`
+      ),
+      ...report.substitutes.map(
+        (match) => `substitute: ${match.requestedPart} -> ${match.componentKey}`
+      ),
+      ...report.wrapCandidates.map(
+        (match) => `wrap: ${match.requestedPart} -> ${match.componentKey}`
+      ),
+      ...report.missingComponents.map((gap) => `draft: ${gap.requestedPart}`),
+    ],
+    data: {
+      exactMatches: report.exactMatches.length,
+      substitutes: report.substitutes.length,
+      wrapCandidates: report.wrapCandidates.length,
+      missingComponents: report.missingComponents.length,
+    },
+  };
+}
+
+function usageReportPayload(state: KotikitGraphState): Artifact["payload"] {
+  const parts = recordArray(recordFrom(state.uiComposition).parts);
+  const reused = parts.filter((part) => part.source === "existing-component");
+  const drafted = parts.filter((part) => part.source === "draft-component");
+  const primitives = parts.filter((part) => part.source === "approved-primitive");
+  const applyReport = recordFrom(state.applyReport);
+  const nodes = recordArray(applyReport.nodes);
+  const iconRefs = uniqueStrings([
+    ...stringArray(applyReport.iconRefs),
+    ...nodes.flatMap((node) => stringArray(node.iconRefs)),
+    ...nodes.flatMap((node) => {
+      const iconKey = stringField(node, "iconKey");
+      return iconKey === undefined ? [] : [iconKey];
+    }),
+  ]);
+
+  return {
+    schemaVersion: ArtifactSchemaVersionByType["design-system-usage-report"],
+    summary: `Reused ${counted(reused.length, "design-system component")}, used ${counted(drafted.length, "draft component")}, used ${counted(iconRefs.length, "icon")}, kept ${counted(primitives.length, "primitive exception")}.`,
+    refs: [
+      ...reused.flatMap((part) => usageRef("reused", part)),
+      ...drafted.flatMap((part) => usageRef("drafted", part)),
+      ...iconRefs.map((ref) => `icon: ${ref}`),
+      ...primitives.flatMap((part) => {
+        const name = stringField(part, "name");
+        return name === undefined ? [] : [`primitive: ${name}`];
+      }),
+    ],
+    data: {
+      reusedComponents: reused.length,
+      draftComponents: drafted.length,
+      iconRefs: iconRefs.length,
+      primitiveExceptions: primitives.length,
+    },
+  };
+}
+
+function usageRef(prefix: string, part: Record<string, unknown>): string[] {
+  const name = stringField(part, "name");
+  const componentKey = stringField(part, "componentKey");
+  return name === undefined || componentKey === undefined
+    ? []
+    : [`${prefix}: ${name} -> ${componentKey}`];
+}
+
+function counted(count: number, singular: string): string {
+  return `${count} ${count === 1 ? singular : `${singular}s`}`;
 }
 
 function approvePrimitiveExceptions(report: FitReport): FitReport {
@@ -531,6 +711,7 @@ function fitReportFrom(value: unknown): FitReport {
       summary: "No design-system fit report has been built yet.",
       exactMatches: [],
       substitutes: [],
+      wrapCandidates: [],
       missingComponents: [],
       variableGaps: [],
       repeatedPatterns: [],
@@ -542,6 +723,7 @@ function fitReportFrom(value: unknown): FitReport {
     summary: typeof value.summary === "string" ? value.summary : "Design-system fit report.",
     exactMatches: arrayFrom<FitMatch>(value.exactMatches),
     substitutes: arrayFrom<FitMatch>(value.substitutes),
+    wrapCandidates: arrayFrom<WrapCandidate>(value.wrapCandidates),
     missingComponents: arrayFrom<FitGap>(value.missingComponents),
     approvedPrimitiveExceptions: stringArray(value.approvedPrimitiveExceptions),
     variableGaps: arrayFrom<VariableGap>(value.variableGaps),
@@ -583,6 +765,11 @@ function stringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
+}
+
+function stringField(record: Record<string, unknown>, key: string): string | undefined {
+  const value = record[key];
+  return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
 function recordFrom(value: unknown): Record<string, unknown> {

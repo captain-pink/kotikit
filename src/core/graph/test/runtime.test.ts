@@ -246,6 +246,32 @@ describe("createGraphRuntime", () => {
     ).rejects.toThrow("pending question");
   });
 
+  it("persists repeated validator failures with recovery diagnostics", async () => {
+    const { runtime } = fixtureRuntime({ startMode: "validator-error" });
+
+    const first = await runtime.startFlow({
+      flowId: "fixture-flow",
+      input: { project: { root } },
+    });
+    const second = await runtime.continueRun({ runId: first.runId });
+
+    expect(first.status).toBe("blocked");
+    expect(second.status).toBe("blocked");
+    expect(second.state.errors).toEqual([
+      expect.objectContaining({
+        code: "node-blocked",
+        nodeId: "start",
+        message: "The screen is missing component refs.",
+        count: 2,
+        diagnostic: {
+          expected: ["Use real component refs before continuing."],
+          found: ["The screen is missing component refs."],
+          acceptedActions: ["Use real component refs before continuing."],
+        },
+      }),
+    ]);
+  });
+
   it("writes checkpoints after each persisted runtime step", async () => {
     const { checkpointStore, runtime } = fixtureRuntime();
     const started = await runtime.startFlow({
@@ -282,12 +308,13 @@ describe("createGraphRuntime", () => {
 
 function fixtureRuntime(
   options: {
+    startMode?: "valid" | "validator-error";
     askMode?: "valid" | "missing-question";
     finishMode?: "valid" | "wrong-run-artifact" | "malformed-artifact";
   } = {}
 ) {
   const registry = createNodeRegistry([
-    startNode(),
+    startNode(options.startMode ?? "valid"),
     askUserNode(options.askMode ?? "valid"),
     finishNode(options.finishMode ?? "valid"),
   ]);
@@ -345,13 +372,21 @@ function node(overrides: Partial<NodeDefinition>): NodeDefinition {
   };
 }
 
-function startNode(): NodeDefinition {
+function startNode(mode: "valid" | "validator-error"): NodeDefinition {
   return node({
     key: "fixture.start",
     stateWrites: ["userIntent"],
-    run: async () => ({
-      statePatch: { userIntent: "Draft a members admin page" },
-    }),
+    run: async () => {
+      if (mode === "validator-error") {
+        throw new KotikitError(
+          "The screen is missing component refs.",
+          "Use real component refs before continuing."
+        );
+      }
+      return {
+        statePatch: { userIntent: "Draft a members admin page" },
+      };
+    },
   });
 }
 

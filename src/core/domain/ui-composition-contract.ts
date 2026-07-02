@@ -14,6 +14,7 @@ type FitGap = {
 type FitReportLike = {
   exactMatches?: FitMatch[];
   substitutes?: FitMatch[];
+  wrapCandidates?: FitMatch[];
   missingComponents?: FitGap[];
   repeatedPatterns?: { pattern?: string; status?: string }[];
 };
@@ -55,6 +56,7 @@ export function buildUiCompositionContract(input: {
     const existing = findFit(part, [
       ...(input.fitReport?.exactMatches ?? []),
       ...(input.fitReport?.substitutes ?? []),
+      ...(input.fitReport?.wrapCandidates ?? []),
     ]);
     if (existing?.componentKey !== undefined) {
       return {
@@ -140,6 +142,7 @@ function assertRepeatedPatternCoverage(
   const familyNames = [
     ...(fitReport?.exactMatches ?? []).map((match) => match.componentName ?? match.requestedPart),
     ...(fitReport?.substitutes ?? []).map((match) => match.componentName ?? match.requestedPart),
+    ...(fitReport?.wrapCandidates ?? []).map((match) => match.componentName ?? match.requestedPart),
     ...(draftComponentPlan?.components ?? []).map((component) => component.name),
   ].map(normalize);
   const missingRoles = REPEATED_FAMILY_ROLES.filter(

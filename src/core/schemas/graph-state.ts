@@ -36,6 +36,16 @@ const WorkflowErrorSchema = z.strictObject({
   code: z.string().min(1),
   message: z.string().min(1),
   nodeId: z.string().min(1).optional(),
+  hint: z.string().min(1).optional(),
+  fingerprint: z.string().min(1).optional(),
+  count: z.number().int().positive().optional(),
+  diagnostic: z
+    .strictObject({
+      expected: z.array(z.string().min(1)),
+      found: z.array(z.string().min(1)),
+      acceptedActions: z.array(z.string().min(1)),
+    })
+    .optional(),
 });
 
 const UserQuestionSchema = z.strictObject({

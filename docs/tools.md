@@ -52,11 +52,18 @@ quality contracts are:
   pages, regions, components, or generated nodes where possible.
 - `DraftComponentLifecycle`: draft components created for design-system gaps,
   with required linked instances in the final screen.
+- `DesignSystemReusePlan`: visible pre-apply plan showing exact reuse,
+  substitutes to validate, close candidates to wrap or compose, and true gaps
+  that need draft components.
+- `DesignSystemUsageReport`: final proof summary of reused design-system
+  components, linked draft components, icon refs, and primitive exceptions.
 
 Context durability checks keep long-lived graph state compact. Raw Figma,
 comment, and research payloads should move into artifacts after these contracts
 exist. If a flow blocks, designer recovery output should explain the problem,
-why it matters, and the recommended next action.
+why it matters, and the recommended next action. Repeated validator failures
+are persisted on the run with expected/found/action diagnostics so the next
+agent can recover without guessing.
 
 ## Graph Flow Facade
 

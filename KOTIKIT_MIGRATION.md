@@ -79,6 +79,28 @@ shell because it requires an active Figma file/session; the offline graph smoke
 coverage exercises the same Admin members flow shape with deterministic fake
 Figma metadata.
 
+## Implementation Update: Design-System Reuse And Recovery Diagnostics
+
+Completed on branch `feature/figma-transaction-contract`.
+
+The latest draft runs showed that kotikit could create clean incremental
+screens, but agents still needed more visible design-system intent and clearer
+recovery when validators repeated. This slice adds generic, graph-backed
+contracts instead of product-specific rules:
+
+- `DesignSystemReusePlan/v1` is saved before missing-component decisions, so
+  agents can see exact component reuse, substitutes to validate, close
+  candidates to wrap or compose, and true draft-component gaps;
+- `DesignSystemUsageReport/v1` is saved after QA, proving which design-system
+  components, draft components, icons, and primitive exceptions were actually
+  recorded from Figma metadata;
+- fit reports can classify close repeated-pattern candidates as wrap-needed
+  rather than forcing a binary exact-match or missing-component decision;
+- UI composition can consume those wrap candidates while still requiring draft
+  coverage for missing repeated-structure roles and states;
+- repeated deterministic validator failures are persisted as blocked run
+  diagnostics with expected, found, and accepted-action fields.
+
 ## Implementation Update: Design-To-Code Removed From Core
 
 Completed on branch `feature/kotikit-migration`.

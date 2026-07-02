@@ -116,6 +116,9 @@ on stabilizing design creation, review, and design-system use.
 - Figma design-system sync into local SQLite indexes.
 - Adaptive Figma API pacing and resumable sync for larger libraries.
 - Component and icon search over the synced design system.
+- Visible design-system reuse plans before Figma writes, including exact
+  matches, substitutes, close candidates to wrap, and true draft-component
+  gaps.
 - Safe Figma draft page binding.
 - Official Figma MCP apply packets for creating draft designs in Figma.
 - `StateMatrix` planning for filled, loading, empty, no-results, error, and
@@ -126,6 +129,9 @@ on stabilizing design creation, review, and design-system use.
 - Browserless Figma comment review.
 - `CommentEvidenceMap` artifacts for REST-backed Figma comment review without
   large raw comment payloads in graph state.
+- Final design-system usage reports after QA so teams can see reused
+  components, draft components, icons, and primitive exceptions.
+- Repeated validator failure diagnostics with expected/found/action details.
 - Standalone design-quality review for exact Figma targets.
 - Optional posting of approved review comments back to Figma.
 - Local design memory from repeated review adjustments.
