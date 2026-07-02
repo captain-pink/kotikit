@@ -10,11 +10,14 @@ import type {
 } from "../../core/graph/runtime.js";
 import type { Artifact } from "../../core/schemas/artifact.js";
 import { type FlowDefinition, FlowDefinitionSchema } from "../../core/schemas/flow-definition.js";
+import type { KotikitGraphState } from "../../core/schemas/graph-state.js";
 import { runKotikitDoctor } from "../../doctor/doctor.js";
+import { type FigmaDraftTarget, FigmaDraftTargetSchema } from "../../figma/draft-target.js";
+import { resolveFigmaDraftTargetFromUrl } from "../../figma/draft-target-resolver.js";
 import { DESIGN_PLAN_STEP_KINDS } from "../../planning/design-plan-schema.js";
 import { FigmaClient } from "../../sync/figma-client.js";
 import { resolveFigmaToken } from "../../sync/figma-token.js";
-import { nowIso } from "../../util/ids.js";
+import { nowIso, slugify } from "../../util/ids.js";
 import { KotikitError, toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
@@ -45,7 +48,7 @@ export type FacadeRuntime = Pick<
 export type FacadeToolDependencies = {
   runtime?: FacadeRuntime;
   loadFlows?: () => Promise<FlowDefinition[]>;
-  figmaClientFactory?: (token: string) => Pick<FigmaClient, "getComments">;
+  figmaClientFactory?: (token: string) => Partial<Pick<FigmaClient, "getComments" | "getNodes">>;
 };
 
 const FlowValidateInputSchema = z
@@ -87,8 +90,10 @@ const AnswerInputSchema = z.strictObject({
 
 const BindFigmaTargetInputSchema = z.strictObject({
   runId: z.string().min(1),
-  target: z.unknown(),
+  pageUrl: z.string().url().optional(),
+  target: z.unknown().optional(),
 });
+type BindFigmaTargetInput = z.infer<typeof BindFigmaTargetInputSchema>;
 
 const GetArtifactInputSchema = z.strictObject({
   artifactId: z.string().min(1),
@@ -279,24 +284,53 @@ export function registerFacadeTools(
 
   registerTool(registry, {
     name: "kotikit_bind_figma_target",
-    description: "Bind a safe Figma draft target object into an active graph run.",
+    description:
+      "Bind an exact Figma draft page URL or safe Figma draft target object into an active graph run.",
     inputSchema: {
       type: "object",
       properties: {
         runId: { type: "string", description: "Kotikit run id." },
+        pageUrl: {
+          type: "string",
+          description:
+            "Exact Figma draft page URL. Preferred for agents because kotikit resolves the safe target shape.",
+        },
         target: {
           type: "object",
-          description: "Safe Figma draft target resolved from an exact draft page URL.",
+          description:
+            "Canonical safe target object. Also accepts Figma apply-style aliases such as figmaFileKey and figmaSectionName.",
+          properties: {
+            fileKey: { type: "string" },
+            pageId: { type: "string" },
+            pageName: { type: "string" },
+            pageUrl: { type: "string" },
+            boundAt: { type: "string" },
+            source: { type: "string", enum: ["user-url", "plugin-current-page"] },
+            section: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+                name: { type: "string" },
+              },
+              required: ["name"],
+            },
+            figmaFileKey: { type: "string" },
+            figmaPageId: { type: "string" },
+            figmaPageName: { type: "string" },
+            figmaPageUrl: { type: "string" },
+            figmaSectionId: { type: "string" },
+            figmaSectionName: { type: "string" },
+          },
         },
       },
-      required: ["runId", "target"],
+      required: ["runId"],
     },
   });
   registry.handlers.set("kotikit_bind_figma_target", async (args) => {
     try {
       const input = BindFigmaTargetInputSchema.parse(args);
       const runtime = requireRuntime(deps.runtime);
-      const target = ensureDraftTarget(input.target);
+      const target = await resolveDraftTargetForBind({ input, runtime, ctx, deps });
       return toolText(
         `Bound Figma draft target for run ${input.runId}.`,
         compactRunResult(
@@ -419,6 +453,12 @@ export function registerFacadeTools(
       }
       const fileKey = input.fileKey ?? fileKeyFromFigmaUrl(input.figmaUrl ?? "");
       const client = deps.figmaClientFactory?.(token) ?? new FigmaClient({ token });
+      if (client.getComments === undefined) {
+        throw new KotikitError(
+          "The Figma client cannot read comments.",
+          "Use the default kotikit Figma client before reading Figma comments."
+        );
+      }
       const comments = (await client.getComments(fileKey, { asMarkdown: true }))
         .filter((comment) => input.includeResolved === true || comment.resolved_at == null)
         .slice(0, input.limit ?? 100)
@@ -908,6 +948,101 @@ function figmaDefaultsFrom(
       background: { color: "AED0FF", opacity: 0.1 },
     },
   };
+}
+
+async function resolveDraftTargetForBind(input: {
+  input: BindFigmaTargetInput;
+  runtime: FacadeRuntime;
+  ctx: ToolContext;
+  deps: FacadeToolDependencies;
+}): Promise<FigmaDraftTarget> {
+  if (input.input.pageUrl !== undefined) {
+    return resolveDraftTargetFromPageUrl(input);
+  }
+  if (input.input.target !== undefined) {
+    return normalizeDraftTargetObject(input.input.target);
+  }
+  throw new KotikitError(
+    "The Figma target is missing.",
+    "Pass pageUrl with the exact Figma draft page URL, or pass a canonical target object."
+  );
+}
+
+async function resolveDraftTargetFromPageUrl(input: {
+  input: BindFigmaTargetInput;
+  runtime: FacadeRuntime;
+  ctx: ToolContext;
+  deps: FacadeToolDependencies;
+}): Promise<FigmaDraftTarget> {
+  const config = await input.ctx.loadConfig();
+  const token = await resolveFigmaToken(input.ctx.root, config);
+  if (token === undefined || token === "") {
+    throw new KotikitError(
+      "I couldn't find your Figma token.",
+      "Set FIGMA_TOKEN in the project .env file before binding a Figma draft page URL."
+    );
+  }
+  const client = input.deps.figmaClientFactory?.(token) ?? new FigmaClient({ token });
+  if (client.getNodes === undefined) {
+    throw new KotikitError(
+      "The Figma client cannot resolve draft page URLs.",
+      "Pass a canonical Figma target object instead, or use the default kotikit Figma client."
+    );
+  }
+  const state = await input.runtime.getRunState(input.input.runId);
+  return resolveFigmaDraftTargetFromUrl({
+    client: { getNodes: client.getNodes.bind(client) },
+    pageUrl: input.input.pageUrl ?? "",
+    scope: scopeFromRunState(state),
+    screen: null,
+  });
+}
+
+function normalizeDraftTargetObject(value: unknown): FigmaDraftTarget {
+  const record = recordFrom(value);
+  const section = recordFrom(record.section);
+  const normalized = {
+    fileKey: stringField(record, "fileKey") ?? stringField(record, "figmaFileKey"),
+    pageId: stringField(record, "pageId") ?? stringField(record, "figmaPageId"),
+    pageName: stringField(record, "pageName") ?? stringField(record, "figmaPageName"),
+    pageUrl: stringField(record, "pageUrl") ?? stringField(record, "figmaPageUrl"),
+    boundAt: stringField(record, "boundAt") ?? nowIso(),
+    source: sourceFrom(record.source),
+    section: {
+      id:
+        stringField(section, "id") ??
+        stringField(record, "sectionId") ??
+        stringField(record, "figmaSectionId"),
+      name:
+        stringField(section, "name") ??
+        stringField(record, "sectionName") ??
+        stringField(record, "figmaSectionName"),
+    },
+    safety: record.safety,
+  };
+  const parsed = FigmaDraftTargetSchema.safeParse(normalized);
+  if (!parsed.success) {
+    throw new KotikitError(
+      "The Figma draft target object is incomplete.",
+      "Pass pageUrl, or pass fileKey, pageId, pageName, pageUrl, and section.name. Figma aliases like figmaFileKey and figmaSectionName are accepted."
+    );
+  }
+  return ensureDraftTarget(parsed.data);
+}
+
+function scopeFromRunState(state: KotikitGraphState): string {
+  const screen = recordFrom(state.screen);
+  const candidates = [
+    stringField(screen, "id"),
+    stringField(screen, "title"),
+    state.flowId,
+    state.userIntent,
+  ];
+  return candidates.map((candidate) => slugify(candidate ?? "")).find(Boolean) ?? "draft";
+}
+
+function sourceFrom(value: unknown): FigmaDraftTarget["source"] {
+  return value === "plugin-current-page" ? "plugin-current-page" : "user-url";
 }
 
 function fileKeyFromFigmaUrl(figmaUrl: string): string {

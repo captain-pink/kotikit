@@ -107,8 +107,13 @@ Output: `{ runId; status; pendingQuestion?; artifacts; errors }`
 
 ### kotikit_bind_figma_target
 
-Purpose: Bind a safe Figma draft target object into an active graph run.
-Input: `{ runId: string; target: object }`
+Purpose: Bind a safe Figma draft target into an active graph run.
+Input: `{ runId: string; pageUrl?: string; target?: object }`
+Use `pageUrl` for the normal path. Kotikit resolves the exact draft page URL
+into the canonical target and Section name. `target` remains available for
+advanced callers and accepts either canonical fields (`fileKey`, `pageId`,
+`pageName`, `pageUrl`, `section.name`) or Figma apply-style aliases
+(`figmaFileKey`, `figmaPageId`, `figmaSectionName`).
 Output: `{ runId; status; pendingQuestion?; artifacts; errors }`
 
 ### kotikit_get_artifact

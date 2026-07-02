@@ -24,6 +24,9 @@ Use this designer-first skill when the user asks for `kotikit:auto`, a new Figma
   kotikit's lightweight brainstorm result, not as text to recite to the
   designer.
 - Prefer existing design-system components, variables, styles, and icons.
+- When binding the Figma target, pass the exact draft page URL as `pageUrl`;
+  let kotikit resolve the safe target object instead of reconstructing JSON
+  from prior runs.
 - Compose the visible screen and real states before asking whether missing parts should be extracted as draft components.
 - Apply Figma drafts through incremental Figma transactions: create exactly one
   screen state or region state per write, place it at the

@@ -70,10 +70,12 @@ store compact current state, checkpoints, and artifacts rather than a manual
 workflow history.
 
 Figma design creation is fail-closed around explicit draft targets. The agent
-first binds a safe draft target through `kotikit_bind_figma_target` on the
-active graph run. The graph validates the page target, requires a page name
-containing `Draft` or `Drafts`, and writes generated nodes inside a
-kotikit-owned Section. Draft creation then drains an incremental Figma
+first binds the exact draft page URL through `kotikit_bind_figma_target` with
+`pageUrl` on the active graph run. Kotikit resolves that URL into the canonical
+draft target and Section name, so agents do not need to construct target JSON.
+The graph validates the page target, requires a page name containing `Draft` or
+`Drafts`, and writes generated nodes inside a kotikit-owned Section. Draft
+creation then drains an incremental Figma
 transaction queue: the agent applies one screen state or region state at a
 time with `use_figma`, places it at the canvas plan bounds, records metadata
 with `kotikit_record_figma_apply`, and continues the graph.

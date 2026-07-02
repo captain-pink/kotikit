@@ -693,6 +693,105 @@ describe("MCP facade tools", () => {
     expect(patchedTarget).toMatchObject({ fileKey: "FILE", pageId: "1:2" });
   });
 
+  it("binds a Figma draft target from an exact draft page URL", async () => {
+    const root = mkProject();
+    writeFileSync(join(root, ".env"), "FIGMA_TOKEN=test-token\n");
+    let seenToken = "";
+    let patchedTarget: unknown;
+    const runtime = {
+      ...makeRuntime(),
+      async getRunState(runId): Promise<KotikitGraphState> {
+        expect(runId).toBe("run-1");
+        return {
+          ...makeState("waiting-for-figma"),
+          screen: { id: "admin-members", title: "Admin Members" },
+        };
+      },
+      async patchRunState(input): Promise<RuntimeRunResult> {
+        patchedTarget = input.statePatch.figmaTarget;
+        return {
+          runId: "run-1",
+          status: "running",
+          state: { ...makeState("running"), figmaTarget: patchedTarget },
+        };
+      },
+    } satisfies FacadeRuntime;
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx(null, root), {
+      runtime,
+      figmaClientFactory: (token) => {
+        seenToken = token;
+        return {
+          async getNodes(fileKey, ids) {
+            expect(fileKey).toBe("FILE");
+            expect(ids).toEqual(["1:2"]);
+            return {
+              "1:2": {
+                document: {
+                  id: "1:2",
+                  name: "Draft - Admin Members",
+                  type: "CANVAS",
+                },
+              },
+            };
+          },
+        };
+      },
+    });
+
+    const result = await callTool(registry, "kotikit_bind_figma_target", {
+      runId: "run-1",
+      pageUrl: "https://www.figma.com/design/FILE/Untitled?node-id=1-2",
+    });
+
+    expect(result.isError).toBeFalsy();
+    expect(seenToken).toBe("test-token");
+    expect(patchedTarget).toMatchObject({
+      fileKey: "FILE",
+      pageId: "1:2",
+      pageName: "Draft - Admin Members",
+      pageUrl: "https://www.figma.com/design/FILE/Untitled?node-id=1-2",
+      section: { name: expect.stringMatching(/^kotikit \/ admin-members \/ \d{4}-\d{2}-\d{2}$/) },
+      source: "user-url",
+    });
+  });
+
+  it("accepts Figma apply-style aliases when binding a draft target object", async () => {
+    let patchedTarget: unknown;
+    const runtime = {
+      ...makeRuntime(),
+      async patchRunState(input): Promise<RuntimeRunResult> {
+        patchedTarget = input.statePatch.figmaTarget;
+        return {
+          runId: "run-1",
+          status: "running",
+          state: { ...makeState("running"), figmaTarget: patchedTarget },
+        };
+      },
+    } satisfies FacadeRuntime;
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx(), { runtime });
+
+    const result = await callTool(registry, "kotikit_bind_figma_target", {
+      runId: "run-1",
+      target: {
+        figmaFileKey: "FILE",
+        figmaPageId: "1:2",
+        figmaPageName: "Draft - Members",
+        figmaPageUrl: "https://www.figma.com/design/FILE/Name?node-id=1-2",
+        figmaSectionId: "section-1",
+        figmaSectionName: "kotikit / members / 2026-06-30",
+      },
+    });
+
+    expect(result.isError).toBeFalsy();
+    expect(patchedTarget).toMatchObject({
+      fileKey: "FILE",
+      pageId: "1:2",
+      section: { id: "section-1", name: "kotikit / members / 2026-06-30" },
+    });
+  });
+
   it("answers a paused run through the injected runtime", async () => {
     const registry = makeRegistry();
     registerFacadeTools(registry, makeCtx(), { runtime: makeRuntime() });

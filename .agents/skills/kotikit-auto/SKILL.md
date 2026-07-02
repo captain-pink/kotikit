@@ -61,7 +61,8 @@ is available on `PATH`.
 4. When the run pauses, ask the pending question in plain language and resume
    with `kotikit_answer`.
 5. If the run needs a Figma target, ask for the exact draft page URL and
-   bind it with `kotikit_bind_figma_target`.
+   call `kotikit_bind_figma_target` with `pageUrl`. Do not hand-build target
+   JSON unless kotikit explicitly asks for a canonical target object.
 6. If the run produces a `design-approach` artifact, read it before drafting.
    Use it as the lightweight brainstorm result: follow the recommended
    workflow, state strategy, layout strategy, design-system strategy, icon
