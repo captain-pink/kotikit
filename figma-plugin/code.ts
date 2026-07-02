@@ -27,7 +27,7 @@ interface FigmaVariableLike {
   scopes?: string[];
 }
 
-figma.showUI(__html__, { width: 400, height: 600, title: "kotikit" });
+figma.showUI(__html__, { width: 400, height: 360, title: "kotikit variables" });
 
 const compactCollection = (
   collection: FigmaVariableCollectionLike

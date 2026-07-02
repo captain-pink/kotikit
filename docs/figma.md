@@ -139,9 +139,9 @@ you variables could not be synced through the REST API. Ask the assistant:
 Start the kotikit Figma plugin bridge.
 ```
 
-The assistant calls `kotikit_bridge_start`, prepares the plugin build if
-needed, patches the manifest for the selected localhost port, and gives you a
-one-time `ws://localhost:...?...` URL to paste into the local plugin.
+The assistant calls `kotikit_bridge_start`, prepares the tiny variable-sync
+plugin if needed, patches the manifest for the selected localhost port, and
+gives you a one-time `ws://localhost:...?...` URL to paste into the plugin.
 
 ## Variable Fallback
 
@@ -149,9 +149,9 @@ Figma's REST Variables API is Enterprise-gated. On Professional plans, sync may
 import components and styles but skip variables.
 
 When variables or tokens are important on non-Enterprise plans, use the local
-plugin fallback. The plugin reads variables from the currently open Figma file
-through Figma's Plugin API and sends them to kotikit over localhost. Kotikit
-should guide the user through this flow when REST variable sync is unavailable.
+plugin fallback. The plugin has one job: read variables from the currently open
+Figma file through Figma's Plugin API and send them to kotikit over localhost.
+It does not create designs, review comments, or sync components.
 
 Use the plugin fallback:
 

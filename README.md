@@ -141,7 +141,8 @@ on stabilizing fast screen creation and design-system use.
 - Design-to-code, component scaffolding, implementation gates, and generated
   code registries are not part of the core.
 - There is no polished npm, Homebrew, or global installer.
-- The Figma plugin is functional but still young.
+- The local Figma plugin is a narrow variable-import fallback only; design
+  creation and review stay in the assistant workflow.
 - The old standalone existing-design review, comment posting, and memory
   database workflow is removed. Feedback review now stays lightweight and
   artifact-backed.
@@ -256,8 +257,8 @@ For the full setup flow, see
 - Run guided screen drafting when more context or approval is needed.
 - Plan screen states as page, region, component, or flow states instead of
   loose preview cards.
-- Import variables through the Figma plugin when the REST Variables API is
-  unavailable.
+- Import variables through the variable-only Figma plugin when the REST
+  Variables API is unavailable.
 
 See [docs/workflows.md](docs/workflows.md) for step-by-step examples.
 

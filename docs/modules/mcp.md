@@ -87,7 +87,7 @@ the run so graph QA nodes can validate file, page, Section, component,
 component source, variable, icon, layout, repeated-item, text-transform,
 transaction, placement, and canvas-overlap metadata.
 
-The bridge binds to `127.0.0.1` only and requires a per-session token on the WebSocket upgrade URL query string. The `/handshake` endpoint is unauthenticated and returns project metadata so the Figma plugin can display the connected project name before asking for a token. When the bridge starts, it writes `BridgeConfig` to `.kotikit/bridge.json` atomically; on SIGINT/SIGTERM it removes that file so a stale config cannot mislead a future session.
+The bridge binds to `127.0.0.1` only and requires a per-session token on the WebSocket upgrade URL query string. It exists for the variable-only Figma plugin fallback; design creation, review, and comment handling do not use this transport. When the bridge starts, it writes `BridgeConfig` to `.kotikit/bridge.json` atomically; on SIGINT/SIGTERM it removes that file so a stale config cannot mislead a future session.
 
 The bridge transport is opt-in and can be started in two ways. Normal users ask their assistant to call `kotikit_bridge_start`, which prepares the Figma plugin build if needed, patches `figma-plugin/manifest.json` to the selected localhost port, starts the bridge inside the already-running MCP process, and returns the pasteable `ws://localhost:...?...` URL. Developers can still set `KOTIKIT_BRIDGE=1` or pass `--bridge` when starting the server manually. The preferred port is 53124; if that port is in use, the bridge manager increments up to 50 times before giving up. The actual bound port is written into `BridgeConfig`.
 

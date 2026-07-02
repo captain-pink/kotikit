@@ -165,7 +165,7 @@ are allowed only after you explicitly approve them.
 ## Import Variables On Non-Enterprise Figma Plans
 
 Figma's REST Variables API is Enterprise-gated. If sync says variables were
-skipped, use the plugin fallback:
+skipped, use the variable-only plugin fallback:
 
 1. Ask your assistant: "Start the kotikit Figma plugin bridge."
 2. Open the source design-system file in Figma.
@@ -174,7 +174,8 @@ skipped, use the plugin fallback:
 5. Click **Sync Variables From Open File**.
 
 The plugin reads variables from the open file through Figma's Plugin API and
-sends a compact payload to kotikit over the local bridge.
+sends a compact payload to kotikit over the local bridge. It does not create
+designs, review comments, or sync components.
 
 ## Recovery And Resume
 

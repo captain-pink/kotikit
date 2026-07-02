@@ -50,7 +50,7 @@ If the file is published and sync still returns zero components:
 
 This is expected on non-Enterprise Figma plans when using the REST API.
 
-Use the Figma plugin variable import fallback:
+Use the variable-only Figma plugin fallback:
 
 1. Open the source design-system file in Figma.
 2. Ask the assistant to start the kotikit Figma plugin bridge.
