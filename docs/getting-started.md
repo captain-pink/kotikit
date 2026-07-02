@@ -96,8 +96,11 @@ The scaffold writes:
   `/kotikit-design-review`.
 - `.env` with a `FIGMA_TOKEN=` placeholder if needed.
 
-It preserves unrelated assistant config and skips copied skills with local
-changes.
+It preserves unrelated assistant config. Copied kotikit skills are managed by
+scaffold: when a copied skill differs from the current kotikit source, scaffold
+backs up the previous file under `.kotikit/backups/scaffold/` and installs the
+new skill. Use `--preserve-skills` if you intentionally maintain custom copied
+skills and do not want scaffold to refresh them.
 
 The generated Codex config uses `default_tools_approval_mode = "prompt"` for
 the kotikit MCP server, then approves exact safe tool names such as
@@ -179,9 +182,9 @@ cd ~/kotikit
 bun run scaffold:agents -- --target /Users/YOUR_USERNAME/path/to/your-project --agents both
 ```
 
-If you customized copied skills, scaffold may skip them to avoid overwriting
-local changes. If you did not customize them, remove the old copied skill
-folders and rerun scaffold.
+Scaffold refreshes copied kotikit skills by default and saves the previous copy
+under `.kotikit/backups/scaffold/`. If you intentionally maintain custom copied
+skills, add `--preserve-skills`.
 
 ## First Command
 

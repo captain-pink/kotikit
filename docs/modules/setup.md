@@ -46,13 +46,14 @@ root, then writes agent-specific setup:
   `default_tools_approval_mode = "prompt"` and adds exact
   `approval_mode = "approve"` sections only for safe local read-only tools.
 - Agent skills: copies the portable `kotikit-auto` and
-  `kotikit-design-review` workflows into the target project unless different
-  local skills already exist. Claude Code receives `.claude/skills/...` for
+  `kotikit-design-review` workflows into the target project. Claude Code
+  receives `.claude/skills/...` for
   `/kotikit-auto` and `/kotikit-design-review`; Codex receives
   `.agents/skills/...` for `kotikit:auto` and `kotikit:design-review`. The
-  installer replaces the known outdated generated `kotikit-auto` skill that
-  points at `docs/agent_workflow.md`, because that path does not exist inside
-  target projects.
+  installer treats these copied kotikit skills as managed files: if a copied
+  skill differs from the current source, it saves the previous copy under
+  `.kotikit/backups/scaffold/` and refreshes the active skill. Pass
+  `--preserve-skills` to keep locally edited copied skills instead.
 - Claude Code commands: writes `.claude/commands/kotikit-auto.md` and
   `.claude/commands/kotikit-design-review.md` so the slash commands reliably
   load the copied skills. Existing command files with local changes are

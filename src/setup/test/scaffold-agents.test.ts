@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseAgentSelection, scaffoldAgents } from "../scaffold-agents";
@@ -286,7 +286,7 @@ describe("scaffoldAgents", () => {
     expect(result.notes.join("\n")).toContain("Replaced outdated Claude Code skill");
   });
 
-  it("preserves an existing Claude skill with local changes", async () => {
+  it("backs up and refreshes an existing Claude skill with local changes", async () => {
     const skillPath = join(targetRoot, ".claude", "skills", "kotikit-auto", "SKILL.md");
     const localSkill = "Local project-specific kotikit workflow.\n";
     mkdirSync(join(targetRoot, ".claude", "skills", "kotikit-auto"), { recursive: true });
@@ -296,6 +296,35 @@ describe("scaffoldAgents", () => {
       targetRoot,
       kotikitRoot,
       agents: ["claude"],
+    });
+
+    const backupRoot = join(
+      targetRoot,
+      ".kotikit",
+      "backups",
+      "scaffold",
+      "claude",
+      "kotikit-auto"
+    );
+    const backups = readdirSync(backupRoot);
+    expect(readFileSync(skillPath, "utf8")).toBe(currentKotikitSkill());
+    expect(backups).toHaveLength(1);
+    expect(readFileSync(join(backupRoot, backups[0] ?? ""), "utf8")).toBe(localSkill);
+    expect(result.written).toContain(skillPath);
+    expect(result.notes.join("\n")).toContain("Updated Claude Code skill and saved previous copy");
+  });
+
+  it("preserves an existing Claude skill with local changes when requested", async () => {
+    const skillPath = join(targetRoot, ".claude", "skills", "kotikit-auto", "SKILL.md");
+    const localSkill = "Local project-specific kotikit workflow.\n";
+    mkdirSync(join(targetRoot, ".claude", "skills", "kotikit-auto"), { recursive: true });
+    writeFileSync(skillPath, localSkill);
+
+    const result = await scaffoldAgents({
+      targetRoot,
+      kotikitRoot,
+      agents: ["claude"],
+      preserveSkills: true,
     });
 
     expect(readFileSync(skillPath, "utf8")).toBe(localSkill);
@@ -362,6 +391,27 @@ describe("scaffoldAgents", () => {
     expect(installedSkill).not.toContain("../../../docs");
     expect(result.written).toContain(skillPath);
     expect(result.notes.join("\n")).toContain("Replaced outdated Codex skill");
+  });
+
+  it("backs up and refreshes an existing Codex skill with local changes", async () => {
+    const skillPath = join(targetRoot, ".agents", "skills", "kotikit-auto", "SKILL.md");
+    const localSkill = "Local Codex kotikit workflow.\n";
+    mkdirSync(join(targetRoot, ".agents", "skills", "kotikit-auto"), { recursive: true });
+    writeFileSync(skillPath, localSkill);
+
+    const result = await scaffoldAgents({
+      targetRoot,
+      kotikitRoot,
+      agents: ["codex"],
+    });
+
+    const backupRoot = join(targetRoot, ".kotikit", "backups", "scaffold", "codex", "kotikit-auto");
+    const backups = readdirSync(backupRoot);
+    expect(readFileSync(skillPath, "utf8")).toBe(currentKotikitSkill());
+    expect(backups).toHaveLength(1);
+    expect(readFileSync(join(backupRoot, backups[0] ?? ""), "utf8")).toBe(localSkill);
+    expect(result.written).toContain(skillPath);
+    expect(result.notes.join("\n")).toContain("Updated Codex skill and saved previous copy");
   });
 
   it("replaces only the existing Codex kotikit block", async () => {
