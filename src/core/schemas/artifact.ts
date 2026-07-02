@@ -474,6 +474,7 @@ const VariableBindingSchema = z.strictObject({
   source: z.enum(["variable", "style", "draft-variable", "approved-literal"]),
   name: z.string().min(1).optional(),
   id: z.string().min(1).optional(),
+  key: z.string().min(1).optional(),
   literalValue: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
   approvalRef: z.string().min(1).optional(),
 });

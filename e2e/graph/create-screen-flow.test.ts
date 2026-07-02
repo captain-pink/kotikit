@@ -26,8 +26,8 @@ describe("create-screen graph flow", () => {
         },
       });
 
-      expect(started.status).toBe("waiting-for-user");
-      expect(started.state.pendingQuestion?.id).toBe("approve-literal-variable-fallback");
+      expect(started.status).toBe("waiting-for-figma");
+      expect(started.state.pendingQuestion).toBeUndefined();
       expect(started.state.uxEnvelope).toMatchObject({
         schemaVersion: "UXEnvelope/v1",
       });
@@ -48,11 +48,7 @@ describe("create-screen graph flow", () => {
         },
       });
 
-      const waitingForApply = await runtime.answerRun({
-        runId: started.runId,
-        answer: "approve-draft-only-literals",
-      });
-      expect(waitingForApply.status).toBe("waiting-for-figma");
+      const waitingForApply = started;
       expect(waitingForApply.state.draftPlan).toMatchObject({
         fidelity: "high",
         applyPacket: expect.any(Object),
@@ -137,13 +133,7 @@ describe("create-screen graph flow", () => {
         runId: started.runId,
         answer: "approve-brief",
       });
-      expect(approved.status).toBe("waiting-for-user");
-      expect(approved.state.pendingQuestion?.id).toBe("approve-literal-variable-fallback");
-
-      const waitingForApply = await runtime.answerRun({
-        runId: started.runId,
-        answer: "approve-draft-only-literals",
-      });
+      const waitingForApply = approved;
       expect(waitingForApply.status).toBe("waiting-for-figma");
       expect(waitingForApply.state.stateRepresentation).toMatchObject({
         schemaVersion: "StateRepresentationContract/v1",
@@ -188,13 +178,10 @@ describe("create-screen graph flow", () => {
           figmaTarget: fakeDraftTarget("Draft - Restart Settings"),
         },
       });
-      const waitingForApply = await first.runtime.answerRun({
-        runId: started.runId,
-        answer: "approve-draft-only-literals",
-      });
 
-      expect(started.status).toBe("waiting-for-user");
-      expect(started.state.pendingQuestion?.id).toBe("approve-literal-variable-fallback");
+      const waitingForApply = started;
+      expect(started.status).toBe("waiting-for-figma");
+      expect(started.state.pendingQuestion).toBeUndefined();
       expect(waitingForApply.status).toBe("waiting-for-figma");
       expectIncrementalQueueReady(waitingForApply.state);
 

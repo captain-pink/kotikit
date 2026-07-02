@@ -814,6 +814,10 @@
                     "type": "string",
                     "minLength": 1
                   },
+                  "key": {
+                    "type": "string",
+                    "minLength": 1
+                  },
                   "literalValue": {
                     "anyOf": [
                       {
@@ -3555,6 +3559,10 @@
                     "minLength": 1
                   },
                   "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "key": {
                     "type": "string",
                     "minLength": 1
                   },

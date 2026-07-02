@@ -866,6 +866,43 @@ describe("figma graph nodes", () => {
     ).resolves.toEqual({});
   });
 
+  it("accepts variable key proof for incremental variable bindings", async () => {
+    const packet = incrementalApplyPacket();
+    packet.variableBindingPlan = {
+      schemaVersion: "VariableBindingPlan/v1",
+      bindings: [
+        {
+          targetId: "button",
+          property: "fill",
+          source: "variable",
+          id: "var-color-id",
+          key: "var-color-key",
+          name: "color.bg",
+        },
+      ],
+    };
+    const apply = await completeTransactionQueue({
+      componentRefs: ["button-key"],
+      variableRefs: ["var-color-key"],
+      evidenceSnapshot: evidenceSnapshot({
+        partNode: {
+          nodeType: "INSTANCE",
+          isInstance: true,
+          mainComponentKey: "button-key",
+          source: "existing-ds-component",
+        },
+      }),
+    });
+
+    await expect(
+      runNode("figma.verifyDraftInvariants", {
+        figmaTarget: draftTarget(),
+        draftPlan: { applyPacket: packet },
+        applyReport: apply.statePatch?.applyReport,
+      })
+    ).resolves.toEqual({});
+  });
+
   it("rejects evidence where primitives are used for an existing local DS part", async () => {
     const apply = await completeTransactionQueue({
       componentRefs: ["button-key"],

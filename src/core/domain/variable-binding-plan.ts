@@ -39,12 +39,13 @@ export function buildVariableBindingPlan(input: {
   const missingProperties = requiredProperties.filter(
     (property) => !variableByProperty.has(property)
   );
+  const hasUsableVariables = variableByProperty.size > 0;
 
-  if (missingProperties.length > 0 && input.literalFallbackApproved !== true) {
+  if (!hasUsableVariables && input.literalFallbackApproved !== true) {
     return "needs-literal-approval";
   }
 
-  if (missingProperties.length > 0) {
+  if (missingProperties.length > 0 && input.literalFallbackApproved === true) {
     return {
       schemaVersion: "VariableBindingPlan/v1",
       bindings: input.uiComposition.parts.flatMap((part) =>
@@ -65,12 +66,13 @@ export function buildVariableBindingPlan(input: {
     };
   }
 
-  const unnamedVariable = Array.from(variableByProperty.values()).find(
-    (variable) => variable.name === undefined
+  const unusableVariable = Array.from(variableByProperty.values()).find(
+    (variable) =>
+      variable.name === undefined && variable.id === undefined && variable.key === undefined
   );
-  if (unnamedVariable !== undefined) {
+  if (unusableVariable !== undefined) {
     throw new KotikitError(
-      "The variable binding plan could not find a usable variable name.",
+      "The variable binding plan could not find a usable variable reference.",
       "Sync design-system variables or approve a literal fallback for this draft only."
     );
   }
@@ -78,8 +80,8 @@ export function buildVariableBindingPlan(input: {
   return {
     schemaVersion: "VariableBindingPlan/v1",
     bindings: input.uiComposition.parts.flatMap((part) =>
-      requiredProperties.map((property) =>
-        variableBinding(part.id, property, variableByProperty.get(property) as VariableRef)
+      Array.from(variableByProperty.entries()).map(([property, variable]) =>
+        variableBinding(part.id, property, variable)
       )
     ),
   };
@@ -96,6 +98,7 @@ function variableBinding(
     source: variable.source === "style" ? "style" : "variable",
     ...(variable.name !== undefined ? { name: variable.name } : {}),
     ...(variable.id !== undefined ? { id: variable.id } : {}),
+    ...(variable.key !== undefined ? { key: variable.key } : {}),
   };
 }
 

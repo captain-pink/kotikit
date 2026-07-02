@@ -899,13 +899,21 @@ function verifyIncrementalVariableRefs(
 ): void {
   expectedBindings.forEach((expected) => {
     if (!requiresIncrementalVariableRef(expected)) return;
-    const expectedRef = stringField(expected, "id") ?? stringField(expected, "name");
-    if (expectedRef === undefined || variableRefs.has(expectedRef)) return;
+    const expectedRefs = variableBindingRefs(expected);
+    if (expectedRefs.length === 0 || expectedRefs.some((ref) => variableRefs.has(ref))) return;
     throw new KotikitError(
-      `The incremental Figma apply report is missing variable/style ref "${expectedRef}".`,
+      `The incremental Figma apply report is missing variable/style ref "${expectedRefs[0]}".`,
       "Record compact variableRefs for variables and styles used by the transaction."
     );
   });
+}
+
+function variableBindingRefs(binding: Record<string, unknown>): string[] {
+  return [
+    stringField(binding, "id"),
+    stringField(binding, "key"),
+    stringField(binding, "name"),
+  ].filter((ref): ref is string => ref !== undefined);
 }
 
 function verifyIncrementalAutoLayout(

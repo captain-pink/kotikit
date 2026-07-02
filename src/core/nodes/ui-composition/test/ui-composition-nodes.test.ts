@@ -339,7 +339,7 @@ describe("ui composition graph nodes", () => {
     });
   });
 
-  it("pauses when any required variable category would need a literal", async () => {
+  it("uses available local variables without requiring every token category", async () => {
     const output = await runNode("ui.buildVariableBindingPlan", {
       uiComposition: {
         schemaVersion: "UICompositionContract/v1",
@@ -354,12 +354,35 @@ describe("ui composition graph nodes", () => {
         ],
       },
       designSystem: {
-        variables: [{ kind: "color", name: "color.bg.default", id: "var-color" }],
+        variables: [
+          {
+            kind: "color",
+            name: "color.bg.default",
+            id: "var-color",
+            key: "var-color-key",
+          },
+          { kind: "spacing", name: "space.200", id: "var-space" },
+        ],
       },
     });
 
-    expect(output.statePatch?.pendingQuestion).toMatchObject({
-      id: "approve-literal-variable-fallback",
+    expect(output.statePatch?.pendingQuestion).toBeUndefined();
+    expect(output.statePatch?.variableBindingPlan).toMatchObject({
+      bindings: [
+        expect.objectContaining({
+          targetId: "button",
+          property: "fill",
+          source: "variable",
+          id: "var-color",
+          key: "var-color-key",
+        }),
+        expect.objectContaining({
+          targetId: "button",
+          property: "spacing",
+          source: "variable",
+          id: "var-space",
+        }),
+      ],
     });
   });
 
