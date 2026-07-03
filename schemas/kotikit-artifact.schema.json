@@ -351,6 +351,100 @@
                 "type": "string",
                 "format": "uri"
               }
+            },
+            "traits": {
+              "type": "object",
+              "properties": {
+                "regions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "table",
+                          "list",
+                          "timeline",
+                          "chart",
+                          "form",
+                          "detail-panel",
+                          "custom"
+                        ]
+                      }
+                    },
+                    "required": ["name", "kind"],
+                    "additionalProperties": false
+                  }
+                },
+                "stateScopes": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": ["page", "region", "component", "flow"]
+                      }
+                    },
+                    "required": ["name", "kind"],
+                    "additionalProperties": false
+                  }
+                },
+                "repeatedPatterns": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": ["rows", "cards", "events", "steps", "custom"]
+                      }
+                    },
+                    "required": ["name", "kind"],
+                    "additionalProperties": false
+                  }
+                },
+                "patternPackIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "patternPackIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           },
           "required": [
@@ -704,6 +798,39 @@
                         }
                       },
                       "required": ["id", "semantic", "source"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "regionId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "variableRoles": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "property": {
+                          "type": "string",
+                          "enum": [
+                            "fill",
+                            "text",
+                            "effect",
+                            "spacing",
+                            "radius",
+                            "stroke",
+                            "shadow"
+                          ]
+                        },
+                        "semanticRole": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "optional": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": ["property", "semanticRole"],
                       "additionalProperties": false
                     }
                   }
@@ -1117,6 +1244,10 @@
               "type": "string",
               "const": "CanvasPlan/v1"
             },
+            "mode": {
+              "type": "string",
+              "enum": ["create", "replace", "refine"]
+            },
             "section": {
               "type": "object",
               "properties": {
@@ -1306,6 +1437,19 @@
                     "maxLength": 2048
                   },
                   "transactionId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2048
+                  },
+                  "canvasOperation": {
+                    "type": "string",
+                    "enum": ["create-new-frame", "replace-target-frame"]
+                  },
+                  "operation": {
+                    "type": "string",
+                    "enum": ["create", "replace"]
+                  },
+                  "targetNodeId": {
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 2048
@@ -2650,6 +2794,100 @@
                 "type": "string",
                 "format": "uri"
               }
+            },
+            "traits": {
+              "type": "object",
+              "properties": {
+                "regions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "table",
+                          "list",
+                          "timeline",
+                          "chart",
+                          "form",
+                          "detail-panel",
+                          "custom"
+                        ]
+                      }
+                    },
+                    "required": ["name", "kind"],
+                    "additionalProperties": false
+                  }
+                },
+                "stateScopes": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": ["page", "region", "component", "flow"]
+                      }
+                    },
+                    "required": ["name", "kind"],
+                    "additionalProperties": false
+                  }
+                },
+                "repeatedPatterns": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": ["rows", "cards", "events", "steps", "custom"]
+                      }
+                    },
+                    "required": ["name", "kind"],
+                    "additionalProperties": false
+                  }
+                },
+                "patternPackIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "patternPackIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           },
           "required": [
@@ -3357,6 +3595,39 @@
                         }
                       },
                       "required": ["id", "semantic", "source"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "regionId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "variableRoles": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "property": {
+                          "type": "string",
+                          "enum": [
+                            "fill",
+                            "text",
+                            "effect",
+                            "spacing",
+                            "radius",
+                            "stroke",
+                            "shadow"
+                          ]
+                        },
+                        "semanticRole": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "optional": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": ["property", "semanticRole"],
                       "additionalProperties": false
                     }
                   }
@@ -4242,6 +4513,10 @@
               "type": "string",
               "const": "CanvasPlan/v1"
             },
+            "mode": {
+              "type": "string",
+              "enum": ["create", "replace", "refine"]
+            },
             "section": {
               "type": "object",
               "properties": {
@@ -4431,6 +4706,19 @@
                     "maxLength": 2048
                   },
                   "transactionId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2048
+                  },
+                  "canvasOperation": {
+                    "type": "string",
+                    "enum": ["create-new-frame", "replace-target-frame"]
+                  },
+                  "operation": {
+                    "type": "string",
+                    "enum": ["create", "replace"]
+                  },
+                  "targetNodeId": {
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 2048
