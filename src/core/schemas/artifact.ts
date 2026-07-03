@@ -524,6 +524,31 @@ export const DesignApproachSchema = z.strictObject({
   decision: z.enum(["proceed", "ask-designer"]),
 });
 
+const UXTraitRegionSchema = z.strictObject({
+  id: z.string().min(1).optional(),
+  name: z.string().min(1),
+  kind: z.enum(["table", "list", "timeline", "chart", "form", "detail-panel", "custom"]),
+});
+
+const UXTraitStateScopeSchema = z.strictObject({
+  id: z.string().min(1).optional(),
+  name: z.string().min(1),
+  kind: z.enum(["page", "region", "component", "flow"]),
+});
+
+const UXTraitRepeatedPatternSchema = z.strictObject({
+  id: z.string().min(1).optional(),
+  name: z.string().min(1),
+  kind: z.enum(["rows", "cards", "events", "steps", "custom"]),
+});
+
+const UXTraitsSchema = z.strictObject({
+  regions: z.array(UXTraitRegionSchema).optional(),
+  stateScopes: z.array(UXTraitStateScopeSchema).optional(),
+  repeatedPatterns: z.array(UXTraitRepeatedPatternSchema).optional(),
+  patternPackIds: z.array(z.string().min(1)).optional(),
+});
+
 export const UXEnvelopeSchema = z.strictObject({
   schemaVersion: z.literal("UXEnvelope/v1"),
   screenArchetype: z.enum([
@@ -549,6 +574,8 @@ export const UXEnvelopeSchema = z.strictObject({
   edgeCases: z.array(z.string().min(1)),
   assumptions: z.array(z.string().min(1)),
   sourceRefs: z.array(z.string().url()),
+  traits: UXTraitsSchema.optional(),
+  patternPackIds: z.array(z.string().min(1)).optional(),
 });
 
 const StateMatrixStateSchema = z.strictObject({

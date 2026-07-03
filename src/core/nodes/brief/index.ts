@@ -42,6 +42,7 @@ type ScreenModel = {
   confidence?: "explicit" | "inferred" | "low";
   requiredUiParts: string[];
   uiParts?: ScreenBlueprintInput["requiredUiParts"];
+  traits?: ScreenBlueprintInput["traits"];
   repeatedPatterns: string[];
   states: string[];
   regions: {
@@ -524,6 +525,7 @@ function screenModelFromBlueprint(
     confidence: blueprint.confidence ?? "explicit",
     requiredUiParts,
     uiParts: blueprint.requiredUiParts,
+    traits: traitsFromBlueprint(blueprint),
     repeatedPatterns: repeatedPatternsFromBlueprint(blueprint),
     states:
       blueprint.states?.map((state) => state.kind).filter((state) => state.trim().length > 0) ??
@@ -555,6 +557,21 @@ function repeatedPatternsFromBlueprint(blueprint: ScreenBlueprintInput): string[
     ...(blueprint.repeatedPatterns ?? []).map((pattern) => pattern.name),
     ...(blueprint.traits?.repeatedPatterns ?? []).map((pattern) => pattern.name),
   ]);
+}
+
+function traitsFromBlueprint(blueprint: ScreenBlueprintInput): ScreenBlueprintInput["traits"] {
+  const traits = {
+    regions: [...(blueprint.regions ?? []), ...(blueprint.traits?.regions ?? [])],
+    stateScopes: blueprint.traits?.stateScopes ?? [],
+    repeatedPatterns: blueprint.traits?.repeatedPatterns ?? [],
+    patternPackIds: blueprint.traits?.patternPackIds ?? [],
+  };
+  return traits.regions.length > 0 ||
+    traits.stateScopes.length > 0 ||
+    traits.repeatedPatterns.length > 0 ||
+    traits.patternPackIds.length > 0
+    ? traits
+    : undefined;
 }
 
 function regionsFromBlueprint(blueprint: ScreenBlueprintInput): ScreenModel["regions"] {

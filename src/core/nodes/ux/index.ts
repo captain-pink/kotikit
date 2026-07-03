@@ -8,6 +8,7 @@ import {
   type Artifact,
   ArtifactSchemaVersionByType,
   type DesignApproach,
+  type UXEnvelope,
 } from "../../schemas/artifact.js";
 import type { KotikitGraphState } from "../../schemas/graph-state.js";
 
@@ -15,6 +16,11 @@ type RuntimeNodeOutput = {
   statePatch?: Partial<KotikitGraphState>;
   artifacts?: Artifact[];
 };
+
+type UxTraits = NonNullable<UXEnvelope["traits"]>;
+type RegionTrait = NonNullable<UxTraits["regions"]>[number];
+type StateScopeTrait = NonNullable<UxTraits["stateScopes"]>[number];
+type RepeatedPatternTrait = NonNullable<UxTraits["repeatedPatterns"]>[number];
 
 const EmptyParamsSchema = z.strictObject({});
 
@@ -215,13 +221,76 @@ function screenFrom(value: unknown): {
   title?: string;
   requiredUiParts?: string[];
   states?: string[];
+  traits?: UXEnvelope["traits"];
 } {
   const record = recordFrom(value);
   return {
     title: stringFrom(record.title),
     requiredUiParts: stringArray(record.requiredUiParts),
     states: stringArray(record.states),
+    traits: traitsFrom(record.traits),
   };
+}
+
+function traitsFrom(value: unknown): UXEnvelope["traits"] | undefined {
+  const record = recordFrom(value);
+  const regions = regionTraits(record.regions);
+  const stateScopes = stateScopeTraits(record.stateScopes);
+  const repeatedPatterns = repeatedPatternTraits(record.repeatedPatterns);
+  const patternPackIds = stringArray(record.patternPackIds);
+  return regions.length > 0 ||
+    stateScopes.length > 0 ||
+    repeatedPatterns.length > 0 ||
+    patternPackIds.length > 0
+    ? { regions, stateScopes, repeatedPatterns, patternPackIds }
+    : undefined;
+}
+
+function regionTraits(value: unknown): RegionTrait[] {
+  return recordArray(value).flatMap((item) => {
+    const name = stringFrom(item.name);
+    const kind = stringFrom(item.kind);
+    if (name === undefined || !isRegionKind(kind)) return [];
+    return [{ ...optionalId(item.id), name, kind }];
+  });
+}
+
+function stateScopeTraits(value: unknown): StateScopeTrait[] {
+  return recordArray(value).flatMap((item) => {
+    const name = stringFrom(item.name);
+    const kind = stringFrom(item.kind);
+    if (name === undefined || !isStateScopeKind(kind)) return [];
+    return [{ ...optionalId(item.id), name, kind }];
+  });
+}
+
+function repeatedPatternTraits(value: unknown): RepeatedPatternTrait[] {
+  return recordArray(value).flatMap((item) => {
+    const name = stringFrom(item.name);
+    const kind = stringFrom(item.kind);
+    if (name === undefined || !isRepeatedPatternKind(kind)) return [];
+    return [{ ...optionalId(item.id), name, kind }];
+  });
+}
+
+function optionalId(value: unknown): { id?: string } {
+  const id = stringFrom(value);
+  return id === undefined ? {} : { id };
+}
+
+function isRegionKind(value: string | undefined): value is RegionTrait["kind"] {
+  return (
+    value !== undefined &&
+    ["table", "list", "timeline", "chart", "form", "detail-panel", "custom"].includes(value)
+  );
+}
+
+function isStateScopeKind(value: string | undefined): value is StateScopeTrait["kind"] {
+  return value !== undefined && ["page", "region", "component", "flow"].includes(value);
+}
+
+function isRepeatedPatternKind(value: string | undefined): value is RepeatedPatternTrait["kind"] {
+  return value !== undefined && ["rows", "cards", "events", "steps", "custom"].includes(value);
 }
 
 function recordFrom(value: unknown): Record<string, unknown> {
@@ -237,6 +306,15 @@ function stringFrom(value: unknown): string | undefined {
 function stringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function recordArray(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value)
+    ? value.filter(
+        (item): item is Record<string, unknown> =>
+          typeof item === "object" && item !== null && !Array.isArray(item)
+      )
     : [];
 }
 

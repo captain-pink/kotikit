@@ -12,6 +12,7 @@ type BuildUxEnvelopeInput = {
     title?: string;
     requiredUiParts?: string[];
     states?: string[];
+    traits?: UXEnvelope["traits"];
   };
   patternPack?: UXPatternPack;
 };
@@ -24,20 +25,41 @@ type BuildStateMatrixInput = {
 const FALLBACK_SOURCE_REF = "https://www.nngroup.com/articles/task-analysis/";
 
 export function classifyScreenArchetype(userIntent: string): UXEnvelope["screenArchetype"] {
-  const normalizedIntent = normalizeWords(userIntent);
-  const matchedPack = builtInPatternPacks.find((pack) => {
-    const keywords = pack.intentKeywords ?? pack.appliesTo;
-    return keywords.some((keyword) => normalizedIntent.includes(normalizeWords(keyword)));
-  });
-
-  return (matchedPack?.appliesTo[0] as UXEnvelope["screenArchetype"] | undefined) ?? "unknown";
+  const tokens = tokenSet(userIntent);
+  if (tokens.includes("table")) return "admin-data-table";
+  if (
+    tokens.some((token) =>
+      ["dashboard", "overview", "summary", "analytics", "metrics"].includes(token)
+    )
+  ) {
+    return "dashboard";
+  }
+  if (
+    tokens.some((token) =>
+      ["settings", "preferences", "profile", "configuration", "form"].includes(token)
+    )
+  ) {
+    return "settings-form";
+  }
+  return "unknown";
 }
 
 export function buildUxEnvelope(input: BuildUxEnvelopeInput): UXEnvelope {
-  const screenArchetype = classifyScreenArchetype(
-    [input.userIntent, input.screen?.title, ...(input.screen?.requiredUiParts ?? [])].join(" ")
-  );
-  const patternPack = input.patternPack ?? selectPatternPack(screenArchetype);
+  const traits = normalizedTraits(input.screen?.traits);
+  const explicitPatternPack = patternPackFromTraits(traits);
+  const explicitArchetype =
+    explicitPatternPack && screenArchetypeForPatternPack(explicitPatternPack);
+  const screenArchetype =
+    explicitArchetype ??
+    (hasComposableTraits(traits)
+      ? "unknown"
+      : classifyScreenArchetype(
+          [input.userIntent, input.screen?.title, ...(input.screen?.requiredUiParts ?? [])].join(
+            " "
+          )
+        ));
+  const patternPack =
+    input.patternPack ?? explicitPatternPack ?? selectPatternPack(screenArchetype);
   const defaults = patternPack.envelopeDefaults ?? createFallbackEnvelopeDefaults(input);
   const requestedStates = uniqueStrings([
     ...(input.screen?.states ?? []),
@@ -57,6 +79,8 @@ export function buildUxEnvelope(input: BuildUxEnvelopeInput): UXEnvelope {
     edgeCases: requestedStates,
     assumptions: defaults.assumptions,
     sourceRefs: uniqueStrings([...patternPack.sourceRefs, FALLBACK_SOURCE_REF]),
+    ...(hasComposableTraits(traits) ? { traits } : {}),
+    ...((traits.patternPackIds ?? []).length > 0 ? { patternPackIds: traits.patternPackIds } : {}),
   };
 }
 
@@ -67,10 +91,14 @@ export function buildStateMatrix(input: BuildStateMatrixInput): StateMatrix {
     requestedKinds.size > 0
       ? patternPack.defaultStates.filter((state) => requestedKinds.has(state.kind))
       : patternPack.defaultStates;
+  const resolvedStates =
+    states.length > 0
+      ? states
+      : Array.from(requestedKinds).map((kind) => genericState(kind, input.envelope));
 
   return {
     schemaVersion: "StateMatrix/v1",
-    states: states.map((state) => stateMatrixStateFromPattern(state)),
+    states: resolvedStates.map((state) => stateMatrixStateFromPattern(state)),
   };
 }
 
@@ -92,11 +120,74 @@ function stateMatrixStateFromPattern(state: UXPatternPackState): StateMatrix["st
   };
 }
 
+function genericState(kind: UXPatternPackState["kind"], envelope: UXEnvelope): UXPatternPackState {
+  const scope = envelope.traits?.stateScopes?.[0]?.kind ?? "page";
+  const affectedRegion = envelope.traits?.regions?.[0]?.name ?? "primary content";
+  return {
+    kind,
+    scope,
+    affectedRegion,
+    persistentRegions: [],
+    replacementBehavior: scope === "page" ? "replace-whole-page" : "replace-region-content",
+    requiredComponents: [],
+    copy: { title: labelForKind(kind) },
+    sourceRefs: [FALLBACK_SOURCE_REF],
+  };
+}
+
 function labelForState(state: UXPatternPackState): string {
+  return state.copy?.title ?? labelForKind(state.kind);
+}
+
+function labelForKind(kind: string): string {
+  return titleCase(kind.replace(/-/g, " "));
+}
+
+function normalizedTraits(
+  traits: UXEnvelope["traits"] | undefined
+): NonNullable<UXEnvelope["traits"]> {
+  return {
+    regions: traits?.regions ?? [],
+    stateScopes: traits?.stateScopes ?? [],
+    repeatedPatterns: traits?.repeatedPatterns ?? [],
+    patternPackIds: traits?.patternPackIds ?? [],
+  };
+}
+
+function hasComposableTraits(traits: UXEnvelope["traits"] | undefined): boolean {
+  if (traits === undefined) return false;
   return (
-    state.copy?.title ??
-    state.kind.replace(/-/g, " ").replace(/\b\w/g, (char) => char.toUpperCase())
+    (traits.regions ?? []).length > 0 ||
+    (traits.stateScopes ?? []).length > 0 ||
+    (traits.repeatedPatterns ?? []).length > 0 ||
+    (traits.patternPackIds ?? []).length > 0
   );
+}
+
+function patternPackFromTraits(
+  traits: UXEnvelope["traits"] | undefined
+): UXPatternPack | undefined {
+  const patternPackIds = traits?.patternPackIds ?? [];
+  return builtInPatternPacks.find(
+    (pack) =>
+      patternPackIds.includes(pack.id) || pack.appliesTo.some((id) => patternPackIds.includes(id))
+  );
+}
+
+function screenArchetypeForPatternPack(pack: UXPatternPack): UXEnvelope["screenArchetype"] {
+  return pack.appliesTo.find(isScreenArchetype) ?? "unknown";
+}
+
+function isScreenArchetype(value: string): value is UXEnvelope["screenArchetype"] {
+  return [
+    "admin-data-table",
+    "dashboard",
+    "settings-form",
+    "detail-page",
+    "creation-flow",
+    "review-workflow",
+    "unknown",
+  ].includes(value);
 }
 
 function createFallbackEnvelopeDefaults(
@@ -143,9 +234,21 @@ function slug(value: string): string {
   return normalizeWords(value).replace(/\s+/g, "-") || "state";
 }
 
+function tokenSet(value: string): string[] {
+  return normalizeWords(value).split(/\s+/).filter(Boolean);
+}
+
 function normalizeWords(value: string): string {
   return value
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+function titleCase(value: string): string {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+    .join(" ");
 }

@@ -169,6 +169,10 @@ describe("brief nodes", () => {
         expect.objectContaining({ id: "event-stream", role: "timeline", regionId: "activity" }),
         expect.objectContaining({ id: "detail-panel", role: "context panel" }),
       ],
+      traits: {
+        regions: [expect.objectContaining({ id: "activity", kind: "timeline" })],
+        repeatedPatterns: [expect.objectContaining({ id: "events", kind: "events" })],
+      },
     });
   });
 
