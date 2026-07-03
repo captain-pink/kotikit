@@ -4,6 +4,11 @@ import { KotikitError } from "../../../util/result.js";
 import { createUserInterrupt } from "../../graph/interrupts.js";
 import type { NodeDefinition } from "../../graph/node-registry.js";
 import { type Artifact, ArtifactSchemaVersionByType } from "../../schemas/artifact.js";
+import {
+  type FlowBlueprintInput,
+  primaryScreenFromFlowBlueprint,
+  type ScreenBlueprintInput,
+} from "../../schemas/blueprint.js";
 import type { KotikitGraphState } from "../../schemas/graph-state.js";
 
 type BriefClassification = "singleScreen" | "multiScreen";
@@ -23,22 +28,27 @@ type BriefModel = {
   lane: BriefLane;
   assumptions: string[];
   questions: BriefQuestion[];
+  confidence?: "explicit" | "inferred" | "low";
   activeQuestionId?: string;
   approvalSummary?: string;
   approved?: boolean;
 };
 
-type ScreenBlueprint = {
+type ScreenModel = {
   schemaVersion: "ScreenModel/v1";
   title: string;
+  productDomain?: string;
   description: string;
+  confidence?: "explicit" | "inferred" | "low";
   requiredUiParts: string[];
+  uiParts?: ScreenBlueprintInput["requiredUiParts"];
   repeatedPatterns: string[];
   states: string[];
   regions: {
     tables: string[];
     lists: string[];
     forms: string[];
+    custom?: string[];
   };
   designSystemHints: string[];
 };
@@ -81,18 +91,19 @@ export const briefNodeDefinitions: NodeDefinition[] = [
   node({
     key: "brief.classifyIntent",
     paramsSchema: ClassifyParamsSchema,
-    stateReads: ["userIntent", "brief"],
+    stateReads: ["userIntent", "brief", "screenBlueprint", "flowBlueprint"],
     stateWrites: ["brief"],
     run: async (input) => {
       const state = graphState(input.state);
       const intent = intentFromState(state);
-      const classification = classifyIntent(intent);
+      const classification = classificationForState(state, intent);
       const lane = classifyLane(intent);
       const brief = mergeBrief(state.brief, {
         intent,
-        title: titleFromIntent(intent, classification),
+        title: titleForState(state, intent, classification),
         classification,
         lane,
+        confidence: confidenceForState(state, intent),
         assumptions: assumptionsForLane(lane),
         questions: questionsForClassification(classification),
       });
@@ -102,19 +113,20 @@ export const briefNodeDefinitions: NodeDefinition[] = [
   node({
     key: "brief.captureMinimalIntent",
     paramsSchema: CaptureParamsSchema,
-    stateReads: ["userIntent", "brief"],
+    stateReads: ["userIntent", "brief", "screenBlueprint", "flowBlueprint"],
     stateWrites: ["brief"],
     run: async (input) => {
       const state = graphState(input.state);
       const intent = intentFromState(state);
       const current = briefFrom(state.brief);
       const lane = current.lane ?? classifyLane(intent);
-      const classification = current.classification ?? classifyIntent(intent);
+      const classification = current.classification ?? classificationForState(state, intent);
       const brief = mergeBrief(current, {
         intent,
-        title: current.title ?? titleFromIntent(intent, classification),
+        title: current.title ?? titleForState(state, intent, classification),
         classification,
         lane,
+        confidence: current.confidence ?? confidenceForState(state, intent),
         assumptions: uniqueStrings([
           ...(current.assumptions ?? []),
           ...assumptionsForLane(lane),
@@ -130,12 +142,21 @@ export const briefNodeDefinitions: NodeDefinition[] = [
   node({
     key: "brief.inferScreenBlueprint",
     paramsSchema: EmptyParamsSchema,
-    stateReads: ["userIntent", "brief", "designSystem"],
-    stateWrites: ["screen"],
+    stateReads: ["userIntent", "brief", "designSystem", "screenBlueprint", "flowBlueprint"],
+    stateWrites: ["screen", "flowModel"],
     run: async (input) => {
       const state = graphState(input.state);
       const intent = intentFromState(state);
       const classification = briefFrom(state.brief).classification ?? "singleScreen";
+      const blueprint = screenBlueprintForState(state);
+      if (blueprint !== undefined) {
+        return {
+          statePatch: {
+            screen: screenModelFromBlueprint(blueprint.screen, intent, state.designSystem),
+            ...(blueprint.flowModel === undefined ? {} : { flowModel: blueprint.flowModel }),
+          },
+        } satisfies RuntimeNodeOutput;
+      }
       const screen = inferScreenBlueprint(intent, state.designSystem, classification);
       return { statePatch: { screen } } satisfies RuntimeNodeOutput;
     },
@@ -300,6 +321,34 @@ export const briefNodeDefinitions: NodeDefinition[] = [
 ];
 
 const STANDARD_STATES = ["loading", "empty", "error", "filled"];
+const TITLE_STOP_WORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "build",
+  "component",
+  "components",
+  "create",
+  "design",
+  "ds",
+  "existing",
+  "fast",
+  "fidelity",
+  "flow",
+  "for",
+  "from",
+  "high",
+  "make",
+  "mock",
+  "mocked",
+  "page",
+  "quick",
+  "screen",
+  "system",
+  "the",
+  "using",
+  "with",
+]);
 
 function node(
   input: Partial<NodeDefinition> & Pick<NodeDefinition, "key" | "run">
@@ -327,13 +376,34 @@ function intentFromState(state: KotikitGraphState): string {
   return state.userIntent?.trim() || "Create a product screen.";
 }
 
-function classifyIntent(intent: string): BriefClassification {
-  const lower = intent.toLowerCase();
-  const multiSignals = ["flow", "onboarding", "checkout", "wizard", "journey", "steps"];
-  if (multiSignals.some((signal) => lower.includes(signal))) return "multiScreen";
-  const screenNouns = ["login", "profile", "settings", "payment", "confirmation", "success"];
-  const matched = screenNouns.filter((noun) => lower.includes(noun));
-  return matched.length >= 2 ? "multiScreen" : "singleScreen";
+function classificationForState(state: KotikitGraphState, intent: string): BriefClassification {
+  if (state.flowBlueprint !== undefined) return "multiScreen";
+  if (state.screenBlueprint !== undefined) return "singleScreen";
+  return classifySimpleIntent(intent);
+}
+
+function classifySimpleIntent(intent: string): BriefClassification {
+  if (!isShortPrompt(intent)) return "singleScreen";
+  const words = wordsFrom(intent);
+  return words.includes("flow") || words.includes("wizard") ? "multiScreen" : "singleScreen";
+}
+
+function titleForState(
+  state: KotikitGraphState,
+  intent: string,
+  classification: BriefClassification
+): string {
+  if (state.screenBlueprint?.title !== undefined) return state.screenBlueprint.title;
+  if (state.flowBlueprint?.title !== undefined) return state.flowBlueprint.title;
+  return titleFromSimpleIntent(intent, classification);
+}
+
+function confidenceForState(
+  state: KotikitGraphState,
+  intent: string
+): "explicit" | "inferred" | "low" {
+  if (state.screenBlueprint !== undefined || state.flowBlueprint !== undefined) return "explicit";
+  return isDetailedIntent(intent) ? "low" : "inferred";
 }
 
 function classifyLane(intent: string): BriefLane {
@@ -397,6 +467,7 @@ function mergeBrief(current: unknown, patch: Partial<BriefModel>): BriefModel {
     lane: base.lane ?? patch.lane ?? "guided",
     assumptions: patch.assumptions ?? base.assumptions ?? [],
     questions: patch.questions ?? base.questions ?? DEFAULT_QUESTIONS,
+    ...(base.confidence !== undefined ? { confidence: base.confidence } : {}),
     ...(base.activeQuestionId !== undefined ? { activeQuestionId: base.activeQuestionId } : {}),
     ...(base.approvalSummary !== undefined ? { approvalSummary: base.approvalSummary } : {}),
     ...(base.approved !== undefined ? { approved: base.approved } : {}),
@@ -408,19 +479,126 @@ function briefFrom(value: unknown): Partial<BriefModel> {
   return isRecord(value) ? (value as Partial<BriefModel>) : {};
 }
 
-function screenFrom(value: unknown): Partial<ScreenBlueprint> {
-  return isRecord(value) ? (value as Partial<ScreenBlueprint>) : {};
+function screenFrom(value: unknown): Partial<ScreenModel> {
+  return isRecord(value) ? (value as Partial<ScreenModel>) : {};
 }
 
 function inferScreenBlueprint(
   intent: string,
   designSystem: unknown,
   classification: BriefClassification
-): ScreenBlueprint {
-  const lower = intent.toLowerCase();
-  const isTable = lower.includes("table") || lower.includes("members") || lower.includes("admin");
-  const isForm = lower.includes("form") || lower.includes("settings") || lower.includes("profile");
-  const isList = lower.includes("list") || lower.includes("feed") || lower.includes("cards");
+): ScreenModel {
+  if (isDetailedIntent(intent)) {
+    return genericLowConfidenceScreen(intent, designSystem, classification);
+  }
+  return inferSimpleScreenBlueprint(intent, designSystem, classification);
+}
+
+function screenBlueprintForState(state: KotikitGraphState):
+  | {
+      screen: ScreenBlueprintInput;
+      flowModel?: Record<string, unknown>;
+    }
+  | undefined {
+  if (state.flowBlueprint !== undefined) {
+    return {
+      screen: primaryScreenFromFlowBlueprint(state.flowBlueprint),
+      flowModel: flowModelFromBlueprint(state.flowBlueprint),
+    };
+  }
+  if (state.screenBlueprint !== undefined) return { screen: state.screenBlueprint };
+  return undefined;
+}
+
+function screenModelFromBlueprint(
+  blueprint: ScreenBlueprintInput,
+  userIntent: string,
+  designSystem: unknown
+): ScreenModel {
+  const requiredUiParts = blueprint.requiredUiParts.map((part) => part.name);
+  return {
+    schemaVersion: "ScreenModel/v1",
+    title: blueprint.title,
+    ...(blueprint.productDomain === undefined ? {} : { productDomain: blueprint.productDomain }),
+    description: blueprint.description ?? userIntent ?? blueprint.title,
+    confidence: blueprint.confidence ?? "explicit",
+    requiredUiParts,
+    uiParts: blueprint.requiredUiParts,
+    repeatedPatterns: repeatedPatternsFromBlueprint(blueprint),
+    states:
+      blueprint.states?.map((state) => state.kind).filter((state) => state.trim().length > 0) ??
+      STANDARD_STATES,
+    regions: regionsFromBlueprint(blueprint),
+    designSystemHints:
+      blueprint.designSystemHints ?? designSystemHints(designSystem, requiredUiParts),
+  };
+}
+
+function flowModelFromBlueprint(flow: FlowBlueprintInput): Record<string, unknown> {
+  return {
+    schemaVersion: "FlowModel/v1",
+    title: flow.title,
+    ...(flow.productDomain === undefined ? {} : { productDomain: flow.productDomain }),
+    ...(flow.primaryScreenId === undefined ? {} : { primaryScreenId: flow.primaryScreenId }),
+    ...(flow.entryScreenId === undefined ? {} : { entryScreenId: flow.entryScreenId }),
+    screens: flow.screens.map((screen) => ({
+      ...(screen.id === undefined ? {} : { id: screen.id }),
+      title: screen.title,
+      ...(screen.productDomain === undefined ? {} : { productDomain: screen.productDomain }),
+      requiredUiParts: screen.requiredUiParts.map((part) => part.name),
+    })),
+  };
+}
+
+function repeatedPatternsFromBlueprint(blueprint: ScreenBlueprintInput): string[] {
+  return uniqueStrings([
+    ...(blueprint.repeatedPatterns ?? []).map((pattern) => pattern.name),
+    ...(blueprint.traits?.repeatedPatterns ?? []).map((pattern) => pattern.name),
+  ]);
+}
+
+function regionsFromBlueprint(blueprint: ScreenBlueprintInput): ScreenModel["regions"] {
+  const regions = [...(blueprint.regions ?? []), ...(blueprint.traits?.regions ?? [])];
+  return {
+    tables: regions.filter((region) => region.kind === "table").map((region) => region.name),
+    lists: regions.filter((region) => region.kind === "list").map((region) => region.name),
+    forms: regions.filter((region) => region.kind === "form").map((region) => region.name),
+    custom: regions
+      .filter((region) => !["table", "list", "form"].includes(region.kind))
+      .map((region) => region.name),
+  };
+}
+
+function genericLowConfidenceScreen(
+  intent: string,
+  designSystem: unknown,
+  classification: BriefClassification
+): ScreenModel {
+  const requiredUiParts = ["page shell", "content heading", "primary action"];
+  return {
+    schemaVersion: "ScreenModel/v1",
+    title: classification === "multiScreen" ? "Product Flow" : "Product Screen",
+    description: intent,
+    confidence: "low",
+    requiredUiParts,
+    repeatedPatterns: [],
+    states: STANDARD_STATES,
+    regions: { tables: [], lists: [], forms: [], custom: [] },
+    designSystemHints: designSystemHints(designSystem, requiredUiParts),
+  };
+}
+
+function inferSimpleScreenBlueprint(
+  intent: string,
+  designSystem: unknown,
+  classification: BriefClassification
+): ScreenModel {
+  const words = wordsFrom(intent);
+  const isTable = isShortPrompt(intent) && words.includes("table");
+  const isForm = isShortPrompt(intent) && words.includes("form");
+  const isList =
+    isShortPrompt(intent) &&
+    (words.includes("list") || words.includes("feed") || words.includes("cards"));
   const requiredUiParts = uniqueStrings([
     "page shell",
     "content heading",
@@ -442,8 +620,9 @@ function inferScreenBlueprint(
   ]);
   return {
     schemaVersion: "ScreenModel/v1",
-    title: titleFromIntent(intent, classification),
+    title: titleFromSimpleIntent(intent, classification),
     description: intent,
+    confidence: "inferred",
     requiredUiParts,
     repeatedPatterns: [
       ...(isTable ? ["table rows"] : []),
@@ -452,40 +631,47 @@ function inferScreenBlueprint(
     ],
     states: STANDARD_STATES,
     regions: {
-      tables: isTable ? [regionName(intent, "members")] : [],
-      lists: isList ? [regionName(intent, "items")] : [],
-      forms: isForm ? [regionName(intent, "details")] : [],
+      tables: isTable ? [tableRegionName(words)] : [],
+      lists: isList ? ["items"] : [],
+      forms: isForm ? ["details"] : [],
+      custom: [],
     },
     designSystemHints: designSystemHints(designSystem, requiredUiParts),
   };
 }
 
-function titleFromIntent(intent: string, classification: BriefClassification): string {
-  const lower = intent.toLowerCase();
-  if (lower.includes("members") && lower.includes("table")) return "Members Table";
-  if (lower.includes("onboarding")) return "Onboarding Flow";
-  const cleaned = lower
-    .replace(
-      /\b(create|make|build|design|fast|quick|high-fidelity|high fidelity|screen|page|flow)\b/g,
-      " "
-    )
-    .replace(/\b(from|with|using|existing|components|component|design-system|ds)\b/g, " ")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim()
-    .split(/\s+/)
-    .slice(0, classification === "multiScreen" ? 4 : 3)
-    .join(" ");
+function titleFromSimpleIntent(intent: string, classification: BriefClassification): string {
+  if (isDetailedIntent(intent)) {
+    return classification === "multiScreen" ? "Product Flow" : "Product Screen";
+  }
+  const words = wordsFrom(intent);
+  if (words.includes("table")) return `${titleCase(tableRegionName(words))} Table`;
+  const titleWords = words
+    .filter((word) => !TITLE_STOP_WORDS.has(word))
+    .slice(0, classification === "multiScreen" ? 4 : 3);
   return titleCase(
-    cleaned || (classification === "multiScreen" ? "Product Flow" : "Product Screen")
+    titleWords.join(" ") || (classification === "multiScreen" ? "Product Flow" : "Product Screen")
   );
 }
 
-function regionName(intent: string, fallback: string): string {
-  const lower = intent.toLowerCase();
-  if (lower.includes("members")) return "members";
-  if (lower.includes("teammates")) return "teammates";
-  if (lower.includes("settings")) return "settings";
-  return fallback;
+function tableRegionName(words: string[]): string {
+  const tableIndex = words.indexOf("table");
+  const previous = tableIndex > 0 ? words[tableIndex - 1] : undefined;
+  return previous === undefined || TITLE_STOP_WORDS.has(previous) || previous === "data"
+    ? "items"
+    : previous;
+}
+
+function isDetailedIntent(intent: string): boolean {
+  return wordsFrom(intent).length > 24;
+}
+
+function isShortPrompt(intent: string): boolean {
+  return wordsFrom(intent).length <= 18;
+}
+
+function wordsFrom(value: string): string[] {
+  return value.toLowerCase().match(/[a-z0-9]+/g) ?? [];
 }
 
 function designSystemHints(designSystem: unknown, requiredUiParts: string[]): string[] {
