@@ -134,6 +134,59 @@ describe("createGraphRuntime", () => {
     });
   });
 
+  it("seeds structured blueprint, canvas, and existing inventory input into graph state", async () => {
+    const { runtime } = fixtureRuntime();
+
+    const started = await runtime.startFlow({
+      flowId: "fixture-flow",
+      input: {
+        project: { root },
+        userIntent: "Create the supplied mocked Events Experience PRD.",
+        screenBlueprint: {
+          schemaVersion: "ScreenBlueprintInput/v1",
+          id: "events",
+          title: "Events Experience",
+          productDomain: "Mock Operations",
+          requiredUiParts: [{ id: "event-stream", name: "Event stream", role: "timeline" }],
+        },
+        canvasIntent: {
+          mode: "replace-existing-frame",
+          targetFrame: {
+            nodeId: "12:34",
+            name: "Existing Events Frame",
+            bounds: { x: 0, y: 0, width: 1280, height: 720 },
+          },
+        },
+        existingDesignInventory: {
+          schemaVersion: "ExistingDesignInventoryInput/v1",
+          source: "figma-scan",
+          targets: [
+            {
+              nodeId: "12:34",
+              name: "Existing Events Frame",
+              kind: "frame",
+              screenId: "events",
+            },
+          ],
+        },
+      },
+    });
+
+    expect(started.state).toMatchObject({
+      screenBlueprint: {
+        title: "Events Experience",
+        productDomain: "Mock Operations",
+      },
+      canvasIntent: {
+        mode: "replace-existing-frame",
+        targetFrame: { nodeId: "12:34" },
+      },
+      existingDesignInventory: {
+        targets: [expect.objectContaining({ nodeId: "12:34", screenId: "events" })],
+      },
+    });
+  });
+
   it("patches run state for external apply metadata", async () => {
     const { runtime } = fixtureRuntime();
     const started = await runtime.startFlow({
