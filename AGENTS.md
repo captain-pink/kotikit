@@ -19,6 +19,9 @@ Evidence and QA gates must prove the visible design is correct; they must not
 shape the design into proof overlays, hidden component instances, or generic
 token bindings that do not match the UI's semantic roles.
 
+Use only mocked product, company, customer, and user data in tests, fixtures,
+docs, and examples. Never copy real customer data into this repository.
+
 Use Bun for runtime, tests, and project scripts. For behavior changes, work
 test-first: add or update the focused failing test, implement the smallest
 change, then run the relevant `bun test` target.
