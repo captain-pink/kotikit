@@ -248,7 +248,11 @@ describe("MCP facade tools", () => {
     const reviewScreen = detail.flows.find((flow) => flow.id === "review-screen");
 
     expect(result.isError).toBeFalsy();
-    expect(detail.flows.map((flow) => flow.id)).toEqual(["create-screen", "review-screen"]);
+    expect(detail.flows.map((flow) => flow.id)).toEqual([
+      "create-screen",
+      "refine-existing",
+      "review-screen",
+    ]);
     expect(createScreen?.title).toBe("Create Screen");
     expect(reviewScreen?.title).toBe("Review Screen");
     expect(createScreen).not.toHaveProperty("nodes");

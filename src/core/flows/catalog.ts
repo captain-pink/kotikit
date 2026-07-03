@@ -6,7 +6,11 @@ import { KotikitError } from "../../util/result.js";
 import { computeStableHash } from "../graph/graph-hash.js";
 import { type FlowDefinition, FlowDefinitionSchema } from "../schemas/flow-definition.js";
 
-const BUILT_IN_FLOW_FILES = ["create-screen.flow.json", "review-screen.flow.json"];
+const BUILT_IN_FLOW_FILES = [
+  "create-screen.flow.json",
+  "refine-existing.flow.json",
+  "review-screen.flow.json",
+];
 
 export type FlowCatalogConfig = {
   flowPacks?: Config["flowPacks"];
