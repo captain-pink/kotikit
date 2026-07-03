@@ -29,11 +29,11 @@
 - Modify `src/core/nodes/brief/test/brief-nodes.test.ts`
   - Adds the requested regression tests around onboarding/admin/events/member-table behavior and blueprint override.
 - Modify `src/core/domain/ux-envelope.ts`
-  - Makes archetype selection blueprint/fallback-driven rather than broad text-driven.
+  - Replaces archetype-driven selection with composable traits and explicit pattern-pack refs.
 - Modify `src/core/domain/test/ux-envelope.test.ts`
-  - Updates existing archetype tests so short explicit prompts can still use pattern packs while detailed PRDs stay `unknown`.
+  - Proves unknown/custom screens continue from traits and explicit pattern-pack refs do not use substring classification.
 - Modify `src/core/nodes/ux/index.ts`
-  - Passes blueprint archetype metadata from screen state into UX envelope building.
+  - Passes blueprint traits from screen state into UX envelope building.
 - Modify `src/core/schemas/artifact.ts`
   - Adds optional semantic metadata to `UICompositionPart`, adds optional canvas replacement metadata to canvas placements, and keeps legacy payloads parseable.
 - Modify `src/core/domain/ui-composition-contract.ts`
@@ -112,10 +112,14 @@ describe("blueprint input schemas", () => {
         title: "Events Experience",
         productDomain: "Mock Operations",
         confidence: "explicit",
-        archetype: {
-          id: "unknown",
-          source: "unknown",
-          confidence: "low",
+        traits: {
+          regions: [
+            { id: "activity", name: "Activity", kind: "timeline", role: "main content" },
+          ],
+          stateScopes: ["page", "region"],
+          repeatedPatterns: [
+            { id: "event-items", name: "Event items", kind: "events", regionId: "activity" },
+          ],
         },
         requiredUiParts: [
           {
@@ -271,10 +275,40 @@ const BlueprintStateSchema = z.strictObject({
     .default("custom"),
 });
 
-const BlueprintArchetypeSchema = z.strictObject({
+const BlueprintRegionKindSchema = z.enum([
+  "table",
+  "list",
+  "timeline",
+  "chart",
+  "form",
+  "detail-panel",
+  "custom",
+]);
+
+const BlueprintStateScopeSchema = z.enum(["page", "region", "component", "flow"]);
+
+const BlueprintRepeatedPatternKindSchema = z.enum(["rows", "cards", "events", "steps", "custom"]);
+
+const BlueprintTraitRegionSchema = z.strictObject({
   id: z.string().min(1),
-  source: z.enum(["blueprint", "local-pattern-pack", "unknown"]),
-  confidence: ConfidenceSchema,
+  name: z.string().min(1),
+  kind: BlueprintRegionKindSchema,
+  role: z.string().min(1).optional(),
+});
+
+const BlueprintTraitRepeatedPatternSchema = z.strictObject({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  kind: BlueprintRepeatedPatternKindSchema,
+  regionId: z.string().min(1).optional(),
+  partId: z.string().min(1).optional(),
+});
+
+const BlueprintTraitsSchema = z.strictObject({
+  regions: z.array(BlueprintTraitRegionSchema).optional(),
+  stateScopes: z.array(BlueprintStateScopeSchema).optional(),
+  repeatedPatterns: z.array(BlueprintTraitRepeatedPatternSchema).optional(),
+  patternPackIds: z.array(z.string().min(1)).optional(),
 });
 
 export const ScreenBlueprintInputSchema = z.strictObject({
@@ -286,7 +320,7 @@ export const ScreenBlueprintInputSchema = z.strictObject({
   primaryGoal: z.string().min(1).optional(),
   primaryActor: z.string().min(1).optional(),
   confidence: ConfidenceSchema.optional(),
-  archetype: BlueprintArchetypeSchema.optional(),
+  traits: BlueprintTraitsSchema.optional(),
   requiredUiParts: z.array(BlueprintUiPartSchema).min(1),
   repeatedPatterns: z.array(BlueprintRepeatedPatternSchema).optional(),
   regions: z.array(BlueprintRegionSchema).optional(),
@@ -744,7 +778,7 @@ type ScreenBlueprint = {
   productDomain?: string;
   description: string;
   confidence?: "explicit" | "inferred" | "low";
-  archetype?: ScreenBlueprintInput["archetype"];
+  traits?: ScreenBlueprintInput["traits"];
   requiredUiParts: string[];
   uiParts?: ScreenBlueprintInput["requiredUiParts"];
   repeatedPatterns: string[];
@@ -809,7 +843,7 @@ function screenFromInputBlueprint(
     ...(blueprint.productDomain === undefined ? {} : { productDomain: blueprint.productDomain }),
     description: blueprint.description ?? userIntent ?? blueprint.title,
     confidence: blueprint.confidence ?? "explicit",
-    ...(blueprint.archetype === undefined ? {} : { archetype: blueprint.archetype }),
+    ...(blueprint.traits === undefined ? {} : { traits: blueprint.traits }),
     requiredUiParts: blueprint.requiredUiParts.map((part) => part.name),
     uiParts: blueprint.requiredUiParts,
     repeatedPatterns: (blueprint.repeatedPatterns ?? []).map((pattern) => pattern.name),
@@ -1004,25 +1038,35 @@ git add src/core/nodes/brief/index.ts src/core/nodes/brief/test/brief-nodes.test
 git commit -m "fix(brief): preserve blueprint intent over fallback heuristics"
 ```
 
-## Task 3: Archetypes As Explicit Pattern Hints
+## Task 3: Traits And Explicit Pattern Pack Refs
 
 **Files:**
 - Modify: `src/core/domain/ux-envelope.ts`
 - Modify: `src/core/domain/test/ux-envelope.test.ts`
 - Modify: `src/core/nodes/ux/index.ts`
+- Modify: `src/core/domain/ux-pattern-pack.ts`
+- Modify: `src/core/nodes/design-system/index.ts`
 
-- [ ] **Step 1: Update failing UX archetype tests**
+- [ ] **Step 1: Update failing UX trait tests**
 
 Replace the first test in `src/core/domain/test/ux-envelope.test.ts`:
 
 ```ts
-  it("keeps detailed admin dashboard wording unknown without explicit archetype evidence", () => {
+  it("keeps detailed admin dashboard wording unknown while preserving traits", () => {
     const envelope = buildUxEnvelope({
       userIntent:
         "Create a detailed admin dashboard experience for mocked operations alerts, notes, and service health.",
       screen: {
         title: "Operations Overview",
         requiredUiParts: ["alert summary", "service health", "notes panel"],
+        traits: {
+          regions: [
+            { id: "alerts", name: "Alerts", kind: "list" },
+            { id: "health", name: "Service health", kind: "chart" },
+          ],
+          stateScopes: ["page", "region"],
+          repeatedPatterns: [{ id: "alerts", name: "Alert items", kind: "cards" }],
+        },
       },
     });
 
@@ -1030,42 +1074,53 @@ Replace the first test in `src/core/domain/test/ux-envelope.test.ts`:
       screenArchetype: "unknown",
       confidence: "low",
       primaryGoal: "Operations Overview",
+      traitSummary: {
+        regionKinds: ["list", "chart"],
+        stateScopes: ["page", "region"],
+        repeatedPatternKinds: ["cards"],
+        patternPackIds: [],
+      },
     });
   });
 
-  it("uses explicit blueprint archetype evidence when present", () => {
+  it("uses explicit pattern pack refs without substring classification", () => {
     const envelope = buildUxEnvelope({
-      userIntent: "Create the explicit members table screen.",
+      userIntent: "Create a mocked access review workspace.",
       screen: {
-        title: "Members Table",
-        requiredUiParts: ["data table", "toolbar"],
-        archetype: {
-          id: "admin-data-table",
-          source: "blueprint",
-          confidence: "explicit",
+        title: "Access Review",
+        requiredUiParts: ["review table", "filter toolbar"],
+        traits: {
+          regions: [{ id: "review", name: "Review table", kind: "table" }],
+          stateScopes: ["region"],
+          repeatedPatterns: [{ id: "review-rows", name: "Review rows", kind: "rows" }],
+          patternPackIds: ["admin-data-table"],
         },
       },
     });
 
     expect(envelope).toMatchObject({
-      screenArchetype: "admin-data-table",
+      screenArchetype: "unknown",
       confidence: "inferred",
       primaryTask: "Manage members",
+      traitSummary: {
+        patternPackIds: ["admin-data-table"],
+      },
     });
   });
 ```
 
-Update the state-matrix test to pass explicit archetype metadata:
+Update the state-matrix test to pass explicit trait and pattern-pack metadata:
 
 ```ts
         screen: {
           title: "Admin Members",
           requiredUiParts: ["members table"],
           states: ["filled", "loading", "empty", "no-results", "error", "permission"],
-          archetype: {
-            id: "admin-data-table",
-            source: "blueprint",
-            confidence: "explicit",
+          traits: {
+            regions: [{ id: "members", name: "Members table", kind: "table" }],
+            stateScopes: ["region"],
+            repeatedPatterns: [{ id: "member-rows", name: "Member rows", kind: "rows" }],
+            patternPackIds: ["admin-data-table"],
           },
         },
 ```
@@ -1078,17 +1133,33 @@ Run:
 bun test src/core/domain/test/ux-envelope.test.ts
 ```
 
-Expected: fail because `screen.archetype` is not supported and broad keywords still classify archetypes.
+Expected: fail because `screen.traits`, explicit `patternPackIds`, and `traitSummary` are not supported.
 
-- [ ] **Step 3: Update UX envelope input and selection**
+- [ ] **Step 3: Add pattern-pack lookup by explicit id**
+
+Modify `src/core/domain/ux-pattern-pack.ts`:
+
+```ts
+export function selectPatternPacks(patternPackIds: string[] | undefined): UXPatternPack[] {
+  if (patternPackIds === undefined || patternPackIds.length === 0) return [];
+  return patternPackIds
+    .map((id) => builtInPatternPacks.find((pack) => pack.id === id))
+    .filter((pack): pack is UXPatternPack => pack !== undefined);
+}
+```
+
+This lookup is id-based only. Do not use `intentKeywords` for detailed PRDs.
+
+- [ ] **Step 4: Update UX envelope input and selection**
 
 Modify `src/core/domain/ux-envelope.ts`:
 
 ```ts
-type ScreenArchetypeHint = {
-  id?: string;
-  source?: string;
-  confidence?: "explicit" | "inferred" | "low";
+type ScreenTraits = {
+  regions?: { id?: string; name?: string; kind?: string }[];
+  stateScopes?: string[];
+  repeatedPatterns?: { id?: string; name?: string; kind?: string }[];
+  patternPackIds?: string[];
 };
 
 type BuildUxEnvelopeInput = {
@@ -1097,7 +1168,7 @@ type BuildUxEnvelopeInput = {
     title?: string;
     requiredUiParts?: string[];
     states?: string[];
-    archetype?: ScreenArchetypeHint;
+    traits?: ScreenTraits;
   };
   patternPack?: UXPatternPack;
 };
@@ -1106,48 +1177,69 @@ type BuildUxEnvelopeInput = {
 Replace broad user-intent classification in `buildUxEnvelope`:
 
 ```ts
-  const screenArchetype = supportedArchetypeFrom(input.screen?.archetype);
-  const patternPack = input.patternPack ?? selectPatternPack(screenArchetype);
+  const explicitPatternPacks =
+    input.patternPack === undefined ? selectPatternPacks(input.screen?.traits?.patternPackIds) : [];
+  const patternPack = input.patternPack ?? explicitPatternPacks[0] ?? selectPatternPack("unknown");
+  const screenArchetype: UXEnvelope["screenArchetype"] = "unknown";
 ```
 
-Add helper:
+Build a trait summary:
 
 ```ts
-function supportedArchetypeFrom(hint: ScreenArchetypeHint | undefined): UXEnvelope["screenArchetype"] {
-  if (hint?.confidence === "low") return "unknown";
-  if (
-    hint?.id === "admin-data-table" ||
-    hint?.id === "dashboard" ||
-    hint?.id === "settings-form" ||
-    hint?.id === "detail-page" ||
-    hint?.id === "creation-flow" ||
-    hint?.id === "review-workflow"
-  ) {
-    return hint.id;
-  }
+function traitSummaryFrom(traits: ScreenTraits | undefined): UXEnvelope["traitSummary"] {
+  return {
+    regionKinds: uniqueStrings((traits?.regions ?? []).flatMap((region) => optionalString(region.kind))),
+    stateScopes: uniqueStrings((traits?.stateScopes ?? []).flatMap(optionalString)),
+    repeatedPatternKinds: uniqueStrings(
+      (traits?.repeatedPatterns ?? []).flatMap((pattern) => optionalString(pattern.kind))
+    ),
+    patternPackIds: uniqueStrings(traits?.patternPackIds ?? []),
+  };
+}
+
+function optionalString(value: unknown): string[] {
+  return typeof value === "string" && value.trim() !== "" ? [value.trim()] : [];
+}
+```
+
+Include it in the returned envelope:
+
+```ts
+    traitSummary: traitSummaryFrom(input.screen?.traits),
+```
+
+Leave `classifyScreenArchetype` exported for compatibility, but change it to always return `unknown`:
+
+```ts
+export function classifyScreenArchetype(userIntent: string): UXEnvelope["screenArchetype"] {
   return "unknown";
 }
 ```
 
-Leave `classifyScreenArchetype` exported for compatibility, but change it to short-prompt-only:
+This keeps legacy callers from receiving broad substring classification. The main path uses traits and explicit pattern-pack ids.
+
+- [ ] **Step 5: Extend `UXEnvelope` schema for trait summary**
+
+Modify `src/core/schemas/artifact.ts` near `UXEnvelopeSchema`:
 
 ```ts
-export function classifyScreenArchetype(userIntent: string): UXEnvelope["screenArchetype"] {
-  const words = normalizeWords(userIntent).split(/\s+/).filter(Boolean);
-  if (words.length > 8) return "unknown";
-  const normalizedIntent = words.join(" ");
-  const matchedPack = builtInPatternPacks.find((pack) => {
-    const keywords = pack.intentKeywords ?? pack.appliesTo;
-    return keywords.some((keyword) => normalizedIntent === normalizeWords(keyword));
-  });
-
-  return (matchedPack?.appliesTo[0] as UXEnvelope["screenArchetype"] | undefined) ?? "unknown";
-}
+const UXEnvelopeTraitSummarySchema = z.strictObject({
+  regionKinds: z.array(z.string().min(1)),
+  stateScopes: z.array(z.string().min(1)),
+  repeatedPatternKinds: z.array(z.string().min(1)),
+  patternPackIds: z.array(z.string().min(1)),
+});
 ```
 
-This keeps legacy callers from seeing broad substring classification while the main path uses explicit screen archetype metadata.
+Add this field to `UXEnvelopeSchema`:
 
-- [ ] **Step 4: Pass archetype metadata through UX node screen extraction**
+```ts
+  traitSummary: UXEnvelopeTraitSummarySchema.optional(),
+```
+
+Keep `screenArchetype` in `UXEnvelope/v1` for compatibility, but new blueprint-driven runs should emit `unknown`.
+
+- [ ] **Step 6: Pass traits through UX node screen extraction**
 
 Modify `screenFrom` in `src/core/nodes/ux/index.ts`:
 
@@ -1156,45 +1248,67 @@ function screenFrom(value: unknown): {
   title?: string;
   requiredUiParts?: string[];
   states?: string[];
-  archetype?: { id?: string; source?: string; confidence?: "explicit" | "inferred" | "low" };
+  traits?: {
+    regions?: Record<string, unknown>[];
+    stateScopes?: string[];
+    repeatedPatterns?: Record<string, unknown>[];
+    patternPackIds?: string[];
+  };
 } {
   const record = recordFrom(value);
-  const archetype = recordFrom(record.archetype);
+  const traits = recordFrom(record.traits);
   return {
     title: stringFrom(record.title),
     requiredUiParts: stringArray(record.requiredUiParts),
     states: stringArray(record.states),
-    archetype:
-      typeof archetype.id === "string"
+    traits:
+      Object.keys(traits).length > 0
         ? {
-            id: archetype.id,
-            ...(typeof archetype.source === "string" ? { source: archetype.source } : {}),
-            ...(archetype.confidence === "explicit" ||
-            archetype.confidence === "inferred" ||
-            archetype.confidence === "low"
-              ? { confidence: archetype.confidence }
-              : {}),
+            regions: recordArray(traits.regions),
+            stateScopes: stringArray(traits.stateScopes),
+            repeatedPatterns: recordArray(traits.repeatedPatterns),
+            patternPackIds: stringArray(traits.patternPackIds),
           }
         : undefined,
   };
 }
 ```
 
-- [ ] **Step 5: Run UX and brief tests**
+- [ ] **Step 7: Stop adding pattern-pack parts from `screenArchetype`**
+
+Modify `patternPackParts` in `src/core/nodes/design-system/index.ts`:
+
+```ts
+function patternPackParts(state: KotikitGraphState): string[] {
+  const traitSummary = recordFrom(recordFrom(state.uxEnvelope).traitSummary);
+  const patternPackIds = stringArray(traitSummary.patternPackIds);
+  return patternPackIds.flatMap((id) => selectPatternPacks([id]).flatMap((pack) => pack.componentRoles));
+}
+```
+
+Update imports:
+
+```ts
+import { selectPatternPacks } from "../../domain/ux-pattern-pack.js";
+```
+
+Remove the old `selectPatternPack(archetype)` branch so `screenArchetype: "unknown"` does not block explicit traits, and broad archetypes do not add table/form/dashboard parts.
+
+- [ ] **Step 8: Run UX and brief tests**
 
 Run:
 
 ```bash
-bun test src/core/domain/test/ux-envelope.test.ts src/core/nodes/brief/test/brief-nodes.test.ts
+bun test src/core/domain/test/ux-envelope.test.ts src/core/nodes/ux/test/ux-nodes.test.ts src/core/nodes/design-system/test/design-system-nodes.test.ts src/core/nodes/brief/test/brief-nodes.test.ts
 ```
 
 Expected: all listed tests pass.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add src/core/domain/ux-envelope.ts src/core/domain/test/ux-envelope.test.ts src/core/nodes/ux/index.ts
-git commit -m "fix(ux): require explicit archetype evidence"
+git add src/core/domain/ux-envelope.ts src/core/domain/test/ux-envelope.test.ts src/core/nodes/ux/index.ts src/core/domain/ux-pattern-pack.ts src/core/nodes/design-system/index.ts src/core/schemas/artifact.ts
+git commit -m "fix(ux): replace archetypes with blueprint traits"
 ```
 
 ## Task 4: Semantic Parts And Variable Bindings
@@ -2464,8 +2578,8 @@ If no files changed during the quality gate, no final commit is needed.
 
 ## Self-Review Notes
 
-- Spec coverage: blueprint contracts, fallback behavior, archetype handling, semantic variable roles, canvas replacement, `refine-existing`, docs, and tests are each mapped to a task.
+- Spec coverage: blueprint contracts, fallback behavior, composable traits, explicit pattern refs, semantic variable roles, canvas replacement, `refine-existing`, docs, and tests are each mapped to a task.
 - No real customer or company data is used. Examples use mocked Events, Mock Operations, and generic frame names.
-- No new built-in archetype enum values are added. Unknown/custom product intent stays valid through blueprint metadata.
+- No new built-in archetype enum values are added. Unknown/custom product intent stays valid through blueprint traits and explicit UI parts.
 - Fallback still supports explicit short "members table" style prompts without using broad detailed-PRD keyword classification.
 - The plan intentionally does not require multi-screen Figma writes in the first `create-screen` slice. It preserves full `flowBlueprint` and drafts the primary screen first.

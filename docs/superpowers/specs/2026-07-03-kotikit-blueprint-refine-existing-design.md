@@ -44,14 +44,16 @@ reasoning is happening in hardcoded core heuristics.
 - Low-confidence beats wrong: detailed unstructured intent without a blueprint
   should ask one useful clarification or continue with generic, non-hijacked
   parts.
-- Pattern packs are optional aids, not classifiers. A built-in archetype or
-  pattern pack may shape defaults only when explicitly supplied by a blueprint
-  or when a short fallback prompt is unambiguous.
+- Pattern packs are optional aids, not classifiers. They may shape defaults only
+  when explicitly referenced by the blueprint or validated local/project data.
+- Composable traits are the generic planning surface. Regions, state scopes,
+  repeated-pattern kinds, and explicit pattern refs carry design intent without
+  forcing a screen into a canned archetype.
 - Existing work is first-class. Refining a selected frame, selected frames, or
   a page is a different workflow from drafting a new screen.
 - Tests and examples use only mocked product, company, customer, and user data.
 
-## Screen Archetypes
+## Traits Replace Archetypes
 
 The current `UXEnvelope` schema exposes a fixed `screenArchetype` enum:
 
@@ -60,29 +62,35 @@ admin-data-table, dashboard, settings-form, detail-page, creation-flow,
 review-workflow, unknown
 ```
 
-The enum itself is not the whole problem. The failure happens when kotikit uses
-incidental text to choose one of those values and then lets the chosen archetype
-drive pattern packs, state matrices, parts, and layout. For example, a request
-that mentions an admin area, a dashboard, or an onboarding domain in passing
-should not become an admin table, dashboard summary, or onboarding flow.
+The enum is a poor core abstraction. Only some values currently map to actual
+pattern packs, and values such as `admin-data-table` encode a specific product
+shape rather than a generic planning primitive. The failure happens when kotikit
+uses incidental text to choose one of those values and then lets the chosen
+archetype drive pattern packs, state matrices, parts, and layout. For example,
+a request that mentions an admin area, a dashboard, or an onboarding domain in
+passing should not become an admin table, dashboard summary, or onboarding
+flow.
 
-The fix is to change the meaning of archetypes:
+The current implementation should make archetypes a compatibility detail, not a
+planning surface:
 
-- `screenArchetype` is an optional blueprint field or a low-confidence fallback
-  result, not a required classifier.
-- Unknown, custom, or unmapped experiences stay valid. They should not be
-  forced into the closest built-in enum.
-- Built-in pattern packs are selected only from explicit blueprint intent or
-  from short, simple fallback prompts such as "create members table".
-- Rich PRDs without a blueprint default to `unknown` with low confidence and a
-  clarification, not to the nearest enum.
-- Do not add more built-in enum values to chase product combinations. If schema
-  compatibility requires the current enum in the first implementation slice,
-  bespoke screens should map to `unknown` while their custom archetype or
-  product pattern stays preserved in blueprint metadata.
-- Longer term, version the schema so it can allow custom archetype ids or
-  pattern-pack ids from validated local/project data instead of only a closed
-  built-in enum.
+- `UXEnvelope/v1.screenArchetype` remains only because existing artifacts
+  require it. New blueprint-driven runs should set it to `unknown` unless a
+  compatibility path absolutely needs another value.
+- Core nodes must not infer or branch on `admin-data-table`, `dashboard`, or
+  `settings-form` from PRD text.
+- Do not add more built-in enum values to chase product combinations. That
+  repeats the same hardcoded-template problem in a larger list.
+- Use composable blueprint traits instead:
+  - `regions`: `table`, `list`, `timeline`, `chart`, `form`, `detail-panel`,
+    or `custom`;
+  - `stateScopes`: `page`, `region`, `component`, or `flow`;
+  - `repeatedPatterns`: `rows`, `cards`, `events`, `steps`, or `custom`;
+  - `patternPackIds?: string[]`, selected only when explicitly provided by a
+    blueprint or validated local/project data.
+- Unknown, custom, or unmapped experiences stay valid. They should continue
+  through the graph from explicit UI parts, states, regions, and design-system
+  evidence.
 
 ## Proposed Contracts
 
@@ -122,11 +130,7 @@ type ScreenBlueprintInput = {
   primaryGoal?: string;
   primaryActor?: string;
   confidence?: "explicit" | "inferred" | "low";
-  archetype?: {
-    id: string;
-    source: "blueprint" | "local-pattern-pack" | "unknown";
-    confidence: "explicit" | "inferred" | "low";
-  };
+  traits?: BlueprintTraits;
   requiredUiParts: BlueprintUiPart[];
   repeatedPatterns?: BlueprintRepeatedPattern[];
   regions?: BlueprintRegion[];
@@ -137,6 +141,28 @@ type ScreenBlueprintInput = {
 
 `title` is preserved exactly after validation. Invalid titles receive a friendly
 error rather than being replaced with a keyword-derived title.
+
+Blueprint traits are additive and generic:
+
+```ts
+type BlueprintTraits = {
+  regions?: Array<{
+    id: string;
+    name: string;
+    kind: "table" | "list" | "timeline" | "chart" | "form" | "detail-panel" | "custom";
+    role?: string;
+  }>;
+  stateScopes?: Array<"page" | "region" | "component" | "flow">;
+  repeatedPatterns?: Array<{
+    id: string;
+    name: string;
+    kind: "rows" | "cards" | "events" | "steps" | "custom";
+    regionId?: string;
+    partId?: string;
+  }>;
+  patternPackIds?: string[];
+};
+```
 
 ### Flow Blueprint
 
@@ -276,8 +302,8 @@ Blueprint validation should happen at the MCP/runtime boundary with Zod:
 
 - reject empty titles, duplicate ids, missing primary screen references, and
   target-frame modes without targets;
-- preserve unknown but valid role/archetype strings instead of rejecting custom
-  product intent;
+- preserve unknown but valid roles, region kinds, repeated-pattern kinds, and
+  pattern refs instead of rejecting custom product intent;
 - keep error messages designer-friendly through existing `KotikitError`
   patterns;
 - keep raw PRD text compact in graph state and move structured summaries into
@@ -296,9 +322,12 @@ Use TDD with Bun. Focused regression tests should cover:
 - blueprint input overrides fallback;
 - detailed intent without blueprint asks a clarification or produces generic,
   non-hijacked parts;
-- blueprint archetype `unknown` does not select a built-in pattern pack;
-- explicit blueprint archetype can select a pattern pack without substring
+- blueprint traits preserve table/list/timeline/chart/form/detail-panel regions
+  without using `screenArchetype`;
+- explicit `patternPackIds` can select pattern-pack defaults without substring
   classification;
+- missing `patternPackIds` leaves `UXEnvelope/v1.screenArchetype` as `unknown`
+  while still continuing from blueprint parts and traits;
 - `replace-existing-frame` canvas intent uses the target frame instead of a new
   section placement;
 - `refine-existing` accepts multiple targets and asks a clarification when a
@@ -315,8 +344,10 @@ All test data must use mocked product, company, customer, and user names.
    schema to accept the new fields.
 3. Replace the regex/substr parser work in `brief/index.ts` with
    blueprint-preserving helpers and tiny fallback classification.
-4. Update UX envelope building so archetype comes from blueprint evidence or
-   short fallback only.
+4. Update UX envelope building so composable traits and explicit
+   `patternPackIds` replace archetype inference. Keep `screenArchetype:
+   "unknown"` as a `UXEnvelope/v1` compatibility field for blueprint-driven
+   bespoke screens.
 5. Preserve part roles into `UICompositionContract`.
 6. Update variable binding to respect part-level `variableRoles`.
 7. Extend canvas planning for `replace-existing-frame`.
@@ -330,10 +361,9 @@ All test data must use mocked product, company, customer, and user names.
 - The first implementation slice should fix `create-screen` and preserve
   flow-blueprint structure while drafting one primary screen.
 - The second slice should add `refine-existing` and multi-target mapping.
-- A later cleanup can relax or version the closed `screenArchetype` enum into a
-  custom/project-pattern-friendly schema once the blueprint path is covered.
 - The implementation must not add new built-in archetype enum values for the
   reported product cases. That would repeat the same hardcoded-template failure
   in a larger list.
-- Existing pattern packs can remain useful as data, but no core node should use
-  broad substring matching to force them for detailed PRDs.
+- Existing pattern packs can remain useful as explicit data refs, but no core
+  node should use broad substring matching or `screenArchetype` branching to
+  force them for detailed PRDs.
