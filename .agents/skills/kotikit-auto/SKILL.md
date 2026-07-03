@@ -30,9 +30,20 @@ is available on `PATH`.
   `kotikit_list_artifacts`.
 - Start every substantial design request with `kotikit_start` and a built-in
   flow id. The tiny kotikit core exposes `create-screen` for screen drafting
-  and `review-screen` for post-screen Figma comment feedback. Use direct
-  support tools such as `kotikit_sync_ds` only when the user explicitly asks
-  for setup or design-system sync.
+  `refine-existing` for existing Figma targets, and `review-screen` for
+  post-screen Figma comment feedback. Use direct support tools such as
+  `kotikit_sync_ds` only when the user explicitly asks for setup or
+  design-system sync.
+- For detailed PRDs, first translate the designer request into a structured
+  `screenBlueprint` or `flowBlueprint`; do not rely on `userIntent` alone.
+- Use `refine-existing` when the designer asks to modify existing Figma frames,
+  selected screens, or a page that already contains screens.
+- For existing Figma pages, pass compact `existingDesignInventory` from the
+  selected page or frames so kotikit can target the intended node without
+  requiring the screen to have been created by kotikit.
+- Use kotikit's local design-system cache for component, icon, and variable
+  choices. Do not call open-ended Figma design-system search as part of graph
+  execution; ask to sync/update the local cache when required data is missing.
 - Keep the designer-facing conversation plain-language and product-focused.
 - Do not expose JSON, tool names, schemas, internal paths, or git terminology
   unless the user explicitly asks.
@@ -54,7 +65,9 @@ is available on `PATH`.
 1. Ask what the designer wants to create or improve if they have not already
    said it.
 2. Call `kotikit_flow_list` if you need to choose a flow.
-3. Call `kotikit_start` with the chosen flow and `userIntent`.
+3. Call `kotikit_start` with the chosen flow, `userIntent`, and a blueprint for
+   detailed PRDs. Use `create-screen` for new drafts and `refine-existing` with
+   `canvasIntent` plus `existingDesignInventory` for existing Figma targets.
 4. When the run pauses, ask the pending question in plain language and resume
    with `kotikit_answer`.
 5. If the run needs a Figma target, ask for the exact draft page URL and

@@ -89,8 +89,30 @@ Output: `{ valid: boolean; flow }`
 ### kotikit_start
 
 Purpose: Start a graph-backed designer flow.
-Input: `{ flowId: string; input?: { userIntent?: string; figmaTarget?: object; designSystem?: object; feedback?: object; project?: { root: string; name?: string } } }`
+Input: `{ flowId: string; input?: { userIntent?: string; screenBlueprint?: object; flowBlueprint?: object; canvasIntent?: object; existingDesignInventory?: object; figmaTarget?: object; designSystem?: object; feedback?: object; project?: { root: string; name?: string } } }`
 Output: `{ runId; status; pendingQuestion?; artifacts; errors }`
+
+For detailed PRDs, assistants should pass `screenBlueprint` or `flowBlueprint`
+instead of relying on plain-language inference. Kotikit preserves blueprint
+titles, product domains, screen names, UI parts, regions, repeated patterns,
+and canvas intent. Without a blueprint, fallback inference is intentionally
+limited to short simple prompts.
+
+Graph execution uses kotikit's local design-system cache as the source of
+truth for reusable components, icons, and variables. Do not rely on open-ended
+Figma design-system search during a run; if local design-system data is
+missing, sync or update the local cache before requesting production-quality
+output.
+
+### refine-existing
+
+Purpose: Refine existing Figma frames or pages from explicit target context.
+Use this flow when the designer wants kotikit to modify selected frames or an
+existing page instead of drafting a new section. Pass `canvasIntent` with
+`mode: "refine-existing-targets"` and target frame refs. For pages with several
+screens or designs not created by kotikit, pass `existingDesignInventory` with
+compact frame metadata from the selected page or Figma scan. When multiple
+targets are ambiguous, kotikit asks one clarification instead of guessing.
 
 ### kotikit_answer
 

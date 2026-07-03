@@ -10,6 +10,52 @@ import {
 } from "./fixtures/fake-figma.js";
 
 describe("create-screen graph flow", () => {
+  it("preserves blueprint title and semantic parts through create-screen", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kotikit-e2e-blueprint-screen-"));
+    try {
+      seedLocalDesignSystem(root, { includePrimaryAction: false });
+      const { runtime } = await createGraphSmokeFixture(root);
+
+      const started = await runtime.startFlow({
+        flowId: "create-screen",
+        input: {
+          project: { root, name: "Mock Blueprint Project" },
+          userIntent: "Quick high-fidelity screen from the supplied mocked Events Experience PRD.",
+          figmaTarget: fakeDraftTarget("Draft - Events"),
+          screenBlueprint: {
+            schemaVersion: "ScreenBlueprintInput/v1",
+            title: "Events Experience",
+            productDomain: "Mock Operations",
+            requiredUiParts: [
+              {
+                id: "event-stream",
+                name: "Event stream",
+                role: "timeline",
+                variableRoles: [{ property: "text", semanticRole: "timeline label" }],
+              },
+              { id: "detail-panel", name: "Detail panel", role: "context panel" },
+            ],
+          },
+        },
+      });
+
+      expect(started.status).toBe("waiting-for-figma");
+      expect(started.state.screen).toMatchObject({
+        title: "Events Experience",
+        productDomain: "Mock Operations",
+        requiredUiParts: ["Event stream", "Detail panel"],
+      });
+      expect(started.state.uiComposition?.parts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: "event-stream", role: "timeline" }),
+          expect.objectContaining({ id: "detail-panel", role: "context panel" }),
+        ])
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("quick lane composes screen-draft parts, waits for fake apply, and saves QA", async () => {
     const root = await mkdtemp(join(tmpdir(), "kotikit-e2e-create-screen-"));
     try {
