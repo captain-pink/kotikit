@@ -46,6 +46,12 @@ type LocalVariableRef = {
 type FitReport = {
   schemaVersion: "DesignSystemFitReport/v1";
   source: "local-cache" | "local-cache-with-remote-fallback";
+  sourcePolicy: {
+    componentDiscovery: "local-cache-only";
+    variableDiscovery: "local-cache-only";
+    iconDiscovery: "local-cache-only";
+    figmaDiscoveryAllowed: false;
+  };
   summary: string;
   exactMatches: FitMatch[];
   substitutes: FitMatch[];
@@ -54,6 +60,7 @@ type FitReport = {
   approvedPrimitiveExceptions?: string[];
   iconMatches: IconMatch[];
   variableGaps: VariableGap[];
+  variableRefs: LocalVariableRef[];
   repeatedPatterns: PatternFit[];
 };
 
@@ -61,6 +68,7 @@ type FitMatch = {
   requestedPart: string;
   componentName: string;
   componentKey: string;
+  source?: string;
   path?: string;
   reason: string;
 };
@@ -122,6 +130,13 @@ const BuildFitReportParamsSchema = z
     classifyGaps: z.boolean().optional(),
   })
   .passthrough();
+
+const LOCAL_SOURCE_POLICY: FitReport["sourcePolicy"] = {
+  componentDiscovery: "local-cache-only",
+  variableDiscovery: "local-cache-only",
+  iconDiscovery: "local-cache-only",
+  figmaDiscoveryAllowed: false,
+};
 
 export const designSystemNodeDefinitions = createDesignSystemNodeDefinitions();
 
@@ -422,12 +437,14 @@ function buildFitReport(state: KotikitGraphState): FitReport {
   return {
     schemaVersion: "DesignSystemFitReport/v1",
     source: designSystem.source ?? "local-cache",
+    sourcePolicy: LOCAL_SOURCE_POLICY,
     summary,
     exactMatches: fit.exactMatches,
     substitutes: fit.substitutes,
     wrapCandidates: fit.wrapCandidates,
     missingComponents: fit.missingComponents,
     variableGaps,
+    variableRefs: variableRefsFrom(designSystem.variables),
     iconMatches,
     repeatedPatterns: patternFits,
   };
@@ -443,6 +460,21 @@ function localVariableRefs(root: string): LocalVariableRef[] {
     ...(entry.id !== undefined ? { id: entry.id } : {}),
     ...(entry.key !== undefined ? { key: entry.key } : {}),
   }));
+}
+
+function variableRefsFrom(variables: unknown): LocalVariableRef[] {
+  return arrayFrom<LocalVariableRef>(variables).map((variable) => ({
+    name: variable.name,
+    kind: variable.kind,
+    source: variable.source ?? "local-variables-cache",
+    ...(variable.id === undefined ? {} : { id: variable.id }),
+    ...(variable.key === undefined ? {} : { key: variable.key }),
+  }));
+}
+
+function componentSource(component: LocalComponentRef): string {
+  const source = recordFrom(component).source;
+  return typeof source === "string" && source.length > 0 ? source : "local-component-db";
 }
 
 function localIconsForQueries(
@@ -477,6 +509,7 @@ function bestComponentForPart(
     requestedPart: part,
     componentName: winner.component.name,
     componentKey: winner.component.key,
+    source: componentSource(winner.component),
     path: winner.component.path,
     reason:
       winner.kind === "exact"
@@ -886,6 +919,7 @@ function fitReportFrom(value: unknown): FitReport {
     return {
       schemaVersion: "DesignSystemFitReport/v1",
       source: "local-cache",
+      sourcePolicy: LOCAL_SOURCE_POLICY,
       summary: "No design-system fit report has been built yet.",
       exactMatches: [],
       substitutes: [],
@@ -893,12 +927,14 @@ function fitReportFrom(value: unknown): FitReport {
       missingComponents: [],
       iconMatches: [],
       variableGaps: [],
+      variableRefs: [],
       repeatedPatterns: [],
     };
   }
   return {
     schemaVersion: "DesignSystemFitReport/v1",
     source: value.source === "local-cache-with-remote-fallback" ? value.source : "local-cache",
+    sourcePolicy: LOCAL_SOURCE_POLICY,
     summary: typeof value.summary === "string" ? value.summary : "Design-system fit report.",
     exactMatches: arrayFrom<FitMatch>(value.exactMatches),
     substitutes: arrayFrom<FitMatch>(value.substitutes),
@@ -906,6 +942,7 @@ function fitReportFrom(value: unknown): FitReport {
     missingComponents: arrayFrom<FitGap>(value.missingComponents),
     approvedPrimitiveExceptions: stringArray(value.approvedPrimitiveExceptions),
     variableGaps: arrayFrom<VariableGap>(value.variableGaps),
+    variableRefs: variableRefsFrom(value.variableRefs),
     iconMatches: arrayFrom<IconMatch>(value.iconMatches),
     repeatedPatterns: arrayFrom<PatternFit>(value.repeatedPatterns),
   };

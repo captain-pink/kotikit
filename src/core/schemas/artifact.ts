@@ -448,6 +448,16 @@ const UICompositionPartSchema = z.strictObject({
   extractionCandidate: z.boolean().optional(),
   primitiveReason: z.string().min(1).optional(),
   iconAffordances: z.array(IconAffordanceSchema).optional(),
+  regionId: z.string().min(1).optional(),
+  variableRoles: z
+    .array(
+      z.strictObject({
+        property: z.enum(["fill", "text", "effect", "spacing", "radius", "stroke", "shadow"]),
+        semanticRole: z.string().min(1),
+        optional: z.boolean().optional(),
+      })
+    )
+    .optional(),
 });
 
 export const UICompositionContractSchema = z.strictObject({

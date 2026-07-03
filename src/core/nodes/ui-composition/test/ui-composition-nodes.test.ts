@@ -33,6 +33,56 @@ describe("ui composition graph nodes", () => {
     });
   });
 
+  it("preserves blueprint part roles and regions in the composition contract", async () => {
+    const result = await runNode("ui.buildCompositionContract", {
+      screen: {
+        uiParts: [
+          {
+            id: "event-stream",
+            name: "Event stream",
+            role: "timeline",
+            regionId: "activity",
+            variableRoles: [{ property: "text", semanticRole: "timeline label" }],
+          },
+          {
+            id: "priority-indicator",
+            name: "Priority indicator",
+            role: "status indicator",
+            regionId: "summary",
+            variableRoles: [
+              { property: "fill", semanticRole: "status background" },
+              { property: "text", semanticRole: "status label" },
+            ],
+          },
+        ],
+      },
+      fitReport: {
+        exactMatches: [],
+        substitutes: [],
+        missingComponents: [],
+      },
+    });
+
+    expect(result.statePatch?.uiComposition?.parts).toEqual([
+      expect.objectContaining({
+        id: "event-stream",
+        name: "Event stream",
+        role: "timeline",
+        regionId: "activity",
+        variableRoles: [{ property: "text", semanticRole: "timeline label" }],
+      }),
+      expect.objectContaining({
+        id: "priority-indicator",
+        role: "status indicator",
+        regionId: "summary",
+        variableRoles: [
+          { property: "fill", semanticRole: "status background" },
+          { property: "text", semanticRole: "status label" },
+        ],
+      }),
+    ]);
+  });
+
   it("builds a contract from existing and draft component refs", async () => {
     const result = await runNode("ui.buildCompositionContract", {
       screen: { requiredUiParts: ["primary button", "member table"] },
@@ -467,6 +517,71 @@ describe("ui composition graph nodes", () => {
       ]),
     });
   });
+
+  it("uses semantic variable roles instead of binding every property to every part", async () => {
+    const output = await runNode("ui.buildVariableBindingPlan", {
+      uiComposition: {
+        schemaVersion: "UICompositionContract/v1",
+        parts: [
+          {
+            id: "event-stream",
+            name: "Event stream",
+            role: "timeline",
+            source: "approved-primitive",
+            primitiveReason: "test",
+            variableRoles: [{ property: "text", semanticRole: "timeline label" }],
+          },
+          {
+            id: "priority-indicator",
+            name: "Priority indicator",
+            role: "status indicator",
+            source: "approved-primitive",
+            primitiveReason: "test",
+            variableRoles: [
+              { property: "fill", semanticRole: "status background" },
+              { property: "text", semanticRole: "status label" },
+            ],
+          },
+        ],
+      },
+      designSystem: {
+        variables: [
+          { kind: "color", name: "color.status.warning.bg", id: "var-status-bg" },
+          { kind: "text", name: "font.body.default", id: "var-body" },
+          { kind: "spacing", name: "space.200", id: "var-space" },
+        ],
+      },
+    });
+
+    const plan = JSON.parse(JSON.stringify(output.statePatch?.variableBindingPlan ?? {})) as {
+      bindings?: unknown;
+    };
+    const bindings = Array.isArray(plan?.bindings) ? plan.bindings : [];
+    expect(bindings.length).toBeGreaterThan(0);
+    expect(bindings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ targetId: "event-stream", property: "text", id: "var-body" }),
+        expect.objectContaining({
+          targetId: "priority-indicator",
+          property: "fill",
+          id: "var-status-bg",
+        }),
+      ])
+    );
+    expect(
+      bindings.some(
+        (binding) =>
+          recordFrom(binding).targetId === "event-stream" && recordFrom(binding).property === "fill"
+      )
+    ).toBe(false);
+    expect(
+      bindings.some(
+        (binding) =>
+          recordFrom(binding).targetId === "priority-indicator" &&
+          recordFrom(binding).property === "spacing"
+      )
+    ).toBe(false);
+  });
 });
 
 async function runNode(key: string, patch: Partial<KotikitGraphState>): Promise<NodeOutput> {
@@ -507,6 +622,12 @@ function stateMatrix(): NonNullable<KotikitGraphState["stateMatrix"]> {
       },
     ],
   };
+}
+
+function recordFrom(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
 function adminDataTableEnvelope(): NonNullable<KotikitGraphState["uxEnvelope"]> {
