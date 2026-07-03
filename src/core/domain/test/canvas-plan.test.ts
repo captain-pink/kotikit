@@ -184,6 +184,41 @@ describe("canvas and figma ledger artifact schemas", () => {
     });
   });
 
+  it("allows replacement state variants to target the same existing frame", () => {
+    const plan = buildCanvasPlan({
+      sectionName: "Existing Mock Page",
+      screenTitle: "Events Experience",
+      screenSize: { width: 1440, height: 900 },
+      states: [
+        { id: "loading", label: "Loading", kind: "loading" },
+        { id: "empty", label: "Empty", kind: "empty" },
+        { id: "filled", label: "Filled", kind: "filled" },
+      ],
+      draftComponents: [],
+      replacementTarget: {
+        nodeId: "12:34",
+        name: "Existing Events Frame",
+        bounds: { x: 300, y: 400, width: 1280, height: 720 },
+      },
+    });
+
+    expect(plan.placements).toHaveLength(3);
+    expect(plan.placements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          stateId: "loading",
+          canvasOperation: "replace-target-frame",
+          targetNodeId: "12:34",
+        }),
+        expect.objectContaining({
+          stateId: "empty",
+          canvasOperation: "replace-target-frame",
+          targetNodeId: "12:34",
+        }),
+      ])
+    );
+  });
+
   it("parses a canvas plan with non-overlapping named zones", () => {
     expect(CanvasPlanSchema.parse(validCanvasPlan())).toMatchObject({
       schemaVersion: "CanvasPlan/v1",

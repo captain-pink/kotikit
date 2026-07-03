@@ -191,7 +191,10 @@ export function verifyCanvasPlan(plan: CanvasPlan): void {
   plan.placements.forEach((left, leftIndex) => {
     const overlap = plan.placements
       .slice(leftIndex + 1)
-      .find((right) => placementsOverlap(left, right, plan.minGap));
+      .find(
+        (right) =>
+          !sameReplacementTarget(left, right) && placementsOverlap(left, right, plan.minGap)
+      );
     if (overlap !== undefined) {
       throw new KotikitError(
         `Canvas placements overlap: ${left.label} and ${overlap.label}.`,
@@ -199,6 +202,15 @@ export function verifyCanvasPlan(plan: CanvasPlan): void {
       );
     }
   });
+}
+
+function sameReplacementTarget(left: CanvasPlacement, right: CanvasPlacement): boolean {
+  return (
+    left.canvasOperation === "replace-target-frame" &&
+    right.canvasOperation === "replace-target-frame" &&
+    left.targetNodeId !== undefined &&
+    left.targetNodeId === right.targetNodeId
+  );
 }
 
 export function placementsOverlap(
