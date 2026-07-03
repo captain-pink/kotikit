@@ -13,15 +13,15 @@
 ## File Structure
 
 - Create `src/core/schemas/blueprint.ts`
-  - Owns Zod schemas and exported types for `ScreenBlueprintInput`, `FlowBlueprintInput`, `CanvasIntentInput`, blueprint UI parts, target frames, and helper functions for primary-screen selection.
+  - Owns Zod schemas and exported types for `ScreenBlueprintInput`, `FlowBlueprintInput`, `CanvasIntentInput`, `ExistingDesignInventoryInput`, blueprint UI parts, target frames, and helper functions for primary-screen selection.
 - Create `src/core/schemas/test/blueprint.test.ts`
   - Unit coverage for schema validation, duplicate ids, primary screen lookup, and canvas target validation.
 - Modify `src/core/schemas/graph-state.ts`
-  - Adds optional `screenBlueprint`, `flowBlueprint`, and `canvasIntent` fields.
+  - Adds optional `screenBlueprint`, `flowBlueprint`, `canvasIntent`, and `existingDesignInventory` fields.
 - Modify `src/core/graph/runtime.ts`
-  - Adds blueprint and canvas intent fields to `RuntimeStartInput` and seeds them into graph state.
+  - Adds blueprint, canvas intent, and existing-design inventory fields to `RuntimeStartInput` and seeds them into graph state.
 - Modify `src/mcp/facade/tools.ts`
-  - Adds `screenBlueprint`, `flowBlueprint`, and `canvasIntent` to `kotikit_start` validation and public tool schema.
+  - Adds `screenBlueprint`, `flowBlueprint`, `canvasIntent`, and `existingDesignInventory` to `kotikit_start` validation and public tool schema.
 - Modify `src/mcp/facade/test/tools.test.ts`
   - Proves `kotikit_start` forwards structured blueprint/canvas input to the runtime.
 - Modify `src/core/nodes/brief/index.ts`
@@ -40,6 +40,10 @@
   - Preserves part roles, region ids, and variable role requirements from blueprint-backed screen models.
 - Modify `src/core/domain/variable-binding-plan.ts`
   - Binds only the semantic properties requested by a part when `variableRoles` are present.
+- Modify `src/core/nodes/design-system/index.ts`
+  - Enforces local-cache-only component/icon/variable matching; no Figma DS discovery fallback.
+- Modify `src/core/nodes/design-system/test/design-system-nodes.test.ts`
+  - Covers local DS source-of-truth behavior and missing-local-DS gap reporting.
 - Modify `src/core/nodes/ui-composition/index.ts`
   - Feeds structured screen parts into composition and variable planning.
 - Modify `src/core/nodes/ui-composition/test/ui-composition-nodes.test.ts`
@@ -56,6 +60,10 @@
   - Uses `canvasIntent` when building canvas plans and apply packets.
 - Modify `src/core/nodes/draft/test/draft-nodes.test.ts`
   - Covers exact replacement frame planning.
+- Modify `src/core/domain/ui-quality-gate.ts`
+  - Fails replacement/refine runs if evidence shows a new sibling frame instead of the planned target node.
+- Modify `src/core/nodes/qa/test/qa-nodes.test.ts`
+  - Covers replacement target-node invariant failures.
 - Create `src/core/nodes/refine/index.ts`
   - Adds target validation/mapping nodes for the new existing-work flow.
 - Create `src/core/nodes/refine/test/refine-nodes.test.ts`
@@ -99,6 +107,7 @@ Add `src/core/schemas/test/blueprint.test.ts`:
 import { describe, expect, it } from "bun:test";
 import {
   CanvasIntentInputSchema,
+  ExistingDesignInventoryInputSchema,
   FlowBlueprintInputSchema,
   primaryScreenFromFlowBlueprint,
   ScreenBlueprintInputSchema,
@@ -213,6 +222,37 @@ describe("blueprint input schemas", () => {
     ).toMatchObject({
       mode: "refine-existing-targets",
       targets: [{ screenId: "events" }, { screenId: "detail" }],
+    });
+  });
+
+  it("parses compact existing design inventory for non-kotikit Figma pages", () => {
+    expect(
+      ExistingDesignInventoryInputSchema.parse({
+        schemaVersion: "ExistingDesignInventoryInput/v1",
+        source: "figma-scan",
+        fileKey: "FILE",
+        pageId: "1:2",
+        pageName: "Mock Existing Page",
+        targets: [
+          {
+            nodeId: "12:34",
+            name: "Events Frame",
+            kind: "frame",
+            role: "primary screen",
+            screenId: "events",
+            bounds: { x: 0, y: 0, width: 1280, height: 720 },
+            detectedTraits: {
+              regions: [{ id: "activity", name: "Activity", kind: "timeline" }],
+              repeatedPatterns: [{ id: "event-items", name: "Event items", kind: "events" }],
+            },
+            componentRefs: ["local-card-key"],
+            variableRefs: ["local-color-bg"],
+          },
+        ],
+      })
+    ).toMatchObject({
+      source: "figma-scan",
+      targets: [expect.objectContaining({ nodeId: "12:34", screenId: "events" })],
     });
   });
 });
@@ -382,6 +422,30 @@ const CanvasTargetFrameInputSchema = z.strictObject({
   bounds: BoundsSchema.optional(),
 });
 
+export const ExistingDesignInventoryInputSchema = z.strictObject({
+  schemaVersion: z.literal("ExistingDesignInventoryInput/v1"),
+  source: z.enum(["figma-scan", "plugin-selection", "assistant-observed"]),
+  fileKey: z.string().min(1).optional(),
+  pageId: z.string().min(1).optional(),
+  pageName: z.string().min(1).optional(),
+  capturedAt: z.string().min(1).optional(),
+  targets: z
+    .array(
+      z.strictObject({
+        nodeId: z.string().min(1),
+        name: z.string().min(1),
+        kind: z.enum(["frame", "section", "component", "instance", "group", "unknown"]),
+        bounds: BoundsSchema.optional(),
+        screenId: z.string().min(1).optional(),
+        role: z.string().min(1).optional(),
+        detectedTraits: BlueprintTraitsSchema.optional(),
+        componentRefs: z.array(z.string().min(1)).optional(),
+        variableRefs: z.array(z.string().min(1)).optional(),
+      })
+    )
+    .min(1),
+});
+
 export const CanvasIntentInputSchema = z.discriminatedUnion("mode", [
   z.strictObject({
     mode: z.literal("create-new-section"),
@@ -401,6 +465,7 @@ export const CanvasIntentInputSchema = z.discriminatedUnion("mode", [
 export type ScreenBlueprintInput = z.infer<typeof ScreenBlueprintInputSchema>;
 export type FlowBlueprintInput = z.infer<typeof FlowBlueprintInputSchema>;
 export type CanvasIntentInput = z.infer<typeof CanvasIntentInputSchema>;
+export type ExistingDesignInventoryInput = z.infer<typeof ExistingDesignInventoryInputSchema>;
 
 export function primaryScreenFromFlowBlueprint(
   flow: FlowBlueprintInput
@@ -420,6 +485,7 @@ Modify `src/core/schemas/graph-state.ts`:
 ```ts
 import {
   CanvasIntentInputSchema,
+  ExistingDesignInventoryInputSchema,
   FlowBlueprintInputSchema,
   ScreenBlueprintInputSchema,
 } from "./blueprint.js";
@@ -431,6 +497,7 @@ Add fields to `KotikitGraphStateSchema` near `userIntent`:
   screenBlueprint: ScreenBlueprintInputSchema.optional(),
   flowBlueprint: FlowBlueprintInputSchema.optional(),
   canvasIntent: CanvasIntentInputSchema.optional(),
+  existingDesignInventory: ExistingDesignInventoryInputSchema.optional(),
 ```
 
 Modify `src/core/graph/runtime.ts` imports:
@@ -438,6 +505,7 @@ Modify `src/core/graph/runtime.ts` imports:
 ```ts
 import type {
   CanvasIntentInput,
+  ExistingDesignInventoryInput,
   FlowBlueprintInput,
   ScreenBlueprintInput,
 } from "../schemas/blueprint.js";
@@ -452,6 +520,7 @@ export type RuntimeStartInput = {
   screenBlueprint?: ScreenBlueprintInput;
   flowBlueprint?: FlowBlueprintInput;
   canvasIntent?: CanvasIntentInput;
+  existingDesignInventory?: ExistingDesignInventoryInput;
   figmaTarget?: KotikitGraphState["figmaTarget"];
   figmaDefaults?: KotikitGraphState["figmaDefaults"];
   designSystem?: KotikitGraphState["designSystem"];
@@ -465,6 +534,7 @@ Seed the new fields when creating graph state:
         screenBlueprint: startInput.input.screenBlueprint,
         flowBlueprint: startInput.input.flowBlueprint,
         canvasIntent: startInput.input.canvasIntent,
+        existingDesignInventory: startInput.input.existingDesignInventory,
 ```
 
 - [ ] **Step 5: Extend `kotikit_start` validation and forwarding**
@@ -474,6 +544,7 @@ Modify `src/mcp/facade/tools.ts` imports:
 ```ts
 import {
   CanvasIntentInputSchema,
+  ExistingDesignInventoryInputSchema,
   FlowBlueprintInputSchema,
   ScreenBlueprintInputSchema,
 } from "../../core/schemas/blueprint.js";
@@ -485,6 +556,7 @@ Extend `StartInputSchema.input`:
       screenBlueprint: ScreenBlueprintInputSchema.optional(),
       flowBlueprint: FlowBlueprintInputSchema.optional(),
       canvasIntent: CanvasIntentInputSchema.optional(),
+      existingDesignInventory: ExistingDesignInventoryInputSchema.optional(),
 ```
 
 Add public tool schema properties under `kotikit_start.input.properties`:
@@ -505,6 +577,11 @@ Add public tool schema properties under `kotikit_start.input.properties`:
               description:
                 "Canvas operation intent, such as creating a new section or replacing existing Figma targets.",
             },
+            existingDesignInventory: {
+              type: "object",
+              description:
+                "Compact inventory of existing Figma page/frame targets for refine-existing flows.",
+            },
 ```
 
 Forward parsed input into `startInput`:
@@ -517,6 +594,9 @@ Forward parsed input into `startInput`:
           ? {}
           : { flowBlueprint: input.input.flowBlueprint }),
         ...(input.input?.canvasIntent === undefined ? {} : { canvasIntent: input.input.canvasIntent }),
+        ...(input.input?.existingDesignInventory === undefined
+          ? {}
+          : { existingDesignInventory: input.input.existingDesignInventory }),
 ```
 
 - [ ] **Step 6: Add MCP forwarding test**
@@ -537,6 +617,7 @@ Add this case to `src/mcp/facade/test/tools.test.ts` near the existing `kotikit_
             ...makeState("running"),
             screenBlueprint: input.input.screenBlueprint,
             canvasIntent: input.input.canvasIntent,
+            existingDesignInventory: input.input.existingDesignInventory,
           },
         };
       },
@@ -557,6 +638,11 @@ Add this case to `src/mcp/facade/test/tools.test.ts` near the existing `kotikit_
           mode: "replace-existing-frame",
           targetFrame: { nodeId: "12:34", name: "Existing Events Frame" },
         },
+        existingDesignInventory: {
+          schemaVersion: "ExistingDesignInventoryInput/v1",
+          source: "figma-scan",
+          targets: [{ nodeId: "12:34", name: "Existing Events Frame", kind: "frame" }],
+        },
       },
     });
 
@@ -564,6 +650,9 @@ Add this case to `src/mcp/facade/test/tools.test.ts` near the existing `kotikit_
     expect(captured).toMatchObject({
       screenBlueprint: { title: "Events Experience" },
       canvasIntent: { mode: "replace-existing-frame", targetFrame: { nodeId: "12:34" } },
+      existingDesignInventory: {
+        targets: [expect.objectContaining({ nodeId: "12:34" })],
+      },
     });
   });
 ```
@@ -1311,7 +1400,7 @@ git add src/core/domain/ux-envelope.ts src/core/domain/test/ux-envelope.test.ts 
 git commit -m "fix(ux): replace archetypes with blueprint traits"
 ```
 
-## Task 4: Semantic Parts And Variable Bindings
+## Task 4: Local DS Source Of Truth, Semantic Parts, And Variable Bindings
 
 **Files:**
 - Modify: `src/core/schemas/artifact.ts`
@@ -1319,8 +1408,131 @@ git commit -m "fix(ux): replace archetypes with blueprint traits"
 - Modify: `src/core/domain/variable-binding-plan.ts`
 - Modify: `src/core/nodes/ui-composition/index.ts`
 - Modify: `src/core/nodes/ui-composition/test/ui-composition-nodes.test.ts`
+- Modify: `src/core/nodes/design-system/index.ts`
+- Modify: `src/core/nodes/design-system/test/design-system-nodes.test.ts`
 
-- [ ] **Step 1: Add failing composition and variable tests**
+- [ ] **Step 1: Add failing local DS source-of-truth tests**
+
+Add to `src/core/nodes/design-system/test/design-system-nodes.test.ts`:
+
+```ts
+  it("reports local design-system gaps instead of requesting Figma DS search", async () => {
+    const output = await runNode("designSystem.buildFitReport", {
+      screen: {
+        requiredUiParts: ["Event stream", "Priority indicator"],
+        uiParts: [
+          { id: "event-stream", name: "Event stream", role: "timeline" },
+          { id: "priority-indicator", name: "Priority indicator", role: "status indicator" },
+        ],
+      },
+      designSystem: {
+        results: [],
+        variables: [],
+        icons: [],
+      },
+    });
+
+    expect(output.statePatch?.fitReport).toMatchObject({
+      sourcePolicy: {
+        componentDiscovery: "local-cache-only",
+        variableDiscovery: "local-cache-only",
+        figmaDiscoveryAllowed: false,
+      },
+      missingComponents: expect.arrayContaining([
+        expect.objectContaining({ requestedPart: "Event stream" }),
+        expect.objectContaining({ requestedPart: "Priority indicator" }),
+      ]),
+    });
+    expect(JSON.stringify(output)).not.toContain("figma-search");
+    expect(JSON.stringify(output)).not.toContain("remote-discovery");
+  });
+
+  it("keeps local component and variable refs as the only reusable source", async () => {
+    const output = await runNode("designSystem.buildFitReport", {
+      screen: {
+        requiredUiParts: ["Event stream"],
+      },
+      designSystem: {
+        results: [
+          {
+            name: "Event stream",
+            key: "local-event-stream-key",
+            source: "local-component-db",
+          },
+        ],
+        variables: [
+          {
+            kind: "color",
+            name: "color.surface.default",
+            id: "local-color-surface",
+            source: "local-variables-cache",
+          },
+        ],
+      },
+    });
+
+    expect(output.statePatch?.fitReport).toMatchObject({
+      exactMatches: [
+        expect.objectContaining({
+          componentKey: "local-event-stream-key",
+          source: "local-component-db",
+        }),
+      ],
+      variableGaps: expect.not.arrayContaining([
+        expect.objectContaining({ kind: "color" }),
+      ]),
+    });
+  });
+```
+
+- [ ] **Step 2: Run design-system tests and verify they fail**
+
+Run:
+
+```bash
+bun test src/core/nodes/design-system/test/design-system-nodes.test.ts
+```
+
+Expected: fail because `sourcePolicy` and local-source annotations are not emitted.
+
+- [ ] **Step 3: Add local DS source policy to fit reports**
+
+Modify the fit report type construction in `src/core/nodes/design-system/index.ts` so `designSystem.buildFitReport` always includes:
+
+```ts
+sourcePolicy: {
+  componentDiscovery: "local-cache-only",
+  variableDiscovery: "local-cache-only",
+  iconDiscovery: "local-cache-only",
+  figmaDiscoveryAllowed: false,
+}
+```
+
+When building exact matches, substitutes, wrap candidates, icon matches, and variable refs, preserve or set local source metadata:
+
+```ts
+source: stringField(component, "source") ?? "local-component-db"
+```
+
+For variables:
+
+```ts
+source: stringField(variable, "source") ?? "local-variables-cache"
+```
+
+Do not add any fallback branch that calls Figma search or asks the agent to search Figma. Missing local coverage must remain `missingComponents`, `variableGaps`, or an approval/sync question handled by existing graph behavior.
+
+- [ ] **Step 4: Run local DS tests**
+
+Run:
+
+```bash
+bun test src/core/nodes/design-system/test/design-system-nodes.test.ts
+```
+
+Expected: all design-system node tests pass.
+
+- [ ] **Step 5: Add failing composition and variable tests**
 
 Add to `src/core/nodes/ui-composition/test/ui-composition-nodes.test.ts`:
 
@@ -1425,7 +1637,7 @@ Add to `src/core/nodes/ui-composition/test/ui-composition-nodes.test.ts`:
   });
 ```
 
-- [ ] **Step 2: Run composition tests and verify they fail**
+- [ ] **Step 6: Run composition tests and verify they fail**
 
 Run:
 
@@ -1435,7 +1647,7 @@ bun test src/core/nodes/ui-composition/test/ui-composition-nodes.test.ts
 
 Expected: fail because `uiParts`, `regionId`, and `variableRoles` are not preserved.
 
-- [ ] **Step 3: Extend artifact schemas**
+- [ ] **Step 7: Extend artifact schemas**
 
 Modify `src/core/schemas/artifact.ts` near `UICompositionPartSchema`:
 
@@ -1454,7 +1666,7 @@ Add fields to `UICompositionPartSchema`:
   variableRoles: z.array(VariableRoleRequirementSchema).optional(),
 ```
 
-- [ ] **Step 4: Preserve structured parts in composition**
+- [ ] **Step 8: Preserve structured parts in composition**
 
 Modify `src/core/domain/ui-composition-contract.ts`:
 
@@ -1502,7 +1714,7 @@ Use `part.name` instead of the old string variable in all matching calls:
     );
 ```
 
-- [ ] **Step 5: Feed structured parts from the UI node**
+- [ ] **Step 9: Feed structured parts from the UI node**
 
 Modify `src/core/nodes/ui-composition/index.ts`:
 
@@ -1520,7 +1732,7 @@ function requestedUiPartsFromScreen(screen: Record<string, unknown>): Array<stri
 }
 ```
 
-- [ ] **Step 6: Bind variables by part-level role requirements**
+- [ ] **Step 10: Bind variables by part-level role requirements**
 
 Modify `src/core/domain/variable-binding-plan.ts`:
 
@@ -1598,21 +1810,21 @@ function tokensFor(value: string): string[] {
 
 This uses variable names as design-system evidence, not as product-intent classification.
 
-- [ ] **Step 7: Run composition tests**
+- [ ] **Step 11: Run composition and local DS tests**
 
 Run:
 
 ```bash
-bun test src/core/nodes/ui-composition/test/ui-composition-nodes.test.ts
+bun test src/core/nodes/ui-composition/test/ui-composition-nodes.test.ts src/core/nodes/design-system/test/design-system-nodes.test.ts
 ```
 
 Expected: all listed tests pass.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 12: Commit**
 
 ```bash
-git add src/core/schemas/artifact.ts src/core/domain/ui-composition-contract.ts src/core/domain/variable-binding-plan.ts src/core/nodes/ui-composition/index.ts src/core/nodes/ui-composition/test/ui-composition-nodes.test.ts
-git commit -m "fix(ui): preserve semantic part variable roles"
+git add src/core/schemas/artifact.ts src/core/domain/ui-composition-contract.ts src/core/domain/variable-binding-plan.ts src/core/nodes/ui-composition/index.ts src/core/nodes/ui-composition/test/ui-composition-nodes.test.ts src/core/nodes/design-system/index.ts src/core/nodes/design-system/test/design-system-nodes.test.ts
+git commit -m "fix(ds): enforce local design-system source of truth"
 ```
 
 ## Task 5: Replace Existing Frame Canvas Planning
@@ -1625,6 +1837,8 @@ git commit -m "fix(ui): preserve semantic part variable roles"
 - Modify: `src/core/adapters/figma/apply-packet.ts`
 - Modify: `src/core/nodes/draft/index.ts`
 - Modify: `src/core/nodes/draft/test/draft-nodes.test.ts`
+- Modify: `src/core/domain/ui-quality-gate.ts`
+- Modify: `src/core/nodes/qa/test/qa-nodes.test.ts`
 
 - [ ] **Step 1: Add failing canvas domain test**
 
@@ -1653,6 +1867,7 @@ Add to `src/core/domain/test/canvas-plan.test.ts`:
       placements: [
         expect.objectContaining({
           label: "Existing Events Frame - Filled",
+          canvasOperation: "replace-target-frame",
           operation: "replace",
           targetNodeId: "12:34",
           bounds: { x: 300, y: 400, width: 1280, height: 720 },
@@ -1677,18 +1892,31 @@ Expected: fail because `replacementTarget`, `operation`, and `targetNodeId` do n
 Modify `CanvasPlacementSchema` in `src/core/schemas/artifact.ts`:
 
 ```ts
+  canvasOperation: z
+    .enum(["create-new-frame", "replace-target-frame"])
+    .default("create-new-frame"),
   operation: z.enum(["create", "replace"]).default("create"),
   targetNodeId: IncrementalRefSchema.optional(),
+```
+
+Add plan-level mode to `CanvasPlanSchema`:
+
+```ts
+  mode: z.enum(["create", "replace", "refine"]).default("create"),
 ```
 
 Add super-refine validation in `CanvasPlanSchema` placement loop:
 
 ```ts
-      if (placement.operation === "replace" && placement.targetNodeId === undefined) {
+      if (
+        (placement.operation === "replace" ||
+          placement.canvasOperation === "replace-target-frame") &&
+        placement.targetNodeId === undefined
+      ) {
         ctx.addIssue({
           code: "custom",
           path: ["placements", index, "targetNodeId"],
-          message: "Replace placements require targetNodeId.",
+          message: "Replacement placements require targetNodeId.",
         });
       }
 ```
@@ -1741,11 +1969,13 @@ function buildReplacementCanvasPlan(input: {
     bounds: target.bounds,
     parentZoneId: zone.id,
     transactionId: `txn-state-${state.id}`,
+    canvasOperation: "replace-target-frame",
     operation: "replace",
     targetNodeId: target.nodeId,
   }));
   const plan: CanvasPlan = {
     schemaVersion: "CanvasPlan/v1",
+    mode: "replace",
     section: {
       ...(input.sectionId === undefined ? {} : { id: input.sectionId }),
       name: input.sectionName,
@@ -1830,6 +2060,7 @@ function replacementTargetFrom(state: KotikitGraphState):
 Modify `FigmaTransactionSummary` in `src/core/adapters/figma/apply-packet.ts`:
 
 ```ts
+  canvasOperation: CanvasPlan["placements"][number]["canvasOperation"];
   operation: CanvasPlan["placements"][number]["operation"];
   targetNodeId?: string;
 ```
@@ -1837,6 +2068,7 @@ Modify `FigmaTransactionSummary` in `src/core/adapters/figma/apply-packet.ts`:
 In `summarizeTransactionPlan`, include:
 
 ```ts
+      canvasOperation: placement.canvasOperation,
       operation: placement.operation,
       ...(placement.targetNodeId === undefined ? {} : { targetNodeId: placement.targetNodeId }),
 ```
@@ -1865,9 +2097,11 @@ Add to `src/core/nodes/draft/test/draft-nodes.test.ts`:
     });
 
     expect(output.statePatch?.canvasPlan).toMatchObject({
+      mode: "replace",
       screenSize: { width: 1280, height: 720 },
       placements: [
         expect.objectContaining({
+          canvasOperation: "replace-target-frame",
           operation: "replace",
           targetNodeId: "12:34",
           bounds: { x: 100, y: 200, width: 1280, height: 720 },
@@ -1877,20 +2111,94 @@ Add to `src/core/nodes/draft/test/draft-nodes.test.ts`:
   });
 ```
 
-- [ ] **Step 8: Run canvas and draft tests**
+- [ ] **Step 8: Add QA invariant for exact replacement**
+
+Add to `src/core/nodes/qa/test/qa-nodes.test.ts`:
+
+```ts
+  it("fails replacement QA when apply ledger created a sibling instead of replacing the target", async () => {
+    const output = await runNode("qa.runUiQualityGate", {
+      canvasPlan: {
+        schemaVersion: "CanvasPlan/v1",
+        mode: "replace",
+        section: { id: "section-existing", name: "Existing Mock Page" },
+        coordinateSpace: "section-relative",
+        screenSize: { width: 1280, height: 720 },
+        minGap: 80,
+        zones: [],
+        placements: [
+          {
+            id: "state-filled",
+            kind: "screen-state",
+            stateId: "filled",
+            label: "Existing Events Frame - Filled",
+            bounds: { x: 100, y: 200, width: 1280, height: 720 },
+            transactionId: "txn-state-filled",
+            canvasOperation: "replace-target-frame",
+            operation: "replace",
+            targetNodeId: "12:34",
+          },
+        ],
+        strategy: {
+          primaryFirst: true,
+          creationOrder: ["state-filled"],
+        },
+      },
+      figmaApplyLedger: {
+        schemaVersion: "FigmaApplyLedger/v1",
+        nodes: [
+          {
+            placementId: "state-filled",
+            nodeId: "99:99",
+            name: "Existing Events Frame - Filled",
+            kind: "FRAME",
+            bounds: { x: 100, y: 200, width: 1280, height: 720 },
+          },
+        ],
+      },
+    });
+
+    expect(output.statePatch?.qaReport?.status).toBe("fail");
+    expect(output.statePatch?.qaReport?.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "replacement-target-node",
+          severity: "error",
+        }),
+      ])
+    );
+  });
+```
+
+Modify `src/core/domain/ui-quality-gate.ts` so replacement placements are checked against the apply ledger:
+
+```ts
+if (placement.canvasOperation === "replace-target-frame") {
+  const ledgerNode = ledgerNodesByPlacementId.get(placement.id);
+  if (ledgerNode?.nodeId !== placement.targetNodeId) {
+    findings.push({
+      id: "replacement-target-node",
+      severity: "error",
+      message: `${placement.label} was applied to ${ledgerNode?.nodeId ?? "unknown"} instead of target ${placement.targetNodeId}`,
+    });
+  }
+}
+```
+
+- [ ] **Step 9: Run canvas, draft, adapter, and QA tests**
 
 Run:
 
 ```bash
-bun test src/core/domain/test/canvas-plan.test.ts src/core/nodes/draft/test/draft-nodes.test.ts src/core/adapters/figma/test/apply-packet.test.ts
+bun test src/core/domain/test/canvas-plan.test.ts src/core/nodes/draft/test/draft-nodes.test.ts src/core/adapters/figma/test/apply-packet.test.ts src/core/nodes/qa/test/qa-nodes.test.ts
 ```
 
 Expected: all listed tests pass.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
-git add src/core/schemas/artifact.ts src/core/domain/canvas-plan.ts src/core/domain/test/canvas-plan.test.ts src/core/domain/figma-transaction-plan.ts src/core/adapters/figma/apply-packet.ts src/core/nodes/draft/index.ts src/core/nodes/draft/test/draft-nodes.test.ts
+git add src/core/schemas/artifact.ts src/core/domain/canvas-plan.ts src/core/domain/test/canvas-plan.test.ts src/core/domain/figma-transaction-plan.ts src/core/adapters/figma/apply-packet.ts src/core/nodes/draft/index.ts src/core/nodes/draft/test/draft-nodes.test.ts src/core/domain/ui-quality-gate.ts src/core/nodes/qa/test/qa-nodes.test.ts
 git commit -m "feat(draft): support replacing existing target frames"
 ```
 
@@ -2015,6 +2323,52 @@ describe("refine nodes", () => {
     });
   });
 
+  it("uses compact existing design inventory when direct canvas targets are missing", async () => {
+    const output = await runRefineNode(
+      "refine.mapExistingTargets",
+      baseState({
+        flowBlueprint: {
+          schemaVersion: "FlowBlueprintInput/v1",
+          title: "Mock Events Flow",
+          primaryScreenId: "events",
+          screens: [
+            {
+              schemaVersion: "ScreenBlueprintInput/v1",
+              id: "events",
+              title: "Events Experience",
+              requiredUiParts: [{ id: "timeline", name: "Timeline", role: "timeline" }],
+            },
+          ],
+        },
+        canvasIntent: {
+          mode: "refine-existing-targets",
+          scope: "page",
+          targets: [],
+        },
+        existingDesignInventory: {
+          schemaVersion: "ExistingDesignInventoryInput/v1",
+          source: "figma-scan",
+          pageId: "page:1",
+          pageName: "Mock Dashboard",
+          targets: [
+            {
+              nodeId: "12:34",
+              screenId: "events",
+              name: "Existing Events Frame",
+              kind: "frame",
+              bounds: { x: 0, y: 0, width: 1440, height: 900 },
+            },
+          ],
+        },
+      })
+    );
+
+    expect(output.statePatch?.canvasIntent).toMatchObject({
+      mode: "replace-existing-frame",
+      targetFrame: { nodeId: "12:34", screenId: "events" },
+    });
+  });
+
   it("asks for one clarification when multiple targets are ambiguous", async () => {
     const output = await runRefineNode(
       "refine.mapExistingTargets",
@@ -2060,7 +2414,7 @@ Create `src/core/nodes/refine/index.ts`:
 import { z } from "zod";
 import { createUserInterrupt } from "../../graph/interrupts.js";
 import type { NodeDefinition } from "../../graph/node-registry.js";
-import type { CanvasIntentInput, FlowBlueprintInput } from "../../schemas/blueprint.js";
+import type { CanvasIntentInput, ExistingDesignInventoryInput, FlowBlueprintInput } from "../../schemas/blueprint.js";
 import type { KotikitGraphState } from "../../schemas/graph-state.js";
 
 type RuntimeNodeOutput = {
@@ -2074,7 +2428,13 @@ export const refineNodeDefinitions: NodeDefinition[] = [
   node({
     key: "refine.mapExistingTargets",
     kind: "interrupt",
-    stateReads: ["canvasIntent", "flowBlueprint", "screenBlueprint", "answers"],
+    stateReads: [
+      "canvasIntent",
+      "existingDesignInventory",
+      "flowBlueprint",
+      "screenBlueprint",
+      "answers",
+    ],
     stateWrites: ["canvasIntent", "pendingQuestion"],
     run: async (input) => {
       const state = input.state as KotikitGraphState;
@@ -2082,11 +2442,12 @@ export const refineNodeDefinitions: NodeDefinition[] = [
       if (intent?.mode !== "refine-existing-targets") return {} satisfies RuntimeNodeOutput;
 
       const selectedAnswer = state.answers?.["select-refine-target"];
+      const targets = refineTargetsFrom(state, intent);
       const target =
         (selectedAnswer === undefined
-          ? targetForBlueprint(intent, state.flowBlueprint as FlowBlueprintInput | undefined)
-          : intent.targets.find((candidate) => candidate.nodeId === selectedAnswer)) ??
-        (intent.targets.length === 1 ? intent.targets[0] : undefined);
+          ? targetForBlueprint(targets, state.flowBlueprint as FlowBlueprintInput | undefined)
+          : targets.find((candidate) => candidate.nodeId === selectedAnswer)) ??
+        (targets.length === 1 ? targets[0] : undefined);
 
       if (target !== undefined) {
         return {
@@ -2102,7 +2463,7 @@ export const refineNodeDefinitions: NodeDefinition[] = [
       const pendingQuestion = {
         id: "select-refine-target",
         prompt: "Which existing frame should kotikit refine first?",
-        choices: intent.targets.map((candidate) => candidate.nodeId),
+        choices: targets.map((candidate) => candidate.nodeId),
       };
       return {
         statePatch: { pendingQuestion },
@@ -2112,13 +2473,30 @@ export const refineNodeDefinitions: NodeDefinition[] = [
   }),
 ];
 
+function refineTargetsFrom(
+  state: KotikitGraphState,
+  intent: Extract<CanvasIntentInput, { mode: "refine-existing-targets" }>
+): Extract<CanvasIntentInput, { mode: "refine-existing-targets" }>["targets"] {
+  if (intent.targets.length > 0) return intent.targets;
+
+  const inventory = state.existingDesignInventory as ExistingDesignInventoryInput | undefined;
+  return (
+    inventory?.targets.map((target) => ({
+      nodeId: target.nodeId,
+      ...(target.screenId === undefined ? {} : { screenId: target.screenId }),
+      name: target.name,
+      ...(target.bounds === undefined ? {} : { bounds: target.bounds }),
+    })) ?? []
+  );
+}
+
 function targetForBlueprint(
-  intent: Extract<CanvasIntentInput, { mode: "refine-existing-targets" }>,
+  targets: Extract<CanvasIntentInput, { mode: "refine-existing-targets" }>["targets"],
   flowBlueprint: FlowBlueprintInput | undefined
-): (typeof intent.targets)[number] | undefined {
+): (typeof targets)[number] | undefined {
   const screenId = flowBlueprint?.primaryScreenId ?? flowBlueprint?.entryScreenId;
   if (screenId === undefined) return undefined;
-  return intent.targets.find((target) => target.screenId === screenId);
+  return targets.find((target) => target.screenId === screenId);
 }
 
 function node(
@@ -2401,7 +2779,7 @@ import {
 } from "./fixtures/fake-figma.js";
 
 describe("refine-existing graph flow", () => {
-  it("starts from an explicit existing target and creates replacement metadata", async () => {
+  it("starts from compact existing design inventory and creates replacement metadata", async () => {
     const root = await mkdtemp(join(tmpdir(), "kotikit-e2e-refine-existing-"));
     try {
       seedLocalDesignSystem(root, { includePrimaryAction: false });
@@ -2423,12 +2801,20 @@ describe("refine-existing graph flow", () => {
           },
           canvasIntent: {
             mode: "refine-existing-targets",
-            scope: "selected-frame",
+            scope: "page",
+            targets: [],
+          },
+          existingDesignInventory: {
+            schemaVersion: "ExistingDesignInventoryInput/v1",
+            source: "figma-scan",
+            pageId: "page:1",
+            pageName: "Mock Existing Dashboard",
             targets: [
               {
                 nodeId: "12:34",
                 screenId: "events",
                 name: "Existing Events Frame",
+                kind: "frame",
                 bounds: { x: 0, y: 0, width: 1280, height: 720 },
               },
             ],
@@ -2455,7 +2841,7 @@ describe("refine-existing graph flow", () => {
 Modify `docs/tools.md` `kotikit_start` input line:
 
 ```md
-Input: `{ flowId: string; input?: { userIntent?: string; screenBlueprint?: object; flowBlueprint?: object; canvasIntent?: object; figmaTarget?: object; designSystem?: object; feedback?: object; project?: { root: string; name?: string } } }`
+Input: `{ flowId: string; input?: { userIntent?: string; screenBlueprint?: object; flowBlueprint?: object; canvasIntent?: object; existingDesignInventory?: object; figmaTarget?: object; designSystem?: object; feedback?: object; project?: { root: string; name?: string } } }`
 ```
 
 Add after `kotikit_start`:
@@ -2466,6 +2852,12 @@ instead of relying on plain-language inference. Kotikit preserves blueprint
 titles, product domains, screen names, UI parts, regions, repeated patterns,
 and canvas intent. Without a blueprint, fallback inference is intentionally
 limited to short simple prompts.
+
+Graph execution uses kotikit's local design-system cache as the source of
+truth for reusable components, icons, and variables. Do not rely on open-ended
+Figma design-system search during a run; if local design-system data is
+missing, sync or update the local cache before requesting production-quality
+output.
 ```
 
 Add a flow entry:
@@ -2476,8 +2868,10 @@ Add a flow entry:
 Purpose: Refine existing Figma frames or pages from explicit target context.
 Use this flow when the designer wants kotikit to modify selected frames or an
 existing page instead of drafting a new section. Pass `canvasIntent` with
-`mode: "refine-existing-targets"` and target frame refs. When multiple targets
-are ambiguous, kotikit asks one clarification instead of guessing.
+`mode: "refine-existing-targets"` and target frame refs. For pages with several
+screens or designs not created by kotikit, pass `existingDesignInventory` with
+compact frame metadata from the selected page or Figma scan. When multiple
+targets are ambiguous, kotikit asks one clarification instead of guessing.
 ```
 
 - [ ] **Step 4: Update kotikit auto skill**
@@ -2491,14 +2885,20 @@ Add to Required Behavior:
   `screenBlueprint` or `flowBlueprint`; do not rely on `userIntent` alone.
 - Use `refine-existing` when the designer asks to modify existing Figma frames,
   selected screens, or a page that already contains screens.
+- For existing Figma pages, pass compact `existingDesignInventory` from the
+  selected page or frames so kotikit can target the intended node without
+  requiring the screen to have been created by kotikit.
+- Use kotikit's local design-system cache for component, icon, and variable
+  choices. Do not call open-ended Figma design-system search as part of graph
+  execution; ask to sync/update the local cache when required data is missing.
 ```
 
 Modify Create Or Refine Design step 3:
 
 ```md
 3. Call `kotikit_start` with the chosen flow, `userIntent`, and a blueprint for
-   detailed PRDs. Use `create-screen` for new drafts and `refine-existing` for
-   existing Figma targets.
+   detailed PRDs. Use `create-screen` for new drafts and `refine-existing` with
+   `canvasIntent` plus `existingDesignInventory` for existing Figma targets.
 ```
 
 - [ ] **Step 5: Run graph and docs-adjacent tests**
@@ -2529,7 +2929,7 @@ git commit -m "docs(workflow): document blueprint refine flows"
 Run:
 
 ```bash
-bun test src/core/schemas/test/blueprint.test.ts src/core/nodes/brief/test/brief-nodes.test.ts src/core/domain/test/ux-envelope.test.ts src/core/nodes/ui-composition/test/ui-composition-nodes.test.ts src/core/domain/test/canvas-plan.test.ts src/core/nodes/draft/test/draft-nodes.test.ts src/core/nodes/refine/test/refine-nodes.test.ts src/core/flows/test/catalog.test.ts e2e/graph/create-screen-flow.test.ts e2e/graph/refine-existing-flow.test.ts
+bun test src/core/schemas/test/blueprint.test.ts src/core/nodes/brief/test/brief-nodes.test.ts src/core/domain/test/ux-envelope.test.ts src/core/nodes/design-system/test/design-system-nodes.test.ts src/core/nodes/ui-composition/test/ui-composition-nodes.test.ts src/core/domain/test/canvas-plan.test.ts src/core/nodes/draft/test/draft-nodes.test.ts src/core/adapters/figma/test/apply-packet.test.ts src/core/nodes/qa/test/qa-nodes.test.ts src/core/nodes/refine/test/refine-nodes.test.ts src/core/flows/test/catalog.test.ts e2e/graph/create-screen-flow.test.ts e2e/graph/refine-existing-flow.test.ts
 ```
 
 Expected: all listed test files pass.
@@ -2570,7 +2970,7 @@ Expected: only files from this plan are modified; no unrelated changes such as `
 If a quality-gate fix changed files, commit it:
 
 ```bash
-git add src/core/schemas/blueprint.ts src/core/schemas/test/blueprint.test.ts src/core/schemas/graph-state.ts src/core/graph/runtime.ts src/mcp/facade/tools.ts src/mcp/facade/test/tools.test.ts src/core/nodes/brief/index.ts src/core/nodes/brief/test/brief-nodes.test.ts src/core/domain/ux-envelope.ts src/core/domain/test/ux-envelope.test.ts src/core/nodes/ux/index.ts src/core/schemas/artifact.ts src/core/domain/ui-composition-contract.ts src/core/domain/variable-binding-plan.ts src/core/nodes/ui-composition/index.ts src/core/nodes/ui-composition/test/ui-composition-nodes.test.ts src/core/domain/canvas-plan.ts src/core/domain/test/canvas-plan.test.ts src/core/domain/figma-transaction-plan.ts src/core/adapters/figma/apply-packet.ts src/core/nodes/draft/index.ts src/core/nodes/draft/test/draft-nodes.test.ts src/core/nodes/refine src/core/nodes/built-in-registry.ts src/core/flows/built-in/refine-existing.flow.json src/core/flows/catalog.ts src/core/flows/test/catalog.test.ts src/core/nodes/test/built-in-node-registry.test.ts src/mcp/facade/test/resources.test.ts e2e/graph/create-screen-flow.test.ts e2e/graph/refine-existing-flow.test.ts docs/tools.md .agents/skills/kotikit-auto/SKILL.md
+git add src/core/schemas/blueprint.ts src/core/schemas/test/blueprint.test.ts src/core/schemas/graph-state.ts src/core/graph/runtime.ts src/mcp/facade/tools.ts src/mcp/facade/test/tools.test.ts src/core/nodes/brief/index.ts src/core/nodes/brief/test/brief-nodes.test.ts src/core/domain/ux-envelope.ts src/core/domain/test/ux-envelope.test.ts src/core/nodes/ux/index.ts src/core/nodes/design-system/index.ts src/core/nodes/design-system/test/design-system-nodes.test.ts src/core/schemas/artifact.ts src/core/domain/ui-composition-contract.ts src/core/domain/variable-binding-plan.ts src/core/nodes/ui-composition/index.ts src/core/nodes/ui-composition/test/ui-composition-nodes.test.ts src/core/domain/canvas-plan.ts src/core/domain/test/canvas-plan.test.ts src/core/domain/figma-transaction-plan.ts src/core/adapters/figma/apply-packet.ts src/core/nodes/draft/index.ts src/core/nodes/draft/test/draft-nodes.test.ts src/core/domain/ui-quality-gate.ts src/core/nodes/qa/test/qa-nodes.test.ts src/core/nodes/refine src/core/nodes/built-in-registry.ts src/core/flows/built-in/refine-existing.flow.json src/core/flows/catalog.ts src/core/flows/test/catalog.test.ts src/core/nodes/test/built-in-node-registry.test.ts src/mcp/facade/test/resources.test.ts e2e/graph/create-screen-flow.test.ts e2e/graph/refine-existing-flow.test.ts docs/tools.md .agents/skills/kotikit-auto/SKILL.md
 git commit -m "test(core): cover blueprint refine intent flow"
 ```
 

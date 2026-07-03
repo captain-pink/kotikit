@@ -31,6 +31,10 @@ the core can classify with substring rules:
   role-specific reasoning;
 - canvas planning assumes a new section of full-screen frames instead of
   replacing or refining an exact existing frame.
+- existing Figma pages created without kotikit do not have a compact normalized
+  inventory that graph nodes can use for target mapping;
+- design-system behavior is not stated as local-cache-only, leaving room for
+  slow or token-heavy Figma discovery drift.
 
 This is not a missing flow invocation. It is a boundary problem: rich product
 reasoning is happening in hardcoded core heuristics.
@@ -51,6 +55,9 @@ reasoning is happening in hardcoded core heuristics.
   forcing a screen into a canned archetype.
 - Existing work is first-class. Refining a selected frame, selected frames, or
   a page is a different workflow from drafting a new screen.
+- Local design-system data is authoritative. Kotikit should plan from local
+  component, icon, and variable caches; Figma MCP calls are for applying or
+  verifying exact refs, not for open-ended design-system search.
 - Tests and examples use only mocked product, company, customer, and user data.
 
 ## Traits Replace Archetypes
@@ -106,6 +113,7 @@ type RuntimeStartInput = {
   screenBlueprint?: ScreenBlueprintInput;
   flowBlueprint?: FlowBlueprintInput;
   canvasIntent?: CanvasIntentInput;
+  existingDesignInventory?: ExistingDesignInventoryInput;
   figmaTarget?: unknown;
   figmaDefaults?: unknown;
   designSystem?: unknown;
@@ -247,6 +255,55 @@ type CanvasTargetFrameInput = {
 `replace-existing-frame` must keep the target frame's identity and intended
 bounds. It should not create a new arbitrary section by default.
 
+### Existing Design Inventory
+
+Existing Figma work, including work not created by kotikit, should be converted
+into a compact inventory before refinement:
+
+```ts
+type ExistingDesignInventoryInput = {
+  schemaVersion: "ExistingDesignInventoryInput/v1";
+  source: "figma-scan" | "plugin-selection" | "assistant-observed";
+  fileKey?: string;
+  pageId?: string;
+  pageName?: string;
+  capturedAt?: string;
+  targets: Array<{
+    nodeId: string;
+    name: string;
+    kind: "frame" | "section" | "component" | "instance" | "group" | "unknown";
+    bounds?: { x: number; y: number; width: number; height: number };
+    screenId?: string;
+    role?: string;
+    detectedTraits?: BlueprintTraits;
+    componentRefs?: string[];
+    variableRefs?: string[];
+  }>;
+};
+```
+
+The inventory is not a raw Figma document dump. It is a small target map with
+node ids, names, bounds, detected traits, and component/variable refs. For
+`refine-existing`, kotikit should map blueprint screens to inventory targets by
+explicit `screenId`, target role, or designer answer. Ambiguous page-level
+inventories must ask one clarification.
+
+### Local Design-System Source Of Truth
+
+Kotikit should not use general Figma design-system search during graph
+execution:
+
+- local component DB, local icon cache, and local variable cache are the source
+  of truth for reuse planning;
+- Figma MCP can instantiate or verify exact refs selected from local DS, but it
+  must not perform open-ended DS discovery;
+- if local DS data is missing, kotikit should report a controlled gap, ask to
+  sync/update the local DS, or use screen-draft work after approval;
+- variable bindings come from local variable/style refs, not ad hoc Figma
+  lookup;
+- evidence must prove reused components, icons, and variables came from local
+  refs.
+
 ## Flow Design
 
 ### create-screen
@@ -269,10 +326,11 @@ bounds. It should not create a new arbitrary section by default.
 Add a separate `refine-existing` flow for changes to existing Figma work:
 
 1. Require explicit Figma target context: selected frame, selected frames, or
-   page-level targets.
+   page-level targets, preferably via `existingDesignInventory`.
 2. Accept `screenBlueprint` or `flowBlueprint` plus `canvasIntent` with
    `refine-existing-targets`.
-3. Map blueprint screens to targets by explicit `screenId` or target role first.
+3. Map blueprint screens to targets by explicit `screenId`, inventory target
+   role, or designer answer first.
 4. Ask one clarification when multiple targets could match a requested screen.
 5. Produce a refinement/revision plan that modifies target frames in place.
 6. Reuse the same UX, design-system, composition, variable, apply, evidence, and
@@ -332,6 +390,13 @@ Use TDD with Bun. Focused regression tests should cover:
   section placement;
 - `refine-existing` accepts multiple targets and asks a clarification when a
   screen-to-target mapping is ambiguous;
+- existing Figma pages created without kotikit can be represented by compact
+  `ExistingDesignInventoryInput` and mapped without raw node dumps;
+- local DS cache is the only source used for component/icon/variable discovery;
+- Figma apply packets use exact local DS refs and do not request open-ended
+  Figma DS search;
+- replacement/refinement flows fail QA if they create a new sibling frame
+  instead of replacing/refining the target node;
 - variable bindings use semantic part roles when provided and avoid repeated
   universal bindings across every part.
 
@@ -339,7 +404,8 @@ All test data must use mocked product, company, customer, and user names.
 
 ## Migration Plan
 
-1. Add blueprint and canvas-intent schemas near the graph state/runtime boundary.
+1. Add blueprint, existing-design-inventory, and canvas-intent schemas near the
+   graph state/runtime boundary.
 2. Extend `RuntimeStartInput`, `KotikitGraphState`, and `kotikit_start` input
    schema to accept the new fields.
 3. Replace the regex/substr parser work in `brief/index.ts` with
@@ -350,10 +416,12 @@ All test data must use mocked product, company, customer, and user names.
    bespoke screens.
 5. Preserve part roles into `UICompositionContract`.
 6. Update variable binding to respect part-level `variableRoles`.
-7. Extend canvas planning for `replace-existing-frame`.
-8. Add the `refine-existing` built-in flow as a thin composition of existing
+7. Add local-DS-only reuse policy and evidence checks.
+8. Extend canvas planning for `replace-existing-frame`, including explicit
+   draft/canvas operations and target-node verification.
+9. Add the `refine-existing` built-in flow as a thin composition of existing
    graph nodes plus target-mapping/refinement nodes.
-9. Update docs and kotikit agent skill guidance so assistants produce
+10. Update docs and kotikit agent skill guidance so assistants produce
    blueprints before calling `kotikit_start` for detailed PRDs.
 
 ## Open Implementation Notes
@@ -367,3 +435,6 @@ All test data must use mocked product, company, customer, and user names.
 - Existing pattern packs can remain useful as explicit data refs, but no core
   node should use broad substring matching or `screenArchetype` branching to
   force them for detailed PRDs.
+- The implementation must not introduce any Figma-side design-system discovery
+  fallback. Local DS sync may be requested, but graph execution should remain
+  local-cache-driven.
