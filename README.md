@@ -45,7 +45,8 @@ kotikit should feel lightweight, fast, and useful in minutes.
 
 Requirements:
 
-- Bun.
+- [Bun](https://bun.sh/docs/installation). Run `bun --version` after
+  installing to confirm it works.
 - Claude Code, Codex, or another MCP-capable assistant.
 - Figma's assistant integration connected to the same assistant.
 - A local target folder where kotikit can write `.kotikit/`, `.env`, and

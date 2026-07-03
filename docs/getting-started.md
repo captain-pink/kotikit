@@ -2,7 +2,18 @@
 
 This is the shortest reliable setup path while kotikit is alpha.
 
-## 1. Install From Source
+## 1. Install Bun
+
+kotikit runs on Bun. If you do not have it yet, install Bun from the
+[official Bun installation guide](https://bun.sh/docs/installation).
+
+After installing, open a new terminal window and check:
+
+```bash
+bun --version
+```
+
+## 2. Install Kotikit From Source
 
 ```bash
 git clone https://github.com/captain-pink/kotikit.git ~/kotikit
@@ -10,7 +21,7 @@ cd ~/kotikit
 bun install
 ```
 
-## 2. Pick A Target Folder
+## 3. Pick A Target Folder
 
 kotikit needs a normal local folder for assistant config, run state, and local
 design-system indexes. For design-only testing this can be an empty scratch
@@ -20,7 +31,7 @@ folder.
 mkdir -p ~/kotikit-demo
 ```
 
-## 3. Scaffold Your Assistant
+## 4. Scaffold Your Assistant
 
 ```bash
 cd ~/kotikit
@@ -39,7 +50,7 @@ The scaffold writes:
 Plugin wrappers are optional. Source scaffold is the most predictable path for
 local development and testing.
 
-## 4. Connect Figma
+## 5. Connect Figma
 
 Install and enable Figma's assistant integration for your assistant. kotikit
 uses that integration for Figma reads, writes, screenshots, and metadata.
@@ -53,7 +64,7 @@ FIGMA_TOKEN=figd_...your_token_here...
 
 Keep `.env` local and uncommitted.
 
-## 5. Restart The Assistant
+## 6. Restart The Assistant
 
 Open the target folder in your assistant and restart the session so it reloads
 the MCP config.
@@ -70,7 +81,7 @@ Use kotikit and create an admin members page on this Figma draft page:
 <figma-url>
 ```
 
-## 6. Sync A Design System
+## 7. Sync A Design System
 
 Do this when you want kotikit to reuse your real components and icons.
 
