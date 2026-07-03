@@ -46,7 +46,7 @@ export async function resolveFigmaDraftTargetFromUrl(
   if (document.type !== "CANVAS") {
     throw new KotikitError(
       "That Figma link points to a node inside a page, not to the page itself.",
-      "Copy the link to the exact draft page, or use the kotikit plugin current-page binding flow."
+      "Copy the link to the exact draft page. The page name must include Draft or Drafts."
     );
   }
 

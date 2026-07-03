@@ -3,11 +3,10 @@ import { readFileSync } from "node:fs";
 
 const docs = [
   "README.md",
+  "docs/getting-started.md",
   "docs/workflows.md",
   "docs/figma.md",
-  "docs/tools.md",
   "docs/troubleshooting.md",
-  "KOTIKIT_MIGRATION.md",
 ];
 
 describe("UX quality docs", () => {
@@ -16,13 +15,35 @@ describe("UX quality docs", () => {
     expect(text.toLowerCase()).not.toContain("chrome devtools");
   });
 
-  it("documents state matrices and draft lifecycle", () => {
+  it("keeps user docs focused on the current lightweight product surface", () => {
     const text = docs.map((path) => readFileSync(path, "utf-8")).join("\n");
-    expect(text).toContain("StateMatrix");
-    expect(text).toContain("DraftComponentLifecycle");
-    expect(text).toContain("context durability");
-    expect(text).toContain("designer recovery");
-    expect(text).toContain("no built-in product-flow, old review/comment posting, memory");
-    expect(text).toContain("lightweight post-screen feedback");
+
+    expect(text).toContain("create-screen");
+    expect(text).toContain("review-screen");
+    expect(text).toContain("design system");
+    expect(text).toContain("draft page");
+    expect(text).toContain("variables");
+    expect(text).toContain("comments");
+
+    expect(text).not.toContain("KOTIKIT_MIGRATION");
+    expect(text).not.toContain("NEXT_STEPS");
+    expect(text).not.toContain("DraftComponentLifecycle");
+    expect(text).not.toContain("old review/comment posting");
+    expect(text).not.toContain("design-to-code");
+  });
+
+  it("keeps top-level user docs compact enough to scan", () => {
+    const maxLinesByDoc: Record<string, number> = {
+      "README.md": 180,
+      "docs/getting-started.md": 130,
+      "docs/workflows.md": 130,
+      "docs/figma.md": 130,
+      "docs/troubleshooting.md": 130,
+    };
+
+    for (const [path, maxLines] of Object.entries(maxLinesByDoc)) {
+      const lineCount = readFileSync(path, "utf-8").trimEnd().split("\n").length;
+      expect(lineCount).toBeLessThanOrEqual(maxLines);
+    }
   });
 });

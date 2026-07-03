@@ -159,9 +159,11 @@ designers.
   `docs/workflows.md`, `docs/figma.md`, `docs/troubleshooting.md`,
   `docs/development.md`, `docs/architecture.md`, `docs/tools.md`, and
   `docs/modules/*`.
+- Less is more for user docs. Assume people scan instead of reading end to
+  end: start with the action, keep prose short, and move implementation detail
+  to maintainer references.
 - Keep live docs concise. Do not add large one-off planning documents to the
-  root or `docs/`; capture durable decisions in the relevant module doc or
-  `NEXT_STEPS.md`.
+  root or `docs/`; capture durable decisions in the relevant module doc.
 - Use agent-neutral language in shared docs. Use "Claude Code" or "Codex" only
   when the instruction is specific to that product.
 - Document setup as copy-pasteable commands or config blocks.

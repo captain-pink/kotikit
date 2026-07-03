@@ -142,7 +142,6 @@ Output: `{ snapshot; run? }`
 
 This tool is read-only for Figma, but it resolves a local Figma token and calls
 Figma, so scaffolded agents should still ask before running it.
-Output: compact component refs.
 
 ### kotikit_record_figma_apply
 

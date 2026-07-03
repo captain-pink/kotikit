@@ -1,200 +1,116 @@
 # Workflows
 
-These are the main kotikit workflows a designer or product person should know.
-The assistant should run MCP tools for you; you should not need to call tool
-names directly.
+Use kotikit like a design partner with a strict local workflow. Ask for the
+screen or review you need; kotikit should handle the Figma mechanics.
 
-Kotikit now runs designer work as graph flows. A flow can pause for a designer
-decision, wait for Figma work, save an artifact, and resume from a run id.
-
-## Start Kotikit
-
-Use the assistant entry point:
+## Create A Screen
 
 ```text
-kotikit:auto
+Use kotikit and create an admin members page on this Figma draft page:
+<figma-url>
 ```
 
-or in Claude Code:
+Expected behavior:
+
+- Starts the `create-screen` flow.
+- Clarifies only missing product details.
+- Searches the local design system before drawing.
+- Uses existing components, icons, variables, and auto layout when available.
+- Creates the filled screen and important states as real screen or region
+  states, not loose preview cards.
+- Applies incremental Figma changes one screen state at a time.
+- Runs screenshot and evidence checks before completion.
+
+Good requests are specific about the product job:
 
 ```text
-/kotikit-auto
+Create a workspace members page for admins. Include search, filters, invite,
+roles, status, empty, loading, error, and permission states.
 ```
 
-The assistant should check setup, list relevant flows when needed, then start
-the best prebuilt flow for your request.
+## Create A Fast High-Fidelity Draft
 
-## Quick High-Fidelity Screen
-
-Ask for a specific screen when you already have a usable design system:
+Use this when you already know the screen and want speed.
 
 ```text
-Create a high-fidelity members admin screen using our existing table, filters,
-buttons, and status components.
+Use kotikit to create a high-fidelity billing settings screen from existing
+design-system components. Keep it simple and ask only if something blocks the
+draft.
 ```
 
-The assistant should:
+kotikit should still search first and reuse local components. It should not
+pause for unnecessary approvals.
 
-1. Start the `create-screen` flow with your intent.
-2. Let kotikit save a compact design approach: goal, workflow, chosen
-   strategy, alternatives considered, state strategy, and key risks.
-3. Search the local design-system cache before inventing anything.
-4. Ask only blocking questions, such as literal variable fallback approval or
-   the exact Figma draft page target.
-5. Read the apply-packet artifact and active Figma transaction.
-6. Use the official Figma assistant integration to apply one screen state or
-   region state at the canvas plan bounds.
-7. Scan the applied root node, take a screenshot, and repair visible layout
-   issues before recording metadata back into kotikit.
-8. Continue the run and repeat one screen state at a time until the transaction
-   queue is complete.
-9. Let the UI quality gate check common broken-output issues.
+## Review Comments
 
-Kotikit applies Figma drafts through incremental Figma transactions. It creates
-the actual screen states first using local design-system components, icons,
-variables, and auto layout. Missing reusable structure is kept as screen-draft
-work during composition. After the design is visible, the assistant should ask
-whether you want those missing reusable parts extracted into draft components on
-the same draft page. Each generated node is placed by the canvas plan and
-recorded in the node ledger so future recovery and QA have real evidence.
-Design-system components must be the actual visible UI, not hidden or
-low-opacity proof layers. If evidence fails, the active transaction remains
-repairable so the assistant should fix the current frame instead of starting a
-new run or section. A compact scanner snapshot should include visible
-component instances and layout metrics for the applied root frame; very flat
-screen states with many direct children and too few semantic auto-layout
-containers are blocked as unfinished structure.
-
-### Manual QA For Generated Figma Drafts
-
-After kotikit creates a draft, verify:
-
-- generated frames are in one clean kotikit Section;
-- optional extracted draft components are in their own zone on the same draft
-  page;
-- state frames are same-sized and non-overlapping;
-- loading, empty, no-results, error, and permission states replace the affected
-  region;
-- important controls use design-system component instances;
-- required icons come from the local design-system icon index, not placeholders;
-- variables/styles are bound where available;
-- screen states are grouped into semantic auto-layout containers such as shell,
-  sidebar, header, toolbar, content region, repeated rows, and footer;
-- screen-state frames were reviewed from a screenshot after visible component
-  placement;
-- all frames stay editable and selectable without manual cleanup.
-
-## Screen States
-
-Kotikit plans the design approach and state coverage before it composes the
-Figma screen. The graph stores the approach as `DesignApproach` and state
-coverage as `StateMatrix`, so filled, loading, empty, no-results, error, and
-permission states are treated as page, region, component, or flow states.
-
-The design approach is the lightweight brainstorm step. It considers the likely
-workflow, alternatives, layout strategy, design-system strategy, icon strategy,
-assumptions, and risks. Quick mode records this silently and proceeds when the
-request is clear; kotikit should only ask the designer when an unresolved choice
-would materially change the design.
-
-For data tables and lists, loading, empty, and error output should replace the
-affected data region. It should not appear as extra cards below the screen.
-Stable shell regions such as navigation, top bars, and page headers stay in
-place unless the state is explicitly page-level.
-
-Quick mode still works for fast high-fidelity screens. If kotikit can infer the
-screen archetype and design-system fit, it records assumptions and continues.
-It asks only when a decision would change the design outcome or safety boundary.
-
-## Review Comments And Apply Changes
-
-After a draft exists, designers can leave comments in Figma and ask the
-assistant to review them. Kotikit should use the lightweight `review-screen`
-flow, not the old standalone review database.
-
-The assistant should:
-
-1. Fetch a compact Figma comment snapshot with `kotikit_feedback_snapshot`.
-2. Start or continue `review-screen` with that feedback.
-3. Let kotikit map comments to the Figma node ledger and save a
-   `CommentEvidenceMap` artifact.
-4. Read the `RevisionPlan` artifact and explain the proposed changes in plain
-   design language.
-5. Ask before applying revisions.
-6. If approved, apply changes incrementally through the same Figma transaction
-   discipline used by `create-screen`.
-
-Kotikit does not post comments, resolve threads, or promote feedback into
-memory in the tiny core. If a comment cannot be mapped to a known node, it
-stays explicit as page-level or needs-human feedback instead of being attached
-to a guessed layer.
-
-## Guided Screen
-
-Use the guided path when the product shape is not clear yet:
+Use this after you leave comments in Figma.
 
 ```text
-I want to design an invite flow for adding new members.
+Use kotikit to review comments on this draft and suggest changes:
+<figma-url>
 ```
 
-The assistant should ask product/design questions one topic at a time, confirm
-the summary, save a design-brief artifact, and then continue into screen
-drafting. Multi-screen product-flow graphs are not part of the tiny built-in
-core right now; use separate screen drafts until that extension returns.
+Expected behavior:
 
-## Sync A Figma Design System
+- Starts the `review-screen` flow.
+- Reads a compact Figma comment snapshot.
+- Maps comments to visible nodes when possible.
+- Groups related feedback.
+- Produces a change plan in plain design language.
+- Asks before applying changes.
 
-Ask:
+kotikit should not rely on browser debugging for comments.
+
+## Sync A Design System
 
 ```text
-Sync my Figma design system.
+Use kotikit to sync this published Figma library:
+<figma-library-url>
 ```
 
-If no design system is configured, the assistant should ask for the Figma file
-URL or file key, save it to kotikit config, then run sync.
+After sync, kotikit can search local component and icon indexes. This keeps
+runs fast and token-efficient.
 
-Kotikit syncs published components, component sets, icons, styles, and available
-variables into `design-system/`.
+## Sync Variables
 
-Important: the Figma file must be published as a library. Figma does not return
-importable component keys for unpublished local components.
+If kotikit says Figma variables are unavailable through REST, open the kotikit
+Figma plugin and export variables from the current file.
 
-## Missing Components
+Then continue:
 
-If local design-system search cannot find a meaningful UI part, kotikit should
-not silently invent or imitate it.
+```text
+Variables are synced. Continue the kotikit run.
+```
 
-The create-screen happy path should compose the visible screen first using
-local design-system components, icons, variables, auto layout, and screen-draft
-structure for any true gaps. Once the result is visible, the assistant should
-ask whether you want reusable missing parts extracted into draft components.
-Extracted draft components stay on the same draft page; kotikit never publishes
-them into the real design system automatically.
+The plugin is only for variables.
 
-Literal color, typography, spacing, radius, stroke, shadow, or effect values
-are allowed only after you explicitly approve them.
+## When Components Are Missing
 
-## Import Variables On Non-Enterprise Figma Plans
+kotikit should finish the visible screen first. If the screen uses repeated
+draft-only parts that could become components, kotikit should ask whether to
+extract them.
 
-Figma's REST Variables API is Enterprise-gated. If sync says variables were
-skipped, use the variable-only plugin fallback:
+Rules:
 
-1. Ask your assistant: "Start the kotikit Figma plugin bridge."
-2. Open the source design-system file in Figma.
-3. Run Plugins -> Development -> kotikit.
-4. Paste the bridge URL.
-5. Click **Sync Variables From Open File**.
+- Do not publish anything to the real design system automatically.
+- Keep extracted draft components on the same draft page.
+- Prefer local design-system alternatives when they exist.
+- Do not add hidden or visible proof components just to satisfy checks.
 
-The plugin reads variables from the open file through Figma's Plugin API and
-sends a compact payload to kotikit over the local bridge. It does not create
-designs, review comments, or sync components.
+## Recovery
 
-## Recovery And Resume
+If a run blocks, ask:
 
-Kotikit graph runs are designed to resume after assistant restarts, Figma apply
-waits, and approval interrupts. Context durability checks keep graph state
-small enough to reload reliably.
+```text
+Explain what is blocking kotikit and what exact action would unblock it.
+```
 
-When kotikit blocks, it should use designer recovery language: the problem,
-why it matters for the design, and one recommended next action. Technical
-details stay in artifacts or logs for maintainers.
+Good recovery output should say:
+
+- what failed,
+- why it matters to the design,
+- what kotikit expected,
+- what it found,
+- the smallest next action.
+
+Avoid starting over unless the existing Figma section is unusable.

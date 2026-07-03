@@ -142,11 +142,12 @@ describe("live documentation", () => {
   it("keeps setup and Figma guidance designer-first", () => {
     const docs = liveDocs();
 
-    expect(docs).toContain("plugins are preferred");
-    expect(docs).toContain("scaffold remains");
-    expect(docs).toContain("not required for draft creation");
-    expect(docs).toContain("primary token-efficient grounding");
-    expect(docs).toContain("Design-to-code is removed from the core workflow");
+    expect(docs).toContain("plugin wrappers are optional");
+    expect(docs).toContain("source scaffold");
+    expect(docs).toContain("not required to create drafts");
+    expect(docs).toContain("search first");
+    expect(docs).toContain("create-screen");
+    expect(docs).toContain("review-screen");
   });
 
   it("documents incremental Figma apply instead of one-shot state dumping", () => {
@@ -159,7 +160,6 @@ describe("live documentation", () => {
 
     expect(docs).toContain("incremental Figma");
     expect(docs).toContain("one screen state at a time");
-    expect(docs).toContain("canvas plan");
     expect(docs).not.toContain("dump all states");
   });
 });

@@ -2,202 +2,44 @@
 
 ![Kotikit workflow infographic](docs/assets/kotikit-workflow-infographic.webp)
 
-Create Figma-ready product drafts from plain language, using your real design
-system.
+kotikit is a local-first Figma drafting kit for UX/UI work. It helps an
+assistant turn a plain-language request into editable Figma screens that reuse
+your local design system, icons, variables, and draft-page safety rules.
 
-AI can generate screens quickly, but product design is not just drawing boxes.
-A useful UX/UI draft still needs product judgment, real components, edge
-states, review loops, and a stable design workflow.
-
-kotikit is an experimental local-first toolkit for product designers, founders,
-PMs, and teams who want to move from idea to Figma prototype faster without
-becoming frontend engineers first.
-
-It helps Claude Code, Codex, and other MCP-capable agents ask the right product
-questions, sync and search your Figma design system, create safe draft pages,
-and keep the design process grounded in the components your team actually uses.
+The product philosophy is simple: less setup, less ceremony, better drafts.
+kotikit should feel lightweight, fast, and useful in minutes.
 
 > [!WARNING]
-> kotikit is a very unstable research prototype. It is public for visibility,
-> not because the current workflow is reliable. Recent experiments have made
-> parts of the toolchain fragile, and the project will likely be reimagined or
-> rewritten as Figma and official assistant integrations expose more native
-> capabilities. For example, native Figma design-system search such as
-> `search_design_system` may replace large parts of kotikit's custom
-> design-system sync/indexing layer. Expect breaking changes, incomplete flows,
-> and failed runs. Do not use this on important production Figma files without
-> copies and manual review.
+> kotikit is an unstable alpha. Use it on draft files, copies, and experiments.
+> Generated designs must be reviewed before they are used for real product
+> work.
 
-## Demo
+## What It Does
 
-A 1-minute demo video will live here.
+- Creates Figma screen drafts through the `create-screen` flow.
+- Reviews Figma comments and prepares change plans through the `review-screen`
+  flow.
+- Searches a synced local Figma design-system index instead of dumping large
+  files into chat.
+- Reuses existing components, icons, variables, and auto layout before falling
+  back to simple draft-only primitives.
+- Writes only to safe Figma draft pages and kotikit-owned Sections.
+- Applies designs incrementally, one screen state at a time, so states stay
+  inspectable and non-overlapping.
+- Uses screenshot review and compact Figma evidence to catch broken layout,
+  missing component instances, and proof overlays.
+- Imports variables through the small Figma plugin when the Figma REST
+  Variables API is unavailable.
 
-The demo will show kotikit taking a rough request like "build a members admin
-page", asking clarifying questions, syncing a design system, then creating a
-Figma draft with real screen states.
+## Current Limits
 
-## Why It Exists
-
-Everyone is being told to use AI for everything, including UX/UI design. But
-the product designer role is not becoming obsolete. It is changing under
-pressure: teams expect faster exploration, faster prototypes, and faster
-handoff, while the work still needs taste, structure, accessibility, states,
-constraints, and design-system discipline.
-
-Most people can describe the screen they need, but cannot quickly turn that
-description into a useful Figma draft. Product managers and founders can
-explain a workflow, but often need help shaping it into a concrete screen.
-Designers lose time on repetitive layouts, states, tables, forms, and review
-loops. Engineers get pulled toward implementation before the product shape is
-clear.
-
-AI agents can help, but generic AI UI output usually has the same failures:
-
-- It ignores the team's real design system.
-- It invents components that do not exist.
-- It produces layouts that look plausible until they land in Figma.
-- It forgets feedback that the team repeats every week.
-
-kotikit is an experiment in closing that gap: anyone should be able to describe
-what they need, then let an agent use real Figma libraries, safe draft targets,
-safe draft targets, and local design-system evidence to create something
-inspectable in minutes.
-
-The long-term goal is a safer path from product idea to Figma prototype. The
-current focus is deliberately design-only: make the draft useful, reviewable,
-and grounded in the team's real system before considering implementation
-extensions again.
-
-## Status
-
-kotikit is a public alpha research project and currently unstable. The
-repository is public so people can inspect the workflow, see the direction, and
-understand the experiment. It should not be treated as a dependable product or
-stable open-source package.
-
-It is not a mature open-source project yet:
-
-- Bugs and rough edges are expected.
-- Current setup, sync, and Figma draft-creation flows may fail.
-- Recent changes have broken parts of the workflow; the next iteration may be a
-  rewrite instead of incremental fixes.
-- Some kotikit features may be removed as Figma exposes native equivalents
-  through official assistant/plugin integrations.
-- Public PRs are not being accepted right now.
-- There is no support SLA.
-- APIs, local file formats, and workflows may change.
-- The project was built through AI-assisted/vibe-coded development and still
-  needs deeper independent security, architecture, and production review.
-- Treat generated Figma changes as drafts to inspect, not as production-ready
-  output.
-- Use it for experiments, copies, drafts, and controlled Figma files first.
-
-Design-to-code is removed from the core workflow. kotikit is currently focused
-on stabilizing fast screen creation and design-system use.
-
-## Who It Is For
-
-- **Product designers** who want AI leverage for fast drafts, state coverage,
-  design-system lookup, and iteration while they keep creative
-  control.
-- **Product managers and founders** who want to turn product intent into an
-  inspectable Figma prototype without learning Figma deeply.
-- **Engineers** who want design work to become structured before implementation
-  starts.
-- **Agent workflow builders** who want to study a local-first MCP and Figma
-  workflow built from specs, SQLite indexes, assistant skills, official Figma
-  MCP writes, and a small local variable plugin.
-
-## What Works Today
-
-- Guided screen specification through Claude Code or Codex.
-- Local specs under `.kotikit/specs`.
-- Figma design-system sync into local SQLite indexes.
-- Adaptive Figma API pacing and resumable sync for larger libraries.
-- Component and icon search over the synced design system.
-- Visible design-system reuse plans before Figma writes, including exact
-  matches, substitutes, close candidates to wrap, and true draft-component
-  gaps.
-- Safe Figma draft page binding.
-- Official Figma MCP apply packets for creating draft designs in Figma.
-- `StateMatrix` planning for filled, loading, empty, no-results, error, and
-  permission states before visual composition starts.
-- Compose-first Figma drafting that uses local design-system components, icons,
-  variables, and auto layout before asking about optional draft component
-  extraction.
-- Compact evidence and screenshot-review gates that reject proof overlays and
-  visible layout corruption before final QA.
-- Variable import fallback through the plugin for non-Enterprise Figma plans.
-- Final design-system usage reports after QA so teams can see reused
-  components, screen-draft parts, optional draft components, icons, and
-  primitive exceptions.
-- Lightweight post-screen feedback review from Figma comments through the
-  `review-screen` graph. It maps comments to the node ledger, creates a compact
-  revision plan, and asks before applying changes.
-- Repeated validator failure diagnostics with expected/found/action details.
-- Assistant plugin wrappers for Claude Code and Codex, plus source scaffold for
-  local development.
-
-## What Does Not Work Yet
-
-- Design-to-code, component scaffolding, implementation gates, and generated
-  code registries are not part of the core.
-- There is no polished npm, Homebrew, or global installer.
-- The local Figma plugin is a narrow variable-import fallback only; design
-  creation and review stay in the assistant workflow.
-- The old standalone existing-design review, comment posting, and memory
-  database workflow is removed. Feedback review now stays lightweight and
-  artifact-backed.
-- Public contributions are not open yet.
-- There is no formal security audit.
-
-## How It Works
-
-kotikit has four main pieces:
-
-1. **MCP server**  
-   Claude Code, Codex, and other MCP clients call `kotikit_*` tools.
-
-2. **Local project state and graph runs**
-   Config, trusted flow runs, graph artifacts, and bridge state live in the
-   target project under `.kotikit`. Graph
-   checkpoints and artifacts let the assistant resume from explicit run state
-   instead of reconstructing old chat history.
-
-3. **Design-system indexes**  
-   Figma components, icons, styles, and variables are synced into
-   `design-system/` so agents can search instead of loading huge files into
-   context.
-
-4. **Figma apply path**  
-   The official Figma assistant integration writes draft designs in Figma using
-   incremental Figma transactions. Kotikit creates a canvas plan, applies one
-   screen state at a time, records the resulting Figma node ledger, and then
-   resumes the graph. The local kotikit plugin is reserved for variable import
-   on Figma plans where the REST Variables API is unavailable.
-
-See [docs/architecture.md](docs/architecture.md) for the detailed system map.
-
-## Safety Model
-
-kotikit is designed to be local-first and conservative:
-
-- No hosted backend is required.
-- Your Figma token stays in your target project's `.env`.
-- Large design-system data is stored locally and searched through SQLite.
-- Figma design creation is blocked until you bind an exact draft page URL.
-- The target Figma page name must contain `Draft` or `Drafts`.
-- Generated screens are placed inside a kotikit-owned Figma Section.
-- Generated states follow the canvas plan so frames are same-sized,
-  non-overlapping, and reviewable without manual cleanup.
-- Apply-step logging validates file, page, and Section metadata.
-- Graph runs use context durability checks so large raw Figma and research
-  payloads are stored as artifacts after compact contracts exist.
-- Blocking states use designer recovery text: what happened, why it matters,
-  and the recommended next action.
-
-This does not make kotikit production-safe by itself. It gives the workflow
-clear boundaries while the project is still alpha.
+- There is no polished installer yet.
+- Local plugin wrappers are optional; source scaffold is the reliable setup
+  path while the project is alpha.
+- The Figma plugin only syncs variables.
+- kotikit does not generate application code.
+- Public PRs are not open yet.
+- The repo is source-available only until a license is added.
 
 ## Quick Start
 
@@ -205,155 +47,93 @@ Requirements:
 
 - Bun.
 - Claude Code, Codex, or another MCP-capable assistant.
-- Figma's assistant integration for your assistant installed from inside Figma.
-- A Professional, Organization, or Enterprise Figma account is recommended.
-- A Figma personal access token with file read access if you want local
-  design-system sync.
-- A local target workspace or app project where kotikit can write `.kotikit/`,
-  `design-system/`, and `.env`.
+- Figma's assistant integration connected to the same assistant.
+- A local target folder where kotikit can write `.kotikit/`, `.env`, and
+  assistant config.
+- A Figma personal access token only if you want local design-system sync. It is
+  not required to create drafts through Figma's assistant integration.
 
-Why a local target workspace? kotikit needs a normal folder to store local
-specs, synced design-system indexes, assistant config, and your
-Figma token placeholder. For design-only use this can be any scratch workspace;
-it does not need to be an app project.
-
-Preferred setup uses the assistant plugin wrapper in `plugins/codex/kotikit` or
-`plugins/claude/kotikit` when your assistant supports local plugins. This path
-assumes `kotikit-mcp` is available on `PATH` through an installed or linked
-kotikit package.
-
-Source checkout setup:
+From a source checkout:
 
 ```bash
 git clone https://github.com/captain-pink/kotikit.git ~/kotikit
 cd ~/kotikit
 bun install
-bun run scaffold:agents -- --target /Users/YOUR_USERNAME/path/to/your-project --agents both
+bun run scaffold:agents -- --target /path/to/your/project --agents both
 ```
 
-The scaffold auto-approves only exact safe local read-only kotikit tools in
-Claude Code and Codex. Figma calls, secret reads, bridge control, file writes,
-bridge token status, and graph mutations still ask for approval.
-
-Figma personal access token is not required for draft creation when your
-assistant is connected through Figma's remote MCP integration. Add a token to
-the target project's `.env` only for local design-system sync:
-
-```env
-FIGMA_TOKEN=figd_...your_token_here...
-```
-
-Restart your assistant in the target project and run:
+Restart your assistant in the target project, then run:
 
 - Claude Code: `/kotikit-auto`
 - Codex: `kotikit:auto`
 
-For the full setup flow, see
+For the full first-run checklist, see
 [docs/getting-started.md](docs/getting-started.md).
 
-## Common Workflows
+## Everyday Use
 
-- Sync a published Figma design system.
-- Create a quick high-fidelity Figma draft from existing design-system
-  components.
-- Run guided screen drafting when more context or approval is needed.
-- Plan screen states as page, region, component, or flow states instead of
-  loose preview cards.
-- Import variables through the variable-only Figma plugin when the REST
-  Variables API is unavailable.
+Ask for the outcome in design language:
 
-See [docs/workflows.md](docs/workflows.md) for step-by-step examples.
+```text
+Use kotikit and create an admin members page on this Figma draft page:
+<figma-url>
+```
 
-## Figma Notes
+kotikit should:
 
-Design-system sync is intended for published Figma libraries on paid Figma
-plans. Free/Starter accounts have very low API limits for some file endpoints,
-so even small sync jobs can be slow or unreliable.
+1. Clarify only what is necessary.
+2. Search first in the local design system.
+3. Plan the main screen and important states.
+4. Write to the bound draft page inside a kotikit Section.
+5. Run visual/evidence checks before it says the work is done.
 
-kotikit can inspect some draft-file data, but generated Figma drafts need
-importable component keys. Those keys come from published libraries. If you
-point kotikit at an unpublished draft file, treat it as inspection or
-experimentation, not as a usable design system for composing new drafts.
+For examples, see [docs/workflows.md](docs/workflows.md).
 
-Variables through Figma's REST API are Enterprise-gated. On Professional or
-Organization plans, kotikit guides you through the local Figma plugin flow when
-variables or tokens are needed.
+## Figma Rules
 
-See [docs/figma.md](docs/figma.md) for token scopes, official Figma
-integration setup, draft page rules, and variable fallback details.
+- Use a Figma page whose name includes `Draft` or `Drafts`.
+- Let kotikit create or reuse one kotikit-owned Section on that page.
+- Keep real design-system components published if you want kotikit to reuse
+  them reliably.
+- Sync variables with the local plugin only when kotikit says REST variables are
+  unavailable.
 
-## Keeping Sessions Cheap
+For setup details, see [docs/figma.md](docs/figma.md).
 
-kotikit avoids dumping whole design systems into the assistant context. The
-normal pattern is: use the local design-system cache as the primary token-efficient grounding
-source, search first, fetch exact component details second, and keep
-design sessions focused.
+## Troubleshooting
 
-Graph artifacts also keep sessions cheap. The assistant reads one run state or
-artifact when needed instead of loading every previous design decision into
-context. Context durability keeps long-lived graph state compact by replacing
-raw Figma snapshots and research payloads with bounded artifacts such as
-`StateMatrix` and `CanvasPlan`.
+Most failures are setup or evidence problems:
 
-Most users do not need the detailed token table. It exists mainly for
-maintainers and agent-workflow builders who are checking MCP payload sizes. See
-[docs/TOKENS.md](docs/TOKENS.md) for that performance reference.
+- The page is not named as a draft page.
+- The assistant is not connected to Figma's integration.
+- The design-system index is missing or stale.
+- A screen was drawn with hardcoded shapes instead of real component instances.
+- The screenshot check found overlap, clipping, or broken text.
 
-## Roadmap
-
-Near term:
-
-- More reliable Figma draft creation across different design systems.
-- Better incremental Figma apply guidance.
-- Better optional draft-component extraction from completed screen drafts.
-- Better variable and library import flows.
-
-Later:
-
-- Production-quality installer.
-- Broader design-system normalizer fixture corpus.
-- Optional implementation extensions can be reconsidered after design creation
-  is stable.
-
-Not promised:
-
-- Hosted cloud service.
-- Public plugin marketplace distribution.
-- Public contribution process.
-- Production design-to-code in the core.
-
-More detail lives in [NEXT_STEPS.md](NEXT_STEPS.md).
-
-## Project Status And Contributions
-
-This repository is public for visibility and experimentation.
-
-Public contributions are not open yet. Please do not open PRs expecting review
-or merge. The project needs more stabilization before it can responsibly accept
-outside work.
-
-Feedback is useful, but there is no issue triage process or support guarantee
-right now.
-
-## License
-
-No open-source license is currently granted.
-
-Until a `LICENSE` file is added, the repository is source-available for review
-and local experimentation only. Do not assume permission to redistribute,
-repackage, or use the code in a commercial product.
-
-This may change later once the project is more stable and the intended public
-license is chosen.
+See [docs/troubleshooting.md](docs/troubleshooting.md).
 
 ## Documentation
 
-- [docs/getting-started.md](docs/getting-started.md) - install and first run.
-- [docs/workflows.md](docs/workflows.md) - user-facing kotikit workflows.
-- [docs/figma.md](docs/figma.md) - Figma setup, plugin, tokens, and safety.
-- [docs/troubleshooting.md](docs/troubleshooting.md) - common problems.
-- [docs/development.md](docs/development.md) - repo development workflow.
-- [docs/architecture.md](docs/architecture.md) - system overview.
-- [docs/tools.md](docs/tools.md) - complete MCP tool reference.
-- [docs/coding_guidelines.md](docs/coding_guidelines.md) - engineering style.
-- [docs/TOKENS.md](docs/TOKENS.md) - maintainer token/context budget reference.
+User docs:
+
+- [Getting Started](docs/getting-started.md)
+- [Workflows](docs/workflows.md)
+- [Figma Setup](docs/figma.md)
+- [Troubleshooting](docs/troubleshooting.md)
+
+Maintainer docs:
+
+- [Architecture](docs/architecture.md)
+- [Development](docs/development.md)
+- [MCP Tools](docs/tools.md)
+- [Coding Guidelines](docs/coding_guidelines.md)
+- [Token Budget Reference](docs/TOKENS.md)
+
+## Project Status
+
+kotikit is public for visibility and experimentation. There is no support SLA,
+security audit, stable API promise, or public contribution process yet.
+
+No open-source license is currently granted. Until a `LICENSE` file is added,
+do not assume permission to redistribute, repackage, or use the code in a
+commercial product.
