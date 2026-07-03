@@ -85,6 +85,7 @@ export function runUiQualityGate(input: {
     ),
     checkCanvasOverlap(input.nodes),
     checkCanvasMinGap(input.nodes, input.canvasPlan),
+    checkReplacementTargetNode(input.nodes, input.canvasPlan),
     checkCanvasZoneMembership(input.nodes, input.canvasPlan),
     checkIconRefs(input.nodes, input.iconRequirements ?? [], input.iconRefs ?? []),
     checkScreenStateAutoLayout(input.nodes),
@@ -98,6 +99,31 @@ export function runUiQualityGate(input: {
     status: checks.some((item) => item.status === "blocked") ? "blocked" : "passed",
     checks,
   };
+}
+
+function checkReplacementTargetNode(
+  nodes: AppliedNode[],
+  canvasPlan: CanvasPlan | undefined
+): UIQualityGateReport["checks"][number] {
+  if (canvasPlan === undefined) {
+    return checkResult("replacement-target-node", "Replacement target node", []);
+  }
+  const nodesByPlacementId = new Map(
+    nodes
+      .map((node) => [stringField(node, "placementId"), node] as const)
+      .filter((entry): entry is readonly [string, AppliedNode] => entry[0] !== undefined)
+  );
+  const findings = canvasPlan.placements.flatMap((placement) => {
+    if (placement.canvasOperation !== "replace-target-frame") return [];
+    const node = nodesByPlacementId.get(placement.id);
+    const nodeId = node === undefined ? undefined : stringField(node, "id");
+    return nodeId === placement.targetNodeId
+      ? []
+      : [
+          `${placement.label} was applied to ${nodeId ?? "unknown"} instead of target ${placement.targetNodeId}`,
+        ];
+  });
+  return checkResult("replacement-target-node", "Replacement target node", findings);
 }
 
 function checkCanvasMinGap(
@@ -335,6 +361,8 @@ function recommendedActionFor(id: string): string {
     "screen-state-auto-layout": "Rebuild the screen state as an auto-layout frame.",
     "screen-state-container-structure":
       "Group the screen into semantic auto-layout containers such as shell, sidebar, header, toolbar, content region, repeated rows, and footer.",
+    "replacement-target-node":
+      "Replace the planned target node in place instead of creating a sibling frame.",
     "screenshot-review":
       "Take a screenshot of the generated screen state, inspect visible layout issues, and repair any findings before continuing.",
     "transaction-metadata": "Record transactionId and placementId for every generated node.",

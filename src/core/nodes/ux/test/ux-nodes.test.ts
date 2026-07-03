@@ -50,6 +50,30 @@ describe("UX graph nodes", () => {
     });
   });
 
+  it("preserves blueprint traits in the UX envelope without forcing an archetype", async () => {
+    const output = await runNode("ux.buildEnvelope", {
+      userIntent: "Create the supplied mocked Events blueprint with admin wording.",
+      screen: {
+        title: "Events Experience",
+        requiredUiParts: ["Event stream", "Detail panel"],
+        states: ["filled", "loading"],
+        traits: {
+          regions: [{ id: "activity", name: "Activity", kind: "timeline" }],
+          stateScopes: [{ id: "page", name: "Page", kind: "page" }],
+          repeatedPatterns: [{ id: "events", name: "Event items", kind: "events" }],
+        },
+      },
+    });
+
+    expect(output.statePatch?.uxEnvelope).toMatchObject({
+      screenArchetype: "unknown",
+      traits: {
+        regions: [expect.objectContaining({ kind: "timeline", name: "Activity" })],
+        repeatedPatterns: [expect.objectContaining({ kind: "events" })],
+      },
+    });
+  });
+
   it("plans a state matrix before UI composition", async () => {
     const envelopeOutput = await runNode("ux.buildEnvelope", {
       userIntent: "Create Admin members page",

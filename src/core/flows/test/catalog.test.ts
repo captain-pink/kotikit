@@ -16,7 +16,7 @@ import {
   loadProjectFlows,
 } from "../catalog.js";
 
-const BUILT_IN_FLOW_IDS = ["create-screen", "review-screen"];
+const BUILT_IN_FLOW_IDS = ["create-screen", "refine-existing", "review-screen"];
 
 let root: string;
 
@@ -230,6 +230,13 @@ describe("flow catalog", () => {
     );
     expect(uses.indexOf("ux.brainstormApproach")).toBeLessThan(uses.indexOf("ux.buildEnvelope"));
     expect(createScreen.requiredCapabilities).toContain("ux.brainstorm");
+  });
+
+  it("refine-existing starts from explicit target mapping", async () => {
+    const refineExisting = requireFlow(await loadBuiltInFlows(), "refine-existing");
+
+    expect(refineExisting.nodes.map((node) => node.uses)[0]).toBe("refine.mapExistingTargets");
+    expect(refineExisting.requiredCapabilities).toContain("figma.write.remote");
   });
 
   it("review-screen keeps Figma comment feedback as a lightweight post-screen flow", async () => {

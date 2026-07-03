@@ -21,6 +21,14 @@ type RuntimeNodeOutput = {
   interrupt?: ReturnType<typeof createUserInterrupt>;
 };
 
+type RequestedUiPartInput = {
+  id?: string;
+  name: string;
+  role?: string;
+  regionId?: string;
+  variableRoles?: UICompositionContract["parts"][number]["variableRoles"];
+};
+
 const EmptyParamsSchema = z.strictObject({});
 
 export const uiCompositionNodeDefinitions: NodeDefinition[] = [
@@ -32,7 +40,7 @@ export const uiCompositionNodeDefinitions: NodeDefinition[] = [
       const state = graphState(input.state);
       const screen = recordFrom(state.screen);
       const contract = buildUiCompositionContract({
-        requiredUiParts: stringArray(screen.requiredUiParts),
+        requiredUiParts: requestedUiPartsFromScreen(screen),
         neededStates: stringArray(screen.states),
         screenArchetype: state.uxEnvelope?.screenArchetype,
         fitReport: recordFrom(state.fitReport),
@@ -181,6 +189,55 @@ function recordFrom(value: unknown): Record<string, unknown> {
     : {};
 }
 
+function requestedUiPartsFromScreen(
+  screen: Record<string, unknown>
+): Array<string | RequestedUiPartInput> {
+  const structured = recordArray(screen.uiParts).flatMap(uiPartFromRecord);
+  return structured.length > 0 ? structured : stringArray(screen.requiredUiParts);
+}
+
+function uiPartFromRecord(record: Record<string, unknown>): RequestedUiPartInput[] {
+  const name = stringFrom(record.name);
+  if (name === undefined) return [];
+  return [
+    {
+      ...(stringFrom(record.id) === undefined ? {} : { id: stringFrom(record.id) }),
+      name,
+      ...(stringFrom(record.role) === undefined ? {} : { role: stringFrom(record.role) }),
+      ...(stringFrom(record.regionId) === undefined
+        ? {}
+        : { regionId: stringFrom(record.regionId) }),
+      ...(variableRolesFrom(record.variableRoles).length === 0
+        ? {}
+        : { variableRoles: variableRolesFrom(record.variableRoles) }),
+    },
+  ];
+}
+
+function variableRolesFrom(value: unknown): NonNullable<RequestedUiPartInput["variableRoles"]> {
+  return recordArray(value).flatMap((record) => {
+    const property = stringFrom(record.property);
+    const semanticRole = stringFrom(record.semanticRole);
+    if (semanticRole === undefined || !isVariableRoleProperty(property)) return [];
+    return [
+      {
+        property,
+        semanticRole,
+        ...(record.optional === true ? { optional: true } : {}),
+      },
+    ];
+  });
+}
+
+function isVariableRoleProperty(
+  value: string | undefined
+): value is NonNullable<RequestedUiPartInput["variableRoles"]>[number]["property"] {
+  return (
+    value !== undefined &&
+    ["fill", "text", "effect", "spacing", "radius", "stroke", "shadow"].includes(value)
+  );
+}
+
 function recordArray(value: unknown): Record<string, unknown>[] {
   return Array.isArray(value)
     ? value.filter(
@@ -194,4 +251,8 @@ function stringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
+}
+
+function stringFrom(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0 ? value : undefined;
 }

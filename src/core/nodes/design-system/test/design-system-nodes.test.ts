@@ -295,6 +295,102 @@ describe("design-system graph nodes", () => {
     );
   });
 
+  it("reports local design-system gaps instead of requesting Figma DS search", async () => {
+    const output = await runNode(
+      "designSystem.buildFitReport",
+      {
+        ...state(mkProject()),
+        screen: {
+          requiredUiParts: ["Event stream", "Priority indicator"],
+          uiParts: [
+            { id: "event-stream", name: "Event stream", role: "timeline" },
+            { id: "priority-indicator", name: "Priority indicator", role: "status indicator" },
+          ],
+        },
+        designSystem: {
+          source: "local-cache",
+          results: [],
+          variables: [],
+          icons: [],
+        },
+      },
+      {}
+    );
+
+    expect(output.statePatch?.fitReport).toMatchObject({
+      sourcePolicy: {
+        componentDiscovery: "local-cache-only",
+        variableDiscovery: "local-cache-only",
+        iconDiscovery: "local-cache-only",
+        figmaDiscoveryAllowed: false,
+      },
+      missingComponents: expect.arrayContaining([
+        expect.objectContaining({ requestedPart: "Event stream" }),
+        expect.objectContaining({ requestedPart: "Priority indicator" }),
+      ]),
+    });
+    expect(JSON.stringify(output)).not.toContain("figma-search");
+    expect(JSON.stringify(output)).not.toContain("remote-discovery");
+  });
+
+  it("keeps local component and variable refs as the only reusable source", async () => {
+    const output = await runNode(
+      "designSystem.buildFitReport",
+      {
+        ...state(mkProject()),
+        screen: {
+          requiredUiParts: ["Event stream"],
+        },
+        designSystem: {
+          source: "local-cache",
+          components: [
+            {
+              name: "Event stream",
+              key: "local-event-stream-key",
+              source: "local-component-db",
+            },
+          ],
+          variables: [
+            {
+              kind: "color",
+              name: "color.surface.default",
+              id: "local-color-surface",
+              source: "local-variables-cache",
+            },
+            {
+              kind: "spacing",
+              name: "space.200",
+              id: "local-space-200",
+              source: "local-variables-cache",
+            },
+            {
+              kind: "text",
+              name: "font.body.default",
+              id: "local-font-body",
+              source: "local-variables-cache",
+            },
+          ],
+        },
+      },
+      {}
+    );
+
+    expect(output.statePatch?.fitReport).toMatchObject({
+      exactMatches: [
+        expect.objectContaining({
+          componentKey: "local-event-stream-key",
+          source: "local-component-db",
+        }),
+      ],
+      variableRefs: expect.arrayContaining([
+        expect.objectContaining({
+          id: "local-color-surface",
+          source: "local-variables-cache",
+        }),
+      ]),
+    });
+  });
+
   it("adds local icon matches to the fit report for planned UI affordances", async () => {
     const result = await runNode(
       "designSystem.buildFitReport",

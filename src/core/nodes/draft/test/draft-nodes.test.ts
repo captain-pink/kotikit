@@ -77,6 +77,36 @@ describe("draft graph nodes", () => {
     });
   });
 
+  it("builds a replacement canvas plan for an exact existing frame", async () => {
+    const output = await runNode("draft.buildCanvasPlan", {
+      screen: { title: "Events Experience", states: ["filled"] },
+      canvasIntent: {
+        mode: "replace-existing-frame",
+        targetFrame: {
+          nodeId: "12:34",
+          name: "Existing Events Frame",
+          bounds: { x: 100, y: 200, width: 1280, height: 720 },
+        },
+      },
+      figmaTarget: {
+        section: { id: "section-existing", name: "Existing Mock Page" },
+      },
+    });
+
+    expect(output.statePatch?.canvasPlan).toMatchObject({
+      mode: "replace",
+      screenSize: { width: 1280, height: 720 },
+      placements: [
+        expect.objectContaining({
+          canvasOperation: "replace-target-frame",
+          operation: "replace",
+          targetNodeId: "12:34",
+          bounds: { x: 100, y: 200, width: 1280, height: 720 },
+        }),
+      ],
+    });
+  });
+
   it("falls back to standard states when the state matrix is empty", async () => {
     const result = await runNode("draft.buildCanvasPlan", {
       screen: { title: "Members" },

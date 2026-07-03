@@ -1,0 +1,209 @@
+{
+  "schemaVersion": 1,
+  "id": "refine-existing",
+  "version": "1.0.0",
+  "title": "Refine Existing",
+  "description": "Refine one existing Figma frame from explicit target context, blueprint intent, and local design-system evidence.",
+  "stateSchema": "KotikitGraphState/v1",
+  "requiredCapabilities": [
+    "brief.write",
+    "ux.brainstorm",
+    "ux.plan",
+    "designSystem.search.local",
+    "designSystem.fit",
+    "figma.target",
+    "draft.compile",
+    "figma.write.remote",
+    "qa.run"
+  ],
+  "nodes": [
+    {
+      "id": "map-existing-targets",
+      "uses": "refine.mapExistingTargets",
+      "params": {}
+    },
+    {
+      "id": "classify-intent",
+      "uses": "brief.classifyIntent",
+      "params": {
+        "lanes": ["quick", "guided", "deep"]
+      }
+    },
+    {
+      "id": "capture-minimal-intent",
+      "uses": "brief.captureMinimalIntent",
+      "params": {
+        "lane": "adaptive"
+      }
+    },
+    {
+      "id": "infer-screen-blueprint",
+      "uses": "brief.inferScreenBlueprint",
+      "params": {}
+    },
+    {
+      "id": "brainstorm-design-approach",
+      "uses": "ux.brainstormApproach",
+      "params": {}
+    },
+    {
+      "id": "build-ux-envelope",
+      "uses": "ux.buildEnvelope",
+      "params": {}
+    },
+    {
+      "id": "plan-state-matrix",
+      "uses": "ux.planStateMatrix",
+      "params": {}
+    },
+    {
+      "id": "summarize-brief-for-approval",
+      "uses": "brief.summarizeForApproval",
+      "params": {}
+    },
+    {
+      "id": "ask-brief-approval",
+      "uses": "brief.askApproval",
+      "params": {}
+    },
+    {
+      "id": "save-approved-brief",
+      "uses": "brief.saveApproved",
+      "params": {}
+    },
+    {
+      "id": "search-local-design-system",
+      "uses": "designSystem.searchLocal",
+      "params": {}
+    },
+    {
+      "id": "build-fit-report",
+      "uses": "designSystem.buildFitReport",
+      "params": {}
+    },
+    {
+      "id": "save-reuse-plan",
+      "uses": "designSystem.saveReusePlan",
+      "params": {}
+    },
+    {
+      "id": "ensure-draft-target",
+      "uses": "figma.ensureDraftTarget",
+      "params": {}
+    },
+    {
+      "id": "build-canvas-plan",
+      "uses": "draft.buildCanvasPlan",
+      "params": {}
+    },
+    {
+      "id": "build-ui-composition-contract",
+      "uses": "ui.buildCompositionContract",
+      "params": {}
+    },
+    {
+      "id": "build-state-representation-contract",
+      "uses": "ui.buildStateRepresentationContract",
+      "params": {}
+    },
+    {
+      "id": "build-layout-contract",
+      "uses": "ui.buildLayoutContract",
+      "params": {}
+    },
+    {
+      "id": "build-variable-binding-plan",
+      "uses": "ui.buildVariableBindingPlan",
+      "params": {}
+    },
+    {
+      "id": "validate-no-hardcoded-imitation",
+      "uses": "ui.validateNoHardcodedImitation",
+      "params": {}
+    },
+    {
+      "id": "compile-high-fidelity-draft",
+      "uses": "draft.compileHighFidelityDraft",
+      "params": {}
+    },
+    {
+      "id": "build-figma-transaction-plan",
+      "uses": "draft.buildFigmaTransactionPlan",
+      "params": {}
+    },
+    {
+      "id": "build-figma-apply-packet",
+      "uses": "draft.buildFigmaApplyPacket",
+      "params": {}
+    },
+    {
+      "id": "apply-figma-transaction-queue",
+      "uses": "figma.applyTransactionQueue",
+      "params": {}
+    },
+    {
+      "id": "verify-draft-invariants",
+      "uses": "figma.verifyDraftInvariants",
+      "params": {}
+    },
+    {
+      "id": "verify-state-representation",
+      "uses": "ui.verifyStateRepresentation",
+      "params": {}
+    },
+    {
+      "id": "save-apply-report",
+      "uses": "figma.saveApplyReport",
+      "params": {}
+    },
+    {
+      "id": "run-ui-quality-gate",
+      "uses": "qa.runUiQualityGate",
+      "params": {}
+    },
+    {
+      "id": "post-draft-qa",
+      "uses": "qa.postDraftQa",
+      "params": {}
+    },
+    {
+      "id": "save-design-system-usage-report",
+      "uses": "designSystem.saveUsageReport",
+      "params": {}
+    }
+  ],
+  "edges": [
+    ["map-existing-targets", "classify-intent"],
+    ["classify-intent", "capture-minimal-intent"],
+    ["capture-minimal-intent", "infer-screen-blueprint"],
+    ["infer-screen-blueprint", "brainstorm-design-approach"],
+    ["brainstorm-design-approach", "build-ux-envelope"],
+    ["build-ux-envelope", "plan-state-matrix"],
+    ["plan-state-matrix", "summarize-brief-for-approval"],
+    ["summarize-brief-for-approval", "ask-brief-approval"],
+    ["ask-brief-approval", "save-approved-brief"],
+    ["save-approved-brief", "search-local-design-system"],
+    ["search-local-design-system", "build-fit-report"],
+    ["build-fit-report", "save-reuse-plan"],
+    ["save-reuse-plan", "ensure-draft-target"],
+    ["ensure-draft-target", "build-canvas-plan"],
+    ["build-canvas-plan", "build-ui-composition-contract"],
+    ["build-ui-composition-contract", "build-state-representation-contract"],
+    ["build-state-representation-contract", "build-layout-contract"],
+    ["build-layout-contract", "build-variable-binding-plan"],
+    ["build-variable-binding-plan", "validate-no-hardcoded-imitation"],
+    ["validate-no-hardcoded-imitation", "compile-high-fidelity-draft"],
+    ["compile-high-fidelity-draft", "build-figma-transaction-plan"],
+    ["build-figma-transaction-plan", "build-figma-apply-packet"],
+    ["build-figma-apply-packet", "apply-figma-transaction-queue"],
+    ["apply-figma-transaction-queue", "verify-draft-invariants"],
+    ["verify-draft-invariants", "verify-state-representation"],
+    ["verify-state-representation", "save-apply-report"],
+    ["save-apply-report", "run-ui-quality-gate"],
+    ["run-ui-quality-gate", "post-draft-qa"],
+    ["post-draft-qa", "save-design-system-usage-report"]
+  ],
+  "start": "map-existing-targets",
+  "end": ["save-design-system-usage-report"],
+  "safetyProfile": "standard-design-draft"
+}

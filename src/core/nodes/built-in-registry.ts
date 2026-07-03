@@ -9,6 +9,7 @@ import { draftNodeDefinitions } from "./draft/index.js";
 import { feedbackNodeDefinitions } from "./feedback/index.js";
 import { figmaNodeDefinitions } from "./figma/index.js";
 import { qaNodeDefinitions } from "./qa/index.js";
+import { refineNodeDefinitions } from "./refine/index.js";
 import { uiCompositionNodeDefinitions } from "./ui-composition/index.js";
 import { uxNodeDefinitions } from "./ux/index.js";
 
@@ -25,6 +26,7 @@ function builtInNodeDefinitions(): NodeDefinition[] {
     ...draftNodeDefinitions,
     ...figmaNodeDefinitions,
     ...feedbackNodeDefinitions,
+    ...refineNodeDefinitions,
     ...qaNodeDefinitions,
   ];
 }

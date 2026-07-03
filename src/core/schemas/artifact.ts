@@ -119,6 +119,9 @@ const CanvasPlacementSchema = z.strictObject({
   bounds: BoundsSchema,
   parentZoneId: IncrementalRefSchema,
   transactionId: IncrementalRefSchema,
+  canvasOperation: z.enum(["create-new-frame", "replace-target-frame"]).optional(),
+  operation: z.enum(["create", "replace"]).optional(),
+  targetNodeId: IncrementalRefSchema.optional(),
 });
 
 const CanvasPlanStrategySchema = z.strictObject({
@@ -130,6 +133,7 @@ const CanvasPlanStrategySchema = z.strictObject({
 export const CanvasPlanSchema = z
   .strictObject({
     schemaVersion: z.literal("CanvasPlan/v1"),
+    mode: z.enum(["create", "replace", "refine"]).optional(),
     section: CanvasSectionRefSchema,
     coordinateSpace: z.literal("section-relative"),
     screenSize: ScreenSizeSchema,
@@ -197,6 +201,18 @@ export const CanvasPlanSchema = z
           code: "custom",
           path: ["placements", index, "draftComponentId"],
           message: "Draft-component placements require draftComponentId.",
+        });
+      }
+
+      if (
+        (placement.operation === "replace" ||
+          placement.canvasOperation === "replace-target-frame") &&
+        placement.targetNodeId === undefined
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["placements", index, "targetNodeId"],
+          message: "Replacement placements require targetNodeId.",
         });
       }
     });
@@ -448,6 +464,16 @@ const UICompositionPartSchema = z.strictObject({
   extractionCandidate: z.boolean().optional(),
   primitiveReason: z.string().min(1).optional(),
   iconAffordances: z.array(IconAffordanceSchema).optional(),
+  regionId: z.string().min(1).optional(),
+  variableRoles: z
+    .array(
+      z.strictObject({
+        property: z.enum(["fill", "text", "effect", "spacing", "radius", "stroke", "shadow"]),
+        semanticRole: z.string().min(1),
+        optional: z.boolean().optional(),
+      })
+    )
+    .optional(),
 });
 
 export const UICompositionContractSchema = z.strictObject({
@@ -524,6 +550,31 @@ export const DesignApproachSchema = z.strictObject({
   decision: z.enum(["proceed", "ask-designer"]),
 });
 
+const UXTraitRegionSchema = z.strictObject({
+  id: z.string().min(1).optional(),
+  name: z.string().min(1),
+  kind: z.enum(["table", "list", "timeline", "chart", "form", "detail-panel", "custom"]),
+});
+
+const UXTraitStateScopeSchema = z.strictObject({
+  id: z.string().min(1).optional(),
+  name: z.string().min(1),
+  kind: z.enum(["page", "region", "component", "flow"]),
+});
+
+const UXTraitRepeatedPatternSchema = z.strictObject({
+  id: z.string().min(1).optional(),
+  name: z.string().min(1),
+  kind: z.enum(["rows", "cards", "events", "steps", "custom"]),
+});
+
+const UXTraitsSchema = z.strictObject({
+  regions: z.array(UXTraitRegionSchema).optional(),
+  stateScopes: z.array(UXTraitStateScopeSchema).optional(),
+  repeatedPatterns: z.array(UXTraitRepeatedPatternSchema).optional(),
+  patternPackIds: z.array(z.string().min(1)).optional(),
+});
+
 export const UXEnvelopeSchema = z.strictObject({
   schemaVersion: z.literal("UXEnvelope/v1"),
   screenArchetype: z.enum([
@@ -549,6 +600,8 @@ export const UXEnvelopeSchema = z.strictObject({
   edgeCases: z.array(z.string().min(1)),
   assumptions: z.array(z.string().min(1)),
   sourceRefs: z.array(z.string().url()),
+  traits: UXTraitsSchema.optional(),
+  patternPackIds: z.array(z.string().min(1)).optional(),
 });
 
 const StateMatrixStateSchema = z.strictObject({

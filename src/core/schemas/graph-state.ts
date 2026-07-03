@@ -17,6 +17,12 @@ import {
   UXEnvelopeSchema,
   VariableBindingPlanSchema,
 } from "./artifact.js";
+import {
+  CanvasIntentInputSchema,
+  ExistingDesignInventoryInputSchema,
+  FlowBlueprintInputSchema,
+  ScreenBlueprintInputSchema,
+} from "./blueprint.js";
 
 export const KOTIKIT_GRAPH_STATE_SCHEMA_ID =
   "https://kotikit.dev/schemas/kotikit-graph-state.schema.json";
@@ -82,6 +88,10 @@ export const KotikitGraphStateSchema = z.strictObject({
   status: z.enum(["running", "waiting-for-user", "waiting-for-figma", "blocked", "done"]),
   project: ProjectRefSchema,
   userIntent: z.string().min(1).optional(),
+  screenBlueprint: ScreenBlueprintInputSchema.optional(),
+  flowBlueprint: FlowBlueprintInputSchema.optional(),
+  canvasIntent: CanvasIntentInputSchema.optional(),
+  existingDesignInventory: ExistingDesignInventoryInputSchema.optional(),
   answers: z.record(z.string(), z.string().min(1)).optional(),
   brief: z.unknown().optional(),
   screen: z.unknown().optional(),

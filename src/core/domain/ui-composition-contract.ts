@@ -40,9 +40,16 @@ type CreatedDraftComponentLike = {
 type UICompositionPart = UICompositionContract["parts"][number];
 type UIPlacement = NonNullable<UICompositionPart["placement"]>;
 type UIIconAffordance = NonNullable<UICompositionPart["iconAffordances"]>[number];
+type RequestedUiPart = {
+  id?: string;
+  name: string;
+  role?: string;
+  regionId?: string;
+  variableRoles?: UICompositionPart["variableRoles"];
+};
 
 export function buildUiCompositionContract(input: {
-  requiredUiParts: string[];
+  requiredUiParts: Array<string | RequestedUiPart>;
   neededStates?: string[];
   screenArchetype?: UXEnvelope["screenArchetype"];
   fitReport?: FitReportLike;
@@ -50,17 +57,20 @@ export function buildUiCompositionContract(input: {
   createdDraftComponents?: CreatedDraftComponentLike[];
   approvedPrimitiveExceptions?: string[];
 }): UICompositionContract {
-  const parts = input.requiredUiParts.map((part) => {
-    const id = idFor(part);
-    const role = roleFor(part);
-    const iconAffordances = iconAffordancesForPart(part, input.fitReport?.iconMatches);
+  const requestedParts = input.requiredUiParts.map(
+    (part): RequestedUiPart => (typeof part === "string" ? { name: part } : part)
+  );
+  const parts = requestedParts.map((part) => {
+    const id = part.id ?? idFor(part.name);
+    const role = part.role ?? roleFor(part.name);
+    const iconAffordances = iconAffordancesForPart(part.name, input.fitReport?.iconMatches);
     const placement = placementFor({
       id,
-      name: part,
+      name: part.name,
       role,
       screenArchetype: input.screenArchetype,
     });
-    const existing = findFit(part, [
+    const existing = findFit(part.name, [
       ...(input.fitReport?.exactMatches ?? []),
       ...(input.fitReport?.substitutes ?? []),
       ...(input.fitReport?.wrapCandidates ?? []),
@@ -68,17 +78,19 @@ export function buildUiCompositionContract(input: {
     if (existing?.componentKey !== undefined) {
       return {
         id,
-        name: part,
+        name: part.name,
         role,
         ...(placement === undefined ? {} : { placement }),
         source: "existing-component" as const,
         componentKey: existing.componentKey,
         ...(iconAffordances.length === 0 ? {} : { iconAffordances }),
+        ...(part.regionId === undefined ? {} : { regionId: part.regionId }),
+        ...(part.variableRoles === undefined ? {} : { variableRoles: part.variableRoles }),
       };
     }
 
     const draft = input.draftComponentPlan?.components?.find(
-      (component) => normalize(component.name) === normalize(part)
+      (component) => normalize(component.name) === normalize(part.name)
     );
     if (draft?.id !== undefined) {
       const created = input.createdDraftComponents?.find((component) => component.id === draft.id);
@@ -90,36 +102,44 @@ export function buildUiCompositionContract(input: {
       }
       return {
         id,
-        name: part,
+        name: part.name,
         role,
         ...(placement === undefined ? {} : { placement }),
         source: "draft-component" as const,
         draftComponentId: draft.id,
         componentKey: created.componentKey,
         ...(iconAffordances.length === 0 ? {} : { iconAffordances }),
+        ...(part.regionId === undefined ? {} : { regionId: part.regionId }),
+        ...(part.variableRoles === undefined ? {} : { variableRoles: part.variableRoles }),
       };
     }
 
-    if (input.approvedPrimitiveExceptions?.some((item) => normalize(item) === normalize(part))) {
+    if (
+      input.approvedPrimitiveExceptions?.some((item) => normalize(item) === normalize(part.name))
+    ) {
       return {
         id,
-        name: part,
+        name: part.name,
         role,
         ...(placement === undefined ? {} : { placement }),
         source: "approved-primitive" as const,
         primitiveReason: "Approved primitive exception for this draft.",
         ...(iconAffordances.length === 0 ? {} : { iconAffordances }),
+        ...(part.regionId === undefined ? {} : { regionId: part.regionId }),
+        ...(part.variableRoles === undefined ? {} : { variableRoles: part.variableRoles }),
       };
     }
 
     return {
       id,
-      name: part,
+      name: part.name,
       role,
       ...(placement === undefined ? {} : { placement }),
       source: "screen-draft" as const,
       extractionCandidate: true,
       ...(iconAffordances.length === 0 ? {} : { iconAffordances }),
+      ...(part.regionId === undefined ? {} : { regionId: part.regionId }),
+      ...(part.variableRoles === undefined ? {} : { variableRoles: part.variableRoles }),
     };
   });
 

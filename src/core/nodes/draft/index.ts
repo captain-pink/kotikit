@@ -57,19 +57,28 @@ export const draftNodeDefinitions: NodeDefinition[] = [
   }),
   node({
     key: "draft.buildCanvasPlan",
-    stateReads: ["figmaTarget", "screen", "stateMatrix", "draftComponentPlan"],
+    stateReads: ["figmaTarget", "screen", "stateMatrix", "draftComponentPlan", "canvasIntent"],
     stateWrites: ["canvasPlan"],
     run: async (input) => {
       const state = graphState(input.state);
       const section = canvasSectionFrom(state);
+      const replacementTarget = replacementTargetFrom(state);
+      const screenSize =
+        replacementTarget === undefined
+          ? { width: 1440, height: 900 }
+          : {
+              width: replacementTarget.bounds.width,
+              height: replacementTarget.bounds.height,
+            };
       const canvasPlan = buildCanvasPlan({
         sectionName: section.name,
         ...(section.id === undefined ? {} : { sectionId: section.id }),
         screenTitle: screenTitle(state),
-        screenSize: { width: 1440, height: 900 },
+        screenSize,
         states: canvasStatesFrom(state),
         draftComponents: state.draftComponentPlan?.components ?? [],
         sectionStyle: state.figmaDefaults?.section,
+        ...(replacementTarget === undefined ? {} : { replacementTarget }),
       });
       return {
         statePatch: { canvasPlan },
@@ -234,6 +243,38 @@ function canvasSectionFrom(state: KotikitGraphState): { name: string; id?: strin
   return {
     name,
     ...(id === undefined ? {} : { id }),
+  };
+}
+
+function replacementTargetFrom(state: KotikitGraphState):
+  | {
+      nodeId: string;
+      name?: string;
+      bounds: { x: number; y: number; width: number; height: number };
+    }
+  | undefined {
+  const canvasIntent = recordFrom(state.canvasIntent);
+  if (canvasIntent.mode !== "replace-existing-frame") return undefined;
+  const target = recordFrom(canvasIntent.targetFrame);
+  const bounds = recordFrom(target.bounds);
+  if (
+    typeof target.nodeId !== "string" ||
+    typeof bounds.x !== "number" ||
+    typeof bounds.y !== "number" ||
+    typeof bounds.width !== "number" ||
+    typeof bounds.height !== "number"
+  ) {
+    return undefined;
+  }
+  return {
+    nodeId: target.nodeId,
+    ...(typeof target.name === "string" ? { name: target.name } : {}),
+    bounds: {
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height: bounds.height,
+    },
   };
 }
 

@@ -10,6 +10,9 @@ type VariableRef = {
 };
 
 type BindingProperty = VariableBindingPlan["bindings"][number]["property"];
+type VariableRoleRequirement = NonNullable<
+  UICompositionContract["parts"][number]["variableRoles"]
+>[number];
 
 const REQUIRED_PROPERTIES: BindingProperty[] = [
   "fill",
@@ -27,6 +30,14 @@ export function buildVariableBindingPlan(input: {
   literalFallbackApproved?: boolean;
   requiredProperties?: BindingProperty[];
 }): VariableBindingPlan | "needs-literal-approval" {
+  const roleBindings = bindingsFromVariableRoles(input.uiComposition.parts, input.variables);
+  if (roleBindings !== undefined) {
+    return {
+      schemaVersion: "VariableBindingPlan/v1",
+      bindings: roleBindings,
+    };
+  }
+
   const requiredProperties = input.requiredProperties ?? REQUIRED_PROPERTIES;
   const variableByProperty = new Map(
     requiredProperties.flatMap((property) => {
@@ -87,6 +98,49 @@ export function buildVariableBindingPlan(input: {
   };
 }
 
+function bindingsFromVariableRoles(
+  parts: UICompositionContract["parts"],
+  variables: VariableRef[]
+): VariableBindingPlan["bindings"] | undefined {
+  const partsWithRoles = parts.filter((part) => (part.variableRoles ?? []).length > 0);
+  if (partsWithRoles.length === 0) return undefined;
+
+  return partsWithRoles.flatMap((part) =>
+    (part.variableRoles ?? []).flatMap((role) => {
+      const variable = variableForRole(role, variables);
+      if (variable === undefined && role.optional === true) return [];
+      if (variable === undefined) {
+        return [
+          {
+            targetId: part.id,
+            property: role.property,
+            source: "approved-literal" as const,
+            literalValue: "draft-only",
+            approvalRef: "approved-literal-variable-fallback",
+          },
+        ];
+      }
+      return [variableBinding(part.id, role.property, variable)];
+    })
+  );
+}
+
+function variableForRole(
+  role: VariableRoleRequirement,
+  variables: VariableRef[]
+): VariableRef | undefined {
+  const byProperty = variables.filter(
+    (variable) => propertyForVariable(variable) === role.property
+  );
+  const semanticTokens = tokensFor(role.semanticRole);
+  return (
+    byProperty.find((variable) => {
+      const nameTokens = tokensFor(variable.name ?? "");
+      return semanticTokens.some((token) => nameTokens.includes(token));
+    }) ?? byProperty[0]
+  );
+}
+
 function variableBinding(
   targetId: string,
   property: BindingProperty,
@@ -123,4 +177,13 @@ function propertyForVariable(variable: VariableRef): BindingProperty | undefined
     default:
       return undefined;
   }
+}
+
+function tokensFor(value: string): string[] {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
 }

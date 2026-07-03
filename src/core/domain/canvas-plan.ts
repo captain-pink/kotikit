@@ -24,8 +24,20 @@ export function buildCanvasPlan(input: {
   screenSize: { width: number; height: number };
   states: { id: string; label: string; kind: string }[];
   draftComponents: { id: string; name: string }[];
+  replacementTarget?: {
+    nodeId: string;
+    name?: string;
+    bounds: Bounds;
+  };
   sectionStyle?: CanvasPlan["sectionStyle"];
 }): CanvasPlan {
+  if (input.replacementTarget !== undefined) {
+    return buildReplacementCanvasPlan({
+      ...input,
+      replacementTarget: input.replacementTarget,
+    });
+  }
+
   const screenZone = screenZoneFor(input.screenSize, input.states.length);
   const draftZone =
     input.draftComponents.length === 0
@@ -98,6 +110,62 @@ export function buildCanvasPlan(input: {
   return parsed;
 }
 
+function buildReplacementCanvasPlan(input: {
+  sectionName: string;
+  sectionId?: string;
+  screenTitle: string;
+  states: { id: string; label: string; kind: string }[];
+  replacementTarget: { nodeId: string; name?: string; bounds: Bounds };
+  sectionStyle?: CanvasPlan["sectionStyle"];
+}): CanvasPlan {
+  const target = input.replacementTarget;
+  const zone: CanvasZone = {
+    id: "zone-existing-target",
+    kind: "screen-states",
+    label: target.name ?? input.screenTitle,
+    bounds: target.bounds,
+  };
+  const placements = input.states.map(
+    (state): CanvasPlacement => ({
+      id: `state-${state.id}`,
+      kind: "screen-state",
+      stateId: state.id,
+      label: `${target.name ?? input.screenTitle} - ${state.label}`,
+      bounds: target.bounds,
+      parentZoneId: zone.id,
+      transactionId: `txn-state-${state.id}`,
+      canvasOperation: "replace-target-frame",
+      operation: "replace",
+      targetNodeId: target.nodeId,
+    })
+  );
+  const plan: CanvasPlan = {
+    schemaVersion: "CanvasPlan/v1",
+    mode: "replace",
+    section: {
+      ...(input.sectionId === undefined ? {} : { id: input.sectionId }),
+      name: input.sectionName,
+    },
+    coordinateSpace: "section-relative",
+    screenSize: { width: target.bounds.width, height: target.bounds.height },
+    minGap: SCREEN_GAP,
+    sectionStyle: input.sectionStyle ?? DEFAULT_SECTION_STYLE,
+    zones: [zone],
+    placements,
+    strategy: {
+      primaryFirst: true,
+      creationOrder: placements.map((placement) => placement.id),
+      designerNotes: [
+        "Replace the exact existing target frame in place; do not create a new section or sibling screen frame.",
+      ],
+    },
+  };
+
+  const parsed = CanvasPlanSchema.parse(plan);
+  verifyCanvasPlan(parsed);
+  return parsed;
+}
+
 export function verifyCanvasPlan(plan: CanvasPlan): void {
   const zonesById = new Map(plan.zones.map((zone) => [zone.id, zone]));
   const missingParent = plan.placements.find((placement) => !zonesById.has(placement.parentZoneId));
@@ -123,7 +191,10 @@ export function verifyCanvasPlan(plan: CanvasPlan): void {
   plan.placements.forEach((left, leftIndex) => {
     const overlap = plan.placements
       .slice(leftIndex + 1)
-      .find((right) => placementsOverlap(left, right, plan.minGap));
+      .find(
+        (right) =>
+          !sameReplacementTarget(left, right) && placementsOverlap(left, right, plan.minGap)
+      );
     if (overlap !== undefined) {
       throw new KotikitError(
         `Canvas placements overlap: ${left.label} and ${overlap.label}.`,
@@ -131,6 +202,15 @@ export function verifyCanvasPlan(plan: CanvasPlan): void {
       );
     }
   });
+}
+
+function sameReplacementTarget(left: CanvasPlacement, right: CanvasPlacement): boolean {
+  return (
+    left.canvasOperation === "replace-target-frame" &&
+    right.canvasOperation === "replace-target-frame" &&
+    left.targetNodeId !== undefined &&
+    left.targetNodeId === right.targetNodeId
+  );
 }
 
 export function placementsOverlap(

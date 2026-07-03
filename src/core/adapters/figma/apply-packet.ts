@@ -22,6 +22,9 @@ type FigmaTransactionSummary = {
   placementId: string;
   stateId?: string;
   draftComponentId?: string;
+  canvasOperation: "create-new-frame" | "replace-target-frame";
+  operation: "create" | "replace";
+  targetNodeId?: string;
   expectedNodeKind: "COMPONENT" | "FRAME";
   placement: CanvasPlan["placements"][number];
   parentZone: CanvasPlan["zones"][number];
@@ -197,6 +200,9 @@ function summarizeTransactionPlan(
         ...(transaction.draftComponentId === undefined
           ? {}
           : { draftComponentId: transaction.draftComponentId }),
+        canvasOperation: placement.canvasOperation ?? "create-new-frame",
+        operation: placement.operation ?? "create",
+        ...(placement.targetNodeId === undefined ? {} : { targetNodeId: placement.targetNodeId }),
         expectedNodeKind: transaction.kind === "create-draft-component" ? "COMPONENT" : "FRAME",
         placement,
         parentZone,

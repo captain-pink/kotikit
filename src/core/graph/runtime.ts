@@ -7,6 +7,12 @@ import type { ArtifactStore } from "../runs/artifact-store.js";
 import type { CheckpointStore } from "../runs/checkpoint-store.js";
 import type { RunRecord, RunStore } from "../runs/run-store.js";
 import { type Artifact, ArtifactSchema } from "../schemas/artifact.js";
+import type {
+  CanvasIntentInput,
+  ExistingDesignInventoryInput,
+  FlowBlueprintInput,
+  ScreenBlueprintInput,
+} from "../schemas/blueprint.js";
 import type { FlowDefinition } from "../schemas/flow-definition.js";
 import {
   KOTIKIT_GRAPH_STATE_SCHEMA_VERSION,
@@ -38,6 +44,10 @@ export type GraphRuntime = {
 export type RuntimeStartInput = {
   project: KotikitGraphState["project"];
   userIntent?: string;
+  screenBlueprint?: ScreenBlueprintInput;
+  flowBlueprint?: FlowBlueprintInput;
+  canvasIntent?: CanvasIntentInput;
+  existingDesignInventory?: ExistingDesignInventoryInput;
   figmaTarget?: KotikitGraphState["figmaTarget"];
   figmaDefaults?: KotikitGraphState["figmaDefaults"];
   designSystem?: KotikitGraphState["designSystem"];
@@ -99,6 +109,10 @@ export function createGraphRuntime(input: {
         status: "running",
         project: startInput.input.project,
         userIntent: startInput.input.userIntent,
+        screenBlueprint: startInput.input.screenBlueprint,
+        flowBlueprint: startInput.input.flowBlueprint,
+        canvasIntent: startInput.input.canvasIntent,
+        existingDesignInventory: startInput.input.existingDesignInventory,
         figmaTarget: startInput.input.figmaTarget,
         figmaDefaults: startInput.input.figmaDefaults,
         designSystem: startInput.input.designSystem,

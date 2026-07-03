@@ -85,7 +85,11 @@ describe("built-in node registry", () => {
   it("keeps stale optional flows out of the tiny built-in core", async () => {
     const flows = await loadBuiltInFlows();
 
-    expect(flows.map((flow) => flow.id)).toEqual(["create-screen", "review-screen"]);
+    expect(flows.map((flow) => flow.id)).toEqual([
+      "create-screen",
+      "refine-existing",
+      "review-screen",
+    ]);
     expect(flows.flatMap((flow) => flow.nodes.map((node) => node.uses))).not.toEqual(
       expect.arrayContaining([
         "draftComponents.createOnDraftPage",
@@ -106,6 +110,7 @@ describe("built-in node registry", () => {
     expect(registry.has("feedback.buildEvidenceMap")).toBe(true);
     expect(registry.has("feedback.createRevisionPlan")).toBe(true);
     expect(registry.has("feedback.askRevisionApproval")).toBe(true);
+    expect(registry.has("refine.mapExistingTargets")).toBe(true);
     expect(registry.has("draftComponents.createOnDraftPage")).toBe(false);
     expect(registry.has("flow.mapUserFlow")).toBe(false);
     expect(registry.has("review.collectEvidence")).toBe(false);

@@ -10,6 +10,12 @@ import type {
   RuntimeStartInput,
 } from "../../core/graph/runtime.js";
 import type { Artifact } from "../../core/schemas/artifact.js";
+import {
+  CanvasIntentInputSchema,
+  ExistingDesignInventoryInputSchema,
+  FlowBlueprintInputSchema,
+  ScreenBlueprintInputSchema,
+} from "../../core/schemas/blueprint.js";
 import { type FlowDefinition, FlowDefinitionSchema } from "../../core/schemas/flow-definition.js";
 import type { KotikitGraphState } from "../../core/schemas/graph-state.js";
 import { runKotikitDoctor } from "../../doctor/doctor.js";
@@ -72,6 +78,10 @@ const StartInputSchema = z.strictObject({
     .strictObject({
       project: RuntimeProjectInputSchema.optional(),
       userIntent: z.string().min(1).optional(),
+      screenBlueprint: ScreenBlueprintInputSchema.optional(),
+      flowBlueprint: FlowBlueprintInputSchema.optional(),
+      canvasIntent: CanvasIntentInputSchema.optional(),
+      existingDesignInventory: ExistingDesignInventoryInputSchema.optional(),
       figmaTarget: z.unknown().optional(),
       figmaDefaults: z.unknown().optional(),
       designSystem: z.unknown().optional(),
@@ -181,6 +191,26 @@ export function registerFacadeTools(
           type: "object",
           properties: {
             userIntent: { type: "string", description: "Designer request in plain language." },
+            screenBlueprint: {
+              type: "object",
+              description:
+                "Structured one-screen blueprint authored by the assistant from the designer request.",
+            },
+            flowBlueprint: {
+              type: "object",
+              description:
+                "Structured multi-screen blueprint authored by the assistant from the designer request.",
+            },
+            canvasIntent: {
+              type: "object",
+              description:
+                "Canvas operation intent, such as creating a new section or replacing existing Figma targets.",
+            },
+            existingDesignInventory: {
+              type: "object",
+              description:
+                "Compact inventory of existing Figma page/frame targets for refine-existing flows.",
+            },
             figmaTarget: {
               type: "object",
               description: "Safe Figma draft target object to seed into the graph run.",
@@ -222,6 +252,18 @@ export function registerFacadeTools(
       const startInput: RuntimeStartInput = {
         project: input.input?.project ?? { root: ctx.root },
         ...(input.input?.userIntent === undefined ? {} : { userIntent: input.input.userIntent }),
+        ...(input.input?.screenBlueprint === undefined
+          ? {}
+          : { screenBlueprint: input.input.screenBlueprint }),
+        ...(input.input?.flowBlueprint === undefined
+          ? {}
+          : { flowBlueprint: input.input.flowBlueprint }),
+        ...(input.input?.canvasIntent === undefined
+          ? {}
+          : { canvasIntent: input.input.canvasIntent }),
+        ...(input.input?.existingDesignInventory === undefined
+          ? {}
+          : { existingDesignInventory: input.input.existingDesignInventory }),
         ...(input.input?.figmaTarget === undefined
           ? {}
           : { figmaTarget: ensureDraftTarget(input.input.figmaTarget) }),

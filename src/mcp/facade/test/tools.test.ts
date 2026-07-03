@@ -248,7 +248,11 @@ describe("MCP facade tools", () => {
     const reviewScreen = detail.flows.find((flow) => flow.id === "review-screen");
 
     expect(result.isError).toBeFalsy();
-    expect(detail.flows.map((flow) => flow.id)).toEqual(["create-screen", "review-screen"]);
+    expect(detail.flows.map((flow) => flow.id)).toEqual([
+      "create-screen",
+      "refine-existing",
+      "review-screen",
+    ]);
     expect(createScreen?.title).toBe("Create Screen");
     expect(reviewScreen?.title).toBe("Review Screen");
     expect(createScreen).not.toHaveProperty("nodes");
@@ -684,6 +688,60 @@ describe("MCP facade tools", () => {
     expect(result.isError).toBeFalsy();
     expect(captured).toMatchObject({
       designSystem: { components: [{ name: "Button", key: "button-key" }] },
+    });
+  });
+
+  it("starts flows with structured blueprint, canvas intent, and existing design inventory", async () => {
+    let captured: RuntimeRunResult["state"] | undefined;
+    const runtime = {
+      ...makeRuntime(),
+      async startFlow(input): Promise<RuntimeRunResult> {
+        captured = {
+          ...makeState("running"),
+          screenBlueprint: input.input.screenBlueprint,
+          canvasIntent: input.input.canvasIntent,
+          existingDesignInventory: input.input.existingDesignInventory,
+        };
+        return {
+          runId: "run-1",
+          status: "running",
+          state: captured,
+        };
+      },
+    } satisfies FacadeRuntime;
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx(), { runtime });
+
+    const result = await callTool(registry, "kotikit_start", {
+      flowId: "create-screen",
+      input: {
+        userIntent: "Create the supplied mocked Events Experience PRD.",
+        screenBlueprint: {
+          schemaVersion: "ScreenBlueprintInput/v1",
+          id: "events",
+          title: "Events Experience",
+          productDomain: "Mock Operations",
+          requiredUiParts: [{ id: "event-stream", name: "Event stream", role: "timeline" }],
+        },
+        canvasIntent: {
+          mode: "replace-existing-frame",
+          targetFrame: { nodeId: "12:34", name: "Existing Events Frame" },
+        },
+        existingDesignInventory: {
+          schemaVersion: "ExistingDesignInventoryInput/v1",
+          source: "figma-scan",
+          targets: [{ nodeId: "12:34", name: "Existing Events Frame", kind: "frame" }],
+        },
+      },
+    });
+
+    expect(result.isError).toBeFalsy();
+    expect(captured).toMatchObject({
+      screenBlueprint: { title: "Events Experience" },
+      canvasIntent: { mode: "replace-existing-frame", targetFrame: { nodeId: "12:34" } },
+      existingDesignInventory: {
+        targets: [expect.objectContaining({ nodeId: "12:34" })],
+      },
     });
   });
 
