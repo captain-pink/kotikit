@@ -344,6 +344,55 @@ describe("qa graph nodes", () => {
     });
   });
 
+  it("blocks replacement runs when apply metadata points at a sibling frame", async () => {
+    const result = await runNode("qa.runUiQualityGate", {
+      canvasPlan: {
+        ...canvasPlan(),
+        mode: "replace",
+        placements: [
+          {
+            id: "state-filled",
+            kind: "screen-state",
+            stateId: "filled",
+            label: "Existing Events Frame - Filled",
+            bounds: { x: 100, y: 200, width: 1280, height: 720 },
+            parentZoneId: "zone-screen-states",
+            transactionId: "txn-filled",
+            canvasOperation: "replace-target-frame",
+            operation: "replace",
+            targetNodeId: "12:34",
+          },
+        ],
+        strategy: {
+          primaryFirst: true,
+          creationOrder: ["state-filled"],
+          designerNotes: ["Replace the exact selected frame."],
+        },
+      },
+      applyReport: {
+        schemaVersion: "FigmaApplyReport/v1",
+        nodes: [
+          {
+            id: "99:99",
+            semanticRole: "screen-state",
+            transactionId: "txn-filled",
+            placementId: "state-filled",
+            bounds: { x: 100, y: 200, width: 1280, height: 720 },
+            autoLayout: true,
+            screenshotReviewed: true,
+          },
+        ],
+      },
+    });
+
+    expect(result.statePatch?.uiQualityGate).toMatchObject({
+      status: "blocked",
+      checks: expect.arrayContaining([
+        expect.objectContaining({ id: "replacement-target-node", status: "blocked" }),
+      ]),
+    });
+  });
+
   it("blocks icon placeholders when the apply packet required icons", async () => {
     const result = await runNode("qa.runUiQualityGate", {
       draftPlan: {

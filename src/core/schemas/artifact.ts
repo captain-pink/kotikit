@@ -119,6 +119,9 @@ const CanvasPlacementSchema = z.strictObject({
   bounds: BoundsSchema,
   parentZoneId: IncrementalRefSchema,
   transactionId: IncrementalRefSchema,
+  canvasOperation: z.enum(["create-new-frame", "replace-target-frame"]).optional(),
+  operation: z.enum(["create", "replace"]).optional(),
+  targetNodeId: IncrementalRefSchema.optional(),
 });
 
 const CanvasPlanStrategySchema = z.strictObject({
@@ -130,6 +133,7 @@ const CanvasPlanStrategySchema = z.strictObject({
 export const CanvasPlanSchema = z
   .strictObject({
     schemaVersion: z.literal("CanvasPlan/v1"),
+    mode: z.enum(["create", "replace", "refine"]).optional(),
     section: CanvasSectionRefSchema,
     coordinateSpace: z.literal("section-relative"),
     screenSize: ScreenSizeSchema,
@@ -197,6 +201,18 @@ export const CanvasPlanSchema = z
           code: "custom",
           path: ["placements", index, "draftComponentId"],
           message: "Draft-component placements require draftComponentId.",
+        });
+      }
+
+      if (
+        (placement.operation === "replace" ||
+          placement.canvasOperation === "replace-target-frame") &&
+        placement.targetNodeId === undefined
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["placements", index, "targetNodeId"],
+          message: "Replacement placements require targetNodeId.",
         });
       }
     });
