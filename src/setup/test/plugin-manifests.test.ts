@@ -93,16 +93,16 @@ describe("assistant plugin wrappers", () => {
     });
   });
 
-  it("documents plugins as the preferred setup while keeping scaffold available", () => {
+  it("documents optional plugins while keeping source scaffold available", () => {
     const docs = readText(join(repoRoot, "docs", "getting-started.md"));
     const pluginReadme = readText(join(repoRoot, "plugins", "README.md"));
     const packageScripts = readJson(join(repoRoot, "package.json")) as {
       scripts: Record<string, string>;
     };
 
-    expect(docs).toContain("Install The Assistant Plugin Wrapper");
-    expect(docs).toContain("Use `bun run scaffold:agents` for local development");
-    expect(docs).toContain("Figma personal access token is not required for draft creation");
+    expect(docs).toContain("Plugin wrappers are optional");
+    expect(docs).toContain("bun run scaffold:agents");
+    expect(docs).toContain("A Figma personal access token is not required to create drafts");
     expect(pluginReadme).toContain("plugins/codex");
     expect(pluginReadme).toContain("plugins/claude");
     expect(pluginReadme).toContain("kotikit-mcp");

@@ -1,17 +1,12 @@
 #!/usr/bin/env bun
 
 import { resolve } from "node:path";
-import {
-  type CoAuthorMode,
-  parseAgentSelection,
-  scaffoldAgents,
-} from "../src/setup/scaffold-agents.js";
+import { parseAgentSelection, scaffoldAgents } from "../src/setup/scaffold-agents.js";
 
 interface CliOptions {
   targetRoot: string;
   kotikitRoot: string;
   agents: ReturnType<typeof parseAgentSelection>;
-  coAuthorMode: CoAuthorMode;
   ensureEnv: boolean;
   installSkills: boolean;
   preserveSkills: boolean;
@@ -26,18 +21,11 @@ function readFlagValue(argv: string[], index: number, name: string): string {
   return value;
 }
 
-function parseCoAuthorMode(value: string | undefined): CoAuthorMode {
-  if (value === undefined) return "auto";
-  if (value === "auto" || value === "none" || value === "claude" || value === "codex") return value;
-  throw new Error("--co-author must be one of: auto, none, claude, codex");
-}
-
 function parseArgs(argv: string[], defaults: { cwd: string; kotikitRoot: string }): CliOptions {
   const opts: CliOptions = {
     targetRoot: defaults.cwd,
     kotikitRoot: defaults.kotikitRoot,
     agents: ["claude", "codex"],
-    coAuthorMode: "auto",
     ensureEnv: true,
     installSkills: true,
     preserveSkills: false,
@@ -48,8 +36,7 @@ function parseArgs(argv: string[], defaults: { cwd: string; kotikitRoot: string 
     if (
       argv[index - 1] === "--target" ||
       argv[index - 1] === "--kotikit-root" ||
-      argv[index - 1] === "--agents" ||
-      argv[index - 1] === "--co-author"
+      argv[index - 1] === "--agents"
     ) {
       return;
     }
@@ -93,14 +80,6 @@ function parseArgs(argv: string[], defaults: { cwd: string; kotikitRoot: string 
       opts.agents = parseAgentSelection(arg.slice("--agents=".length));
       return;
     }
-    if (arg === "--co-author") {
-      opts.coAuthorMode = parseCoAuthorMode(readFlagValue(argv, index, "--co-author"));
-      return;
-    }
-    if (arg.startsWith("--co-author=")) {
-      opts.coAuthorMode = parseCoAuthorMode(arg.slice("--co-author=".length));
-      return;
-    }
     throw new Error(`Unknown option: ${arg}`);
   });
   return opts;
@@ -113,7 +92,6 @@ function helpText(): string {
     "Options:",
     "  --agents claude|codex|both|claude,codex  Agent configs to write. Default: both.",
     "  --kotikit-root /path/to/kotikit          Kotikit repo root. Default: this repo.",
-    "  --co-author auto|none|claude|codex       Update existing .kotikit/config.json co-author. Default: auto.",
     "  --no-env                                Do not create or append FIGMA_TOKEN= in .env.",
     "  --no-skill                              Do not install kotikit skills into the target project.",
     "  --preserve-skills                       Keep changed copied skills instead of backing them up and refreshing.",
@@ -142,7 +120,6 @@ async function main(): Promise<void> {
     targetRoot: opts.targetRoot,
     kotikitRoot: opts.kotikitRoot,
     agents: opts.agents,
-    coAuthorMode: opts.coAuthorMode,
     ensureEnv: opts.ensureEnv,
     installSkills: opts.installSkills,
     preserveSkills: opts.preserveSkills,

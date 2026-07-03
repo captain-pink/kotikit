@@ -30,7 +30,6 @@
   "dependencies": {
     "@langchain/langgraph": "^1.4.7",
     "@modelcontextprotocol/sdk": "latest",
-    "simple-git": "^3.27.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {

@@ -48,9 +48,6 @@ is available on `PATH`.
 1. Call `kotikit_doctor`.
 2. If kotikit is not initialized, call `kotikit_config_status`, ask only the
    missing setup questions, then call `kotikit_config_init`.
-3. When running in Codex, include
-   `coAuthor: { name: "Codex", email: "noreply@openai.com" }` unless the user
-   explicitly asks for different commit metadata.
 
 ## Create Or Refine Design
 

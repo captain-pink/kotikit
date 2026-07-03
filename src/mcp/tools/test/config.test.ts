@@ -74,10 +74,11 @@ describe("tool registration", () => {
     expect(registry.tools.find((t) => t.name === "kotikit_config_init")).toBeDefined();
   });
 
-  it("advertises coAuthor on kotikit_config_init", () => {
+  it("does not advertise git or co-author fields on kotikit_config_init", () => {
     const tool = registry.tools.find((t) => t.name === "kotikit_config_init");
-    expect(JSON.stringify(tool?.inputSchema)).toContain('"coAuthor"');
-    expect(JSON.stringify(tool?.inputSchema)).toContain('"required":["name","email"]');
+    const schema = JSON.stringify(tool?.inputSchema);
+    expect(schema).not.toContain('"autoCommit"');
+    expect(schema).not.toContain('"coAuthor"');
   });
 
   it("registers kotikit_config_get", () => {
@@ -116,10 +117,10 @@ describe("kotikit_config_status", () => {
     expect(text).toContain("Figma");
   });
 
-  it("reports isGitRepo field", async () => {
+  it("does not report git status", async () => {
     const result = await call("kotikit_config_status", {});
     const text = getText(result);
-    expect(text).toContain('"isGitRepo"');
+    expect(text).not.toContain('"isGitRepo"');
   });
 
   it("config_status before init: no gates field", async () => {
@@ -155,7 +156,7 @@ describe("kotikit_config_init", () => {
     expect(text).not.toContain('"codeComponentsDir"');
     expect(text).not.toContain('"tests"');
     expect(text).not.toContain('"testFramework"');
-    expect(text).toContain('"autoCommit": true');
+    expect(text).not.toContain('"git"');
   });
 
   it("returns success message and configPath", async () => {
@@ -177,7 +178,7 @@ describe("kotikit_config_init", () => {
     expect(text).toContain("abc123");
   });
 
-  it("accepts a Codex co-author identity", async () => {
+  it("ignores removed co-author identity", async () => {
     const result = await call("kotikit_config_init", {
       coAuthor: { name: "Codex", email: "noreply@openai.com" },
     });
@@ -185,16 +186,15 @@ describe("kotikit_config_init", () => {
 
     const getResult = await call("kotikit_config_get", {});
     const text = getText(getResult);
-    expect(text).toContain('"name": "Codex"');
-    expect(text).toContain('"email": "noreply@openai.com"');
+    expect(text).not.toContain("Codex");
+    expect(text).not.toContain("noreply@openai.com");
   });
 
-  it("rejects an empty co-author identity", async () => {
+  it("does not validate removed co-author identity", async () => {
     const result = await call("kotikit_config_init", {
       coAuthor: { name: " ", email: "" },
     });
-    expect(result.isError).toBe(true);
-    expect(getText(result)).toContain("git.coAuthor.name");
+    expect(result.isError).toBeUndefined();
   });
 });
 

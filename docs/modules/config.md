@@ -21,8 +21,6 @@ The config module owns everything related to `.kotikit/config.json`: the Zod sch
 - `defaults.themes` — string array, default `["light", "dark"]`
 - `defaults.figmaSection.background` — generated Figma Section fill, default
   `{ color: "AED0FF", opacity: 0.1 }`
-- `git.autoCommit` — boolean, default `true`
-- `git.coAuthor` — `{ name, email }` used for generated commit footers; defaults to Claude Code for backward compatibility
 - `flowPacks.projectFlowsEnabled` — boolean, default `false`; project-local
   flows are ignored unless this is explicitly enabled
 - `flowPacks.allowedProjectCapabilities` — capability allowlist for enabled
@@ -49,7 +47,7 @@ Secret resolution follows a three-way dispatch: a plain string is returned uncha
 
 Figma sync treats project `.env` as the default token source. If `.kotikit/config.json` omits `figma.token`, `kotikit_sync_ds` resolves `${FIGMA_TOKEN}` after loading `<root>/.env`. An explicit `figma.token` still wins, so users can opt into a different environment variable, a plain token string, or an `op://` secret reference. The sync tool refreshes only empty process placeholders from `.env`, which lets a scaffolded `FIGMA_TOKEN=` line be filled in during an active assistant session without clobbering non-empty shell-provided secrets.
 
-The init wizard (`buildConfig`) is a thin merge layer. It calls `defaultConfig()` to get a clean base, then overlays only the keys the designer actually provided in `InitAnswers`, then runs the result through `ConfigSchema.parse` to guarantee a valid typed object. This means the wizard never needs to know about every field — omitted answers fall back to defaults automatically. Agent-specific wrappers can provide `git.coAuthor` during setup, for example Codex can pass `{ "name": "Codex", "email": "noreply@openai.com" }`, while shared runtime behavior stays agent-neutral.
+The init wizard (`buildConfig`) is a thin merge layer. It calls `defaultConfig()` to get a clean base, then overlays only the keys the designer actually provided in `InitAnswers`, then runs the result through `ConfigSchema.parse` to guarantee a valid typed object. This means the wizard never needs to know about every field — omitted answers fall back to defaults automatically.
 
 Flow-pack trust policy is fail-closed. The default config disables project
 flows and enables no extension packs. When `flowPacks.projectFlowsEnabled` is

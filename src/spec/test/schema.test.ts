@@ -238,7 +238,7 @@ describe("ConfigSchema", () => {
   it("defaultConfig has expected shape", () => {
     const c = defaultConfig();
     expect(c.schemaVersion).toBe(CONFIG_SCHEMA_VERSION);
-    expect(c.git.autoCommit).toBe(true);
+    expect("git" in c).toBe(false);
     expect(c.defaults.breakpoints).toEqual([375, 768, 1024, 1440]);
   });
 });

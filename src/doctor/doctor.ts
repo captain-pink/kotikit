@@ -1,7 +1,6 @@
 import { existsSync } from "node:fs";
 import { loadConfig } from "../config/load.js";
 import type { Config } from "../config/schema.js";
-import { isGitRepo as defaultIsGitRepo } from "../git/auto-commit.js";
 import { readBridgeConfig } from "../mcp/bridge/token.js";
 import { formatSchemaInventoryDetails } from "../migrations/dry-run.js";
 import { inspectProjectSchemaVersions } from "../migrations/schema-inventory.js";
@@ -35,7 +34,6 @@ export interface DoctorReport {
 
 export interface DoctorDeps {
   loadConfig?: (root: string) => Promise<Config | null>;
-  isGitRepo?: (root: string) => Promise<boolean>;
 }
 
 const check = (input: DoctorCheck): DoctorCheck => input;
@@ -110,7 +108,6 @@ const bridgeMessage = async (root: string): Promise<DoctorCheck> => {
 
 export async function runKotikitDoctor(root: string, deps: DoctorDeps = {}): Promise<DoctorReport> {
   const loadProjectConfig = deps.loadConfig ?? loadConfig;
-  const checkGit = deps.isGitRepo ?? defaultIsGitRepo;
 
   const checks: DoctorCheck[] = [
     check({
@@ -158,19 +155,6 @@ export async function runKotikitDoctor(root: string, deps: DoctorDeps = {}): Pro
     );
     nextSteps.push("Fix the kotikit config before running other tools.");
   }
-
-  const gitRepo = await checkGit(root);
-  checks.push(
-    check({
-      id: "git",
-      label: "Git",
-      status: gitRepo ? "ok" : "warn",
-      message: gitRepo
-        ? "Project is inside a git repository."
-        : "Project is not inside a git repository; auto-commits will be skipped.",
-      hint: gitRepo ? undefined : "Run git init if you want kotikit auto-commit support.",
-    })
-  );
 
   checks.push(await schemaVersionCheck(root));
 

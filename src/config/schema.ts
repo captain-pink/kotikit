@@ -69,26 +69,6 @@ const ConfigSchema = z.object({
     themes: z.array(z.string()).default(["light", "dark"]),
     figmaSection: FigmaSectionDefaultsSchema,
   }),
-  git: z
-    .object({
-      autoCommit: z.boolean().default(true),
-      coAuthor: z
-        .object({
-          name: z.string().trim().min(1),
-          email: z.string().trim().min(1),
-        })
-        .default({
-          name: "Claude Code",
-          email: "noreply@anthropic.com",
-        }),
-    })
-    .default({
-      autoCommit: true,
-      coAuthor: {
-        name: "Claude Code",
-        email: "noreply@anthropic.com",
-      },
-    }),
   flowPacks: FlowPacksSchema,
 });
 

@@ -2,8 +2,6 @@ import type { Config } from "./schema";
 import { defaultConfig, parseConfig } from "./schema";
 
 export interface InitAnswers {
-  autoCommit?: boolean;
-  coAuthor?: Config["git"]["coAuthor"];
   figmaFiles?: { key: string; name: string }[];
   flowPacks?: Config["flowPacks"];
 }
@@ -21,11 +19,6 @@ export function buildConfig(answers: InitAnswers): Config {
       designSystemFiles: answers.figmaFiles ?? base.figma.designSystemFiles,
     },
     defaults: base.defaults,
-    git: {
-      ...base.git,
-      autoCommit: answers.autoCommit ?? base.git.autoCommit,
-      coAuthor: answers.coAuthor ?? base.git.coAuthor,
-    },
     flowPacks: answers.flowPacks ?? base.flowPacks,
   });
 }

@@ -2,7 +2,6 @@ import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { InitAnswers } from "../../config/init.js";
 import { buildConfig } from "../../config/init.js";
 import { configExists, loadConfig, resolveSecret, writeConfig } from "../../config/load.js";
-import { isGitRepo } from "../../git/auto-commit.js";
 import { KotikitError, toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import { withKotikitToolSafety } from "../tool-safety.js";
@@ -43,7 +42,6 @@ function registerConfigStatus(registry: ToolRegistry, ctx: ToolContext): void {
   registry.handlers.set("kotikit_config_status", async (_args) => {
     try {
       const initialized = await configExists(ctx.root);
-      const gitRepo = await isGitRepo(ctx.root);
       const missing: string[] = [];
 
       if (initialized) {
@@ -55,7 +53,6 @@ function registerConfigStatus(registry: ToolRegistry, ctx: ToolContext): void {
 
       return toolText("Here's your kotikit setup status.", {
         initialized,
-        isGitRepo: gitRepo,
         missing,
       });
     } catch (err) {
@@ -75,19 +72,6 @@ function registerConfigInit(registry: ToolRegistry, ctx: ToolContext): void {
       inputSchema: {
         type: "object",
         properties: {
-          autoCommit: {
-            type: "boolean",
-            description: "Whether kotikit should auto-commit spec changes via git.",
-          },
-          coAuthor: {
-            type: "object",
-            description: "Co-author identity to include in generated commit bodies.",
-            properties: {
-              name: { type: "string" },
-              email: { type: "string" },
-            },
-            required: ["name", "email"],
-          },
           figmaFiles: {
             type: "array",
             description: "Figma design system files to connect.",
@@ -141,17 +125,9 @@ function registerConfigInit(registry: ToolRegistry, ctx: ToolContext): void {
       const config = buildConfig(answers);
       await writeConfig(ctx.root, config);
 
-      const gitRepo = await isGitRepo(ctx.root);
-      const notes: string[] = [];
-      if (config.git.autoCommit && !gitRepo) {
-        notes.push(
-          "autoCommit is enabled but this directory is not a git repo — commits will be skipped until you run `git init`."
-        );
-      }
-
       return toolText("You're all set! What do you want to build?", {
         configPath: `${ctx.root}/.kotikit/config.json`,
-        notes,
+        notes: [],
       });
     } catch (err) {
       return toolError(err);

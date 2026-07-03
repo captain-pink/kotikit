@@ -17,7 +17,6 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import simpleGit from "simple-git";
 import { writeConfig } from "../src/config/load.js";
 import { defaultConfig } from "../src/config/schema.js";
 import { initComponentsDb, upsertComponent } from "../src/db/components-db.js";
@@ -71,10 +70,6 @@ function seedDsComponent(root: string, name: string, variantAxes: string[]): voi
 
 async function setupFixture(): Promise<string> {
   const root = mkdtempSync(join(tmpdir(), "kotikit-measure-"));
-  const git = simpleGit(root);
-  await git.init();
-  await git.addConfig("user.email", "test@test.com");
-  await git.addConfig("user.name", "Measure");
   seedNodeModules(root);
 
   // Init config (so kotikit_config_status returns initialized: true)

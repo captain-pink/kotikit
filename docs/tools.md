@@ -185,13 +185,13 @@ Output: `{ ok: boolean; root: string; checks; nextSteps }`
 Purpose: Check whether kotikit is initialized in this project and surface
 configuration gaps.
 Input: `{}`
-Output: `{ initialized: boolean; isGitRepo: boolean; missing: string[] }`
+Output: `{ initialized: boolean; missing: string[] }`
 
 ### kotikit_config_init
 
 Purpose: Initialize or reinitialize `.kotikit/config.json` with design-first
 defaults.
-Input: `{ autoCommit?: boolean; coAuthor?: { name: string; email: string }; figmaFiles?: { key: string; name: string }[]; flowPacks?: object }`
+Input: `{ figmaFiles?: { key: string; name: string }[]; flowPacks?: object }`
 Output: `{ configPath: string; notes: string[] }`
 
 ### kotikit_config_get

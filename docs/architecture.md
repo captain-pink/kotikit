@@ -132,6 +132,5 @@ This gives teams without Figma branches a practical safety boundary.
 - [modules/workflow.md](modules/workflow.md) - removed legacy workflow module
   and graph-runtime replacement notes.
 - [modules/db.md](modules/db.md) - SQLite stores and migrations.
-- [modules/git.md](modules/git.md) - local auto-commit helpers.
 - [modules/util.md](modules/util.md) - path, ID, env, and result helpers.
 - [modules/migrations.md](modules/migrations.md) - lazy JSON migration model.

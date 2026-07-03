@@ -58,8 +58,6 @@ root, then writes agent-specific setup:
 - Figma token placeholder: creates `.env` with `FIGMA_TOKEN=` or appends that
   key when `.env` exists without it. This token is for local design-system
   sync, not for draft creation through Figma remote MCP auth.
-- Co-author metadata: when requested, updates an existing
-  `.kotikit/config.json` with `git.coAuthor`.
 
 All file writes are atomic: write a temp file next to the destination, then
 rename it into place. Existing unrelated config is preserved.
@@ -85,6 +83,5 @@ working directory.
 
 ## Related
 
-- [config](./config.md) - `.kotikit/config.json` and `git.coAuthor`
+- [config](./config.md) - `.kotikit/config.json`
 - [mcp](./mcp.md) - server entrypoint and MCP initialization instructions
-- [git](./git.md) - generated commit footers use the configured co-author

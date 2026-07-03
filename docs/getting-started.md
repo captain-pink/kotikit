@@ -94,7 +94,7 @@ kotikit stores the searchable index in the target project. The assistant should
 search first, fetch exact component details only when needed, and avoid loading
 large design-system files into chat.
 
-## 7. Sync Variables If Asked
+## 8. Sync Variables If Asked
 
 Figma REST variables are not available on every plan. If kotikit says variables
 are unavailable, run the local Figma plugin in the file and export variables.

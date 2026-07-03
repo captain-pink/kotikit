@@ -4,13 +4,11 @@ import { dirname, join, resolve } from "node:path";
 import { KOTIKIT_AUTO_APPROVED_TOOL_NAMES } from "../mcp/tool-safety.js";
 
 export type AgentKind = "claude" | "codex";
-export type CoAuthorMode = "auto" | "none" | "claude" | "codex";
 
 export interface ScaffoldAgentsOptions {
   targetRoot: string;
   kotikitRoot: string;
   agents?: readonly AgentKind[];
-  coAuthorMode?: CoAuthorMode;
   ensureEnv?: boolean;
   installSkills?: boolean;
   preserveSkills?: boolean;
@@ -23,21 +21,6 @@ export interface ScaffoldAgentsResult {
   skipped: string[];
   notes: string[];
 }
-
-interface CoAuthor {
-  name: string;
-  email: string;
-}
-
-const CLAUDE_CO_AUTHOR: CoAuthor = {
-  name: "Claude Code",
-  email: "noreply@anthropic.com",
-};
-
-const CODEX_CO_AUTHOR: CoAuthor = {
-  name: "Codex",
-  email: "noreply@openai.com",
-};
 
 const CODEX_STARTUP_TIMEOUT_SEC = 20;
 const CODEX_TOOL_TIMEOUT_SEC = 900;
@@ -93,14 +76,6 @@ export function parseAgentSelection(value: string | undefined): AgentKind[] {
     throw new Error("agents must be one of: claude, codex, both, claude,codex");
   }
   return uniqueAgents(agents as AgentKind[]);
-}
-
-function coAuthorForMode(mode: CoAuthorMode, agents: readonly AgentKind[]): CoAuthor | null {
-  if (mode === "none") return null;
-  if (mode === "claude") return CLAUDE_CO_AUTHOR;
-  if (mode === "codex") return CODEX_CO_AUTHOR;
-  if (agents.length === 1 && agents[0] === "codex") return CODEX_CO_AUTHOR;
-  return null;
 }
 
 function serverPath(kotikitRoot: string): string {
@@ -225,24 +200,6 @@ function envWithFigmaToken(existing: string | null): string | null {
   if (/^\s*(?:export\s+)?FIGMA_TOKEN\s*=/m.test(existing)) return null;
   const separator = existing.endsWith("\n") ? "" : "\n";
   return `${existing}${separator}FIGMA_TOKEN=\n`;
-}
-
-function configWithCoAuthor(existing: string, coAuthor: CoAuthor): string {
-  const parsed = JSON.parse(existing);
-  const root =
-    typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) ? parsed : {};
-  const git = "git" in root && typeof root.git === "object" && root.git !== null ? root.git : {};
-  return `${JSON.stringify(
-    {
-      ...root,
-      git: {
-        ...git,
-        coAuthor,
-      },
-    },
-    null,
-    2
-  )}\n`;
 }
 
 async function writeClaudeConfig(
@@ -422,25 +379,6 @@ async function ensureEnvFile(result: ScaffoldAgentsResult, targetRoot: string): 
   result.written.push(path);
 }
 
-async function updateCoAuthor(
-  result: ScaffoldAgentsResult,
-  targetRoot: string,
-  coAuthor: CoAuthor | null
-): Promise<void> {
-  if (coAuthor === null) return;
-
-  const path = join(targetRoot, ".kotikit", "config.json");
-  const existing = await readTextIfExists(path);
-  if (existing === null) {
-    result.skipped.push(path);
-    result.notes.push("Skipped git.coAuthor because .kotikit/config.json does not exist yet.");
-    return;
-  }
-
-  await writeTextAtomic(path, configWithCoAuthor(existing, coAuthor));
-  result.written.push(path);
-}
-
 export async function scaffoldAgents(
   options: ScaffoldAgentsOptions
 ): Promise<ScaffoldAgentsResult> {
@@ -486,8 +424,6 @@ export async function scaffoldAgents(
   if (options.ensureEnv ?? true) {
     await ensureEnvFile(result, targetRoot);
   }
-
-  await updateCoAuthor(result, targetRoot, coAuthorForMode(options.coAuthorMode ?? "auto", agents));
 
   return result;
 }

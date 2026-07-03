@@ -90,7 +90,7 @@ designers.
 - Keep MCP handlers thin. They should parse inputs, call module engines, and
   format tool results.
 - Put deterministic business logic in modules under `src/spec`, `src/sync`,
-  `src/planning`, `src/db`, `src/git`, or `src/util`.
+  `src/planning`, `src/db`, or `src/util`.
 - Prefer pure planner/formatter functions where possible, then wrap them with
   I/O at the edge.
 - Reuse local helpers such as `toolText`, `toolError`, `openDb`, path helpers,
@@ -145,11 +145,9 @@ designers.
 
 ## Git and Generated Work
 
-- Auto-commits must stage only the files they created or updated.
-- Never push, create branches, or mutate remote configuration from kotikit.
-- Commit messages must follow Conventional Commits.
-- Generated commit bodies must use the configured co-author identity and must
-  not misattribute work to a different agent.
+- Kotikit runtime must not create commits, initialize repositories, push,
+  create branches, or mutate remote configuration.
+- Engineers working on this repo still make atomic Conventional Commits.
 - Do not commit ephemeral bridge files, apply logs, local secrets, or agent
   private config.
 

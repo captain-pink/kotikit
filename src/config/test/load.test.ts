@@ -37,7 +37,7 @@ describe("writeConfig + loadConfig round-trip", () => {
       throw new Error("Expected config to load.");
     }
     expect(loaded.schemaVersion).toBe(CONFIG_SCHEMA_VERSION);
-    expect(loaded.git.autoCommit).toBe(true);
+    expect("git" in loaded).toBe(false);
   });
 
   it("loadConfig returns null for a missing config", async () => {
@@ -125,7 +125,6 @@ describe("buildConfig", () => {
     const cfg = buildConfig({});
     const def = defaultConfig();
     expect(cfg.defaults).toEqual(def.defaults);
-    expect(cfg.git.autoCommit).toBe(def.git.autoCommit);
   });
 
   it("defaults kotikit Figma sections to a visible blue tint", () => {
@@ -138,8 +137,7 @@ describe("buildConfig", () => {
   });
 
   it("overrides only specified fields", () => {
-    const cfg = buildConfig({ autoCommit: false });
-    expect(cfg.git.autoCommit).toBe(false);
+    const cfg = buildConfig({});
     expect(cfg.defaults).toEqual(defaultConfig().defaults);
   });
 
@@ -174,11 +172,8 @@ describe("buildConfig", () => {
     });
   });
 
-  it("defaultConfig() keeps the existing Claude Code co-author", () => {
-    expect(defaultConfig().git.coAuthor).toEqual({
-      name: "Claude Code",
-      email: "noreply@anthropic.com",
-    });
+  it("does not expose git or commit settings in default config", () => {
+    expect("git" in defaultConfig()).toBe(false);
   });
 });
 
@@ -217,7 +212,7 @@ describe("parseConfig — legacy project fields", () => {
     expect("project" in cfg).toBe(false);
   });
 
-  it("parses a Codex co-author override", () => {
+  it("strips legacy git auto-commit and co-author settings", () => {
     const raw = {
       project: {
         framework: "react",
@@ -237,13 +232,10 @@ describe("parseConfig — legacy project fields", () => {
       },
     };
     const cfg = parseConfig(raw);
-    expect(cfg.git.coAuthor).toEqual({
-      name: "Codex",
-      email: "noreply@openai.com",
-    });
+    expect("git" in cfg).toBe(false);
   });
 
-  it("rejects empty co-author name and email", () => {
+  it("does not validate stripped legacy co-author settings", () => {
     const raw = {
       project: {
         framework: "react",
@@ -262,7 +254,7 @@ describe("parseConfig — legacy project fields", () => {
         },
       },
     };
-    expect(() => parseConfig(raw)).toThrow();
+    expect(() => parseConfig(raw)).not.toThrow();
   });
 
   it("rejects configs from a future schema version", () => {

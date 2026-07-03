@@ -81,7 +81,6 @@ safe draft page before planning or applying Figma changes.
 
 - [config](./config.md) — `defaults.breakpoints` and `defaults.themes` resolve `"inherits"` values
 - [util](./util.md) — all spec path helpers (`scopeDir`, `screenSpecPath`, `singleSpecPath`, `flowManifestPath`, `indexPath`) live here
-- [git](./git.md) — `autoCommitSpec` stages spec files after every write
 - [mcp](./mcp.md) — graph facade tools expose spec-related outputs as
   artifacts instead of public spec wrappers
 - [migrations](./migrations.md) — lazy JSON migration model

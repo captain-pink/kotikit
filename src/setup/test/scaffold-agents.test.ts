@@ -433,29 +433,24 @@ describe("scaffoldAgents", () => {
     expect(readFileSync(join(targetRoot, ".env"), "utf8")).toBe("APP_ENV=local\nFIGMA_TOKEN=\n");
   });
 
-  it("updates an existing kotikit config with Codex co-author when requested", async () => {
+  it("does not mutate kotikit config for removed co-author support", async () => {
     mkdirSync(join(targetRoot, ".kotikit"), { recursive: true });
-    writeFileSync(
-      join(targetRoot, ".kotikit", "config.json"),
-      JSON.stringify({
+    const original = JSON.stringify(
+      {
         defaults: { breakpoints: [375], themes: ["light"] },
         git: { autoCommit: true },
-      })
+      },
+      null,
+      2
     );
+    writeFileSync(join(targetRoot, ".kotikit", "config.json"), original);
 
     await scaffoldAgents({
       targetRoot,
       kotikitRoot,
       agents: ["codex"],
-      coAuthorMode: "codex",
     });
 
-    const config = readJson(join(targetRoot, ".kotikit", "config.json")) as {
-      git: { coAuthor: { name: string; email: string } };
-    };
-    expect(config.git.coAuthor).toEqual({
-      name: "Codex",
-      email: "noreply@openai.com",
-    });
+    expect(readFileSync(join(targetRoot, ".kotikit", "config.json"), "utf8")).toBe(original);
   });
 });

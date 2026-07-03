@@ -37,9 +37,7 @@ describe("runKotikitDoctor", () => {
   it("reports an uninitialized project as actionable instead of throwing", async () => {
     const root = mkTmp();
 
-    const report = await runKotikitDoctor(root, {
-      isGitRepo: async () => false,
-    });
+    const report = await runKotikitDoctor(root);
 
     expect(report.ok).toBe(false);
     expect(report.checks.find((check) => check.id === "config")?.status).toBe("error");
@@ -70,14 +68,13 @@ describe("runKotikitDoctor", () => {
       })
     );
 
-    const report = await runKotikitDoctor(root, {
-      isGitRepo: async () => true,
-    });
+    const report = await runKotikitDoctor(root);
 
     expect(report.ok).toBe(true);
     expect(report.checks.every((check) => check.status !== "error")).toBe(true);
     expect(report.checks.find((check) => check.id === "figma-token")?.status).toBe("ok");
     expect(report.checks.find((check) => check.id === "design-system")?.status).toBe("ok");
+    expect(report.checks.find((check) => check.id === "git")).toBeUndefined();
   });
 
   it("warns about resumable sync checkpoints", async () => {
@@ -90,9 +87,7 @@ describe("runKotikitDoctor", () => {
       JSON.stringify({ version: 1, startedAt: "now", files: [] })
     );
 
-    const report = await runKotikitDoctor(root, {
-      isGitRepo: async () => true,
-    });
+    const report = await runKotikitDoctor(root);
 
     expect(report.ok).toBe(true);
     expect(report.checks.find((check) => check.id === "sync-checkpoint")?.status).toBe("warn");
@@ -110,9 +105,7 @@ describe("runKotikitDoctor", () => {
       JSON.stringify(legacySpec, null, 2)
     );
 
-    const report = await runKotikitDoctor(root, {
-      isGitRepo: async () => true,
-    });
+    const report = await runKotikitDoctor(root);
     const check = report.checks.find((item) => item.id === "schema-versions");
 
     expect(report.ok).toBe(true);
