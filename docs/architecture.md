@@ -85,12 +85,15 @@ The bridge:
 
 Figma design creation is fail-closed:
 
-1. A user provides an exact Figma draft page URL.
-2. kotikit verifies that it points to a page node.
+1. A user provides an exact Figma draft page or frame URL.
+2. kotikit resolves copied node URLs to the containing page through Figma REST.
 3. The page name must contain `Draft` or `Drafts`.
-4. Graph draft nodes copy that target.
-5. The official Figma integration creates or reuses a kotikit-owned Section.
-6. Apply metadata reporting validates file, page, and Section metadata.
+4. Graph draft nodes copy that target and prepare a write preflight for each
+   active transaction.
+5. The official Figma integration creates or reuses a kotikit-owned Section on
+   the preflight page.
+6. Apply metadata reporting requires the preflight id and validates file, page,
+   and Section metadata before patching graph state.
 
 This gives teams without Figma branches a practical safety boundary.
 

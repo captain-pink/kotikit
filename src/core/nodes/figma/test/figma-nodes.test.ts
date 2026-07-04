@@ -515,6 +515,15 @@ describe("figma graph nodes", () => {
       ],
     });
     expect(result.statePatch?.activeFigmaTransaction).not.toHaveProperty("status");
+    expect(result.statePatch?.figmaWritePreflight).toMatchObject({
+      schemaVersion: "FigmaWritePreflight/v1",
+      runId: "run-figma",
+      transactionId: "txn-filled",
+      fileKey: "FILE",
+      pageId: "1:2",
+      pageName: "Draft - Members",
+      sectionName: "kotikit / members / 2026-06-30",
+    });
   });
 
   it("recovers a plan-level active transaction without completing unfinished work", async () => {
@@ -526,6 +535,10 @@ describe("figma graph nodes", () => {
     expect(result.interrupt).toEqual({ status: "waiting-for-figma", resume: "same-node" });
     expect(result.statePatch?.activeFigmaTransaction).toEqual(activeTransaction());
     expect(result.statePatch?.activeFigmaTransaction).not.toHaveProperty("status");
+    expect(result.statePatch?.figmaWritePreflight).toMatchObject({
+      transactionId: "txn-filled",
+      pageId: "1:2",
+    });
     expect(result.statePatch?.applyReport).toBeUndefined();
   });
 

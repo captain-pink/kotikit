@@ -29,6 +29,7 @@ const KOTIKIT_TOOL_NAMES = [
   "kotikit_continue",
   "kotikit_answer",
   "kotikit_bind_figma_target",
+  "kotikit_prepare_figma_write",
   "kotikit_feedback_snapshot",
   "kotikit_record_figma_apply",
 ] as const;

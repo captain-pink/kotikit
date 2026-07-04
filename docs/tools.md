@@ -131,12 +131,26 @@ Output: `{ runId; status; pendingQuestion?; artifacts; errors }`
 
 Purpose: Bind a safe Figma draft target into an active graph run.
 Input: `{ runId: string; pageUrl?: string; target?: object }`
-Use `pageUrl` for the normal path. Kotikit resolves the exact draft page URL
-into the canonical target and Section name. `target` remains available for
-advanced callers and accepts either canonical fields (`fileKey`, `pageId`,
-`pageName`, `pageUrl`, `section.name`) or Figma apply-style aliases
-(`figmaFileKey`, `figmaPageId`, `figmaSectionName`).
+Use `pageUrl` for the normal path. Kotikit accepts copied page or frame/node
+URLs, resolves node URLs to their containing draft page through Figma REST, and
+stores the canonical target page id, page name, URL, optional source node, and
+Section name. `target` remains available for advanced callers and accepts
+either canonical fields (`fileKey`, `pageId`, `pageName`, `pageUrl`,
+`section.name`) or Figma apply-style aliases (`figmaFileKey`, `figmaPageId`,
+`figmaSectionName`).
 Output: `{ runId; status; pendingQuestion?; artifacts; errors }`
+
+### kotikit_prepare_figma_write
+
+Purpose: Prepare one guarded Figma write for the active graph transaction.
+Input: `{ runId: string; transactionId?: string }`
+Output: `{ preflight; run }`
+
+Use this immediately before each official Figma MCP write. The returned
+`preflight` includes `id`, transaction id, file key, page id, page name,
+Section name, and optional source node id. Confirm these fields match the
+visible Figma target before calling `use_figma`, then pass `preflight.id` as
+`preflightId` when recording metadata.
 
 ### kotikit_get_artifact
 
@@ -168,12 +182,14 @@ Figma, so scaffolded agents should still ask before running it.
 ### kotikit_record_figma_apply
 
 Purpose: Record official Figma MCP apply metadata into the active graph run.
-Input: `{ runId: string; scope: string; stepIndex: number; outcome: "ok" | "warned" | "failed"; transactionId: string; figmaFileKey?; figmaPageId?; figmaSectionName?; figmaNodeId?; figmaNodeKind?; figmaNodeName?; bounds?; componentRefs?; componentKey?; componentSource?; variableRefs?; iconRefs?; iconKey?; iconPlaceholder?; representation?; autoLayout?; screenshotReviewed?; screenshotFindings?; nodes?; partId?; draftComponentId?; componentName?; dsKey?; variableBindings?; layoutFrames?; repeatedItems?; textTransforms?; evidenceSnapshot? }`
-Output: `{ runId; status; activeFigmaTransaction?; figmaTransactionProgress?; pendingQuestion?; artifacts; errors }`
+Input: `{ runId: string; scope: string; stepIndex: number; outcome: "ok" | "warned" | "failed"; transactionId: string; preflightId: string; figmaFileKey?; figmaPageId?; figmaSectionName?; figmaNodeId?; figmaNodeKind?; figmaNodeName?; bounds?; componentRefs?; componentKey?; componentSource?; variableRefs?; iconRefs?; iconKey?; iconPlaceholder?; representation?; autoLayout?; screenshotReviewed?; screenshotFindings?; nodes?; partId?; draftComponentId?; componentName?; dsKey?; variableBindings?; layoutFrames?; repeatedItems?; textTransforms?; evidenceSnapshot? }`
+Output: `{ runId; status; activeFigmaTransaction?; figmaWritePreflight?; figmaTransactionProgress?; pendingQuestion?; artifacts; errors }`
 
 Use this after applying the active incremental Figma transaction. Do not record
-a later transaction before the graph consumes the current metadata. Use
-`componentSource: "existing-component"` for imported design-system instances,
+a later transaction before the graph consumes the current metadata. The
+`preflightId`, file key, page id, and Section name must match the active
+preflight and bound target, or kotikit rejects the metadata before patching run
+state. Use `componentSource: "existing-component"` for imported design-system instances,
 `componentSource: "screen-draft"` for composed missing structure that may be
 extracted later, `componentSource: "draft-component"` for linked kotikit draft
 components after designer-approved extraction, and record `iconRefs` when the

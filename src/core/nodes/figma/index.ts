@@ -9,6 +9,10 @@ import {
   recordTransactionMetadata,
   transactionPlanComplete,
 } from "../../domain/figma-transaction-plan.js";
+import {
+  assertFigmaMetadataMatchesTarget,
+  buildFigmaWritePreflight,
+} from "../../domain/figma-write-preflight.js";
 import type { NodeDefinition } from "../../graph/node-registry.js";
 import {
   ActiveFigmaTransactionSchema,
@@ -58,6 +62,7 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
       "figmaTransactionPlan",
       "activeFigmaTransaction",
       "applyMetadata",
+      "figmaWritePreflight",
       "figmaEvidenceSnapshots",
       "figmaNodeLedger",
       "draftPlan",
@@ -69,6 +74,7 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
       "figmaNodeLedger",
       "applyReport",
       "applyMetadata",
+      "figmaWritePreflight",
     ],
     sideEffects: "figma-write",
     requiredCapabilities: ["figma.write.remote"],
@@ -90,8 +96,16 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
         queued?.status === "active" &&
         state.applyMetadata === undefined
       ) {
+        const activeFromQueue = activeTransactionFrom(queued);
         return {
-          statePatch: { activeFigmaTransaction: activeTransactionFrom(queued) },
+          statePatch: {
+            activeFigmaTransaction: activeFromQueue,
+            figmaWritePreflight: buildFigmaWritePreflight({
+              runId: state.runId,
+              target,
+              active: activeFromQueue,
+            }),
+          },
           interrupt: { status: "waiting-for-figma", resume: "same-node" },
         } satisfies RuntimeNodeOutput;
       }
@@ -105,10 +119,16 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
         }
 
         const activePlan = markTransactionActive(plan, queued.id);
+        const activeFromQueue = activeTransactionFrom(queued);
         return {
           statePatch: {
             figmaTransactionPlan: activePlan,
-            activeFigmaTransaction: activeTransactionFrom(queued),
+            activeFigmaTransaction: activeFromQueue,
+            figmaWritePreflight: buildFigmaWritePreflight({
+              runId: state.runId,
+              target,
+              active: activeFromQueue,
+            }),
           },
           interrupt: { status: "waiting-for-figma", resume: "same-node" },
         } satisfies RuntimeNodeOutput;
@@ -140,6 +160,7 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
             figmaEvidenceSnapshots: evidenceSnapshots,
             activeFigmaTransaction: undefined,
             applyMetadata: undefined,
+            figmaWritePreflight: undefined,
             applyReport: applyReportFromLedger(ledger, evidenceSnapshots),
           },
         } satisfies RuntimeNodeOutput;
@@ -154,18 +175,25 @@ export const figmaNodeDefinitions: NodeDefinition[] = [
             figmaEvidenceSnapshots: evidenceSnapshots,
             activeFigmaTransaction: undefined,
             applyMetadata: undefined,
+            figmaWritePreflight: undefined,
             applyReport: applyReportFromLedger(ledger, evidenceSnapshots),
           },
         } satisfies RuntimeNodeOutput;
       }
       const activePlan = markTransactionActive(recordedPlan, next.id);
+      const activeFromNext = activeTransactionFrom(next);
       return {
         statePatch: {
           figmaTransactionPlan: activePlan,
           figmaNodeLedger: ledger,
           figmaEvidenceSnapshots: evidenceSnapshots,
-          activeFigmaTransaction: activeTransactionFrom(next),
+          activeFigmaTransaction: activeFromNext,
           applyMetadata: undefined,
+          figmaWritePreflight: buildFigmaWritePreflight({
+            runId: state.runId,
+            target,
+            active: activeFromNext,
+          }),
         },
         interrupt: { status: "waiting-for-figma", resume: "same-node" },
       } satisfies RuntimeNodeOutput;
@@ -752,24 +780,7 @@ function validateApplyMetadata(
   target: ReturnType<typeof ensureDraftTarget>,
   metadata: Record<string, unknown>
 ): void {
-  if (metadata.fileKey !== target.fileKey) {
-    throw new KotikitError(
-      "This applied Figma node belongs to a different Figma file than the bound draft target.",
-      "Open the bound draft file before applying the design."
-    );
-  }
-  if (metadata.pageId !== target.pageId) {
-    throw new KotikitError(
-      "This applied Figma node is outside the bound draft page.",
-      "Open the exact bound draft page before applying the design."
-    );
-  }
-  if (target.section?.name !== undefined && metadata.sectionName !== target.section.name) {
-    throw new KotikitError(
-      "This applied Figma node is outside the kotikit-owned draft section.",
-      "Apply the design inside the Section recorded in the design plan."
-    );
-  }
+  assertFigmaMetadataMatchesTarget({ target, metadata });
 }
 
 function draftSectionName(target: ReturnType<typeof ensureDraftTarget>): string {

@@ -6,6 +6,12 @@ const FigmaDraftSectionSchema = z.object({
   name: z.string().min(1),
 });
 
+const FigmaDraftSourceNodeSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).optional(),
+  type: z.string().min(1).optional(),
+});
+
 const FigmaDraftTargetSafetySchema = z
   .object({
     requireDraftPageName: z.literal(true).default(true),
@@ -26,6 +32,7 @@ export const FigmaDraftTargetSchema = z.object({
   boundAt: z.string(),
   source: z.enum(["user-url", "plugin-current-page"]),
   section: FigmaDraftSectionSchema.optional(),
+  sourceNode: FigmaDraftSourceNodeSchema.optional(),
   safety: FigmaDraftTargetSafetySchema,
 });
 export type FigmaDraftTarget = z.infer<typeof FigmaDraftTargetSchema>;

@@ -111,6 +111,22 @@ function draftTarget(): NonNullable<KotikitGraphState["figmaTarget"]> {
   };
 }
 
+function figmaWritePreflight(
+  transactionId = "txn-active"
+): NonNullable<KotikitGraphState["figmaWritePreflight"]> {
+  return {
+    schemaVersion: "FigmaWritePreflight/v1",
+    id: `figma-preflight:run-1:${transactionId}`,
+    runId: "run-1",
+    transactionId,
+    fileKey: "FILE",
+    pageId: "1:2",
+    pageName: "Draft - Members",
+    sectionName: "kotikit / members / 2026-06-30",
+    issuedAt: "2026-07-04T10:00:00.000Z",
+  };
+}
+
 const artifact: Artifact = {
   id: "artifact-1",
   runId: "run-1",
@@ -278,7 +294,14 @@ describe("MCP facade tools", () => {
     registerFacadeTools(registry, makeCtx());
     const applyTool = registry.tools.find((tool) => tool.name === "kotikit_record_figma_apply");
 
-    expect(applyTool?.inputSchema.required).toEqual(["runId", "scope", "stepIndex", "outcome"]);
+    expect(applyTool?.inputSchema.required).toEqual([
+      "runId",
+      "scope",
+      "stepIndex",
+      "outcome",
+      "transactionId",
+      "preflightId",
+    ]);
     expect(applyTool?.inputSchema.properties).toHaveProperty("figmaNodeId");
     expect(applyTool?.inputSchema.properties).toHaveProperty("runId");
     expect(registry.tools.map((tool) => tool.name)).not.toContain("kotikit_review_figma_target");
@@ -289,6 +312,7 @@ describe("MCP facade tools", () => {
     registerFacadeTools(registry, makeCtx());
     const applyTool = registry.tools.find((tool) => tool.name === "kotikit_record_figma_apply");
 
+    expect(applyTool?.inputSchema.properties).toHaveProperty("preflightId");
     expect(applyTool?.inputSchema.properties).toHaveProperty("transactionId");
     expect(applyTool?.inputSchema.properties).toHaveProperty("bounds");
     expect(applyTool?.inputSchema.properties).toHaveProperty("componentRefs");
@@ -305,6 +329,61 @@ describe("MCP facade tools", () => {
     expect(applyTool?.inputSchema.properties?.figmaNodeKind).not.toHaveProperty("enum");
   });
 
+  it("prepares a Figma write preflight for the active transaction", async () => {
+    let patchedPreflight: unknown;
+    const runtime = {
+      ...makeRuntime(),
+      async getRunState(runId): Promise<KotikitGraphState> {
+        expect(runId).toBe("run-1");
+        return {
+          ...makeState("waiting-for-figma"),
+          figmaTarget: draftTarget(),
+          activeFigmaTransaction: activeFigmaTransaction("txn-active"),
+        };
+      },
+      async patchRunState(input): Promise<RuntimeRunResult> {
+        patchedPreflight = input.statePatch.figmaWritePreflight;
+        return {
+          runId: "run-1",
+          status: "waiting-for-figma",
+          state: {
+            ...makeState("waiting-for-figma"),
+            figmaTarget: draftTarget(),
+            activeFigmaTransaction: activeFigmaTransaction("txn-active"),
+            figmaWritePreflight: input.statePatch.figmaWritePreflight,
+          },
+        };
+      },
+    } satisfies FacadeRuntime;
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx(), { runtime });
+
+    const result = await callTool(registry, "kotikit_prepare_figma_write", {
+      runId: "run-1",
+      transactionId: "txn-active",
+    });
+    const detail = detailOf<{
+      preflight: {
+        id: string;
+        transactionId: string;
+        fileKey: string;
+        pageId: string;
+        pageName: string;
+        sectionName: string;
+      };
+    }>(result.content[0]?.text ?? "");
+
+    expect(result.isError).toBeFalsy();
+    expect(detail.preflight).toMatchObject({
+      transactionId: "txn-active",
+      fileKey: "FILE",
+      pageId: "1:2",
+      pageName: "Draft - Members",
+      sectionName: "kotikit / members / 2026-06-30",
+    });
+    expect(patchedPreflight).toMatchObject({ id: detail.preflight.id });
+  });
+
   it("records incremental transaction metadata into graph apply metadata", async () => {
     let applyMetadata: Record<string, unknown> | undefined;
     const runtime = {
@@ -313,6 +392,8 @@ describe("MCP facade tools", () => {
         expect(runId).toBe("run-1");
         return {
           ...makeState("waiting-for-figma"),
+          figmaTarget: draftTarget(),
+          figmaWritePreflight: figmaWritePreflight("txn-filled"),
           activeFigmaTransaction: {
             id: "txn-filled",
             order: 1,
@@ -337,6 +418,8 @@ describe("MCP facade tools", () => {
           status: "waiting-for-figma",
           state: {
             ...makeState("waiting-for-figma"),
+            figmaTarget: draftTarget(),
+            figmaWritePreflight: figmaWritePreflight("txn-filled"),
             activeFigmaTransaction: activeFigmaTransaction("txn-filled"),
             figmaTransactionPlan: transactionPlan("txn-filled", "active"),
             applyMetadata,
@@ -353,6 +436,7 @@ describe("MCP facade tools", () => {
       stepIndex: 0,
       outcome: "ok",
       transactionId: "txn-filled",
+      preflightId: "figma-preflight:run-1:txn-filled",
       figmaFileKey: "FILE",
       figmaPageId: "1:2",
       figmaSectionName: "kotikit / members / 2026-06-30",
@@ -525,6 +609,77 @@ describe("MCP facade tools", () => {
     expect(patched).toEqual([]);
   });
 
+  it("rejects Figma apply records without a matching preflight before patching state", async () => {
+    const patched: string[] = [];
+    const runtime = {
+      ...makeRuntime(),
+      async getRunState(): Promise<KotikitGraphState> {
+        return {
+          ...makeState("waiting-for-figma"),
+          figmaTarget: draftTarget(),
+          figmaWritePreflight: figmaWritePreflight("txn-active"),
+          activeFigmaTransaction: activeFigmaTransaction("txn-active"),
+        };
+      },
+      async patchRunState(): Promise<RuntimeRunResult> {
+        patched.push("patch");
+        throw new Error("patchRunState should not be called");
+      },
+    } satisfies FacadeRuntime;
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx(), { runtime });
+
+    const result = await callTool(registry, "kotikit_record_figma_apply", {
+      runId: "run-1",
+      scope: "members",
+      stepIndex: 0,
+      outcome: "ok",
+      transactionId: "txn-active",
+      figmaFileKey: "FILE",
+      figmaPageId: "1:2",
+      figmaSectionName: "kotikit / members / 2026-06-30",
+    });
+
+    expect(String(result.content[0]?.text)).toContain("preflight");
+    expect(patched).toEqual([]);
+  });
+
+  it("rejects Figma apply records outside the bound page before patching state", async () => {
+    const patched: string[] = [];
+    const runtime = {
+      ...makeRuntime(),
+      async getRunState(): Promise<KotikitGraphState> {
+        return {
+          ...makeState("waiting-for-figma"),
+          figmaTarget: draftTarget(),
+          figmaWritePreflight: figmaWritePreflight("txn-active"),
+          activeFigmaTransaction: activeFigmaTransaction("txn-active"),
+        };
+      },
+      async patchRunState(): Promise<RuntimeRunResult> {
+        patched.push("patch");
+        throw new Error("patchRunState should not be called");
+      },
+    } satisfies FacadeRuntime;
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx(), { runtime });
+
+    const result = await callTool(registry, "kotikit_record_figma_apply", {
+      runId: "run-1",
+      scope: "members",
+      stepIndex: 0,
+      outcome: "ok",
+      transactionId: "txn-active",
+      preflightId: "figma-preflight:run-1:txn-active",
+      figmaFileKey: "FILE",
+      figmaPageId: "9:10",
+      figmaSectionName: "kotikit / members / 2026-06-30",
+    });
+
+    expect(String(result.content[0]?.text)).toContain("outside the bound draft page");
+    expect(patched).toEqual([]);
+  });
+
   it("rejects invalid component evidence before patching state so the transaction stays repairable", async () => {
     const patched: string[] = [];
     const runtime = {
@@ -532,6 +687,8 @@ describe("MCP facade tools", () => {
       async getRunState(): Promise<KotikitGraphState> {
         return {
           ...makeState("waiting-for-figma"),
+          figmaTarget: draftTarget(),
+          figmaWritePreflight: figmaWritePreflight("txn-active"),
           activeFigmaTransaction: activeFigmaTransaction("txn-active"),
           draftPlan: {
             fidelity: "high",
@@ -565,6 +722,7 @@ describe("MCP facade tools", () => {
       stepIndex: 0,
       outcome: "ok",
       transactionId: "txn-active",
+      preflightId: "figma-preflight:run-1:txn-active",
       figmaFileKey: "FILE",
       figmaPageId: "1:2",
       figmaSectionName: "kotikit / members / 2026-06-30",
@@ -909,6 +1067,78 @@ describe("MCP facade tools", () => {
     });
   });
 
+  it("binds a Figma draft target from a copied frame URL", async () => {
+    const root = mkProject();
+    writeFileSync(join(root, ".env"), "FIGMA_TOKEN=test-token\n");
+    let patchedTarget: unknown;
+    const runtime = {
+      ...makeRuntime(),
+      async getRunState(): Promise<KotikitGraphState> {
+        return {
+          ...makeState("waiting-for-figma"),
+          screen: { id: "events", title: "Events Experience" },
+        };
+      },
+      async patchRunState(input): Promise<RuntimeRunResult> {
+        patchedTarget = input.statePatch.figmaTarget;
+        return {
+          runId: "run-1",
+          status: "running",
+          state: { ...makeState("running"), figmaTarget: patchedTarget },
+        };
+      },
+    } satisfies FacadeRuntime;
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx(null, root), {
+      runtime,
+      figmaClientFactory: () => ({
+        async getNodes(fileKey, ids) {
+          expect(fileKey).toBe("FILE");
+          expect(ids).toEqual(["2:3"]);
+          return {
+            "2:3": {
+              document: {
+                id: "2:3",
+                name: "Events frame",
+                type: "FRAME",
+              },
+            },
+          };
+        },
+        async getFile(fileKey) {
+          expect(fileKey).toBe("FILE");
+          return {
+            document: {
+              children: [
+                { id: "0:1", name: "Drafts", type: "CANVAS", children: [] },
+                {
+                  id: "9:10",
+                  name: "Product Flow Draft",
+                  type: "CANVAS",
+                  children: [{ id: "2:3", name: "Events frame", type: "FRAME" }],
+                },
+              ],
+            },
+          };
+        },
+      }),
+    });
+
+    const result = await callTool(registry, "kotikit_bind_figma_target", {
+      runId: "run-1",
+      pageUrl: "https://www.figma.com/design/FILE/Untitled?node-id=2-3",
+    });
+
+    expect(result.isError).toBeFalsy();
+    expect(patchedTarget).toMatchObject({
+      fileKey: "FILE",
+      pageId: "9:10",
+      pageName: "Product Flow Draft",
+      pageUrl: "https://www.figma.com/design/FILE/Untitled?node-id=9-10",
+      sourceNode: { id: "2:3", name: "Events frame", type: "FRAME" },
+    });
+  });
+
   it("accepts Figma apply-style aliases when binding a draft target object", async () => {
     let patchedTarget: unknown;
     const runtime = {
@@ -967,6 +1197,8 @@ describe("MCP facade tools", () => {
       async getRunState(): Promise<KotikitGraphState> {
         return {
           ...makeState("waiting-for-figma"),
+          figmaTarget: draftTarget(),
+          figmaWritePreflight: figmaWritePreflight("txn-legacy"),
           activeFigmaTransaction: activeFigmaTransaction("txn-legacy"),
         };
       },
@@ -979,6 +1211,7 @@ describe("MCP facade tools", () => {
       stepIndex: 0,
       outcome: "ok",
       transactionId: "txn-legacy",
+      preflightId: "figma-preflight:run-1:txn-legacy",
       figmaFileKey: "FILE",
       figmaPageId: "1:2",
       figmaSectionName: "kotikit / members / 2026-06-30",
@@ -1003,6 +1236,8 @@ describe("MCP facade tools", () => {
       async getRunState(): Promise<KotikitGraphState> {
         return {
           ...makeState("waiting-for-figma"),
+          figmaTarget: draftTarget(),
+          figmaWritePreflight: figmaWritePreflight("txn-draft-email-input"),
           activeFigmaTransaction: activeFigmaTransaction("txn-draft-email-input"),
         };
       },
@@ -1013,6 +1248,8 @@ describe("MCP facade tools", () => {
           status: "waiting-for-figma",
           state: {
             ...makeState("waiting-for-figma"),
+            figmaTarget: draftTarget(),
+            figmaWritePreflight: figmaWritePreflight("txn-draft-email-input"),
             applyMetadata,
           },
         };
@@ -1027,6 +1264,7 @@ describe("MCP facade tools", () => {
       stepIndex: 0,
       outcome: "ok",
       transactionId: "txn-draft-email-input",
+      preflightId: "figma-preflight:run-1:txn-draft-email-input",
       figmaFileKey: "FILE",
       figmaPageId: "1:2",
       figmaSectionName: "kotikit / members / 2026-06-30",
@@ -1054,6 +1292,8 @@ describe("MCP facade tools", () => {
       async getRunState(): Promise<KotikitGraphState> {
         return {
           ...makeState("waiting-for-figma"),
+          figmaTarget: draftTarget(),
+          figmaWritePreflight: figmaWritePreflight("txn-draft-page-shell"),
           activeFigmaTransaction: activeFigmaTransaction("txn-draft-page-shell"),
         };
       },
@@ -1064,6 +1304,8 @@ describe("MCP facade tools", () => {
           status: "waiting-for-figma",
           state: {
             ...makeState("waiting-for-figma"),
+            figmaTarget: draftTarget(),
+            figmaWritePreflight: figmaWritePreflight("txn-draft-page-shell"),
             applyMetadata,
           },
         };
@@ -1078,6 +1320,7 @@ describe("MCP facade tools", () => {
       stepIndex: 0,
       outcome: "ok",
       transactionId: "txn-draft-page-shell",
+      preflightId: "figma-preflight:run-1:txn-draft-page-shell",
       figmaFileKey: "FILE",
       figmaPageId: "1:2",
       figmaSectionName: "kotikit / members / 2026-06-30",

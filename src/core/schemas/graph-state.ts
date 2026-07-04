@@ -23,6 +23,7 @@ import {
   FlowBlueprintInputSchema,
   ScreenBlueprintInputSchema,
 } from "./blueprint.js";
+import { FigmaWritePreflightSchema } from "./figma-write-preflight.js";
 
 export const KOTIKIT_GRAPH_STATE_SCHEMA_ID =
   "https://kotikit.dev/schemas/kotikit-graph-state.schema.json";
@@ -101,6 +102,7 @@ export const KotikitGraphStateSchema = z.strictObject({
   figmaTarget: z.unknown().optional(),
   figmaDefaults: FigmaDefaultsSchema.optional(),
   applyMetadata: z.unknown().optional(),
+  figmaWritePreflight: FigmaWritePreflightSchema.optional(),
   figmaEvidenceSnapshots: z.array(z.unknown()).optional(),
   designApproach: DesignApproachSchema.optional(),
   uxEnvelope: UXEnvelopeSchema.optional(),
