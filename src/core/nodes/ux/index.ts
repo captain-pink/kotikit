@@ -10,6 +10,7 @@ import {
   type DesignApproach,
   type UXEnvelope,
 } from "../../schemas/artifact.js";
+import { primaryScreenFromFlowBlueprint } from "../../schemas/blueprint.js";
 import type { KotikitGraphState } from "../../schemas/graph-state.js";
 
 type RuntimeNodeOutput = {
@@ -27,7 +28,7 @@ const EmptyParamsSchema = z.strictObject({});
 export const uxNodeDefinitions: NodeDefinition[] = [
   node({
     key: "ux.brainstormApproach",
-    stateReads: ["userIntent", "screen", "designSystem"],
+    stateReads: ["userIntent", "screen", "designSystem", "screenBlueprint", "flowBlueprint"],
     stateWrites: ["designApproach"],
     requiredCapabilities: ["ux.brainstorm"],
     run: async (input) => {
@@ -36,6 +37,7 @@ export const uxNodeDefinitions: NodeDefinition[] = [
       const approach = buildDesignApproach({
         userIntent: state.userIntent ?? "Create a product screen.",
         screen,
+        explicitBlueprint: hasExplicitBlueprintInput(state, screen),
       });
       return {
         statePatch: { designApproach: approach },
@@ -52,14 +54,16 @@ export const uxNodeDefinitions: NodeDefinition[] = [
   }),
   node({
     key: "ux.buildEnvelope",
-    stateReads: ["userIntent", "screen"],
+    stateReads: ["userIntent", "screen", "screenBlueprint", "flowBlueprint"],
     stateWrites: ["uxEnvelope"],
     requiredCapabilities: ["ux.plan"],
     run: async (input) => {
       const state = graphState(input.state);
+      const screen = screenFrom(state.screen);
       const uxEnvelope = buildUxEnvelope({
         userIntent: state.userIntent ?? "Create a product screen.",
-        screen: screenFrom(state.screen),
+        screen,
+        explicitBlueprint: hasExplicitBlueprintInput(state, screen),
       });
       return {
         statePatch: { uxEnvelope },
@@ -128,6 +132,7 @@ function artifactFor(input: {
 function buildDesignApproach(input: {
   userIntent: string;
   screen: ReturnType<typeof screenFrom>;
+  explicitBlueprint?: boolean;
 }): DesignApproach {
   const envelope = buildUxEnvelope(input);
   const title = input.screen.title ?? envelope.primaryGoal;
@@ -140,17 +145,25 @@ function buildDesignApproach(input: {
       ? requestedStates.join(", ")
       : "filled, loading, empty, and error when relevant";
   const confidenceRisk =
-    envelope.confidence === "low"
+    envelope.confidence === "low" && input.explicitBlueprint !== true
       ? [
           "The request does not match a strong built-in UX pattern, so the first draft should stay easy to revise.",
         ]
       : [];
+  const userWorkflow =
+    input.explicitBlueprint === true
+      ? `Build ${title} from the supplied blueprint so the visible frame preserves the requested structure and content.`
+      : `${envelope.actor} should complete "${envelope.primaryTask}" in ${title} without extra setup or technical decisions.`;
+  const recommendedApproach =
+    input.explicitBlueprint === true
+      ? `Execute the supplied blueprint with ${partsSummary}, using local design-system components and variables before creating screen-draft parts for gaps.`
+      : `Compose the screen first from ${partsSummary}, then let the designer decide whether any missing pieces should be extracted as draft components.`;
 
   return {
     schemaVersion: "DesignApproach/v1",
     goal: title,
-    userWorkflow: `${envelope.actor} should complete "${envelope.primaryTask}" in ${title} without extra setup or technical decisions.`,
-    recommendedApproach: `Compose the screen first from ${partsSummary}, then let the designer decide whether any missing pieces should be extracted as draft components.`,
+    userWorkflow,
+    recommendedApproach,
     alternativesConsidered: [
       {
         name: "Design-system-first composition",
@@ -185,13 +198,16 @@ function buildDesignApproach(input: {
       "Missing local design-system coverage can tempt the agent to imitate components with primitives.",
       "State variants can become review cards unless the apply step creates each required state in context.",
     ]).slice(0, 8),
-    ...(envelope.confidence === "low"
+    ...(envelope.confidence === "low" && input.explicitBlueprint !== true
       ? {
           openQuestion:
             "Which user task should this screen optimize for first if the draft needs a stronger product direction?",
         }
       : {}),
-    decision: envelope.confidence === "low" ? "ask-designer" : "proceed",
+    decision:
+      envelope.confidence === "low" && input.explicitBlueprint !== true
+        ? "ask-designer"
+        : "proceed",
   };
 }
 
@@ -219,6 +235,7 @@ function graphState(value: unknown): KotikitGraphState {
 
 function screenFrom(value: unknown): {
   title?: string;
+  confidence?: "explicit" | "inferred" | "low";
   requiredUiParts?: string[];
   states?: string[];
   traits?: UXEnvelope["traits"];
@@ -226,10 +243,25 @@ function screenFrom(value: unknown): {
   const record = recordFrom(value);
   return {
     title: stringFrom(record.title),
+    confidence: screenConfidenceFrom(record.confidence),
     requiredUiParts: stringArray(record.requiredUiParts),
     states: stringArray(record.states),
     traits: traitsFrom(record.traits),
   };
+}
+
+// Detects complete blueprint input so UX planning preserves it instead of reclassifying it.
+function hasExplicitBlueprintInput(
+  state: KotikitGraphState,
+  screen: ReturnType<typeof screenFrom>
+): boolean {
+  if (screen.confidence === "explicit") return true;
+  if (screen.confidence === "low") return false;
+  if (state.screenBlueprint !== undefined) return state.screenBlueprint.confidence !== "low";
+  if (state.flowBlueprint !== undefined) {
+    return primaryScreenFromFlowBlueprint(state.flowBlueprint).confidence !== "low";
+  }
+  return false;
 }
 
 function traitsFrom(value: unknown): UXEnvelope["traits"] | undefined {
@@ -301,6 +333,11 @@ function recordFrom(value: unknown): Record<string, unknown> {
 
 function stringFrom(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0 ? value : undefined;
+}
+
+// Parses the brief confidence marker that tells UX planning whether a screen is supplied or inferred.
+function screenConfidenceFrom(value: unknown): "explicit" | "inferred" | "low" | undefined {
+  return value === "explicit" || value === "inferred" || value === "low" ? value : undefined;
 }
 
 function stringArray(value: unknown): string[] {

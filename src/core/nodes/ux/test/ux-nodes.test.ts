@@ -50,6 +50,24 @@ describe("UX graph nodes", () => {
     });
   });
 
+  it("does not infer a fixed archetype from explicit blueprint UI part names", async () => {
+    const output = await runNode("ux.buildEnvelope", {
+      userIntent: "Create the supplied mocked Events blueprint with table wording.",
+      screen: {
+        title: "Events Experience",
+        confidence: "explicit",
+        requiredUiParts: ["Event table", "Detail panel"],
+        states: [],
+      },
+    });
+
+    expect(output.statePatch?.uxEnvelope).toMatchObject({
+      screenArchetype: "unknown",
+      confidence: "observed",
+      primaryGoal: "Events Experience",
+    });
+  });
+
   it("preserves blueprint traits in the UX envelope without forcing an archetype", async () => {
     const output = await runNode("ux.buildEnvelope", {
       userIntent: "Create the supplied mocked Events blueprint with admin wording.",
@@ -71,6 +89,25 @@ describe("UX graph nodes", () => {
         regions: [expect.objectContaining({ kind: "timeline", name: "Activity" })],
         repeatedPatterns: [expect.objectContaining({ kind: "events" })],
       },
+    });
+  });
+
+  it("describes explicit blueprint work as execution instead of generic ideation", async () => {
+    const output = await runNode("ux.brainstormApproach", {
+      userIntent: "Create the supplied mocked Events blueprint.",
+      screen: {
+        title: "Events Experience",
+        confidence: "explicit",
+        requiredUiParts: ["Event stream", "Detail panel"],
+        states: [],
+      },
+    });
+    const approach = recordFrom(recordFrom(output.statePatch).designApproach);
+
+    expect(approach).toMatchObject({
+      decision: "proceed",
+      recommendedApproach: expect.stringContaining("Execute the supplied blueprint"),
+      userWorkflow: expect.not.stringContaining("without extra setup"),
     });
   });
 
