@@ -1,10 +1,13 @@
 import type { CanvasPlan, UIQualityGateReport } from "../schemas/artifact.js";
+import { checkExpectedContent } from "./ui-quality-expected-content.js";
 
 type AppliedNode = Record<string, unknown>;
 
 export function runUiQualityGate(input: {
   nodes: AppliedNode[];
   canvasPlan?: CanvasPlan;
+  expectedContent?: Record<string, unknown>[];
+  evidenceSnapshots?: Record<string, unknown>[];
   iconRequirements?: Record<string, unknown>[];
   iconRefs?: string[];
 }): UIQualityGateReport {
@@ -92,6 +95,7 @@ export function runUiQualityGate(input: {
     checkScreenshotReview(input.nodes),
     checkScreenStateContainerStructure(input.nodes),
     checkMissingTransactionMetadata(input.nodes),
+    checkExpectedContent(input.expectedContent ?? [], input.evidenceSnapshots ?? []),
   ];
 
   return {

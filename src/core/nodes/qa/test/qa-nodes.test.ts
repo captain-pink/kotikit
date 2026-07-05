@@ -79,6 +79,65 @@ describe("qa graph nodes", () => {
     });
   });
 
+  it("blocks when required blueprint expected content is missing from Figma evidence", async () => {
+    const result = await runNode("qa.runUiQualityGate", {
+      screen: {
+        expectedContent: [
+          { kind: "region-title", text: "Recent mock events" },
+          { kind: "button-label", text: "Review selected" },
+        ],
+      },
+      applyReport: {
+        schemaVersion: "FigmaApplyReport/v1",
+        nodes: [{ id: "events-frame", width: 1440, height: 900 }],
+        evidenceSnapshots: [
+          {
+            textNodes: [{ text: "Recent mock events" }],
+          },
+        ],
+      },
+    });
+
+    expect(result.statePatch?.uiQualityGate).toMatchObject({
+      status: "blocked",
+      checks: expect.arrayContaining([
+        expect.objectContaining({
+          id: "spec-expected-content",
+          status: "blocked",
+          findings: ["Missing expected content: Review selected"],
+        }),
+      ]),
+    });
+  });
+
+  it("passes when required blueprint expected content appears in Figma evidence", async () => {
+    const result = await runNode("qa.runUiQualityGate", {
+      screen: {
+        expectedContent: [
+          { kind: "region-title", text: "Recent mock events" },
+          { kind: "button-label", text: "Review selected" },
+        ],
+      },
+      applyReport: {
+        schemaVersion: "FigmaApplyReport/v1",
+        nodes: [{ id: "events-frame", width: 1440, height: 900 }],
+        evidenceSnapshots: [
+          {
+            texts: ["Recent mock events"],
+            textNodes: [{ characters: "Review selected" }],
+          },
+        ],
+      },
+    });
+
+    expect(result.statePatch?.uiQualityGate).toMatchObject({
+      status: "passed",
+      checks: expect.arrayContaining([
+        expect.objectContaining({ id: "spec-expected-content", status: "passed" }),
+      ]),
+    });
+  });
+
   it("blocks overlapping canvas placements from applied node bounds", async () => {
     const result = await runNode("qa.runUiQualityGate", {
       applyReport: {
