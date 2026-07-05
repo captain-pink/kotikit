@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { z } from "zod";
 import { KotikitError, toolError, toolText } from "../result";
 
 describe("result helpers", () => {
@@ -39,6 +40,23 @@ describe("result helpers", () => {
     it("returns a friendly generic message for unknown errors", () => {
       const r = toolError(new Error("something internal"));
       expect(r.content[0].text).toContain("Something went wrong");
+    });
+
+    it("surfaces Zod validation paths without leaking internals", () => {
+      const schema = z.strictObject({
+        input: z.strictObject({
+          existingDesignInventory: z.strictObject({ schemaVersion: z.string() }),
+        }),
+      });
+      const result = schema.safeParse({ input: { existingDesignInventory: "bad-shape" } });
+      if (result.success) throw new Error("expected schema failure");
+
+      const r = toolError(result.error);
+
+      expect(r.content[0].text).toContain("Input validation failed");
+      expect(r.content[0].text).toContain("input.existingDesignInventory");
+      expect(r.content[0].text).toContain("expected object");
+      expect(r.content[0].text).not.toContain("ZodError");
     });
   });
 });
