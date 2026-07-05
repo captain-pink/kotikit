@@ -13,6 +13,10 @@ describe("MCP facade resources", () => {
       "kotikit://runs/{runId}/state",
       "kotikit://artifacts/{artifactId}",
       "kotikit://flows/{flowId}",
+      "kotikit://schemas/screen-blueprint-input",
+      "kotikit://schemas/flow-blueprint-input",
+      "kotikit://schemas/canvas-intent-input",
+      "kotikit://schemas/existing-design-inventory-input",
     ]);
     expect(templates.every((template) => template.mimeType === "application/json")).toBe(true);
   });
@@ -28,6 +32,17 @@ describe("MCP facade resources", () => {
     expect(content?.mimeType).toBe("application/json");
     expect(flow.id).toBe("create-screen");
     expect(Array.isArray(flow.nodes)).toBe(true);
+  });
+
+  it("reads a graph input JSON schema resource", async () => {
+    const result = await readFacadeResource("kotikit://schemas/screen-blueprint-input");
+    const content = result.contents[0];
+    const schema = JSON.parse(content !== undefined && "text" in content ? content.text : "{}");
+    const properties = recordFrom(schema.properties);
+
+    expect(content?.mimeType).toBe("application/json");
+    expect(properties).toHaveProperty("requiredUiParts");
+    expect(properties).toHaveProperty("expectedContent");
   });
 });
 
@@ -84,3 +99,9 @@ describe("MCP facade completions", () => {
     expect(result.completion.total).toBe(1);
   });
 });
+
+function recordFrom(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}

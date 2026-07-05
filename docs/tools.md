@@ -104,6 +104,19 @@ Figma design-system search during a run; if local design-system data is
 missing, sync or update the local cache before requesting production-quality
 output.
 
+Agents can fetch compact input JSON schemas through MCP resources before
+calling `kotikit_start`:
+
+- `kotikit://schemas/screen-blueprint-input`
+- `kotikit://schemas/flow-blueprint-input`
+- `kotikit://schemas/canvas-intent-input`
+- `kotikit://schemas/existing-design-inventory-input`
+
+Screen blueprints may include `expectedContent` entries for required field
+labels, column labels, button labels, copy, and region titles. The UI quality
+gate compares those entries with recorded Figma text evidence and blocks the
+run if required blueprint content is missing from the visible frame.
+
 ### refine-existing
 
 Purpose: Refine existing Figma frames or pages from explicit target context.
