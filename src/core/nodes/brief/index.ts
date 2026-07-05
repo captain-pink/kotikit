@@ -42,6 +42,7 @@ type ScreenModel = {
   confidence?: "explicit" | "inferred" | "low";
   requiredUiParts: string[];
   uiParts?: ScreenBlueprintInput["requiredUiParts"];
+  expectedContent?: ScreenBlueprintInput["expectedContent"];
   traits?: ScreenBlueprintInput["traits"];
   repeatedPatterns: string[];
   states: string[];
@@ -98,7 +99,7 @@ export const briefNodeDefinitions: NodeDefinition[] = [
       const state = graphState(input.state);
       const intent = intentFromState(state);
       const classification = classificationForState(state, intent);
-      const lane = classifyLane(intent);
+      const lane = classifyLaneForState(state, intent);
       const brief = mergeBrief(state.brief, {
         intent,
         title: titleForState(state, intent, classification),
@@ -120,7 +121,7 @@ export const briefNodeDefinitions: NodeDefinition[] = [
       const state = graphState(input.state);
       const intent = intentFromState(state);
       const current = briefFrom(state.brief);
-      const lane = current.lane ?? classifyLane(intent);
+      const lane = current.lane ?? classifyLaneForState(state, intent);
       const classification = current.classification ?? classificationForState(state, intent);
       const brief = mergeBrief(current, {
         intent,
@@ -253,7 +254,7 @@ export const briefNodeDefinitions: NodeDefinition[] = [
     run: async (input) => {
       const state = graphState(input.state);
       const current = briefFrom(state.brief);
-      const lane = current.lane ?? classifyLane(intentFromState(state));
+      const lane = current.lane ?? classifyLaneForState(state, intentFromState(state));
       const approvalSummary =
         current.approvalSummary ?? current.intent ?? current.title ?? "Approve this design brief.";
       if (current.approved === true || lane === "quick") {
@@ -407,6 +408,29 @@ function confidenceForState(
   return isDetailedIntent(intent) ? "low" : "inferred";
 }
 
+// Selects the approval lane, letting complete explicit blueprints skip generic ideation.
+function classifyLaneForState(state: KotikitGraphState, intent: string): BriefLane {
+  if (hasExecutableBlueprint(state)) return "quick";
+  return classifyLane(intent);
+}
+
+// Treats supplied non-low blueprints as executable graph input instead of rough prompts.
+function hasExecutableBlueprint(state: KotikitGraphState): boolean {
+  const screen = screenConfidenceForState(state);
+  return screen !== undefined && screen !== "low";
+}
+
+// Resolves the screen confidence that should control brief behavior for screen or flow input.
+function screenConfidenceForState(
+  state: KotikitGraphState
+): ScreenBlueprintInput["confidence"] | undefined {
+  if (state.screenBlueprint !== undefined) return state.screenBlueprint.confidence ?? "explicit";
+  if (state.flowBlueprint !== undefined) {
+    return primaryScreenFromFlowBlueprint(state.flowBlueprint).confidence ?? "explicit";
+  }
+  return undefined;
+}
+
 function classifyLane(intent: string): BriefLane {
   const lower = intent.toLowerCase();
   if (
@@ -525,11 +549,13 @@ function screenModelFromBlueprint(
     confidence: blueprint.confidence ?? "explicit",
     requiredUiParts,
     uiParts: blueprint.requiredUiParts,
+    ...(blueprint.expectedContent === undefined
+      ? {}
+      : { expectedContent: blueprint.expectedContent }),
     traits: traitsFromBlueprint(blueprint),
     repeatedPatterns: repeatedPatternsFromBlueprint(blueprint),
     states:
-      blueprint.states?.map((state) => state.kind).filter((state) => state.trim().length > 0) ??
-      STANDARD_STATES,
+      blueprint.states?.map((state) => state.kind).filter((state) => state.trim().length > 0) ?? [],
     regions: regionsFromBlueprint(blueprint),
     designSystemHints:
       blueprint.designSystemHints ?? designSystemHints(designSystem, requiredUiParts),

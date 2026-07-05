@@ -64,6 +64,22 @@ const BlueprintRepeatedPatternInputSchema = z.strictObject({
   regionId: IncrementalRefSchema.optional(),
 });
 
+const BlueprintExpectedContentKindSchema = z.enum([
+  "field-label",
+  "column-label",
+  "toggle-label",
+  "button-label",
+  "copy",
+  "region-title",
+  "custom",
+]);
+
+const BlueprintExpectedContentInputSchema = z.strictObject({
+  kind: BlueprintExpectedContentKindSchema.optional(),
+  text: IncrementalTextSchema,
+  required: z.boolean().optional(),
+});
+
 const BlueprintStateInputSchema = z.strictObject({
   id: IncrementalRefSchema.optional(),
   name: IncrementalTextSchema.optional(),
@@ -83,6 +99,10 @@ export const ScreenBlueprintInputSchema = z
     traits: BlueprintTraitsSchema.optional(),
     repeatedPatterns: z
       .array(BlueprintRepeatedPatternInputSchema)
+      .max(MAX_BLUEPRINT_ITEMS)
+      .optional(),
+    expectedContent: z
+      .array(BlueprintExpectedContentInputSchema)
       .max(MAX_BLUEPRINT_ITEMS)
       .optional(),
     states: z.array(BlueprintStateInputSchema).max(MAX_BLUEPRINT_ITEMS).optional(),
