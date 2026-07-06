@@ -133,6 +133,94 @@ describe("feedback graph nodes", () => {
     });
   });
 
+  it("turns comment threads into one revision change with ordered messages", async () => {
+    const output = await runNode("feedback.createRevisionPlan", {
+      feedback: {
+        commentSnapshot: {
+          schemaVersion: "FigmaCommentSnapshot/v1",
+          fileKey: "FILE",
+          threads: [
+            {
+              threadId: "comment-root",
+              rootCommentId: "comment-root",
+              status: "actionable",
+              messages: [
+                {
+                  commentId: "comment-root",
+                  message: "Move the empty state inside the table region.",
+                },
+                {
+                  commentId: "comment-reply",
+                  parentId: "comment-root",
+                  message: "Keep the helper copy concise.",
+                  clientMeta: null,
+                },
+              ],
+            },
+          ],
+        },
+      },
+      commentEvidenceMap: {
+        schemaVersion: "CommentEvidenceMap/v1",
+        fileKey: "FILE",
+        mappedAt: "2026-07-02T00:00:00.000Z",
+        unmappedCount: 0,
+        comments: [
+          {
+            commentId: "comment-root",
+            rootCommentId: "comment-root",
+            message: "Move the empty state inside the table region.",
+            mappedTarget: {
+              nodeId: "node-table",
+              nodeName: "Members table",
+              partId: "members-table",
+            },
+            mappingConfidence: "exact",
+            mappingStrategy: "node-id",
+            intent: "needs-human-clarification",
+            status: "actionable",
+          },
+          {
+            commentId: "comment-reply",
+            rootCommentId: "comment-root",
+            parentId: "comment-root",
+            message: "Keep the helper copy concise.",
+            mappedTarget: {
+              nodeId: "node-table",
+              nodeName: "Members table",
+              partId: "members-table",
+            },
+            mappingConfidence: "high",
+            mappingStrategy: "parent-thread",
+            intent: "needs-human-clarification",
+            status: "actionable",
+          },
+        ],
+      },
+    });
+
+    expect(output.statePatch?.feedback).toMatchObject({
+      revisionPlan: {
+        schemaVersion: "RevisionPlan/v1",
+        summary: "1 feedback change(s) prepared.",
+        data: {
+          changes: [
+            {
+              id: "thread-comment-root",
+              source: "figma-comment-thread",
+              sourceId: "comment-root",
+              targetNodeId: "members-table",
+              targetName: "Members table",
+              recommendation:
+                "Move the empty state inside the table region.\nKeep the helper copy concise.",
+              needsHumanDecision: false,
+            },
+          ],
+        },
+      },
+    });
+  });
+
   it("asks the designer before applying prepared revisions", async () => {
     const output = await runNode("feedback.askRevisionApproval", {
       feedback: {

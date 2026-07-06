@@ -938,6 +938,14 @@ describe("MCP facade tools", () => {
                 user: { handle: "Designer", email: "designer@example.com" },
               },
               {
+                id: "comment-1-reply",
+                file_key: "FILE",
+                parent_id: "comment-1",
+                message: "Keep the helper copy concise.",
+                client_meta: null,
+                resolved_at: null,
+              },
+              {
                 id: "comment-2",
                 file_key: "FILE",
                 message: "Already handled.",
@@ -954,7 +962,7 @@ describe("MCP facade tools", () => {
       runId: "run-1",
     });
     const detail = detailOf<{
-      snapshot: { comments: Record<string, unknown>[] };
+      snapshot: { comments: Record<string, unknown>[]; threads: Record<string, unknown>[] };
       run: { runId: string };
     }>(result.content[0]?.text ?? "");
 
@@ -967,12 +975,41 @@ describe("MCP facade tools", () => {
         client_meta: { node_id: "node-table" },
         user: { handle: "Designer" },
       }),
+      expect.objectContaining({
+        id: "comment-1-reply",
+        parent_id: "comment-1",
+        message: "Keep the helper copy concise.",
+        client_meta: null,
+      }),
+    ]);
+    expect(detail.snapshot.threads).toEqual([
+      expect.objectContaining({
+        threadId: "comment-1",
+        rootCommentId: "comment-1",
+        anchorClientMeta: { nodeId: "node-table" },
+        messages: [
+          expect.objectContaining({
+            commentId: "comment-1",
+            message: "Move the empty state inside the table region.",
+          }),
+          expect.objectContaining({
+            commentId: "comment-1-reply",
+            parentId: "comment-1",
+            message: "Keep the helper copy concise.",
+            clientMeta: null,
+          }),
+        ],
+      }),
     ]);
     expect(detail.run.runId).toBe("run-1");
     expect(patchedFeedback).toMatchObject({
       commentSnapshot: {
         fileKey: "FILE",
-        comments: [expect.objectContaining({ id: "comment-1" })],
+        comments: [
+          expect.objectContaining({ id: "comment-1" }),
+          expect.objectContaining({ id: "comment-1-reply" }),
+        ],
+        threads: [expect.objectContaining({ threadId: "comment-1" })],
       },
     });
   });

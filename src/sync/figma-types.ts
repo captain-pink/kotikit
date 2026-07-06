@@ -225,7 +225,7 @@ const FigmaCommentSchema = z
     resolved_at: z.string().nullable().optional(),
     message: z.string().optional(),
     client_meta: FigmaCommentClientMetaSchema.nullable().optional(),
-    order_id: z.string().optional(),
+    order_id: z.union([z.string(), z.number()]).optional(),
   })
   .passthrough();
 export type FigmaComment = z.infer<typeof FigmaCommentSchema>;

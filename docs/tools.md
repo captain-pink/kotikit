@@ -187,7 +187,11 @@ Input: `{ query: string; limit?: number }`
 Purpose: Read compact Figma comments for a draft file and optionally attach
 them to a `review-screen` run.
 Input: `{ figmaUrl?: string; fileKey?: string; runId?: string; includeResolved?: boolean; limit?: number }`
-Output: `{ snapshot; run? }`
+Output: `{ snapshot; run? }`, where `snapshot.comments` keeps the compact flat
+Figma records and `snapshot.threads` groups root comments and replies by
+`parent_id`. Reply comments may have `client_meta: null`; kotikit keeps them
+and lets `review-screen` inherit the thread anchor from the nearest positioned
+parent comment when possible.
 
 This tool is read-only for Figma, but it resolves a local Figma token and calls
 Figma, so scaffolded agents should still ask before running it.

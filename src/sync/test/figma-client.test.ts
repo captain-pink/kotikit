@@ -330,6 +330,7 @@ describe("FigmaClient", () => {
             parent_id: "comment-root",
             message: "Agree, keep the supporting copy shorter.",
             client_meta: null,
+            order_id: 2,
           },
         ],
       });
@@ -348,6 +349,7 @@ describe("FigmaClient", () => {
         id: "comment-reply",
         parent_id: "comment-root",
         client_meta: null,
+        order_id: 2,
       }),
     ]);
   });
