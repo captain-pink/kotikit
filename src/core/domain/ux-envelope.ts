@@ -8,6 +8,7 @@ import {
 
 type BuildUxEnvelopeInput = {
   userIntent: string;
+  explicitBlueprint?: boolean;
   screen?: {
     title?: string;
     requiredUiParts?: string[];
@@ -24,6 +25,7 @@ type BuildStateMatrixInput = {
 
 const FALLBACK_SOURCE_REF = "https://www.nngroup.com/articles/task-analysis/";
 
+/** Classify only simple fallback intent into a broad built-in UX archetype. */
 export function classifyScreenArchetype(userIntent: string): UXEnvelope["screenArchetype"] {
   const tokens = tokenSet(userIntent);
   if (tokens.includes("table")) return "admin-data-table";
@@ -44,6 +46,7 @@ export function classifyScreenArchetype(userIntent: string): UXEnvelope["screenA
   return "unknown";
 }
 
+/** Build the compact UX contract used by state and composition planning. */
 export function buildUxEnvelope(input: BuildUxEnvelopeInput): UXEnvelope {
   const traits = normalizedTraits(input.screen?.traits);
   const explicitPatternPack = patternPackFromTraits(traits);
@@ -51,7 +54,7 @@ export function buildUxEnvelope(input: BuildUxEnvelopeInput): UXEnvelope {
     explicitPatternPack && screenArchetypeForPatternPack(explicitPatternPack);
   const screenArchetype =
     explicitArchetype ??
-    (hasComposableTraits(traits)
+    (input.explicitBlueprint || hasComposableTraits(traits)
       ? "unknown"
       : classifyScreenArchetype(
           [input.userIntent, input.screen?.title, ...(input.screen?.requiredUiParts ?? [])].join(
@@ -69,7 +72,12 @@ export function buildUxEnvelope(input: BuildUxEnvelopeInput): UXEnvelope {
   return {
     schemaVersion: "UXEnvelope/v1",
     screenArchetype,
-    confidence: screenArchetype === "unknown" ? "low" : defaults.confidence,
+    confidence:
+      screenArchetype === "unknown"
+        ? input.explicitBlueprint
+          ? "observed"
+          : "low"
+        : defaults.confidence,
     actor: defaults.actor,
     primaryGoal: defaults.primaryGoal,
     primaryTask: defaults.primaryTask,
@@ -84,6 +92,7 @@ export function buildUxEnvelope(input: BuildUxEnvelopeInput): UXEnvelope {
   };
 }
 
+/** Create the state matrix from the chosen pattern pack and requested states. */
 export function buildStateMatrix(input: BuildStateMatrixInput): StateMatrix {
   const patternPack = input.patternPack ?? selectPatternPack(input.envelope.screenArchetype);
   const requestedKinds = new Set(input.envelope.edgeCases.map(normalizeStateKind));

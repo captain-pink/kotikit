@@ -13,6 +13,31 @@ const pageClient = (input: { id?: string; name?: string; type?: string }) => ({
   }),
 });
 
+const fileTreeClient = () => ({
+  getNodes: async () => ({
+    "2:3": {
+      document: {
+        id: "2:3",
+        name: "Events frame",
+        type: "FRAME",
+      },
+    },
+  }),
+  getFile: async () => ({
+    document: {
+      children: [
+        { id: "0:1", name: "Drafts", type: "CANVAS", children: [{ id: "1:2" }] },
+        {
+          id: "9:10",
+          name: "Product Flow Draft",
+          type: "CANVAS",
+          children: [{ id: "2:3", name: "Events frame", type: "FRAME" }],
+        },
+      ],
+    },
+  }),
+});
+
 describe("resolveFigmaDraftTargetFromUrl", () => {
   it("resolves a page URL into a draft target with a section name", async () => {
     const target = await resolveFigmaDraftTargetFromUrl({
@@ -49,6 +74,28 @@ describe("resolveFigmaDraftTargetFromUrl", () => {
         now: () => "2026-06-22T10:00:00.000Z",
       })
     ).rejects.toThrow(/Draft/);
+  });
+
+  it("resolves a copied frame URL to its containing draft page", async () => {
+    const target = await resolveFigmaDraftTargetFromUrl({
+      client: fileTreeClient(),
+      pageUrl: "https://www.figma.com/design/FILE123/App?node-id=2-3",
+      scope: "events",
+      screen: null,
+      now: () => "2026-07-04T10:00:00.000Z",
+    });
+
+    expect(target).toMatchObject({
+      fileKey: "FILE123",
+      pageId: "9:10",
+      pageName: "Product Flow Draft",
+      pageUrl: "https://www.figma.com/design/FILE123/App?node-id=9-10",
+      sourceNode: {
+        id: "2:3",
+        name: "Events frame",
+        type: "FRAME",
+      },
+    });
   });
 
   it("rejects child node URLs instead of guessing the containing page", async () => {

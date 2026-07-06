@@ -2,6 +2,11 @@ import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { ensureDraftTarget } from "../../core/adapters/figma/target.js";
 import { verifyFigmaEvidenceAgainstApplyPacket } from "../../core/domain/figma-evidence.js";
+import {
+  assertFigmaMetadataMatchesTarget,
+  assertFigmaWritePreflight,
+  buildFigmaWritePreflight,
+} from "../../core/domain/figma-write-preflight.js";
 import { loadBuiltInFlows } from "../../core/flows/catalog.js";
 import { computeStableHash } from "../../core/graph/graph-hash.js";
 import type {
@@ -9,7 +14,7 @@ import type {
   RuntimeRunResult,
   RuntimeStartInput,
 } from "../../core/graph/runtime.js";
-import type { Artifact } from "../../core/schemas/artifact.js";
+import { ActiveFigmaTransactionSchema, type Artifact } from "../../core/schemas/artifact.js";
 import {
   CanvasIntentInputSchema,
   ExistingDesignInventoryInputSchema,
@@ -37,6 +42,7 @@ export const FACADE_TOOL_NAMES = [
   "kotikit_continue",
   "kotikit_answer",
   "kotikit_bind_figma_target",
+  "kotikit_prepare_figma_write",
   "kotikit_get_artifact",
   "kotikit_list_artifacts",
   "kotikit_search_design_system",
@@ -55,7 +61,9 @@ export type FacadeRuntime = Pick<
 export type FacadeToolDependencies = {
   runtime?: FacadeRuntime;
   loadFlows?: () => Promise<FlowDefinition[]>;
-  figmaClientFactory?: (token: string) => Partial<Pick<FigmaClient, "getComments" | "getNodes">>;
+  figmaClientFactory?: (
+    token: string
+  ) => Partial<Pick<FigmaClient, "getComments" | "getNodes" | "getFile">>;
 };
 
 const FlowValidateInputSchema = z
@@ -105,6 +113,11 @@ const BindFigmaTargetInputSchema = z.strictObject({
   target: z.unknown().optional(),
 });
 type BindFigmaTargetInput = z.infer<typeof BindFigmaTargetInputSchema>;
+
+const PrepareFigmaWriteInputSchema = z.strictObject({
+  runId: z.string().min(1),
+  transactionId: z.string().min(1).optional(),
+});
 
 const GetArtifactInputSchema = z.strictObject({
   artifactId: z.string().min(1),
@@ -389,6 +402,41 @@ export function registerFacadeTools(
   });
 
   registerTool(registry, {
+    name: "kotikit_prepare_figma_write",
+    description:
+      "Prepare a guarded Figma write for the active graph transaction and return exact target page identity.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        runId: { type: "string", description: "Kotikit run id waiting for Figma." },
+        transactionId: {
+          type: "string",
+          description: "Optional active transaction id to guard against stale run output.",
+        },
+      },
+      required: ["runId"],
+    },
+  });
+  registry.handlers.set("kotikit_prepare_figma_write", async (args) => {
+    try {
+      const input = PrepareFigmaWriteInputSchema.parse(args);
+      const runtime = requireRuntime(deps.runtime);
+      const state = await runtime.getRunState(input.runId);
+      const preflight = prepareFigmaWritePreflight(state, input.transactionId);
+      const result = await runtime.patchRunState({
+        runId: input.runId,
+        statePatch: { figmaWritePreflight: preflight },
+      });
+      return toolText(`Prepared Figma write ${preflight.transactionId}.`, {
+        preflight,
+        run: compactRunResult(result),
+      });
+    } catch (err) {
+      return toolError(err);
+    }
+  });
+
+  registerTool(registry, {
     name: "kotikit_get_artifact",
     description: "Read one compact kotikit flow artifact by id.",
     inputSchema: {
@@ -556,7 +604,12 @@ export function registerFacadeTools(
       }
       const runtime = requireRuntime(deps.runtime);
       const applyMetadata = figmaApplyMetadataFrom(candidate);
-      await validateFigmaApplyRecord(runtime, runId, applyMetadata);
+      await validateFigmaApplyRecord(
+        runtime,
+        runId,
+        stringField(candidate, "preflightId"),
+        applyMetadata
+      );
       const result = await runtime.patchRunState({
         runId,
         statePatch: {
@@ -659,6 +712,11 @@ function figmaApplyInputSchema(): Tool["inputSchema"] {
       transactionId: {
         type: "string",
         description: "Active incremental Figma transaction id this metadata records.",
+      },
+      preflightId: {
+        type: "string",
+        description:
+          "Figma write preflight id returned by kotikit_prepare_figma_write for this transaction.",
       },
       note: { type: "string", description: "Optional human-readable note." },
       stepKind: {
@@ -822,7 +880,7 @@ function figmaApplyInputSchema(): Tool["inputSchema"] {
           "Compact Figma evidence snapshot collected from the applied root node by the scanner.",
       },
     },
-    required: ["runId", "scope", "stepIndex", "outcome"],
+    required: ["runId", "scope", "stepIndex", "outcome", "transactionId", "preflightId"],
   };
 }
 
@@ -1042,7 +1100,10 @@ async function resolveDraftTargetFromPageUrl(input: {
   }
   const state = await input.runtime.getRunState(input.input.runId);
   return resolveFigmaDraftTargetFromUrl({
-    client: { getNodes: client.getNodes.bind(client) },
+    client: {
+      getNodes: client.getNodes.bind(client),
+      ...(client.getFile === undefined ? {} : { getFile: client.getFile.bind(client) }),
+    },
     pageUrl: input.input.pageUrl ?? "",
     scope: scopeFromRunState(state),
     screen: null,
@@ -1069,6 +1130,9 @@ function normalizeDraftTargetObject(value: unknown): FigmaDraftTarget {
         stringField(record, "sectionName") ??
         stringField(record, "figmaSectionName"),
     },
+    ...(Object.keys(recordFrom(record.sourceNode)).length === 0
+      ? {}
+      : { sourceNode: recordFrom(record.sourceNode) }),
     safety: record.safety,
   };
   const parsed = FigmaDraftTargetSchema.safeParse(normalized);
@@ -1250,6 +1314,7 @@ function stateRepresentationField(input: Record<string, unknown>): string | unde
 async function validateFigmaApplyRecord(
   runtime: FacadeRuntime,
   runId: string,
+  preflightId: string | undefined,
   applyMetadata: Record<string, unknown>
 ): Promise<void> {
   const state = await runtime.getRunState(runId);
@@ -1285,7 +1350,45 @@ async function validateFigmaApplyRecord(
     );
   }
 
+  const target = ensureDraftTarget(state.figmaTarget);
+  assertFigmaMetadataMatchesTarget({ target, metadata: applyMetadata });
+  assertFigmaWritePreflight({
+    preflight: state.figmaWritePreflight,
+    preflightId,
+    metadata: applyMetadata,
+  });
   validateRepairableFigmaEvidence(state, applyMetadata);
+}
+
+// Builds the exact page guard for one active Figma write.
+function prepareFigmaWritePreflight(
+  state: KotikitGraphState,
+  transactionId: string | undefined
+): NonNullable<KotikitGraphState["figmaWritePreflight"]> {
+  if (state.status !== "waiting-for-figma") {
+    throw new KotikitError(
+      `Run ${state.runId} is not waiting for a Figma write.`,
+      "Continue the kotikit run until it pauses for the active Figma transaction."
+    );
+  }
+  const active = ActiveFigmaTransactionSchema.safeParse(state.activeFigmaTransaction);
+  if (!active.success) {
+    throw new KotikitError(
+      `Run ${state.runId} has no active Figma transaction to prepare.`,
+      "Continue the kotikit run to recover the active transaction before writing in Figma."
+    );
+  }
+  if (transactionId !== undefined && transactionId !== active.data.id) {
+    throw new KotikitError(
+      `Requested Figma write ${transactionId} does not match the active transaction ${active.data.id}.`,
+      "Use the active transaction from the latest kotikit run result."
+    );
+  }
+  return buildFigmaWritePreflight({
+    runId: state.runId,
+    target: ensureDraftTarget(state.figmaTarget),
+    active: active.data,
+  });
 }
 
 function validateRepairableFigmaEvidence(
@@ -1335,6 +1438,7 @@ function compactRunResult(result: RuntimeRunResult): Record<string, unknown> {
     pendingQuestion: result.state.pendingQuestion,
     pendingApproval: result.state.pendingApproval,
     activeFigmaTransaction: result.state.activeFigmaTransaction,
+    figmaWritePreflight: result.state.figmaWritePreflight,
     figmaTransactionProgress: transactionProgressFrom(result.state.figmaTransactionPlan),
     artifacts: result.state.artifacts,
     errors: result.state.errors,

@@ -88,6 +88,27 @@ describe("brief nodes", () => {
     });
   });
 
+  it("uses quick lane for a complete explicit blueprint even when the prompt is neutral", async () => {
+    const result = await runBriefNode(
+      "brief.classifyIntent",
+      baseState({
+        userIntent: "Create the supplied mocked Events screen.",
+        screenBlueprint: {
+          schemaVersion: "ScreenBlueprintInput/v1",
+          title: "Events Experience",
+          confidence: "explicit",
+          requiredUiParts: [{ id: "event-stream", name: "Event stream", role: "timeline" }],
+        },
+      })
+    );
+
+    expect(result.statePatch?.brief).toMatchObject({
+      title: "Events Experience",
+      lane: "quick",
+      confidence: "explicit",
+    });
+  });
+
   it("infers a screen blueprint from a short request and local design-system hints", async () => {
     const result = await runBriefNode(
       "brief.inferScreenBlueprint",
@@ -173,6 +194,38 @@ describe("brief nodes", () => {
         regions: [expect.objectContaining({ id: "activity", kind: "timeline" })],
         repeatedPatterns: [expect.objectContaining({ id: "events", kind: "events" })],
       },
+    });
+  });
+
+  it("preserves blueprint expected content without inventing default states", async () => {
+    const result = await runBriefNode(
+      "brief.inferScreenBlueprint",
+      baseState({
+        userIntent: "Create the supplied mocked Events screen.",
+        screenBlueprint: {
+          schemaVersion: "ScreenBlueprintInput/v1",
+          id: "events",
+          title: "Events Experience",
+          productDomain: "Mock Operations",
+          requiredUiParts: [
+            { id: "event-stream", name: "Event stream", role: "timeline", regionId: "activity" },
+            { id: "detail-panel", name: "Detail panel", role: "context panel" },
+          ],
+          expectedContent: [
+            { kind: "region-title", text: "Recent mock events" },
+            { kind: "button-label", text: "Review selected", required: true },
+          ],
+        },
+      })
+    );
+
+    expect(result.statePatch?.screen).toMatchObject({
+      title: "Events Experience",
+      expectedContent: [
+        { kind: "region-title", text: "Recent mock events" },
+        { kind: "button-label", text: "Review selected", required: true },
+      ],
+      states: [],
     });
   });
 

@@ -20,7 +20,7 @@ const EmptyParamsSchema = z.strictObject({});
 export const qaNodeDefinitions: NodeDefinition[] = [
   node({
     key: "qa.runUiQualityGate",
-    stateReads: ["applyReport", "canvasPlan", "draftPlan"],
+    stateReads: ["applyReport", "canvasPlan", "draftPlan", "screen"],
     stateWrites: ["uiQualityGate"],
     requiredCapabilities: ["qa.run"],
     run: async (input) => {
@@ -34,11 +34,14 @@ export const qaNodeDefinitions: NodeDefinition[] = [
         );
       }
       const applyPacket = recordFrom(recordFrom(state.draftPlan).applyPacket);
+      const screen = recordFrom(state.screen);
       return {
         statePatch: {
           uiQualityGate: runUiQualityGate({
             nodes,
             canvasPlan: state.canvasPlan,
+            expectedContent: recordArray(screen.expectedContent),
+            evidenceSnapshots: recordArray(applyReport.evidenceSnapshots),
             iconRequirements: recordArray(applyPacket.iconRequirements),
             iconRefs: stringArray(applyReport.iconRefs),
           }),

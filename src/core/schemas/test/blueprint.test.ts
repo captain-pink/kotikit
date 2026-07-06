@@ -28,6 +28,10 @@ describe("blueprint input schemas", () => {
           role: "context panel",
         },
       ],
+      expectedContent: [
+        { kind: "region-title", text: "Recent mock events" },
+        { kind: "button-label", text: "Review selected", required: true },
+      ],
       traits: {
         regions: [{ id: "activity", name: "Activity", kind: "timeline" }],
         stateScopes: [{ id: "screen", name: "Screen", kind: "page" }],
@@ -46,6 +50,10 @@ describe("blueprint input schemas", () => {
         }),
       ])
     );
+    expect(parsed.expectedContent).toEqual([
+      { kind: "region-title", text: "Recent mock events" },
+      { kind: "button-label", text: "Review selected", required: true },
+    ]);
     expect(parsed.traits?.regions).toEqual(
       expect.arrayContaining([expect.objectContaining({ kind: "timeline" })])
     );

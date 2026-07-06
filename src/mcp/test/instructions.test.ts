@@ -40,6 +40,8 @@ describe("KOTIKIT_MCP_INSTRUCTIONS", () => {
 
   it("requires a bound draft page before Figma design application", () => {
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit_bind_figma_target");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("target draft page or frame URL");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("resolves copied node URLs");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("page name must contain Draft or Drafts");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit-owned Section");
   });
@@ -49,7 +51,9 @@ describe("KOTIKIT_MCP_INSTRUCTIONS", () => {
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("use_figma");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("generate_figma_design");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit_get_artifact");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit_prepare_figma_write");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit_record_figma_apply");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("preflightId");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("Do not create every screen state");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("after the screen is visible");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("Do not finish Figma work manually");

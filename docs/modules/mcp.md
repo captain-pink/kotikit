@@ -35,8 +35,8 @@ grouped here by product area:
   `kotikit_start`, `kotikit_answer`, `kotikit_continue`,
   `kotikit_bind_figma_target`, `kotikit_get_artifact`,
   `kotikit_list_artifacts`, `kotikit_search_design_system`,
-  `kotikit_feedback_snapshot`, `kotikit_record_figma_apply`, and
-  `kotikit_doctor`.
+  `kotikit_feedback_snapshot`, `kotikit_prepare_figma_write`,
+  `kotikit_record_figma_apply`, and `kotikit_doctor`.
 - Setup: `kotikit_config_status`, `kotikit_config_init`,
   `kotikit_config_get`.
 - Local design-system support: `kotikit_sync_ds`,
@@ -70,22 +70,26 @@ store compact current state, checkpoints, and artifacts rather than a manual
 workflow history.
 
 Figma design creation is fail-closed around explicit draft targets. The agent
-first binds the exact draft page URL through `kotikit_bind_figma_target` with
-`pageUrl` on the active graph run. Kotikit resolves that URL into the canonical
-draft target and Section name, so agents do not need to construct target JSON.
-The graph validates the page target, requires a page name containing `Draft` or
-`Drafts`, and writes generated nodes inside a kotikit-owned Section. Draft
-creation then drains an incremental Figma
-transaction queue: the agent applies one screen state or region state at a
-time with `use_figma`, places it at the canvas plan bounds, records metadata
-with `kotikit_record_figma_apply`, and continues the graph. Screen and region
-records include a compact `evidenceSnapshot` scanned from actual Figma nodes so
-existing design-system reuse is proved by visible instances whose keys came
-from the pre-run local design-system search.
+first binds the exact draft page or frame URL through
+`kotikit_bind_figma_target` with `pageUrl` on the active graph run. Kotikit
+resolves copied node URLs to their containing page, stores the canonical draft
+target and Section name, and reports the resolved page identity back to the
+agent. The graph validates the page target, requires a page name containing
+`Draft` or `Drafts`, and writes generated nodes inside a kotikit-owned Section.
+Draft creation then drains an incremental Figma transaction queue: before each
+official Figma MCP write, the agent prepares the active transaction with
+`kotikit_prepare_figma_write`, confirms the returned file key, page id, page
+name, and Section, applies one screen state or region state at a time with
+`use_figma`, records metadata with `kotikit_record_figma_apply` and the
+preflight id, and continues the graph. Screen and region records include a
+compact `evidenceSnapshot` scanned from actual Figma nodes so existing
+design-system reuse is proved by visible instances whose keys came from the
+pre-run local design-system search.
 `kotikit_record_figma_apply` records official Figma MCP apply metadata back into
-the run so graph QA nodes can validate file, page, Section, component,
-component source, variable, icon, layout, repeated-item, text-transform,
-transaction, placement, and canvas-overlap metadata.
+the run only when the preflight id, file, page, and Section match the bound
+target. Graph QA nodes then validate component, component source, variable,
+icon, layout, repeated-item, text-transform, transaction, placement, and
+canvas-overlap metadata.
 
 The bridge binds to `127.0.0.1` only and requires a per-session token on the WebSocket upgrade URL query string. It exists for the variable-only Figma plugin fallback; design creation, review, and comment handling do not use this transport. When the bridge starts, it writes `BridgeConfig` to `.kotikit/bridge.json` atomically; on SIGINT/SIGTERM it removes that file so a stale config cannot mislead a future session.
 

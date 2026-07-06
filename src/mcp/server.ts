@@ -14,6 +14,7 @@ import {
   McpError,
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import { z } from "zod";
 import { loadConfig } from "../config/load.js";
 import { defaultConfig } from "../config/schema.js";
 import { loadFlowCatalog } from "../core/flows/catalog.js";
@@ -25,7 +26,7 @@ import { createRunStore } from "../core/runs/run-store.js";
 import type { FlowDefinition } from "../core/schemas/flow-definition.js";
 import { loadDotEnv } from "../util/env.js";
 import { findProjectRoot } from "../util/paths.js";
-import { KotikitError, toolError } from "../util/result.js";
+import { formatValidationError, KotikitError, toolError } from "../util/result.js";
 import { type BridgeManager, createBridgeManager } from "./bridge/manager.js";
 import type { ToolContext } from "./context.js";
 import { completeFacadeArgument } from "./facade/completions.js";
@@ -63,6 +64,9 @@ export function toMcpRequestError(err: unknown): McpError {
       err.userMessage,
       err.hint === undefined ? undefined : { hint: err.hint }
     );
+  }
+  if (err instanceof z.ZodError) {
+    return new McpError(ErrorCode.InvalidParams, formatValidationError(err));
   }
   return new McpError(
     ErrorCode.InternalError,

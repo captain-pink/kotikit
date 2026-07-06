@@ -73,6 +73,11 @@ designers.
 - Prefer small named helpers over large inline blocks when the helper captures
   a domain concept.
 - Use explicit return types for exported functions and public interfaces.
+- Add a short one- or two-line description for every exported function, class
+  method, graph node runner, MCP handler, domain planner, and nontrivial local
+  helper. Prefer JSDoc for exported APIs and a concise leading comment for
+  private helpers. The description should say what the function does or why it
+  exists; avoid restating the implementation line by line.
 
 ## Boundaries and Validation
 
@@ -93,6 +98,34 @@ designers.
   `src/planning`, `src/db`, or `src/util`.
 - Prefer pure planner/formatter functions where possible, then wrap them with
   I/O at the edge.
+- Keep files focused by responsibility. Avoid storing exported types,
+  constants, helper utilities, schemas, test fixtures, and main orchestration
+  logic in one large file once the module has more than one meaningful concern.
+  Prefer this layout for medium and large modules:
+  - `index.ts` exports the public module surface or node definitions and keeps
+    orchestration readable.
+  - `types.ts` owns module-local exported types and interfaces. Move a type to
+    `src/core/schemas`, `src/core/domain`, or another shared boundary only when
+    it is consumed by multiple modules or persisted.
+  - `constants.ts` owns named literals, enum-like const arrays, policy limits,
+    and lookup tables. Treat TypeScript `enum` declarations as constants and
+    keep them out of orchestration files.
+  - `helpers.ts`, `utils.ts`, or a more specific file such as
+    `metadata.ts`/`matching.ts` owns pure local transformations. Use shared
+    `src/util` helpers only for behavior that is genuinely generic outside the
+    module.
+  - `schema.ts` or `schemas.ts` owns module-local Zod schemas when they are not
+    part of a persisted cross-module contract.
+- Do not split tiny files mechanically. Split when a file becomes hard to scan,
+  when private helpers obscure the public behavior, when constants drive policy,
+  or when tests need to target pure logic without constructing a full graph
+  node or MCP tool.
+- Keep files short enough to hold in one working context. New files should stay
+  at or below 400 lines. When changing an existing file over 400 lines, either
+  split the touched concern into focused sibling files or document in the change
+  why splitting would create more churn than clarity. Do not grow a file that is
+  already over 400 lines unless the same change also reduces or isolates a
+  larger concern.
 - Reuse local helpers such as `toolText`, `toolError`, `openDb`, path helpers,
   config parsing, and schema constructors.
 - Do not add a new dependency until the standard library, Bun, or existing

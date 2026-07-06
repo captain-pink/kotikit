@@ -20,8 +20,13 @@ kotikit will not write to a normal page by accident.
 Before creating a screen:
 
 - Use a page name that includes `Draft` or `Drafts`.
-- Give kotikit the exact Figma page URL.
+- Give kotikit the exact Figma page URL, or a copied frame/node URL on that
+  draft page.
 - Let kotikit create or reuse one kotikit-owned Section.
+
+kotikit resolves copied node URLs to their containing page and prepares a page
+guard before every Figma write. If a write reports a different page or Section,
+the graph rejects it before recording the result.
 
 Generated frames should stay inside that Section and follow the planned layout
 grid, with at least clear spacing between sibling screens.
