@@ -1,6 +1,7 @@
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { ensureDraftTarget } from "../../core/adapters/figma/target.js";
+import { compactFigmaComment, normalizeCommentThreads } from "../../core/domain/comment-threads.js";
 import { verifyFigmaEvidenceAgainstApplyPacket } from "../../core/domain/figma-evidence.js";
 import {
   assertFigmaMetadataMatchesTarget,
@@ -554,12 +555,14 @@ export function registerFacadeTools(
         .filter((comment) => input.includeResolved === true || comment.resolved_at == null)
         .slice(0, input.limit ?? 100)
         .map(compactFigmaComment);
+      const threads = normalizeCommentThreads(comments);
       const snapshot = {
         schemaVersion: "FigmaCommentSnapshot/v1",
         fileKey,
         fetchedAt: nowIso(),
         includeResolved: input.includeResolved === true,
         comments,
+        threads,
       };
 
       if (input.runId !== undefined) {
@@ -1172,56 +1175,6 @@ function fileKeyFromFigmaUrl(figmaUrl: string): string {
     );
   }
   return fileKey;
-}
-
-function compactFigmaComment(comment: Record<string, unknown>): Record<string, unknown> {
-  const user = recordFrom(comment.user);
-  return {
-    ...(stringField(comment, "id") !== undefined ? { id: stringField(comment, "id") } : {}),
-    ...(stringField(comment, "file_key") !== undefined
-      ? { file_key: stringField(comment, "file_key") }
-      : {}),
-    ...(stringField(comment, "parent_id") !== undefined
-      ? { parent_id: stringField(comment, "parent_id") }
-      : {}),
-    ...(stringField(comment, "message") !== undefined
-      ? { message: stringField(comment, "message") }
-      : {}),
-    ...(stringField(comment, "created_at") !== undefined
-      ? { created_at: stringField(comment, "created_at") }
-      : {}),
-    ...(stringField(comment, "resolved_at") !== undefined
-      ? { resolved_at: stringField(comment, "resolved_at") }
-      : {}),
-    ...(stringField(comment, "order_id") !== undefined
-      ? { order_id: stringField(comment, "order_id") }
-      : {}),
-    ...(Object.keys(user).length === 0
-      ? {}
-      : {
-          user: {
-            ...(stringField(user, "id") !== undefined ? { id: stringField(user, "id") } : {}),
-            ...(stringField(user, "handle") !== undefined
-              ? { handle: stringField(user, "handle") }
-              : {}),
-          },
-        }),
-    ...(Object.keys(recordFrom(comment.client_meta)).length === 0
-      ? {}
-      : { client_meta: compactClientMeta(recordFrom(comment.client_meta)) }),
-  };
-}
-
-function compactClientMeta(clientMeta: Record<string, unknown>): Record<string, unknown> {
-  return {
-    ...(stringField(clientMeta, "node_id") !== undefined
-      ? { node_id: stringField(clientMeta, "node_id") }
-      : {}),
-    ...(recordFrom(clientMeta.node_offset).x === undefined &&
-    recordFrom(clientMeta.node_offset).y === undefined
-      ? {}
-      : { node_offset: recordFrom(clientMeta.node_offset) }),
-  };
 }
 
 function figmaSectionDefaultFrom(

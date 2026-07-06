@@ -314,6 +314,46 @@ describe("FigmaClient", () => {
     ]);
   });
 
+  it("getComments accepts reply comments with null client metadata", async () => {
+    const fetch = async () =>
+      jsonResponse({
+        comments: [
+          {
+            id: "comment-root",
+            file_key: "k1",
+            message: "Review this settings region.",
+            client_meta: { node_id: "1:2" },
+          },
+          {
+            id: "comment-reply",
+            file_key: "k1",
+            parent_id: "comment-root",
+            message: "Agree, keep the supporting copy shorter.",
+            client_meta: null,
+            order_id: 2,
+          },
+        ],
+      });
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      limiter: FAST_LIMITER,
+      backoffOpts: FAST_BACKOFF,
+    });
+
+    const comments = await client.getComments("k1", { asMarkdown: true });
+
+    expect(comments).toEqual([
+      expect.objectContaining({ id: "comment-root", client_meta: { node_id: "1:2" } }),
+      expect.objectContaining({
+        id: "comment-reply",
+        parent_id: "comment-root",
+        client_meta: null,
+        order_id: 2,
+      }),
+    ]);
+  });
+
   it("getComments maps 403 to a comment-scope remediation", async () => {
     const fetch = async () => errorResponse(403);
     const client = new FigmaClient({

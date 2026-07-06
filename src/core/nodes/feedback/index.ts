@@ -15,7 +15,7 @@ type RuntimeNodeOutput = {
 
 type FeedbackChange = {
   id: string;
-  source: "figma-comment" | "chat-feedback";
+  source: "figma-comment" | "figma-comment-thread" | "chat-feedback";
   sourceId?: string;
   targetNodeId?: string;
   targetName?: string;
@@ -82,7 +82,11 @@ export const feedbackNodeDefinitions: NodeDefinition[] = [
     run: async (input) => {
       const state = graphState(input.state);
       const feedback = recordFrom(state.feedback);
-      const changes = [...changesFromComments(state), ...changesFromChatFeedback(state.userIntent)];
+      const commentChanges = changesFromCommentThreads(state);
+      const changes = [
+        ...(commentChanges.length > 0 ? commentChanges : changesFromComments(state)),
+        ...changesFromChatFeedback(state.userIntent),
+      ];
       const plan = {
         schemaVersion: "RevisionPlan/v1" as const,
         summary:
@@ -176,6 +180,44 @@ function commentEvidenceArtifact(state: KotikitGraphState, payload: Artifact["pa
   };
 }
 
+// Prefers Figma thread structure so replies refine one change instead of
+// becoming separate tasks.
+function changesFromCommentThreads(state: KotikitGraphState): FeedbackChange[] {
+  const snapshot = recordFrom(recordFrom(state.feedback).commentSnapshot);
+  const threads = recordArray(snapshot.threads);
+  if (threads.length === 0) return [];
+
+  const commentsById = new Map(
+    state.commentEvidenceMap?.comments.map((comment) => [comment.commentId, comment]) ?? []
+  );
+
+  return threads.map((thread) => {
+    const messages = recordArray(thread.messages);
+    const threadId =
+      stringField(thread, "threadId") ?? stringField(thread, "rootCommentId") ?? "unknown-thread";
+    const mappedComment =
+      messages
+        .map((message) => commentsById.get(stringField(message, "commentId") ?? ""))
+        .find((comment) => comment?.mappedTarget !== undefined) ??
+      state.commentEvidenceMap?.comments.find(
+        (comment) => comment.rootCommentId === threadId && comment.mappedTarget !== undefined
+      );
+    const target = mappedComment?.mappedTarget;
+    const targetNodeId = target?.partId ?? target?.nodeId;
+    return {
+      id: `thread-${threadId}`,
+      source: "figma-comment-thread",
+      sourceId: threadId,
+      ...(targetNodeId === undefined ? {} : { targetNodeId }),
+      ...(target?.nodeName === undefined ? {} : { targetName: target.nodeName }),
+      ...(target?.stateId === undefined ? {} : { stateId: target.stateId }),
+      recommendation: recommendationFromMessages(messages),
+      needsHumanDecision:
+        targetNodeId === undefined || stringField(thread, "status") === "needs-human",
+    };
+  });
+}
+
 function changesFromComments(state: KotikitGraphState): FeedbackChange[] {
   return (
     state.commentEvidenceMap?.comments.map((comment) => {
@@ -193,6 +235,18 @@ function changesFromComments(state: KotikitGraphState): FeedbackChange[] {
       };
     }) ?? []
   );
+}
+
+// Preserves the ordered conversation as plain feedback text for the agent.
+function recommendationFromMessages(messages: Record<string, unknown>[]): string {
+  return messages
+    .map((message) => {
+      const text = stringField(message, "message") ?? "";
+      const author = stringField(message, "author");
+      return author === undefined ? text : `${author}: ${text}`;
+    })
+    .filter((message) => message.trim() !== "")
+    .join("\n");
 }
 
 function changesFromChatFeedback(userIntent: string | undefined): FeedbackChange[] {

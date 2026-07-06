@@ -55,7 +55,7 @@ Expected behavior:
 - Starts the `review-screen` flow.
 - Reads a compact Figma comment snapshot.
 - Maps comments to visible nodes when possible.
-- Groups related feedback.
+- Groups root comments and replies into one feedback thread.
 - Produces a change plan in plain design language.
 - Asks before applying changes.
 
