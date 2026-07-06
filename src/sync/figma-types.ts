@@ -224,7 +224,7 @@ const FigmaCommentSchema = z
     created_at: z.string().optional(),
     resolved_at: z.string().nullable().optional(),
     message: z.string().optional(),
-    client_meta: FigmaCommentClientMetaSchema.optional(),
+    client_meta: FigmaCommentClientMetaSchema.nullable().optional(),
     order_id: z.string().optional(),
   })
   .passthrough();
