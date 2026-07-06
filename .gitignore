@@ -178,6 +178,7 @@ dist
 .kotikit/workflows/
 *.log
 .claude/
+docs/superpowers/
 
 # kotikit Phase 5 — ephemeral bridge and apply log artifacts
 .kotikit/bridge.json
