@@ -39,7 +39,7 @@ kotikit should feel lightweight, fast, and useful in minutes.
 - The Figma plugin only syncs variables.
 - kotikit does not generate application code.
 - Public PRs are not open yet.
-- The repo is source-available only until a license is added.
+- The public API and setup flow are still unstable.
 
 ## Quick Start
 
@@ -135,6 +135,6 @@ Maintainer docs:
 kotikit is public for visibility and experimentation. There is no support SLA,
 security audit, stable API promise, or public contribution process yet.
 
-No open-source license is currently granted. Until a `LICENSE` file is added,
-do not assume permission to redistribute, repackage, or use the code in a
-commercial product.
+kotikit is free to use, modify, distribute, and use commercially under the MIT
+License. The software is provided "AS IS", without warranty or liability; review
+generated designs and code before using them for real product work.
