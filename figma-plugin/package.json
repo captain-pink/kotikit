@@ -2,6 +2,7 @@
   "name": "@kotikit/figma-plugin",
   "private": true,
   "version": "0.1.0",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.code.json --noEmit && vite build --config vite.sandbox.config.ts && vite build",
