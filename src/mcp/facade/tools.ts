@@ -35,6 +35,12 @@ import { KotikitError, toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
 import { withKotikitToolSafety } from "../tool-safety.js";
+import {
+  buildIssuePreview,
+  type IssueDoctorDiagnostic,
+  type IssuePreviewDiagnostics,
+  type IssueRunDiagnostics,
+} from "./issue-preview.js";
 
 export const FACADE_TOOL_NAMES = [
   "kotikit_flow_list",
@@ -49,6 +55,7 @@ export const FACADE_TOOL_NAMES = [
   "kotikit_search_design_system",
   "kotikit_feedback_snapshot",
   "kotikit_record_figma_apply",
+  "kotikit_prepare_issue",
   "kotikit_doctor",
 ] as const;
 
@@ -139,6 +146,31 @@ const FeedbackSnapshotInputSchema = z
   .refine((input) => input.figmaUrl !== undefined || input.fileKey !== undefined, {
     message: "Pass either figmaUrl or fileKey.",
   });
+
+const IssueWorkflowAreaSchema = z.enum([
+  "setup",
+  "sync",
+  "planning",
+  "figma-apply",
+  "qa",
+  "feedback",
+  "mcp",
+  "docs",
+]);
+
+const PrepareIssueInputSchema = z.strictObject({
+  kind: z.enum(["bug", "feature"]),
+  summary: z.string().min(1).max(240),
+  userGoal: z.string().min(1).max(2_000),
+  observedProblem: z.string().min(1).max(2_000).optional(),
+  desiredBehavior: z.string().min(1).max(2_000),
+  impact: z.string().min(1).max(1_000).optional(),
+  workflowArea: IssueWorkflowAreaSchema.optional(),
+  runId: z.string().min(1).optional(),
+  includeSanitizedDiagnostics: z.boolean().optional(),
+  includeDoctor: z.boolean().optional(),
+  sensitiveTerms: z.array(z.string().min(1).max(200)).max(50).optional(),
+});
 
 type ToolHandler = ToolRegistry["handlers"] extends Map<string, infer Handler> ? Handler : never;
 
@@ -626,6 +658,87 @@ export function registerFacadeTools(
   });
 
   registerTool(registry, {
+    name: "kotikit_prepare_issue",
+    description:
+      "Prepare a sanitized GitHub issue preview link for a kotikit bug or feature request without submitting it.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        kind: {
+          type: "string",
+          enum: ["bug", "feature"],
+          description: "Whether to prepare a bug report or feature request.",
+        },
+        summary: {
+          type: "string",
+          description: "Generalized one-line issue summary. Do not include company names.",
+        },
+        userGoal: {
+          type: "string",
+          description: "Generalized description of what the user was trying to do.",
+        },
+        observedProblem: {
+          type: "string",
+          description: "For bugs, generalized description of what happened.",
+        },
+        desiredBehavior: {
+          type: "string",
+          description: "Generalized behavior the user expected or wants improved.",
+        },
+        impact: {
+          type: "string",
+          description: "Generalized user impact.",
+        },
+        workflowArea: {
+          type: "string",
+          enum: ["setup", "sync", "planning", "figma-apply", "qa", "feedback", "mcp", "docs"],
+          description: "Kotikit workflow area related to the report.",
+        },
+        runId: {
+          type: "string",
+          description: "Optional kotikit run id for sanitized run diagnostics.",
+        },
+        includeSanitizedDiagnostics: {
+          type: "boolean",
+          description: "When true, include safe runtime and run diagnostics if available.",
+        },
+        includeDoctor: {
+          type: "boolean",
+          description: "When true, include sanitized kotikit_doctor check statuses.",
+        },
+        sensitiveTerms: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Known company, product, customer, user, or project names the assistant already identified for redaction.",
+        },
+      },
+      required: ["kind", "summary", "userGoal", "desiredBehavior"],
+    },
+  });
+  registry.handlers.set("kotikit_prepare_issue", async (args) => {
+    try {
+      const input = PrepareIssueInputSchema.parse(args);
+      const diagnostics = await collectIssueDiagnostics(input, ctx, deps.runtime);
+      const preview = buildIssuePreview({
+        kind: input.kind,
+        summary: input.summary,
+        userGoal: input.userGoal,
+        ...(input.observedProblem === undefined ? {} : { observedProblem: input.observedProblem }),
+        desiredBehavior: input.desiredBehavior,
+        ...(input.impact === undefined ? {} : { impact: input.impact }),
+        ...(input.workflowArea === undefined ? {} : { workflowArea: input.workflowArea }),
+        ...(input.sensitiveTerms === undefined ? {} : { sensitiveTerms: input.sensitiveTerms }),
+        ...(diagnostics === undefined ? {} : { diagnostics }),
+      });
+
+      return toolText("Prepared a sanitized GitHub issue preview link.", preview);
+    } catch (err) {
+      return toolError(err);
+    }
+  });
+
+  registerTool(registry, {
     name: "kotikit_doctor",
     description:
       "Check kotikit setup, local design-system state, Figma access, bridge status, and gates.",
@@ -642,6 +755,53 @@ export function registerFacadeTools(
       return toolError(err);
     }
   });
+}
+
+async function collectIssueDiagnostics(
+  input: z.infer<typeof PrepareIssueInputSchema>,
+  ctx: ToolContext,
+  runtime: FacadeRuntime | undefined
+): Promise<IssuePreviewDiagnostics | undefined> {
+  if (!input.includeSanitizedDiagnostics && !input.includeDoctor) return undefined;
+
+  const diagnostics: IssuePreviewDiagnostics = {
+    runtime: runtimeLabel(),
+    platform: process.platform,
+    arch: process.arch,
+  };
+
+  if (input.includeSanitizedDiagnostics && input.runId !== undefined && runtime !== undefined) {
+    const state = await runtime.getRunState(input.runId);
+    diagnostics.run = {
+      status: state.status,
+      flowId: state.flowId,
+      flowVersion: state.flowVersion,
+      graphHash: state.graphHash,
+      artifactCounts: countArtifactsByType(state.artifacts),
+    };
+  }
+
+  if (input.includeDoctor) {
+    const report = await runKotikitDoctor(ctx.root);
+    diagnostics.doctor = report.checks.map(
+      (item): IssueDoctorDiagnostic => ({ id: item.id, status: item.status })
+    );
+  }
+
+  return diagnostics;
+}
+
+function runtimeLabel(): string {
+  return typeof Bun === "undefined" ? `node ${process.version}` : `bun ${Bun.version}`;
+}
+
+function countArtifactsByType(
+  artifacts: KotikitGraphState["artifacts"]
+): NonNullable<IssueRunDiagnostics["artifactCounts"]> {
+  return (artifacts ?? []).reduce<Record<string, number>>((counts, artifact) => {
+    counts[artifact.type] = (counts[artifact.type] ?? 0) + 1;
+    return counts;
+  }, {});
 }
 
 function registerTool(registry: ToolRegistry, tool: Tool): void {

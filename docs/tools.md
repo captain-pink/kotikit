@@ -233,6 +233,25 @@ versions.
 Input: `{}`
 Output: `{ ok: boolean; root: string; checks; nextSteps }`
 
+### kotikit_prepare_issue
+
+Purpose: Prepare a sanitized GitHub issue preview link for a kotikit bug or
+feature request. The tool never submits the issue.
+Input: `{ kind: "bug" | "feature"; summary: string; userGoal: string; observedProblem?: string; desiredBehavior: string; impact?: string; workflowArea?: "setup" | "sync" | "planning" | "figma-apply" | "qa" | "feedback" | "mcp" | "docs"; runId?: string; includeSanitizedDiagnostics?: boolean; includeDoctor?: boolean; sensitiveTerms?: string[] }`
+Output: `{ title: string; bodyPreview: string; githubIssueUrl: string; redactions: string[]; omittedFields: string[]; warnings: string[] }`
+
+Assistants use this when the user expresses natural-language intent to share a
+kotikit bug, improvement, or feature request. The assistant should first turn
+the situation into a generalized maintainer brief: what the user was trying to
+do, where kotikit struggled, why it mattered, and what should be better. Do not
+call the tool automatically after errors.
+
+The generated GitHub issue preview is public-facing. Do not include company
+names, customer data, Figma URLs, file keys, node ids, raw paths, tokens, raw
+config, logs, graph state dumps, artifact payloads, or generated screen text.
+Pass known sensitive names in `sensitiveTerms` so kotikit can redact them from
+the title and body. The user reviews the GitHub page and submits manually.
+
 ## Setup
 
 ### kotikit_config_status

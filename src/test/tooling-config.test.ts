@@ -137,6 +137,8 @@ describe("live documentation", () => {
     expect(docs).toContain("kotikit_start");
     expect(docs).toContain("kotikit_answer");
     expect(docs).toContain("kotikit_get_artifact");
+    expect(docs).toContain("kotikit_prepare_issue");
+    expect(docs).toContain("GitHub issue preview");
   });
 
   it("keeps setup and Figma guidance designer-first", () => {

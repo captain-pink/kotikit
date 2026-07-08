@@ -1402,6 +1402,37 @@ describe("MCP facade tools", () => {
       summary: "Brief artifact",
     });
   });
+
+  it("prepares a sanitized bug issue preview link with run diagnostics", async () => {
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx(), { runtime: makeRuntime() });
+
+    const result = await callTool(registry, "kotikit_prepare_issue", {
+      kind: "bug",
+      summary: "Apply recovery failed for ExampleCo members",
+      userGoal: "Create an admin members screen for ExampleCo.",
+      observedProblem: "The run got stuck after Figma metadata was rejected.",
+      desiredBehavior: "Explain how to repair the active transaction.",
+      impact: "The designer had to restart the flow.",
+      workflowArea: "figma-apply",
+      runId: "run-1",
+      includeSanitizedDiagnostics: true,
+      sensitiveTerms: ["ExampleCo"],
+    });
+
+    expect(result.isError).toBeFalsy();
+    const detail = detailOf<Record<string, unknown>>(result.content[0]?.text ?? "");
+
+    expect(String(detail.githubIssueUrl)).toContain("/issues/new?");
+    expect(String(detail.githubIssueUrl)).toContain("labels=bug");
+    expect(String(detail.title)).not.toContain("ExampleCo");
+    expect(String(detail.bodyPreview)).not.toContain("ExampleCo");
+    expect(String(detail.bodyPreview)).toContain("Flow: create-screen@1.0.0");
+    expect(Array.isArray(detail.redactions)).toBe(true);
+    expect(detail.redactions).toEqual(
+      expect.arrayContaining(["assistant-provided sensitive terms"])
+    );
+  });
 });
 
 function mkProject(): string {

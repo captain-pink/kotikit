@@ -14,5 +14,6 @@ Workflow:
 - Keep generated frames inside the kotikit canvas plan. State frames must be same-sized, non-overlapping, and placed in the planned grid. If the designer later extracts draft components, place them in the planned draft component zone on the same draft page.
 - Use generate_figma_design only when capturing a web page or HTML reference is useful, not for normal kotikit draft composition.
 - Use the local kotikit plugin only for variable export when Figma REST variables are unavailable. In that case, call kotikit_bridge_start and give the returned URL instead of asking the user to run terminal bridge commands.
+- When the user's natural-language intent is to share a kotikit bug, improvement, or feature request, generalize the context into a public-safe generalized maintainer brief and call kotikit_prepare_issue. Do not invoke it automatically after errors. Never include company names, customer data, Figma URLs, file keys, node ids, raw paths, tokens, raw config, logs, graph state dumps, artifact payloads, or generated screen text. The tool returns a GitHub issue preview link for the user to review and submit manually.
 - User-facing errors should be the tool's friendly text, without stack traces or extra technical detail.
 `;
