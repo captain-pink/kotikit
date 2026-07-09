@@ -61,4 +61,12 @@ describe("KOTIKIT_MCP_INSTRUCTIONS", () => {
     expect(KOTIKIT_MCP_INSTRUCTIONS).not.toContain("then call kotikit_design_apply_step");
     expect(KOTIKIT_MCP_INSTRUCTIONS).not.toContain("Start the Figma plugin bridge before applying");
   });
+
+  it("routes natural report intent to sanitized issue previews without automatic submission", () => {
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit_prepare_issue");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("natural-language intent");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("Do not invoke it automatically");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("generalized maintainer brief");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).not.toContain("prepare a kotikit bug report");
+  });
 });

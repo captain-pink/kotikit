@@ -32,6 +32,7 @@ const KOTIKIT_TOOL_NAMES = [
   "kotikit_prepare_figma_write",
   "kotikit_feedback_snapshot",
   "kotikit_record_figma_apply",
+  "kotikit_prepare_issue",
 ] as const;
 
 type KotikitToolName = (typeof KOTIKIT_TOOL_NAMES)[number];
@@ -55,6 +56,13 @@ const localStateAnnotations: ToolAnnotations = {
   openWorldHint: false,
 };
 
+const localSensitiveReadAnnotations: ToolAnnotations = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+};
+
 const remoteOrSecretAnnotations: ToolAnnotations = {
   readOnlyHint: false,
   destructiveHint: false,
@@ -72,15 +80,18 @@ const KOTIKIT_TOOL_SAFETY = Object.fromEntries(
       name === "kotikit_config_get" ||
       name === "kotikit_sync_ds" ||
       name === "kotikit_feedback_snapshot";
+    const localSensitiveRead = name === "kotikit_prepare_issue";
     return [
       name,
       {
         autoApprove,
         annotations: autoApprove
           ? localReadAnnotations
-          : remoteOrSecret
-            ? remoteOrSecretAnnotations
-            : localStateAnnotations,
+          : localSensitiveRead
+            ? localSensitiveReadAnnotations
+            : remoteOrSecret
+              ? remoteOrSecretAnnotations
+              : localStateAnnotations,
       },
     ];
   })
