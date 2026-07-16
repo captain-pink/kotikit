@@ -211,7 +211,21 @@ describe("draft graph nodes", () => {
   it("allows quick high-fidelity packets from a screen blueprint and assumptions", async () => {
     const result = await runNode("draft.buildFigmaApplyPacket", {
       brief: { lane: "quick", assumptions: ["Use existing design-system components first."] },
-      screen: { title: "Members", requiredUiParts: ["primary button"] },
+      screenBlueprint: {
+        schemaVersion: "ScreenBlueprintInput/v1",
+        title: "Mock Reports",
+        requiredUiParts: [
+          { id: "reports-table", name: "Reports table", role: "data table", regionId: "reports" },
+        ],
+        expectedContent: [
+          { kind: "column-label", text: "Title", required: true },
+          { kind: "column-label", text: "Data source", required: true },
+        ],
+      },
+      screen: {
+        title: "Mock Reports",
+        requiredUiParts: ["Reports table"],
+      },
       uiComposition: composition(),
       layoutContract: layout(),
       variableBindingPlan: { schemaVersion: "VariableBindingPlan/v1", bindings: [] },
@@ -229,6 +243,15 @@ describe("draft graph nodes", () => {
       .applyPacket;
     if (applyPacket === undefined) throw new Error("Expected apply packet");
     expect(applyPacket.mode).toBe("official-figma-mcp");
+    expect(applyPacket.blueprintRequirements).toEqual({
+      requiredUiParts: [
+        { id: "reports-table", name: "Reports table", role: "data table", regionId: "reports" },
+      ],
+      expectedContent: [
+        { kind: "column-label", text: "Title", required: true },
+        { kind: "column-label", text: "Data source", required: true },
+      ],
+    });
     expect(recordFrom(applyPacket.target).fileKey).toBe("FILE");
     expect(applyPacket.canvasPlanSummary).toEqual({
       sectionName: "kotikit / members / 2026-06-30",
@@ -303,11 +326,20 @@ describe("draft graph nodes", () => {
   it("emits a graph apply-packet artifact with legacy scope metadata and compact plan summaries", async () => {
     const result = await runNode("draft.buildFigmaApplyPacket", {
       brief: { lane: "quick", assumptions: ["Use existing design-system components first."] },
+      screenBlueprint: {
+        schemaVersion: "ScreenBlueprintInput/v1",
+        title: "Mock Reports",
+        requiredUiParts: [{ id: "reports-table", name: "Reports table", role: "data table" }],
+        expectedContent: [
+          { kind: "column-label", text: "Owner", required: true },
+          { kind: "column-label", text: "Updated", required: true },
+        ],
+      },
       screen: {
-        title: "Members",
+        title: "Mock Reports",
         scope: "admin",
-        slug: "members",
-        requiredUiParts: ["primary button"],
+        slug: "reports",
+        requiredUiParts: ["Reports table"],
       },
       uiComposition: composition(),
       layoutContract: layout(),
@@ -329,8 +361,15 @@ describe("draft graph nodes", () => {
         schemaVersion: "FigmaApplyPacket/v1",
         data: {
           scope: "admin",
-          screen: "members",
+          screen: "reports",
           mode: "official-figma-mcp",
+          blueprintRequirements: {
+            requiredUiParts: [{ id: "reports-table", name: "Reports table", role: "data table" }],
+            expectedContent: [
+              { kind: "column-label", text: "Owner", required: true },
+              { kind: "column-label", text: "Updated", required: true },
+            ],
+          },
           targetFileKey: "FILE",
           targetPageId: "1:2",
           targetSectionName: "kotikit / members / 2026-06-30",

@@ -7,6 +7,7 @@ import type {
   UICompositionContract,
   VariableBindingPlan,
 } from "../../schemas/artifact.js";
+import type { ScreenBlueprintInput } from "../../schemas/blueprint.js";
 
 type CanvasPlanSummary = {
   sectionName: string;
@@ -35,11 +36,17 @@ type FigmaTransactionPlanSummary = {
   transactions: FigmaTransactionSummary[];
 };
 
+export type FigmaBlueprintRequirements = Pick<
+  ScreenBlueprintInput,
+  "requiredUiParts" | "expectedContent"
+>;
+
 export type FigmaApplyPacket = {
   schemaVersion: "FigmaApplyPacket/v1";
   mode: "official-figma-mcp";
   target: FigmaDraftTarget;
   screenTitle: string;
+  blueprintRequirements?: FigmaBlueprintRequirements;
   uiComposition: UICompositionContract;
   layoutContract: LayoutContract;
   variableBindingPlan: VariableBindingPlan;
@@ -100,6 +107,7 @@ type ExistingComponentEvidenceRequirement = {
 export function buildFigmaApplyPacket(input: {
   target: FigmaDraftTarget;
   screenTitle: string;
+  blueprintRequirements?: FigmaBlueprintRequirements;
   uiComposition?: UICompositionContract;
   layoutContract?: LayoutContract;
   variableBindingPlan?: VariableBindingPlan;
@@ -127,6 +135,9 @@ export function buildFigmaApplyPacket(input: {
     mode: "official-figma-mcp",
     target: input.target,
     screenTitle: input.screenTitle,
+    ...(input.blueprintRequirements === undefined
+      ? {}
+      : { blueprintRequirements: input.blueprintRequirements }),
     uiComposition: input.uiComposition,
     layoutContract: input.layoutContract,
     variableBindingPlan: input.variableBindingPlan,

@@ -60,7 +60,7 @@ describe("create-screen graph flow", () => {
     const root = await mkdtemp(join(tmpdir(), "kotikit-e2e-literal-parts-"));
     try {
       seedLocalDesignSystem(root, { includePrimaryAction: false });
-      const { runtime } = await createGraphSmokeFixture(root);
+      const { artifactStore, runtime } = await createGraphSmokeFixture(root);
 
       const started = await runtime.startFlow({
         flowId: "create-screen",
@@ -80,6 +80,14 @@ describe("create-screen graph flow", () => {
               { name: "search-and-filter-bar" },
               { name: "reports-table" },
             ],
+            regions: [{ id: "reports", name: "Reports results", kind: "table" }],
+            expectedContent: [
+              { kind: "column-label", text: "Title", required: true },
+              { kind: "column-label", text: "Data source", required: true },
+              { kind: "column-label", text: "Chart type", required: true },
+              { kind: "column-label", text: "Owner", required: true },
+              { kind: "column-label", text: "Updated", required: true },
+            ],
           },
         },
       });
@@ -89,6 +97,37 @@ describe("create-screen graph flow", () => {
       expect(started.state.artifacts.map((artifact) => artifact.type)).toEqual(
         expect.arrayContaining(["design-system-reuse-plan", "figma-apply-packet"])
       );
+      const packet = recordFrom(recordFrom(started.state.draftPlan).applyPacket);
+      expect(recordFrom(packet.blueprintRequirements)).toMatchObject({
+        requiredUiParts: expect.arrayContaining([
+          expect.objectContaining({ name: "sidebar-nav" }),
+          expect.objectContaining({ name: "reports-table" }),
+        ]),
+        expectedContent: [
+          expect.objectContaining({ text: "Title" }),
+          expect.objectContaining({ text: "Data source" }),
+          expect.objectContaining({ text: "Chart type" }),
+          expect.objectContaining({ text: "Owner" }),
+          expect.objectContaining({ text: "Updated" }),
+        ],
+      });
+      await expect(
+        artifactStore.getArtifact(`${started.runId}-figma-apply-packet`)
+      ).resolves.toMatchObject({
+        payload: {
+          data: {
+            blueprintRequirements: {
+              requiredUiParts: expect.arrayContaining([
+                expect.objectContaining({ name: "reports-table" }),
+              ]),
+              expectedContent: expect.arrayContaining([
+                expect.objectContaining({ text: "Title" }),
+                expect.objectContaining({ text: "Updated" }),
+              ]),
+            },
+          },
+        },
+      });
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -112,7 +151,10 @@ describe("create-screen graph flow", () => {
       });
 
       expect(started.status).toBe("waiting-for-user");
-      expect(started.state.pendingQuestion?.id).toBe("approve-brief");
+      expect(started.state.pendingQuestion).toMatchObject({
+        id: "provide-typed-blueprint",
+        prompt: expect.stringMatching(/restart kotikit_start.*screenBlueprint.*flowBlueprint/i),
+      });
       expect(started.state.uxEnvelope).toMatchObject({
         screenArchetype: "unknown",
         confidence: "low",
@@ -125,15 +167,27 @@ describe("create-screen graph flow", () => {
         decision: "ask-designer",
         userWorkflow: expect.stringContaining("Title, Data source"),
       });
+      expect(started.state.stateMatrix?.states).toEqual([]);
+      expect(started.state.uiComposition).toBeUndefined();
+      expect(recordFrom(started.state.draftPlan).applyPacket).toBeUndefined();
+      expect(started.state.artifacts.map((artifact) => artifact.type)).not.toContain(
+        "design-system-reuse-plan"
+      );
+      expect(started.state.artifacts.map((artifact) => artifact.type)).not.toContain(
+        "figma-apply-packet"
+      );
       expect(JSON.stringify(started.state.stateMatrix)).not.toMatch(/members|invite/i);
 
       const approved = await runtime.answerRun({
         runId: started.runId,
         answer: "approve-brief",
       });
-      expect(approved.status).toBe("waiting-for-figma");
-      expect(approved.state.artifacts.map((artifact) => artifact.type)).toEqual(
-        expect.arrayContaining(["design-system-reuse-plan", "figma-apply-packet"])
+      expect(approved.status).toBe("waiting-for-user");
+      expect(approved.state.pendingQuestion?.id).toBe("provide-typed-blueprint");
+      expect(approved.state.uiComposition).toBeUndefined();
+      expect(recordFrom(approved.state.draftPlan).applyPacket).toBeUndefined();
+      expect(approved.state.artifacts.map((artifact) => artifact.type)).not.toContain(
+        "figma-apply-packet"
       );
     } finally {
       await rm(root, { recursive: true, force: true });

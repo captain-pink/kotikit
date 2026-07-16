@@ -249,7 +249,7 @@ export const briefNodeDefinitions: NodeDefinition[] = [
     key: "brief.askApproval",
     kind: "interrupt",
     paramsSchema: EmptyParamsSchema,
-    stateReads: ["brief", "answers"],
+    stateReads: ["brief", "screen", "screenBlueprint", "flowBlueprint", "answers"],
     stateWrites: ["brief", "pendingQuestion"],
     run: async (input) => {
       const state = graphState(input.state);
@@ -257,6 +257,21 @@ export const briefNodeDefinitions: NodeDefinition[] = [
       const lane = current.lane ?? classifyLaneForState(state, intentFromState(state));
       const approvalSummary =
         current.approvalSummary ?? current.intent ?? current.title ?? "Approve this design brief.";
+      if (requiresTypedBlueprint(state, current)) {
+        return {
+          statePatch: {
+            brief: mergeBrief(current, { approvalSummary, approved: false }),
+          },
+          interrupt: {
+            ...createUserInterrupt({
+              id: "provide-typed-blueprint",
+              prompt:
+                "Restart kotikit_start with a validated screenBlueprint or flowBlueprint containing structured required UI parts, regions, expected content, and only requested states. Text approval cannot continue this run.",
+            }),
+            resume: "same-node",
+          },
+        } satisfies RuntimeNodeOutput;
+      }
       if (current.approved === true || (lane === "quick" && current.confidence !== "low")) {
         return {
           statePatch: {
@@ -429,6 +444,15 @@ function screenConfidenceForState(
     return primaryScreenFromFlowBlueprint(state.flowBlueprint).confidence ?? "explicit";
   }
   return undefined;
+}
+
+// Fails closed when brief planning or supplied screen input remains too uncertain to execute.
+function requiresTypedBlueprint(state: KotikitGraphState, brief: Partial<BriefModel>): boolean {
+  return (
+    brief.confidence === "low" ||
+    screenFrom(state.screen).confidence === "low" ||
+    screenConfidenceForState(state) === "low"
+  );
 }
 
 function classifyLane(intent: string): BriefLane {
@@ -625,7 +649,7 @@ function genericLowConfidenceScreen(
     confidence: "low",
     requiredUiParts,
     repeatedPatterns: [],
-    states: STANDARD_STATES,
+    states: [],
     regions: { tables: [], lists: [], forms: [], custom: [] },
     designSystemHints: designSystemHints(designSystem, requiredUiParts),
   };

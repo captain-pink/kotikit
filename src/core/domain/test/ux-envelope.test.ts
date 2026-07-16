@@ -53,6 +53,7 @@ describe("UX envelope planning", () => {
       primaryTask: "Draft UI",
       dataModel: { primaryEntity: "unknown", fields: [] },
     });
+    expect(matrix.states).toEqual([]);
     expect(JSON.stringify({ envelope, matrix })).not.toMatch(/members|invite/i);
   });
 

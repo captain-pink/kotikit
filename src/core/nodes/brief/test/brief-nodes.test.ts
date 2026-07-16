@@ -8,6 +8,7 @@ type NodeOutput = {
   interrupt?: {
     status: "waiting-for-user" | "waiting-for-figma";
     pendingQuestion?: { id: string; prompt: string; choices?: string[] };
+    resume?: "same-node" | "next-node";
   };
 };
 
@@ -300,6 +301,7 @@ describe("brief nodes", () => {
       title: "Product Screen",
       confidence: "low",
       requiredUiParts: ["page shell", "content heading", "primary action"],
+      states: [],
     });
     expect(result.statePatch?.screen).not.toMatchObject({
       requiredUiParts: expect.arrayContaining(["data table", "pagination", "row avatar"]),
@@ -388,23 +390,31 @@ describe("brief nodes", () => {
     expect(JSON.stringify(brief)).not.toContain("undefined");
   });
 
-  it("does not auto-approve a low-confidence quick brief", async () => {
+  it("requires a typed blueprint again when text tries to approve a low-confidence brief", async () => {
     const result = await runBriefNode(
       "brief.askApproval",
       baseState({
+        answers: { "provide-typed-blueprint": "approve-brief" },
         brief: {
           title: "Product Screen",
           lane: "quick",
           confidence: "low",
           approvalSummary: "Preserve the supplied mocked Reports request.",
         },
+        screen: { confidence: "low" },
       })
     );
 
     expect(result.statePatch?.brief).toMatchObject({ approved: false });
     expect(result.interrupt).toMatchObject({
       status: "waiting-for-user",
-      pendingQuestion: { id: "approve-brief" },
+      resume: "same-node",
+      pendingQuestion: {
+        id: "provide-typed-blueprint",
+        prompt: expect.stringMatching(
+          /restart kotikit_start.*screenBlueprint.*flowBlueprint.*required UI parts.*regions.*expected content.*only requested states/i
+        ),
+      },
     });
   });
 

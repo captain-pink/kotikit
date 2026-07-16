@@ -1,7 +1,11 @@
 import { type JSONType, z } from "zod";
 import { nowIso, slugify } from "../../../util/ids.js";
 import { KotikitError } from "../../../util/result.js";
-import { buildFigmaApplyPacket, type FigmaApplyPacket } from "../../adapters/figma/apply-packet.js";
+import {
+  buildFigmaApplyPacket,
+  type FigmaApplyPacket,
+  type FigmaBlueprintRequirements,
+} from "../../adapters/figma/apply-packet.js";
 import { ensureDraftTarget } from "../../adapters/figma/target.js";
 import { buildCanvasPlan } from "../../domain/canvas-plan.js";
 import { buildFigmaTransactionPlan } from "../../domain/figma-transaction-plan.js";
@@ -16,6 +20,7 @@ import {
   type UICompositionContract,
   type VariableBindingPlan,
 } from "../../schemas/artifact.js";
+import { primaryScreenFromFlowBlueprint } from "../../schemas/blueprint.js";
 import type { KotikitGraphState } from "../../schemas/graph-state.js";
 
 type RuntimeNodeOutput = {
@@ -110,6 +115,8 @@ export const draftNodeDefinitions: NodeDefinition[] = [
     stateReads: [
       "brief",
       "screen",
+      "screenBlueprint",
+      "flowBlueprint",
       "figmaTarget",
       "uiComposition",
       "layoutContract",
@@ -126,9 +133,11 @@ export const draftNodeDefinitions: NodeDefinition[] = [
       assertBriefAllowsApply(state);
       const target = ensureDraftTarget(state.figmaTarget);
       const draftPlan = recordFrom(state.draftPlan);
+      const blueprintRequirements = blueprintRequirementsFrom(state);
       const packet = buildFigmaApplyPacket({
         target,
         screenTitle: screenTitle(state),
+        ...(blueprintRequirements === undefined ? {} : { blueprintRequirements }),
         uiComposition: state.uiComposition as UICompositionContract | undefined,
         layoutContract: state.layoutContract as LayoutContract | undefined,
         variableBindingPlan: state.variableBindingPlan as VariableBindingPlan | undefined,
@@ -197,6 +206,24 @@ function assertBriefAllowsApply(state: KotikitGraphState): void {
 function screenTitle(state: KotikitGraphState): string {
   const screen = recordFrom(state.screen);
   return typeof screen.title === "string" ? screen.title : "Untitled Screen";
+}
+
+// Carries only schema-validated blueprint requirements into executable Figma work.
+function blueprintRequirementsFrom(
+  state: KotikitGraphState
+): FigmaBlueprintRequirements | undefined {
+  const blueprint =
+    state.screenBlueprint ??
+    (state.flowBlueprint === undefined
+      ? undefined
+      : primaryScreenFromFlowBlueprint(state.flowBlueprint));
+  if (blueprint === undefined) return undefined;
+  return {
+    requiredUiParts: blueprint.requiredUiParts,
+    ...(blueprint.expectedContent === undefined
+      ? {}
+      : { expectedContent: blueprint.expectedContent }),
+  };
 }
 
 function statesFrom(state: KotikitGraphState): string[] {
@@ -313,6 +340,9 @@ function buildApplyPacketArtifact(state: KotikitGraphState, packet: FigmaApplyPa
         screen: legacyScope.screen,
         mode: packet.mode,
         screenTitle: packet.screenTitle,
+        ...(packet.blueprintRequirements === undefined
+          ? {}
+          : { blueprintRequirements: toJson(packet.blueprintRequirements) }),
         targetFileKey: packet.target.fileKey,
         targetPageId: packet.target.pageId,
         targetSectionName: packet.target.section?.name ?? null,

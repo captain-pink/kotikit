@@ -66,7 +66,7 @@ export function buildUxEnvelope(input: BuildUxEnvelopeInput): UXEnvelope {
     input.patternPack ?? explicitPatternPack ?? selectPatternPack(screenArchetype);
   const defaults = patternPack.envelopeDefaults ?? createFallbackEnvelopeDefaults(input);
   const requestedStates = uniqueStrings([
-    ...(input.screen?.states ?? []),
+    ...(input.screen?.confidence === "low" ? [] : (input.screen?.states ?? [])),
     ...(defaults.edgeCases ?? []),
   ]);
 

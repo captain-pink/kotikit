@@ -132,10 +132,18 @@ the generic `unknown` archetype regardless of incidental words such as
 `table`, `dashboard`, or `settings`.
 
 For low-confidence intent, UX artifacts preserve the supplied request, use
-only the generic states explicitly requested by the brief, and ask the
-designer for direction. They must not copy actors, entities, fields, actions,
-permissions, or state copy from a built-in pattern pack. Quick-lane wording
-does not bypass this clarification boundary.
+no inferred standard states, and halt at the brief boundary before local
+design-system composition or Figma work. The pending question directs the
+caller to restart `kotikit_start` with a validated `screenBlueprint` or
+`flowBlueprint` containing structured required UI parts, regions, expected
+content, and only requested states. Text approval and quick-lane wording do
+not bypass this boundary. Low-confidence artifacts must not copy actors,
+entities, fields, actions, permissions, or state copy from a built-in pattern
+pack.
+
+For explicit blueprints, the executable Figma apply packet carries the
+validated required UI parts and expected content so the applying assistant can
+preserve visible product requirements.
 
 ## Module References
 
