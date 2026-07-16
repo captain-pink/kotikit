@@ -85,9 +85,12 @@ describe("UX graph nodes", () => {
     expect(approach).toMatchObject({
       decision: "ask-designer",
       userWorkflow: expect.stringContaining("Title, Data source"),
-      recommendedApproach: expect.stringContaining("Clarify the primary task"),
+      recommendedApproach: expect.stringContaining("validated blueprint"),
+      stateStrategy: expect.stringContaining("validated blueprint"),
     });
-    expect(JSON.stringify(approach)).not.toMatch(/manage members|invite member/i);
+    expect(JSON.stringify(approach)).not.toMatch(
+      /manage members|invite member|filled|loading|empty|error/i
+    );
   });
 
   it("preserves blueprint traits in the UX envelope without forcing an archetype", async () => {

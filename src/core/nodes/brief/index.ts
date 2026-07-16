@@ -62,6 +62,7 @@ type RuntimeNodeOutput = {
 };
 
 const EmptyParamsSchema = z.strictObject({});
+const MAX_SIMPLE_INTENT_WORDS = 18;
 const ClassifyParamsSchema = z
   .strictObject({
     lanes: z.array(z.enum(["quick", "guided", "deep"])).optional(),
@@ -235,9 +236,11 @@ export const briefNodeDefinitions: NodeDefinition[] = [
       const title = current.title ?? screen.title ?? "Untitled Screen";
       const intent = current.intent ?? screen.description ?? title;
       const parts = screen.requiredUiParts?.join(", ") || "design-system components";
-      const approvalSummary = `${title}: ${intent}. Build with ${parts} and cover ${STANDARD_STATES.join(
-        ", "
-      )} states.`;
+      const stateInstruction =
+        screen.confidence === "low"
+          ? "use no states until a typed blueprint explicitly supplies them"
+          : `cover ${(screen.states?.length ? screen.states : STANDARD_STATES).join(", ")} states`;
+      const approvalSummary = `${title}: ${intent}. Build with ${parts} and ${stateInstruction}.`;
       return {
         statePatch: {
           brief: mergeBrief(current, { approvalSummary }),
@@ -730,11 +733,11 @@ function tableRegionName(words: string[]): string {
 }
 
 function isDetailedIntent(intent: string): boolean {
-  return wordsFrom(intent).length > 24;
+  return !isShortPrompt(intent);
 }
 
 function isShortPrompt(intent: string): boolean {
-  return wordsFrom(intent).length <= 18;
+  return wordsFrom(intent).length <= MAX_SIMPLE_INTENT_WORDS;
 }
 
 function wordsFrom(value: string): string[] {

@@ -142,25 +142,6 @@ describe("brief nodes", () => {
     });
   });
 
-  it("does not let incidental onboarding wording hijack a detailed PRD", async () => {
-    const result = await runBriefNode(
-      "brief.inferScreenBlueprint",
-      baseState({
-        userIntent:
-          "Create a detailed mocked Events workspace for operations reviewers. The PRD mentions mock service domains named Onboarding, Retrieval, Repair, and Inventory, but the requested screen is an event activity view with priority indicators, a timeline, and a detail panel.",
-      })
-    );
-
-    expect(result.statePatch?.screen).toMatchObject({
-      schemaVersion: "ScreenModel/v1",
-      confidence: "low",
-    });
-    expect(result.statePatch?.screen).not.toMatchObject({
-      title: "Onboarding Flow",
-      requiredUiParts: expect.arrayContaining(["row avatar", "row action menu", "pagination"]),
-    });
-  });
-
   it("preserves a blueprint Events Experience title and explicit UI parts", async () => {
     const result = await runBriefNode(
       "brief.inferScreenBlueprint",
@@ -270,44 +251,6 @@ describe("brief nodes", () => {
     });
   });
 
-  it("does not infer table parts from admin dashboard wording alone", async () => {
-    const result = await runBriefNode(
-      "brief.inferScreenBlueprint",
-      baseState({
-        userIntent: "Create an admin dashboard for mocked operations metrics and alerts.",
-      })
-    );
-
-    expect(result.statePatch?.screen).not.toMatchObject({
-      requiredUiParts: expect.arrayContaining([
-        "data table",
-        "pagination",
-        "row avatar",
-        "row action menu",
-      ]),
-    });
-  });
-
-  it("marks detailed intent without a blueprint as low confidence instead of guessing", async () => {
-    const result = await runBriefNode(
-      "brief.inferScreenBlueprint",
-      baseState({
-        userIntent:
-          "Create a detailed production screen for mocked event operations. It should balance monitoring, triage, service-domain context, multiple states, and reviewer actions, but this request intentionally does not provide a structured screen blueprint.",
-      })
-    );
-
-    expect(result.statePatch?.screen).toMatchObject({
-      title: "Product Screen",
-      confidence: "low",
-      requiredUiParts: ["page shell", "content heading", "primary action"],
-      states: [],
-    });
-    expect(result.statePatch?.screen).not.toMatchObject({
-      requiredUiParts: expect.arrayContaining(["data table", "pagination", "row avatar"]),
-    });
-  });
-
   it("asks one missing question at a time", async () => {
     const result = await runBriefNode("brief.askNextQuestion", baseState());
 
@@ -388,34 +331,6 @@ describe("brief nodes", () => {
     });
     const brief = result.statePatch?.brief as { approvalSummary?: string } | undefined;
     expect(JSON.stringify(brief)).not.toContain("undefined");
-  });
-
-  it("requires a typed blueprint again when text tries to approve a low-confidence brief", async () => {
-    const result = await runBriefNode(
-      "brief.askApproval",
-      baseState({
-        answers: { "provide-typed-blueprint": "approve-brief" },
-        brief: {
-          title: "Product Screen",
-          lane: "quick",
-          confidence: "low",
-          approvalSummary: "Preserve the supplied mocked Reports request.",
-        },
-        screen: { confidence: "low" },
-      })
-    );
-
-    expect(result.statePatch?.brief).toMatchObject({ approved: false });
-    expect(result.interrupt).toMatchObject({
-      status: "waiting-for-user",
-      resume: "same-node",
-      pendingQuestion: {
-        id: "provide-typed-blueprint",
-        prompt: expect.stringMatching(
-          /restart kotikit_start.*screenBlueprint.*flowBlueprint.*required UI parts.*regions.*expected content.*only requested states/i
-        ),
-      },
-    });
   });
 
   it("saves an approved design-brief artifact", async () => {

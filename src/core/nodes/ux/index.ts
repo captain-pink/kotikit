@@ -139,15 +139,17 @@ function buildDesignApproach(input: {
   const uiParts = input.screen.requiredUiParts ?? [];
   const partsSummary =
     uiParts.length > 0 ? uiParts.join(", ") : "the core product regions needed for the task";
-  const requestedStates = uniqueStrings([...(input.screen.states ?? []), ...envelope.edgeCases]);
+  const lowConfidenceIntent = input.screen.confidence === "low" && input.explicitBlueprint !== true;
+  const requestedStates = lowConfidenceIntent
+    ? []
+    : uniqueStrings([...(input.screen.states ?? []), ...envelope.edgeCases]);
   const stateSummary =
     requestedStates.length > 0
       ? requestedStates.join(", ")
       : "filled, loading, empty, and error when relevant";
-  const lowConfidenceIntent = input.screen.confidence === "low" && input.explicitBlueprint !== true;
   const confidenceRisk = lowConfidenceIntent
     ? [
-        "The request does not match a strong built-in UX pattern, so the first draft should stay easy to revise.",
+        "The request lacks a validated blueprint, so composition must pause before a draft is created.",
       ]
     : [];
   const userWorkflow =
@@ -160,7 +162,7 @@ function buildDesignApproach(input: {
     input.explicitBlueprint === true
       ? `Execute the supplied blueprint with ${partsSummary}, using local design-system components and variables before creating screen-draft parts for gaps.`
       : lowConfidenceIntent
-        ? "Clarify the primary task before selecting a pattern pack, then keep the first draft generic and easy to revise."
+        ? "Clarify the screen through a validated blueprint before selecting a pattern pack or composing UI."
         : `Compose the screen first from ${partsSummary}, then let the designer decide whether any missing pieces should be extracted as draft components.`;
 
   return {
@@ -185,7 +187,9 @@ function buildDesignApproach(input: {
           "Can help library work, but it slows screen creation and risks detached components before the design is validated.",
       },
     ],
-    stateStrategy: `Create real screen or region states for ${stateSummary}; do not reduce required states to decorative preview cards.`,
+    stateStrategy: lowConfidenceIntent
+      ? "Do not plan screen or region states until a validated blueprint explicitly supplies them."
+      : `Create real screen or region states for ${stateSummary}; do not reduce required states to decorative preview cards.`,
     layoutStrategy:
       "Use auto layout, place sibling screen states with clear canvas gaps, and keep navigation, controls, content, and feedback in context-aware regions.",
     designSystemStrategy:
@@ -205,7 +209,7 @@ function buildDesignApproach(input: {
     ...(lowConfidenceIntent
       ? {
           openQuestion:
-            "Which user task should this screen optimize for first if the draft needs a stronger product direction?",
+            "Which validated screen or flow blueprint should define the structure, content, and requested states?",
         }
       : {}),
     decision: lowConfidenceIntent ? "ask-designer" : "proceed",
