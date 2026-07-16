@@ -51,6 +51,31 @@ describe("local design-system adapter", () => {
     expect(result.results[0]).not.toHaveProperty("properties");
   });
 
+  it("treats graph-derived component names as FTS literals", () => {
+    const root = mkProject();
+    seedComponents(root, [
+      {
+        name: "Sidebar Nav",
+        key: "sidebar-key",
+        fileKey: "mock-file",
+        props: "",
+      },
+      { name: "Button", key: "button-key", fileKey: "mock-file", props: "" },
+      { name: "Card", key: "card-key", fileKey: "mock-file", props: "" },
+    ]);
+
+    const literal = searchLocalComponents(root, "sidebar-nav", {
+      queryMode: "literal",
+    });
+    const expression = searchLocalComponents(root, "button OR card");
+
+    expect(literal.results.map((component) => component.name)).toEqual(["Sidebar Nav"]);
+    expect(expression.results.map((component) => component.name).sort()).toEqual([
+      "Button",
+      "Card",
+    ]);
+  });
+
   it("reads one component JSON only when the caller asks for it", () => {
     const root = mkProject();
     seedComponents(root, [

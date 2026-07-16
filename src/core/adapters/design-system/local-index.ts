@@ -55,17 +55,22 @@ export type LocalDesignSystemContext = {
 const DEFAULT_COMPONENT_LIMIT = 25;
 const DEFAULT_ICON_LIMIT = 50;
 
+/** Search local components as an FTS expression or as one safely quoted literal phrase. */
 export function searchLocalComponents(
   root: string,
   query: string,
-  options: { limit?: number } = {}
+  options: {
+    limit?: number;
+    queryMode?: "expression" | "literal";
+  } = {}
 ): LocalAdapterResult<LocalComponentRef> {
   const cache = localComponentCacheStatus(root);
   if (cache.status === "needs-sync") return { ...cache, results: [] };
 
+  const queryTerm = options.queryMode === "literal" ? ftsLiteralPhrase(query) : query;
   const db = new Database(componentsDbPath(root), { readonly: true });
   try {
-    const results = searchComponents(db, query, options.limit ?? DEFAULT_COMPONENT_LIMIT).map(
+    const results = searchComponents(db, queryTerm, options.limit ?? DEFAULT_COMPONENT_LIMIT).map(
       compactComponentRef
     );
     return { status: "ready", source: "local-cache", results };
@@ -216,6 +221,11 @@ function compactComponentRef(row: ComponentSearchResult): LocalComponentRef {
     key: row.key,
     fileKey: row.fileKey,
   };
+}
+
+// Quotes arbitrary labels as one FTS5 phrase without changing tokenizer behavior.
+function ftsLiteralPhrase(value: string): string {
+  return `"${value.replaceAll('"', '""')}"`;
 }
 
 function assertSafeDesignSystemPath(path: string): void {
