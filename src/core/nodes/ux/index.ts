@@ -139,25 +139,31 @@ function buildDesignApproach(input: {
   const uiParts = input.screen.requiredUiParts ?? [];
   const partsSummary =
     uiParts.length > 0 ? uiParts.join(", ") : "the core product regions needed for the task";
-  const requestedStates = uniqueStrings([...(input.screen.states ?? []), ...envelope.edgeCases]);
+  const lowConfidenceIntent = input.screen.confidence === "low" && input.explicitBlueprint !== true;
+  const requestedStates = lowConfidenceIntent
+    ? []
+    : uniqueStrings([...(input.screen.states ?? []), ...envelope.edgeCases]);
   const stateSummary =
     requestedStates.length > 0
       ? requestedStates.join(", ")
       : "filled, loading, empty, and error when relevant";
-  const confidenceRisk =
-    envelope.confidence === "low" && input.explicitBlueprint !== true
-      ? [
-          "The request does not match a strong built-in UX pattern, so the first draft should stay easy to revise.",
-        ]
-      : [];
+  const confidenceRisk = lowConfidenceIntent
+    ? [
+        "The request lacks a validated blueprint, so composition must pause before a draft is created.",
+      ]
+    : [];
   const userWorkflow =
     input.explicitBlueprint === true
       ? `Build ${title} from the supplied blueprint so the visible frame preserves the requested structure and content.`
-      : `${envelope.actor} should complete "${envelope.primaryTask}" in ${title} without extra setup or technical decisions.`;
+      : lowConfidenceIntent
+        ? `Preserve the supplied product intent without substituting a built-in workflow: ${input.userIntent}`
+        : `${envelope.actor} should complete "${envelope.primaryTask}" in ${title} without extra setup or technical decisions.`;
   const recommendedApproach =
     input.explicitBlueprint === true
       ? `Execute the supplied blueprint with ${partsSummary}, using local design-system components and variables before creating screen-draft parts for gaps.`
-      : `Compose the screen first from ${partsSummary}, then let the designer decide whether any missing pieces should be extracted as draft components.`;
+      : lowConfidenceIntent
+        ? "Clarify the screen through a validated blueprint before selecting a pattern pack or composing UI."
+        : `Compose the screen first from ${partsSummary}, then let the designer decide whether any missing pieces should be extracted as draft components.`;
 
   return {
     schemaVersion: "DesignApproach/v1",
@@ -181,7 +187,9 @@ function buildDesignApproach(input: {
           "Can help library work, but it slows screen creation and risks detached components before the design is validated.",
       },
     ],
-    stateStrategy: `Create real screen or region states for ${stateSummary}; do not reduce required states to decorative preview cards.`,
+    stateStrategy: lowConfidenceIntent
+      ? "Do not plan screen or region states until a validated blueprint explicitly supplies them."
+      : `Create real screen or region states for ${stateSummary}; do not reduce required states to decorative preview cards.`,
     layoutStrategy:
       "Use auto layout, place sibling screen states with clear canvas gaps, and keep navigation, controls, content, and feedback in context-aware regions.",
     designSystemStrategy:
@@ -198,16 +206,13 @@ function buildDesignApproach(input: {
       "Missing local design-system coverage can tempt the agent to imitate components with primitives.",
       "State variants can become review cards unless the apply step creates each required state in context.",
     ]).slice(0, 8),
-    ...(envelope.confidence === "low" && input.explicitBlueprint !== true
+    ...(lowConfidenceIntent
       ? {
           openQuestion:
-            "Which user task should this screen optimize for first if the draft needs a stronger product direction?",
+            "Which validated screen or flow blueprint should define the structure, content, and requested states?",
         }
       : {}),
-    decision:
-      envelope.confidence === "low" && input.explicitBlueprint !== true
-        ? "ask-designer"
-        : "proceed",
+    decision: lowConfidenceIntent ? "ask-designer" : "proceed",
   };
 }
 

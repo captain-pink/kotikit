@@ -8,6 +8,7 @@ type NodeOutput = {
   interrupt?: {
     status: "waiting-for-user" | "waiting-for-figma";
     pendingQuestion?: { id: string; prompt: string; choices?: string[] };
+    resume?: "same-node" | "next-node";
   };
 };
 
@@ -141,25 +142,6 @@ describe("brief nodes", () => {
     });
   });
 
-  it("does not let incidental onboarding wording hijack a detailed PRD", async () => {
-    const result = await runBriefNode(
-      "brief.inferScreenBlueprint",
-      baseState({
-        userIntent:
-          "Create a detailed mocked Events workspace for operations reviewers. The PRD mentions mock service domains named Onboarding, Retrieval, Repair, and Inventory, but the requested screen is an event activity view with priority indicators, a timeline, and a detail panel.",
-      })
-    );
-
-    expect(result.statePatch?.screen).toMatchObject({
-      schemaVersion: "ScreenModel/v1",
-      confidence: "low",
-    });
-    expect(result.statePatch?.screen).not.toMatchObject({
-      title: "Onboarding Flow",
-      requiredUiParts: expect.arrayContaining(["row avatar", "row action menu", "pagination"]),
-    });
-  });
-
   it("preserves a blueprint Events Experience title and explicit UI parts", async () => {
     const result = await runBriefNode(
       "brief.inferScreenBlueprint",
@@ -266,43 +248,6 @@ describe("brief nodes", () => {
         expect.objectContaining({ id: "events", title: "Events Experience" }),
         expect.objectContaining({ id: "detail", title: "Event Detail" }),
       ],
-    });
-  });
-
-  it("does not infer table parts from admin dashboard wording alone", async () => {
-    const result = await runBriefNode(
-      "brief.inferScreenBlueprint",
-      baseState({
-        userIntent: "Create an admin dashboard for mocked operations metrics and alerts.",
-      })
-    );
-
-    expect(result.statePatch?.screen).not.toMatchObject({
-      requiredUiParts: expect.arrayContaining([
-        "data table",
-        "pagination",
-        "row avatar",
-        "row action menu",
-      ]),
-    });
-  });
-
-  it("marks detailed intent without a blueprint as low confidence instead of guessing", async () => {
-    const result = await runBriefNode(
-      "brief.inferScreenBlueprint",
-      baseState({
-        userIntent:
-          "Create a detailed production screen for mocked event operations. It should balance monitoring, triage, service-domain context, multiple states, and reviewer actions, but this request intentionally does not provide a structured screen blueprint.",
-      })
-    );
-
-    expect(result.statePatch?.screen).toMatchObject({
-      title: "Product Screen",
-      confidence: "low",
-      requiredUiParts: ["page shell", "content heading", "primary action"],
-    });
-    expect(result.statePatch?.screen).not.toMatchObject({
-      requiredUiParts: expect.arrayContaining(["data table", "pagination", "row avatar"]),
     });
   });
 

@@ -68,6 +68,31 @@ describe("UX graph nodes", () => {
     });
   });
 
+  it("asks for direction without substituting a workflow for low-confidence intent", async () => {
+    const userIntent =
+      "Design a mocked Reports catalog with columns Title, Data source, Chart type, Owner, and Updated plus a sidebar, tabs, search, filters, and an empty state.";
+    const output = await runNode("ux.brainstormApproach", {
+      userIntent,
+      screen: {
+        title: "Product Screen",
+        confidence: "low",
+        requiredUiParts: ["page shell", "content heading", "primary action"],
+        states: ["loading", "empty", "error", "filled"],
+      },
+    });
+    const approach = recordFrom(recordFrom(output.statePatch).designApproach);
+
+    expect(approach).toMatchObject({
+      decision: "ask-designer",
+      userWorkflow: expect.stringContaining("Title, Data source"),
+      recommendedApproach: expect.stringContaining("validated blueprint"),
+      stateStrategy: expect.stringContaining("validated blueprint"),
+    });
+    expect(JSON.stringify(approach)).not.toMatch(
+      /manage members|invite member|filled|loading|empty|error/i
+    );
+  });
+
   it("preserves blueprint traits in the UX envelope without forcing an archetype", async () => {
     const output = await runNode("ux.buildEnvelope", {
       userIntent: "Create the supplied mocked Events blueprint with admin wording.",

@@ -9,6 +9,41 @@ import type {
 import { buildFigmaApplyPacket } from "../apply-packet.js";
 
 describe("buildFigmaApplyPacket", () => {
+  it("carries validated blueprint UI parts and expected content into the packet", () => {
+    const blueprintRequirements = {
+      requiredUiParts: [
+        { id: "reports-table", name: "Reports table", role: "data table", regionId: "reports" },
+      ],
+      expectedContent: [
+        { kind: "column-label" as const, text: "Title", required: true },
+        { kind: "column-label" as const, text: "Data source", required: true },
+      ],
+    };
+    const packet = buildFigmaApplyPacket({
+      target: draftTarget(),
+      screenTitle: "Mock Reports",
+      blueprintRequirements,
+      uiComposition: {
+        schemaVersion: "UICompositionContract/v1",
+        parts: [
+          {
+            id: "reports-table",
+            name: "Reports table",
+            role: "data table",
+            source: "screen-draft",
+            draftComponentId: "reports-table",
+          },
+        ],
+      },
+      layoutContract: layoutContract(),
+      variableBindingPlan: variableBindingPlan(),
+      canvasPlan: canvasPlan(),
+      transactionPlan: transactionPlan(),
+    });
+
+    expect(packet.blueprintRequirements).toEqual(blueprintRequirements);
+  });
+
   it("passes through explicit icon affordances from the UI composition contract", () => {
     const packet = buildFigmaApplyPacket({
       target: draftTarget(),

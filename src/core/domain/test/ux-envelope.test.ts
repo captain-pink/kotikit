@@ -32,6 +32,31 @@ describe("UX envelope planning", () => {
     expect(envelope.sourceRefs).toContain("https://www.nngroup.com/articles/task-analysis/");
   });
 
+  it("keeps detailed low-confidence intent out of built-in pattern packs", () => {
+    const userIntent =
+      "Design a mocked Reports catalog with columns Title, Data source, Chart type, Owner, and Updated plus a sidebar, tabs, search, filters, and an empty state.";
+    const envelope = buildUxEnvelope({
+      userIntent,
+      screen: {
+        title: "Product Screen",
+        confidence: "low",
+        requiredUiParts: ["page shell", "content heading", "primary action"],
+        states: ["loading", "empty", "error", "filled"],
+      },
+    });
+    const matrix = buildStateMatrix({ envelope });
+
+    expect(envelope).toMatchObject({
+      screenArchetype: "unknown",
+      confidence: "low",
+      primaryGoal: userIntent,
+      primaryTask: "Draft UI",
+      dataModel: { primaryEntity: "unknown", fields: [] },
+    });
+    expect(matrix.states).toEqual([]);
+    expect(JSON.stringify({ envelope, matrix })).not.toMatch(/members|invite/i);
+  });
+
   it("keeps blueprint traits generic unless a pattern pack is explicitly selected", () => {
     const envelope = buildUxEnvelope({
       userIntent:
