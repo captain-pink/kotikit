@@ -29,6 +29,9 @@ change, then run the relevant `bun test` target.
 Agents must always work on a dedicated issue or feature branch. Direct commits
 to `main` are not allowed.
 
+Review the requested change once, after it is fully implemented and verified.
+Do not run or request repeated reviews for intermediate implementation steps.
+
 Keep core modules agent-neutral. Claude Code, Codex, and future assistants
 should share the same MCP tools and engines; product-specific behavior belongs
 in docs, skills, plugins, or thin setup wrappers.
