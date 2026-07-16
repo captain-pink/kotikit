@@ -122,6 +122,21 @@ This gives teams without Figma branches a practical safety boundary.
    The assistant fetches compact Figma comments, runs `review-screen`, reads the
    revision plan artifact, and asks before applying any changes.
 
+### Intent Confidence Boundary
+
+UX pattern packs are deterministic defaults, not free-text classifiers. An
+explicit blueprint pattern-pack reference may select one directly, and a short
+inferred prompt may use the small built-in fallback. A detailed free-text
+request is already marked low confidence by brief planning and must remain on
+the generic `unknown` archetype regardless of incidental words such as
+`table`, `dashboard`, or `settings`.
+
+For low-confidence intent, UX artifacts preserve the supplied request, use
+only the generic states explicitly requested by the brief, and ask the
+designer for direction. They must not copy actors, entities, fields, actions,
+permissions, or state copy from a built-in pattern pack. Quick-lane wording
+does not bypass this clarification boundary.
+
 ## Module References
 
 - [modules/config.md](modules/config.md) - `.kotikit/config.json`, defaults,
