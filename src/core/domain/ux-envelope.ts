@@ -11,6 +11,7 @@ type BuildUxEnvelopeInput = {
   explicitBlueprint?: boolean;
   screen?: {
     title?: string;
+    confidence?: "explicit" | "inferred" | "low";
     requiredUiParts?: string[];
     states?: string[];
     traits?: UXEnvelope["traits"];
@@ -54,7 +55,7 @@ export function buildUxEnvelope(input: BuildUxEnvelopeInput): UXEnvelope {
     explicitPatternPack && screenArchetypeForPatternPack(explicitPatternPack);
   const screenArchetype =
     explicitArchetype ??
-    (input.explicitBlueprint || hasComposableTraits(traits)
+    (input.explicitBlueprint || input.screen?.confidence === "low" || hasComposableTraits(traits)
       ? "unknown"
       : classifyScreenArchetype(
           [input.userIntent, input.screen?.title, ...(input.screen?.requiredUiParts ?? [])].join(
@@ -205,7 +206,10 @@ function createFallbackEnvelopeDefaults(
   return {
     confidence: "low",
     actor: "Designer",
-    primaryGoal: input.screen?.title ?? "Create a screen",
+    primaryGoal:
+      input.screen?.confidence === "low"
+        ? input.userIntent
+        : (input.screen?.title ?? "Create a screen"),
     primaryTask: "Draft UI",
     secondaryTasks: [],
     dataModel: {

@@ -388,6 +388,26 @@ describe("brief nodes", () => {
     expect(JSON.stringify(brief)).not.toContain("undefined");
   });
 
+  it("does not auto-approve a low-confidence quick brief", async () => {
+    const result = await runBriefNode(
+      "brief.askApproval",
+      baseState({
+        brief: {
+          title: "Product Screen",
+          lane: "quick",
+          confidence: "low",
+          approvalSummary: "Preserve the supplied mocked Reports request.",
+        },
+      })
+    );
+
+    expect(result.statePatch?.brief).toMatchObject({ approved: false });
+    expect(result.interrupt).toMatchObject({
+      status: "waiting-for-user",
+      pendingQuestion: { id: "approve-brief" },
+    });
+  });
+
   it("saves an approved design-brief artifact", async () => {
     const result = await runBriefNode(
       "brief.saveApproved",

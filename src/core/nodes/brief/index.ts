@@ -257,7 +257,7 @@ export const briefNodeDefinitions: NodeDefinition[] = [
       const lane = current.lane ?? classifyLaneForState(state, intentFromState(state));
       const approvalSummary =
         current.approvalSummary ?? current.intent ?? current.title ?? "Approve this design brief.";
-      if (current.approved === true || lane === "quick") {
+      if (current.approved === true || (lane === "quick" && current.confidence !== "low")) {
         return {
           statePatch: {
             brief: mergeBrief(current, { approvalSummary, approved: true }),

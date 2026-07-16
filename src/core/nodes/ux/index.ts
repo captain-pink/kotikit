@@ -144,20 +144,24 @@ function buildDesignApproach(input: {
     requestedStates.length > 0
       ? requestedStates.join(", ")
       : "filled, loading, empty, and error when relevant";
-  const confidenceRisk =
-    envelope.confidence === "low" && input.explicitBlueprint !== true
-      ? [
-          "The request does not match a strong built-in UX pattern, so the first draft should stay easy to revise.",
-        ]
-      : [];
+  const lowConfidenceIntent = input.screen.confidence === "low" && input.explicitBlueprint !== true;
+  const confidenceRisk = lowConfidenceIntent
+    ? [
+        "The request does not match a strong built-in UX pattern, so the first draft should stay easy to revise.",
+      ]
+    : [];
   const userWorkflow =
     input.explicitBlueprint === true
       ? `Build ${title} from the supplied blueprint so the visible frame preserves the requested structure and content.`
-      : `${envelope.actor} should complete "${envelope.primaryTask}" in ${title} without extra setup or technical decisions.`;
+      : lowConfidenceIntent
+        ? `Preserve the supplied product intent without substituting a built-in workflow: ${input.userIntent}`
+        : `${envelope.actor} should complete "${envelope.primaryTask}" in ${title} without extra setup or technical decisions.`;
   const recommendedApproach =
     input.explicitBlueprint === true
       ? `Execute the supplied blueprint with ${partsSummary}, using local design-system components and variables before creating screen-draft parts for gaps.`
-      : `Compose the screen first from ${partsSummary}, then let the designer decide whether any missing pieces should be extracted as draft components.`;
+      : lowConfidenceIntent
+        ? "Clarify the primary task before selecting a pattern pack, then keep the first draft generic and easy to revise."
+        : `Compose the screen first from ${partsSummary}, then let the designer decide whether any missing pieces should be extracted as draft components.`;
 
   return {
     schemaVersion: "DesignApproach/v1",
@@ -198,16 +202,13 @@ function buildDesignApproach(input: {
       "Missing local design-system coverage can tempt the agent to imitate components with primitives.",
       "State variants can become review cards unless the apply step creates each required state in context.",
     ]).slice(0, 8),
-    ...(envelope.confidence === "low" && input.explicitBlueprint !== true
+    ...(lowConfidenceIntent
       ? {
           openQuestion:
             "Which user task should this screen optimize for first if the draft needs a stronger product direction?",
         }
       : {}),
-    decision:
-      envelope.confidence === "low" && input.explicitBlueprint !== true
-        ? "ask-designer"
-        : "proceed",
+    decision: lowConfidenceIntent ? "ask-designer" : "proceed",
   };
 }
 

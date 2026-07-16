@@ -94,6 +94,52 @@ describe("create-screen graph flow", () => {
     }
   });
 
+  it("preserves detailed free-text intent without selecting a canned pattern pack", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kotikit-e2e-free-text-intent-"));
+    try {
+      seedLocalDesignSystem(root, { includePrimaryAction: false });
+      const { runtime } = await createGraphSmokeFixture(root);
+      const userIntent =
+        "Quick high-fidelity Dashboards Reports tab for a mocked analytics workspace with a persistent sidebar, page header, tab bar, pinned reports empty state, search and filter controls, and a reports table with columns Title, Data source, Chart type, Owner, and Updated.";
+
+      const started = await runtime.startFlow({
+        flowId: "create-screen",
+        input: {
+          project: { root, name: "Mock Reports Project" },
+          userIntent,
+          figmaTarget: fakeDraftTarget("Draft - Reports"),
+        },
+      });
+
+      expect(started.status).toBe("waiting-for-user");
+      expect(started.state.pendingQuestion?.id).toBe("approve-brief");
+      expect(started.state.uxEnvelope).toMatchObject({
+        screenArchetype: "unknown",
+        confidence: "low",
+        primaryGoal: userIntent,
+        primaryTask: "Draft UI",
+        dataModel: { fields: [] },
+      });
+      const approach = recordFrom(recordFrom(started.state).designApproach);
+      expect(approach).toMatchObject({
+        decision: "ask-designer",
+        userWorkflow: expect.stringContaining("Title, Data source"),
+      });
+      expect(JSON.stringify(started.state.stateMatrix)).not.toMatch(/members|invite/i);
+
+      const approved = await runtime.answerRun({
+        runId: started.runId,
+        answer: "approve-brief",
+      });
+      expect(approved.status).toBe("waiting-for-figma");
+      expect(approved.state.artifacts.map((artifact) => artifact.type)).toEqual(
+        expect.arrayContaining(["design-system-reuse-plan", "figma-apply-packet"])
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("quick lane composes screen-draft parts, waits for fake apply, and saves QA", async () => {
     const root = await mkdtemp(join(tmpdir(), "kotikit-e2e-create-screen-"));
     try {
