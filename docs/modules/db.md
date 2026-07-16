@@ -39,6 +39,29 @@ Both `components.db` and `icons.db` use FTS5 virtual tables with the `unicode61 
 
 Because FTS5 virtual tables do not support SQL `INSERT OR REPLACE`, `upsertComponent` and `upsertIcon` use DELETE-then-INSERT within the caller-provided transaction. The `name_tokens` column is denormalized — it stores the original name plus its CamelCase-split parts (`"ButtonGroup"` → `"ButtonGroup Button Group"`), letting the FTS5 engine find `"Button"` when searching for a `ButtonGroup` component. `buildNameTokens` handles acronyms (`"HTTPSConfig"` → `"HTTPSConfig HTTPS Config"`), letter-to-digit transitions, and separator normalization.
 
+## Query trust boundary
+
+The component database intentionally accepts raw FTS5 expressions so the
+public design-system search can support operators and prefix queries such as
+`button OR card` and `but*`. Product intent, blueprint part names, and other
+graph-derived text are literal search terms instead: punctuation such as the
+hyphen in `sidebar-nav` must never become FTS5 syntax.
+
+The local component adapter therefore exposes a
+`queryMode: "expression" | "literal"` option with `"expression"` as the
+backward-compatible default:
+
+- expression mode preserves the public MCP search behavior;
+- literal mode wraps the complete value in an FTS5 quoted phrase and doubles
+  embedded quotes before calling the database search.
+
+Graph design-system discovery must use literal mode. Keeping the conversion in
+the adapter prevents SQLite syntax from leaking into graph planning while
+leaving the lower-level database API available for intentional FTS5
+expressions. Literal mode must be covered by a focused punctuation regression
+test, and the create-screen flow must prove that hyphenated blueprint parts can
+reach the design-system reuse plan and Figma apply packet.
+
 ## When to extend it
 
 - Adding a new indexed field to the components table (e.g. `page_name`) — `initComponentsDb` uses `CREATE VIRTUAL TABLE IF NOT EXISTS`, so you must drop and recreate the table in a new migration step; consider versioning `components.db` if the schema needs to evolve in place.

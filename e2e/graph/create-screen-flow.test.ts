@@ -56,6 +56,44 @@ describe("create-screen graph flow", () => {
     }
   });
 
+  it("accepts punctuation in explicit blueprint UI-part names", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kotikit-e2e-literal-parts-"));
+    try {
+      seedLocalDesignSystem(root, { includePrimaryAction: false });
+      const { runtime } = await createGraphSmokeFixture(root);
+
+      const started = await runtime.startFlow({
+        flowId: "create-screen",
+        input: {
+          project: { root, name: "Mock Reports Project" },
+          userIntent: "Create the supplied mocked Reports blueprint.",
+          figmaTarget: fakeDraftTarget("Draft - Reports"),
+          screenBlueprint: {
+            schemaVersion: "ScreenBlueprintInput/v1",
+            id: "dashboards-reports-tab",
+            title: "Dashboards – Reports tab",
+            requiredUiParts: [
+              { name: "sidebar-nav" },
+              { name: "page-header" },
+              { name: "tab-bar" },
+              { name: "pinned-reports-empty-state" },
+              { name: "search-and-filter-bar" },
+              { name: "reports-table" },
+            ],
+          },
+        },
+      });
+
+      expect(started.status).toBe("waiting-for-figma");
+      expect(started.state.uxEnvelope?.screenArchetype).toBe("unknown");
+      expect(started.state.artifacts.map((artifact) => artifact.type)).toEqual(
+        expect.arrayContaining(["design-system-reuse-plan", "figma-apply-packet"])
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("quick lane composes screen-draft parts, waits for fake apply, and saves QA", async () => {
     const root = await mkdtemp(join(tmpdir(), "kotikit-e2e-create-screen-"));
     try {

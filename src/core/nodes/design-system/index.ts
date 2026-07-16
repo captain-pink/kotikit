@@ -164,6 +164,7 @@ export function createDesignSystemNodeDefinitions(
         const queries = designSystemQueries(state);
         const first = searchLocalComponents(root, queries[0] ?? state.userIntent ?? "button", {
           limit: params.limitPerQuery ?? 8,
+          queryMode: "literal",
         });
 
         if (first.status === "needs-sync") {
@@ -183,12 +184,13 @@ export function createDesignSystemNodeDefinitions(
 
         const localComponents = uniqueComponents([
           ...first.results,
-          ...queries
-            .slice(1)
-            .flatMap(
-              (query) =>
-                searchLocalComponents(root, query, { limit: params.limitPerQuery ?? 8 }).results
-            ),
+          ...queries.slice(1).flatMap(
+            (query) =>
+              searchLocalComponents(root, query, {
+                limit: params.limitPerQuery ?? 8,
+                queryMode: "literal",
+              }).results
+          ),
         ]);
         const localIcons = uniqueIcons([
           ...localIconsForQueries(root, iconQueries(state), params.limitPerQuery ?? 8),
