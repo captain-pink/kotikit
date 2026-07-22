@@ -123,6 +123,81 @@ describe("feedback graph nodes", () => {
       schemaVersion: "FigmaCommentSnapshot/v1",
       fileKey: "FILE",
     });
+    expect(recordFrom(output.statePatch?.feedback)).not.toHaveProperty("comments");
+    expect(recordFrom(output.statePatch?.feedback)).not.toHaveProperty("nodeMap");
+  });
+
+  it("keeps snapshot identity and geometry authoritative over stale fallback targets", async () => {
+    const output = await runNode("feedback.buildEvidenceMap", {
+      feedback: {
+        commentSnapshot: {
+          schemaVersion: "FigmaCommentSnapshot/v1",
+          fileKey: "FILE",
+          comments: [
+            {
+              id: "comment-live",
+              message: "Adjust the verified mock field.",
+              client_meta: { node_id: "frame:1", node_offset: { x: 75, y: 55 } },
+            },
+            {
+              id: "comment-deleted",
+              message: "Review a deleted mock layer.",
+              client_meta: { node_id: "missing:1" },
+            },
+          ],
+          nodeMap: {
+            fileKey: "FILE",
+            nodes: [
+              {
+                nodeId: "frame:1",
+                nodeName: "Live mock settings",
+                bounds: { x: 100, y: 200, width: 600, height: 400 },
+              },
+              {
+                nodeId: "child:1",
+                nodeName: "Live mock field",
+                parentNodeId: "frame:1",
+                bounds: { x: 160, y: 240, width: 100, height: 50 },
+              },
+            ],
+          },
+        },
+        nodes: [
+          {
+            nodeId: "frame:1",
+            nodeName: "Stale mock settings",
+            bounds: { x: 0, y: 0, width: 600, height: 400 },
+          },
+          {
+            nodeId: "child:1",
+            nodeName: "Stale mock field",
+            partId: "mock-field",
+            parentNodeId: "frame:1",
+            bounds: { x: 60, y: 40, width: 100, height: 50 },
+          },
+          {
+            nodeId: "missing:1",
+            nodeName: "Deleted mock layer",
+          },
+        ],
+      },
+    });
+
+    expect(output.statePatch?.commentEvidenceMap?.comments[0]).toMatchObject({
+      commentId: "comment-live",
+      mappingStrategy: "frame-offset",
+      mappedTarget: {
+        nodeId: "child:1",
+        nodeName: "Live mock field",
+        partId: "mock-field",
+        bounds: { x: 160, y: 240, width: 100, height: 50 },
+      },
+    });
+    expect(output.statePatch?.commentEvidenceMap?.comments[1]).toMatchObject({
+      commentId: "comment-deleted",
+      mappingStrategy: "unmapped",
+      mappingConfidence: "none",
+    });
   });
 
   it("turns mapped comments and chat feedback into a lightweight revision plan", async () => {
@@ -369,6 +444,36 @@ describe("feedback graph nodes", () => {
     });
     expect(recordFrom(output.statePatch?.feedback).handoff).not.toHaveProperty("changeIds");
     expect(output.interrupt).toBeUndefined();
+  });
+
+  it("asks again when the approval answer is not one of the advertised choices", async () => {
+    const output = await runNode("feedback.askRevisionApproval", {
+      answers: {
+        "approve-feedback-revisions": "yes",
+      },
+      feedback: {
+        revisionPlanArtifactId: "run-feedback-revision-plan",
+        revisionPlan: {
+          schemaVersion: "RevisionPlan/v1",
+          data: {
+            changes: [
+              {
+                id: "thread-comment-1",
+                source: "figma-comment-thread",
+                recommendation: "Fix mocked empty state placement.",
+                needsHumanDecision: false,
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    expect(output.interrupt?.pendingQuestion).toMatchObject({
+      id: "approve-feedback-revisions",
+      choices: ["apply-feedback-changes", "skip-feedback-changes"],
+    });
+    expect(output.statePatch?.feedback).toBeUndefined();
   });
 });
 

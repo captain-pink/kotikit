@@ -6,10 +6,13 @@ export function compactFeedbackHandoff(value: unknown): Record<string, unknown> 
   if (status !== "approved-for-agent-apply") return undefined;
   const revisionPlanArtifactId = stringField(handoff, "revisionPlanArtifactId");
   const changeIds = stringArray(handoff.changeIds);
+  if (revisionPlanArtifactId === undefined || changeIds === undefined || changeIds.length === 0) {
+    return undefined;
+  }
   return {
     status,
-    ...(revisionPlanArtifactId === undefined ? {} : { revisionPlanArtifactId }),
-    ...(changeIds === undefined ? {} : { changeIds }),
+    revisionPlanArtifactId,
+    changeIds,
   };
 }
 

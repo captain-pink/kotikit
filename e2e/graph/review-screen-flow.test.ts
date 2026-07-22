@@ -38,6 +38,13 @@ describe("review-screen graph flow", () => {
       expect(planData.unresolvedCount).toBe(0);
       expect(recordArray(planData.changes)).toHaveLength(12);
 
+      const invalidApproval = await runtime.answerRun({
+        runId: started.runId,
+        answer: "yes",
+      });
+      expect(invalidApproval.status).toBe("waiting-for-user");
+      expect(recordFrom(recordFrom(invalidApproval.state.feedback).handoff)).toEqual({});
+
       const approved = await runtime.answerRun({
         runId: started.runId,
         answer: "apply-feedback-changes",

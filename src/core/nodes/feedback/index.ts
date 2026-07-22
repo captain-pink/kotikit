@@ -6,6 +6,13 @@ import { createUserInterrupt } from "../../graph/interrupts.js";
 import type { NodeDefinition } from "../../graph/node-registry.js";
 import { type Artifact, ArtifactSchemaVersionByType } from "../../schemas/artifact.js";
 import type { KotikitGraphState } from "../../schemas/graph-state.js";
+import {
+  feedbackHandoffFrom,
+  isRevisionApprovalAnswer,
+  REVISION_APPROVAL_CHOICES,
+  REVISION_APPROVAL_PROMPT,
+} from "./approval.js";
+import { feedbackEvidenceNodes } from "./targets.js";
 
 type RuntimeNodeOutput = {
   statePatch?: Partial<KotikitGraphState>;
@@ -24,14 +31,6 @@ type FeedbackChange = {
   needsHumanDecision: boolean;
 };
 
-type FeedbackHandoff =
-  | {
-      status: "approved-for-agent-apply";
-      revisionPlanArtifactId?: string;
-      changeIds: string[];
-    }
-  | { status: "skipped" };
-
 const EmptyParamsSchema = z.strictObject({});
 
 export const feedbackNodeDefinitions: NodeDefinition[] = [
@@ -44,6 +43,12 @@ export const feedbackNodeDefinitions: NodeDefinition[] = [
       const state = graphState(input.state);
       const feedback = recordFrom(state.feedback);
       const snapshot = commentSnapshotFrom(feedback);
+      const canonicalFeedback = canonicalFeedbackFrom(feedback, snapshot);
+      const fallbackNodes = [
+        ...recordArray(recordFrom(state.figmaNodeLedger).nodes),
+        ...recordArray(recordFrom(state.applyReport).nodes),
+        ...recordArray(feedback.nodes),
+      ];
       const fileKey =
         stringField(snapshot, "fileKey") ??
         stringField(recordFrom(state.figmaNodeLedger), "fileKey") ??
@@ -60,12 +65,10 @@ export const feedbackNodeDefinitions: NodeDefinition[] = [
         comments: recordArray(snapshot.comments),
         nodeMap: {
           fileKey,
-          nodes: [
-            ...recordArray(recordFrom(snapshot.nodeMap).nodes),
-            ...recordArray(recordFrom(state.figmaNodeLedger).nodes),
-            ...recordArray(recordFrom(state.applyReport).nodes),
-            ...recordArray(recordFrom(feedback).nodes),
-          ],
+          nodes: feedbackEvidenceNodes({
+            snapshotNodeMap: snapshot.nodeMap,
+            fallbackNodes,
+          }),
         },
         mappedAt: nowIso(),
         includeResolved:
@@ -76,8 +79,7 @@ export const feedbackNodeDefinitions: NodeDefinition[] = [
         statePatch: {
           commentEvidenceMap,
           feedback: {
-            ...feedback,
-            commentSnapshot: snapshot,
+            ...canonicalFeedback,
             commentEvidenceMap,
           },
         },
@@ -155,13 +157,12 @@ export const feedbackNodeDefinitions: NodeDefinition[] = [
         } satisfies RuntimeNodeOutput;
       }
       const answer = state.answers?.["approve-feedback-revisions"];
-      if (answer === undefined) {
+      if (!isRevisionApprovalAnswer(answer)) {
         return {
           interrupt: createUserInterrupt({
             id: "approve-feedback-revisions",
-            prompt:
-              "Approve this revision plan for the assistant to apply through Figma one change at a time?",
-            choices: ["apply-feedback-changes", "skip-feedback-changes"],
+            prompt: REVISION_APPROVAL_PROMPT,
+            choices: [...REVISION_APPROVAL_CHOICES],
           }),
         } satisfies RuntimeNodeOutput;
       }
@@ -186,22 +187,16 @@ function commentSnapshotFrom(feedback: Record<string, unknown>): Record<string, 
   return stringField(feedback, "schemaVersion") === "FigmaCommentSnapshot/v1" ? feedback : {};
 }
 
-// Turns the designer's explicit choice into the next assistant action.
-function feedbackHandoffFrom(
-  answer: string,
+// Removes duplicate direct-snapshot fields before the run persists feedback state.
+function canonicalFeedbackFrom(
   feedback: Record<string, unknown>,
-  changes: Record<string, unknown>[]
-): FeedbackHandoff | undefined {
-  if (answer === "skip-feedback-changes") return { status: "skipped" };
-  if (answer !== "apply-feedback-changes") return undefined;
-  const revisionPlanArtifactId = stringField(feedback, "revisionPlanArtifactId");
+  snapshot: Record<string, unknown>
+): Record<string, unknown> {
+  if (Object.keys(recordFrom(feedback.commentSnapshot)).length > 0) return feedback;
+  const includeResolved = booleanField(snapshot, "includeResolved");
   return {
-    status: "approved-for-agent-apply",
-    ...(revisionPlanArtifactId === undefined ? {} : { revisionPlanArtifactId }),
-    changeIds: changes.flatMap((change) => {
-      const changeId = stringField(change, "id");
-      return changeId === undefined ? [] : [changeId];
-    }),
+    commentSnapshot: snapshot,
+    ...(includeResolved === undefined ? {} : { includeResolved }),
   };
 }
 

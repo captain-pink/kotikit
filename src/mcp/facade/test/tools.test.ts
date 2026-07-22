@@ -1363,6 +1363,37 @@ describe("MCP facade tools", () => {
     });
   });
 
+  it("does not expose an incomplete approved feedback handoff", async () => {
+    const runtime = {
+      ...makeRuntime(),
+      async answerRun(): Promise<RuntimeRunResult> {
+        return {
+          runId: "run-1",
+          status: "done",
+          state: {
+            ...makeState("done"),
+            flowId: "review-screen",
+            feedback: {
+              approval: "apply-feedback-changes",
+              handoff: { status: "approved-for-agent-apply" },
+            },
+          },
+        };
+      },
+    } satisfies FacadeRuntime;
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx(), { runtime });
+
+    const result = await callTool(registry, "kotikit_answer", {
+      runId: "run-1",
+      answer: "apply-feedback-changes",
+    });
+    const detail = detailOf<Record<string, unknown>>(result.content[0]?.text ?? "");
+
+    expect(result.isError).toBeFalsy();
+    expect(detail).not.toHaveProperty("feedbackHandoff");
+  });
+
   it("records Figma apply metadata into a graph run when runId is supplied", async () => {
     const registry = makeRegistry();
     const runtime = {
