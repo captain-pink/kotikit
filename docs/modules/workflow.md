@@ -25,10 +25,12 @@ Figma interrupts one screen state or region state at a time. This keeps
 generated frames non-overlapping and avoids large one-step apply payloads.
 
 Post-screen feedback is graph-backed too. The `review-screen` flow reads a
-compact Figma comment snapshot, maps comments to the node ledger, saves a
-revision plan artifact, and pauses for designer approval. It replaces the old
-review/comment/memory workflow with a small artifact loop instead of a
-standalone review database.
+compact Figma comment snapshot with verified anchor geometry, maps comments to
+live roots or direct children, saves a revision plan artifact, and pauses for
+designer approval. Approval returns an assistant apply handoff; skip returns a
+distinct no-change result. The graph itself does not mutate Figma. This
+replaces the old review/comment/memory workflow with a small artifact loop
+instead of a standalone review database.
 
 Do not add new code to this module. New resumable behavior belongs in graph
 nodes, flow manifests, runtime stores, or facade tools.

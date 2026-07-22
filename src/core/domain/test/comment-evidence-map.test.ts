@@ -81,6 +81,97 @@ describe("comment evidence map", () => {
     });
   });
 
+  it("maps a frame offset to the smallest verified direct child containing it", () => {
+    const map = buildCommentEvidenceMap({
+      fileKey: "file-1",
+      comments: [
+        {
+          id: "comment-offset",
+          message: "Adjust this mocked field.",
+          client_meta: { node_id: "frame:1", node_offset: { x: 75, y: 55 } },
+        },
+      ],
+      nodeMap: offsetNodeMap(),
+      mappedAt: "2026-07-01T00:00:00.000Z",
+    });
+
+    expect(map.comments[0]).toMatchObject({
+      mappingStrategy: "frame-offset",
+      mappingConfidence: "high",
+      mappedTarget: { nodeId: "child:small", nodeName: "Mock field" },
+    });
+    expect(map.comments[0]?.mappedTarget).not.toHaveProperty("parentNodeId");
+  });
+
+  it("falls back to the verified root when no direct child contains the offset", () => {
+    const map = buildCommentEvidenceMap({
+      fileKey: "file-1",
+      comments: [
+        {
+          id: "comment-root",
+          message: "Review the mocked frame edge.",
+          client_meta: { node_id: "frame:1", node_offset: { x: 550, y: 350 } },
+        },
+      ],
+      nodeMap: offsetNodeMap(),
+      mappedAt: "2026-07-01T00:00:00.000Z",
+    });
+
+    expect(map.comments[0]).toMatchObject({
+      mappingStrategy: "node-id",
+      mappingConfidence: "exact",
+      mappedTarget: { nodeId: "frame:1", nodeName: "Mock settings" },
+    });
+  });
+
+  it("keeps a stale anchored node id unmapped", () => {
+    const map = buildCommentEvidenceMap({
+      fileKey: "file-1",
+      comments: [
+        {
+          id: "comment-stale",
+          message: "Review the deleted mock layer.",
+          client_meta: { node_id: "missing:1", node_offset: { x: 10, y: 10 } },
+        },
+      ],
+      nodeMap: offsetNodeMap(),
+      mappedAt: "2026-07-01T00:00:00.000Z",
+    });
+
+    expect(map.comments[0]).toMatchObject({
+      mappingStrategy: "unmapped",
+      mappingConfidence: "none",
+      status: "needs-human",
+    });
+  });
+
+  it("inherits an offset-resolved child target for thread replies", () => {
+    const map = buildCommentEvidenceMap({
+      fileKey: "file-1",
+      comments: [
+        {
+          id: "root-offset",
+          message: "Review the mocked field.",
+          client_meta: { node_id: "frame:1", node_offset: { x: 75, y: 55 } },
+        },
+        {
+          id: "reply-offset",
+          parent_id: "root-offset",
+          message: "Keep its helper concise.",
+          client_meta: null,
+        },
+      ],
+      nodeMap: offsetNodeMap(),
+      mappedAt: "2026-07-01T00:00:00.000Z",
+    });
+
+    expect(map.comments.find((comment) => comment.commentId === "reply-offset")).toMatchObject({
+      mappingStrategy: "parent-thread",
+      mappingConfidence: "high",
+      mappedTarget: { nodeId: "child:small", nodeName: "Mock field" },
+    });
+  });
+
   it("inherits target from parent comment replies", () => {
     const map = buildCommentEvidenceMap({
       fileKey: "file-1",
@@ -153,3 +244,28 @@ describe("comment evidence map", () => {
     ).toHaveLength(1);
   });
 });
+
+function offsetNodeMap() {
+  return {
+    fileKey: "file-1",
+    nodes: [
+      {
+        nodeId: "frame:1",
+        nodeName: "Mock settings",
+        bounds: { x: 100, y: 200, width: 600, height: 400 },
+      },
+      {
+        nodeId: "child:large",
+        nodeName: "Mock form region",
+        parentNodeId: "frame:1",
+        bounds: { x: 120, y: 230, width: 300, height: 200 },
+      },
+      {
+        nodeId: "child:small",
+        nodeName: "Mock field",
+        parentNodeId: "frame:1",
+        bounds: { x: 160, y: 240, width: 100, height: 50 },
+      },
+    ],
+  };
+}

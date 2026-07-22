@@ -64,10 +64,13 @@ generates a bounded apply packet, the assistant writes through official Figma
 tools, then reports applied node metadata back to kotikit with
 `kotikit_record_figma_apply`.
 
-Figma comment feedback uses the REST API only for compact comment snapshots.
-The `review-screen` graph maps comments to the node ledger and saves a revision
-plan artifact before asking the designer whether to apply changes. The tiny
-core does not post comments, resolve threads, or store design memory.
+Figma comment feedback uses the REST API only for compact comment snapshots and
+targeted reads of anchored nodes plus their direct children. The
+`review-screen` graph verifies anchors, uses offset geometry when available,
+and saves a revision plan artifact before asking the designer whether the
+assistant should apply it. Its final result is an explicit apply-or-skip
+handoff; the graph does not mutate Figma. The tiny core does not post comments,
+resolve threads, or store design memory.
 
 The local plugin bridge is used only for exporting variables through the Plugin
 API when REST variables are unavailable. Search, sync, and design creation stay

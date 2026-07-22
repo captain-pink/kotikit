@@ -6,6 +6,13 @@ import { createUserInterrupt } from "../../graph/interrupts.js";
 import type { NodeDefinition } from "../../graph/node-registry.js";
 import { type Artifact, ArtifactSchemaVersionByType } from "../../schemas/artifact.js";
 import type { KotikitGraphState } from "../../schemas/graph-state.js";
+import {
+  feedbackHandoffFrom,
+  isRevisionApprovalAnswer,
+  REVISION_APPROVAL_CHOICES,
+  REVISION_APPROVAL_PROMPT,
+} from "./approval.js";
+import { feedbackEvidenceNodes } from "./targets.js";
 
 type RuntimeNodeOutput = {
   statePatch?: Partial<KotikitGraphState>;
@@ -35,7 +42,13 @@ export const feedbackNodeDefinitions: NodeDefinition[] = [
     run: async (input) => {
       const state = graphState(input.state);
       const feedback = recordFrom(state.feedback);
-      const snapshot = recordFrom(feedback.commentSnapshot);
+      const snapshot = commentSnapshotFrom(feedback);
+      const canonicalFeedback = canonicalFeedbackFrom(feedback, snapshot);
+      const fallbackNodes = [
+        ...recordArray(recordFrom(state.figmaNodeLedger).nodes),
+        ...recordArray(recordFrom(state.applyReport).nodes),
+        ...recordArray(feedback.nodes),
+      ];
       const fileKey =
         stringField(snapshot, "fileKey") ??
         stringField(recordFrom(state.figmaNodeLedger), "fileKey") ??
@@ -52,21 +65,21 @@ export const feedbackNodeDefinitions: NodeDefinition[] = [
         comments: recordArray(snapshot.comments),
         nodeMap: {
           fileKey,
-          nodes: [
-            ...recordArray(recordFrom(state.figmaNodeLedger).nodes),
-            ...recordArray(recordFrom(state.applyReport).nodes),
-            ...recordArray(recordFrom(feedback).nodes),
-          ],
+          nodes: feedbackEvidenceNodes({
+            snapshotNodeMap: snapshot.nodeMap,
+            fallbackNodes,
+          }),
         },
         mappedAt: nowIso(),
-        includeResolved: booleanField(feedback, "includeResolved"),
+        includeResolved:
+          booleanField(feedback, "includeResolved") ?? booleanField(snapshot, "includeResolved"),
       });
 
       return {
         statePatch: {
           commentEvidenceMap,
           feedback: {
-            ...feedback,
+            ...canonicalFeedback,
             commentEvidenceMap,
           },
         },
@@ -144,27 +157,48 @@ export const feedbackNodeDefinitions: NodeDefinition[] = [
         } satisfies RuntimeNodeOutput;
       }
       const answer = state.answers?.["approve-feedback-revisions"];
-      if (answer === undefined) {
+      if (!isRevisionApprovalAnswer(answer)) {
         return {
           interrupt: createUserInterrupt({
             id: "approve-feedback-revisions",
-            prompt:
-              "Apply the prepared feedback changes to the Figma draft one region/comment at a time?",
-            choices: ["apply-feedback-changes", "skip-feedback-changes"],
+            prompt: REVISION_APPROVAL_PROMPT,
+            choices: [...REVISION_APPROVAL_CHOICES],
           }),
         } satisfies RuntimeNodeOutput;
       }
+      const handoff = feedbackHandoffFrom(answer, feedback, changes);
       return {
         statePatch: {
           feedback: {
             ...feedback,
             approval: answer,
+            ...(handoff === undefined ? {} : { handoff }),
           },
         },
       } satisfies RuntimeNodeOutput;
     },
   }),
 ];
+
+// Accepts both direct snapshot input and the persisted feedback wrapper.
+function commentSnapshotFrom(feedback: Record<string, unknown>): Record<string, unknown> {
+  const wrapped = recordFrom(feedback.commentSnapshot);
+  if (Object.keys(wrapped).length > 0) return wrapped;
+  return stringField(feedback, "schemaVersion") === "FigmaCommentSnapshot/v1" ? feedback : {};
+}
+
+// Removes duplicate direct-snapshot fields before the run persists feedback state.
+function canonicalFeedbackFrom(
+  feedback: Record<string, unknown>,
+  snapshot: Record<string, unknown>
+): Record<string, unknown> {
+  if (Object.keys(recordFrom(feedback.commentSnapshot)).length > 0) return feedback;
+  const includeResolved = booleanField(snapshot, "includeResolved");
+  return {
+    commentSnapshot: snapshot,
+    ...(includeResolved === undefined ? {} : { includeResolved }),
+  };
+}
 
 function commentEvidenceArtifact(state: KotikitGraphState, payload: Artifact["payload"]): Artifact {
   const now = nowIso();

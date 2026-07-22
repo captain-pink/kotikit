@@ -20,6 +20,7 @@ type NodeMapLike = {
 type NodeTarget = {
   nodeId: string;
   nodeName?: string;
+  parentNodeId?: string;
   partId?: string;
   stateId?: string;
   componentKey?: string;
@@ -27,8 +28,14 @@ type NodeTarget = {
   bounds?: Bounds;
 };
 
-type MappingStrategy = "node-id" | "parent-thread";
+type MappingStrategy = "node-id" | "parent-thread" | "frame-offset";
 type MappingConfidence = "exact" | "high";
+
+type TargetResolution = {
+  target: NodeTarget;
+  strategy: Exclude<MappingStrategy, "parent-thread">;
+  confidence: MappingConfidence;
+};
 
 const COMMENT_INTENTS = new Set<CommentEvidenceMap["comments"][number]["intent"]>([
   "question",
@@ -84,10 +91,14 @@ function mapComment(input: {
   nodeTargets: Map<string, NodeTarget>;
 }): CommentEvidenceMap["comments"][number] {
   const commentId = stringField(input.comment, "id") ?? "unknown-comment";
-  const directNodeId = nodeIdFromClientMeta(input.comment.client_meta);
-  const directTarget = directNodeId === undefined ? undefined : input.nodeTargets.get(directNodeId);
-  if (directTarget !== undefined) {
-    return commentRecord(input.comment, directTarget, "node-id", "exact");
+  const directResolution = targetForCommentAnchor(input.comment, input.nodeTargets);
+  if (directResolution !== undefined) {
+    return commentRecord(
+      input.comment,
+      directResolution.target,
+      directResolution.strategy,
+      directResolution.confidence
+    );
   }
 
   const parentId = stringField(input.comment, "parent_id");
@@ -118,9 +129,8 @@ function targetForParent(
   if (parentId === undefined || seen.has(parentId)) return undefined;
   const parent = commentsById.get(parentId);
   if (parent === undefined) return undefined;
-  const parentNodeId = nodeIdFromClientMeta(parent.client_meta);
-  const parentTarget = parentNodeId === undefined ? undefined : nodeTargets.get(parentNodeId);
-  if (parentTarget !== undefined) return parentTarget;
+  const parentResolution = targetForCommentAnchor(parent, nodeTargets);
+  if (parentResolution !== undefined) return parentResolution.target;
   return targetForParent(
     stringField(parent, "parent_id"),
     commentsById,
@@ -143,11 +153,83 @@ function commentRecord(
     ...(parentId !== undefined ? { parentId } : {}),
     message: stringField(comment, "message") ?? "",
     ...commentMetadata(comment),
-    mappedTarget: target,
+    mappedTarget: evidenceTargetFrom(target),
     mappingConfidence: confidence,
     mappingStrategy: strategy,
     intent: intentFromComment(comment),
     status: stringField(comment, "resolved_at") === undefined ? "actionable" : "resolved",
+  };
+}
+
+// Resolves a verified anchor and narrows frame-relative offsets to direct children.
+function targetForCommentAnchor(
+  comment: FigmaCommentLike,
+  nodeTargets: Map<string, NodeTarget>
+): TargetResolution | undefined {
+  const directNodeId = nodeIdFromClientMeta(comment.client_meta);
+  const rootTarget = directNodeId === undefined ? undefined : nodeTargets.get(directNodeId);
+  if (rootTarget === undefined) return undefined;
+
+  const nodeOffset = nodeOffsetFrom(recordFrom(comment.client_meta).node_offset);
+  const childTarget =
+    rootTarget.bounds === undefined || nodeOffset === undefined
+      ? undefined
+      : smallestContainingChild({
+          rootTarget,
+          rootBounds: rootTarget.bounds,
+          nodeOffset,
+          nodeTargets: [...nodeTargets.values()],
+        });
+
+  return childTarget === undefined
+    ? { target: rootTarget, strategy: "node-id", confidence: "exact" }
+    : { target: childTarget, strategy: "frame-offset", confidence: "high" };
+}
+
+// Chooses the most specific verified child at the comment's absolute page point.
+function smallestContainingChild(input: {
+  rootTarget: NodeTarget;
+  rootBounds: Bounds;
+  nodeOffset: { x: number; y: number };
+  nodeTargets: NodeTarget[];
+}): NodeTarget | undefined {
+  const point = {
+    x: input.rootBounds.x + input.nodeOffset.x,
+    y: input.rootBounds.y + input.nodeOffset.y,
+  };
+  return input.nodeTargets
+    .filter(
+      (target): target is NodeTarget & { bounds: Bounds } =>
+        target.parentNodeId === input.rootTarget.nodeId &&
+        target.bounds !== undefined &&
+        containsPoint(target.bounds, point)
+    )
+    .sort(
+      (left, right) =>
+        left.bounds.width * left.bounds.height - right.bounds.width * right.bounds.height
+    )[0];
+}
+
+function containsPoint(bounds: Bounds, point: { x: number; y: number }): boolean {
+  return (
+    point.x >= bounds.x &&
+    point.x <= bounds.x + bounds.width &&
+    point.y >= bounds.y &&
+    point.y <= bounds.y + bounds.height
+  );
+}
+
+function evidenceTargetFrom(
+  target: NodeTarget
+): NonNullable<CommentEvidenceMap["comments"][number]["mappedTarget"]> {
+  return {
+    nodeId: target.nodeId,
+    ...(target.nodeName === undefined ? {} : { nodeName: target.nodeName }),
+    ...(target.partId === undefined ? {} : { partId: target.partId }),
+    ...(target.stateId === undefined ? {} : { stateId: target.stateId }),
+    ...(target.componentKey === undefined ? {} : { componentKey: target.componentKey }),
+    ...(target.draftComponentId === undefined ? {} : { draftComponentId: target.draftComponentId }),
+    ...(target.bounds === undefined ? {} : { bounds: target.bounds }),
   };
 }
 
@@ -183,6 +265,7 @@ function nodeTargetsFrom(nodeMap: NodeMapLike): NodeTarget[] {
             nodeId,
             ...optionalString(record, "name", "nodeName"),
             ...optionalString(record, "nodeName"),
+            ...optionalString(record, "parentNodeId"),
             ...optionalString(record, "partId"),
             ...optionalString(record, "stateId"),
             ...optionalString(record, "componentKey"),
@@ -220,7 +303,10 @@ function normalizedClientMeta(value: unknown): Record<string, unknown> | undefin
 
 function nodeOffsetFrom(value: unknown): { x: number; y: number } | undefined {
   const offset = recordFrom(value);
-  return typeof offset.x === "number" && typeof offset.y === "number"
+  return typeof offset.x === "number" &&
+    Number.isFinite(offset.x) &&
+    typeof offset.y === "number" &&
+    Number.isFinite(offset.y)
     ? { x: offset.x, y: offset.y }
     : undefined;
 }

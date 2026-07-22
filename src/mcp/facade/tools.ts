@@ -35,6 +35,12 @@ import { KotikitError, toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
 import { withKotikitToolSafety } from "../tool-safety.js";
+import { compactFeedbackHandoff } from "./feedback-handoff.js";
+import {
+  commentAnchorNodeIds,
+  compactCommentNodeMap,
+  normalizeReviewFeedback,
+} from "./feedback-snapshot.js";
 import {
   buildIssuePreview,
   type IssueDoctorDiagnostic,
@@ -317,7 +323,9 @@ export function registerFacadeTools(
         ...(input.input?.designSystem === undefined
           ? {}
           : { designSystem: input.input.designSystem }),
-        ...(input.input?.feedback === undefined ? {} : { feedback: input.input.feedback }),
+        ...(input.input?.feedback === undefined
+          ? {}
+          : { feedback: normalizeReviewFeedback(input.input.feedback) }),
       };
       return toolText(
         `Started ${input.flowId}.`,
@@ -587,6 +595,11 @@ export function registerFacadeTools(
         .filter((comment) => input.includeResolved === true || comment.resolved_at == null)
         .slice(0, input.limit ?? 100)
         .map(compactFigmaComment);
+      const anchorNodeIds = commentAnchorNodeIds(comments);
+      const commentNodeMap =
+        client.getNodes === undefined || anchorNodeIds.length === 0
+          ? { nodes: [] }
+          : compactCommentNodeMap(await client.getNodes(fileKey, anchorNodeIds));
       const threads = normalizeCommentThreads(comments);
       const snapshot = {
         schemaVersion: "FigmaCommentSnapshot/v1",
@@ -595,6 +608,10 @@ export function registerFacadeTools(
         includeResolved: input.includeResolved === true,
         comments,
         threads,
+        nodeMap: {
+          fileKey,
+          nodes: commentNodeMap.nodes,
+        },
       };
 
       if (input.runId !== undefined) {
@@ -1542,6 +1559,7 @@ function compactFlow(flow: FlowDefinition): Record<string, unknown> {
 }
 
 function compactRunResult(result: RuntimeRunResult): Record<string, unknown> {
+  const feedbackHandoff = compactFeedbackHandoff(result.state.feedback);
   return {
     runId: result.runId,
     status: result.status,
@@ -1553,6 +1571,7 @@ function compactRunResult(result: RuntimeRunResult): Record<string, unknown> {
     activeFigmaTransaction: result.state.activeFigmaTransaction,
     figmaWritePreflight: result.state.figmaWritePreflight,
     figmaTransactionProgress: transactionProgressFrom(result.state.figmaTransactionPlan),
+    ...(feedbackHandoff === undefined ? {} : { feedbackHandoff }),
     artifacts: result.state.artifacts,
     errors: result.state.errors,
   };

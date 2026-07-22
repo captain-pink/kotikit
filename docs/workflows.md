@@ -53,11 +53,14 @@ Use kotikit to review comments on this draft and suggest changes:
 Expected behavior:
 
 - Starts the `review-screen` flow.
-- Reads a compact Figma comment snapshot.
-- Maps comments to visible nodes when possible.
+- Reads a compact Figma comment snapshot with verified anchor geometry.
+- Maps comments to visible roots or direct children when possible.
 - Groups root comments and replies into one feedback thread.
 - Produces a change plan in plain design language.
-- Asks before applying changes.
+- Asks before applying changes and returns an explicit apply-or-skip handoff.
+
+The graph prepares the revision plan; the assistant applies an approved
+handoff through official Figma tools. A skipped handoff must not change Figma.
 
 kotikit should not rely on browser debugging for comments.
 
