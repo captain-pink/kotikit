@@ -73,6 +73,56 @@ describe("feedback graph nodes", () => {
     });
   });
 
+  it("maps comments from the verified node map carried by the snapshot", async () => {
+    const output = await runNode("feedback.buildEvidenceMap", {
+      feedback: {
+        commentSnapshot: {
+          schemaVersion: "FigmaCommentSnapshot/v1",
+          fileKey: "FILE",
+          comments: [
+            {
+              id: "comment-verified",
+              message: "Adjust this mocked field.",
+              client_meta: { node_id: "frame:1", node_offset: { x: 75, y: 55 } },
+            },
+          ],
+          nodeMap: {
+            fileKey: "FILE",
+            nodes: [
+              {
+                nodeId: "frame:1",
+                nodeName: "Mock settings",
+                bounds: { x: 100, y: 200, width: 600, height: 400 },
+              },
+              {
+                nodeId: "child:1",
+                nodeName: "Mock field",
+                parentNodeId: "frame:1",
+                bounds: { x: 160, y: 240, width: 100, height: 50 },
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    expect(output.statePatch?.commentEvidenceMap).toMatchObject({
+      fileKey: "FILE",
+      unmappedCount: 0,
+      comments: [
+        expect.objectContaining({
+          commentId: "comment-verified",
+          mappingStrategy: "frame-offset",
+          mappedTarget: {
+            nodeId: "child:1",
+            nodeName: "Mock field",
+            bounds: { x: 160, y: 240, width: 100, height: 50 },
+          },
+        }),
+      ],
+    });
+  });
+
   it("turns mapped comments and chat feedback into a lightweight revision plan", async () => {
     const output = await runNode("feedback.createRevisionPlan", {
       userIntent: "Also make the selected state clearer.",

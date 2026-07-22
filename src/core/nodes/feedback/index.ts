@@ -53,6 +53,7 @@ export const feedbackNodeDefinitions: NodeDefinition[] = [
         nodeMap: {
           fileKey,
           nodes: [
+            ...recordArray(recordFrom(snapshot.nodeMap).nodes),
             ...recordArray(recordFrom(state.figmaNodeLedger).nodes),
             ...recordArray(recordFrom(state.applyReport).nodes),
             ...recordArray(recordFrom(feedback).nodes),

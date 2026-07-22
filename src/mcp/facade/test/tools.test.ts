@@ -849,6 +849,43 @@ describe("MCP facade tools", () => {
     });
   });
 
+  it("normalizes a returned comment snapshot passed directly as review feedback", async () => {
+    let capturedFeedback: unknown;
+    const runtime = {
+      ...makeRuntime(),
+      async startFlow(input): Promise<RuntimeRunResult> {
+        capturedFeedback = input.input.feedback;
+        return {
+          runId: "run-1",
+          status: "running",
+          state: { ...makeState("running"), flowId: "review-screen", feedback: capturedFeedback },
+        };
+      },
+    } satisfies FacadeRuntime;
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx(), { runtime });
+
+    const snapshot = {
+      schemaVersion: "FigmaCommentSnapshot/v1",
+      fileKey: "FILE",
+      fetchedAt: "2026-07-22T00:00:00.000Z",
+      includeResolved: false,
+      comments: [{ id: "comment-1", message: "Adjust the mocked field." }],
+      threads: [],
+      nodeMap: { fileKey: "FILE", nodes: [] },
+    };
+    const result = await callTool(registry, "kotikit_start", {
+      flowId: "review-screen",
+      input: { feedback: snapshot },
+    });
+
+    expect(result.isError).toBeFalsy();
+    expect(capturedFeedback).toEqual({
+      commentSnapshot: snapshot,
+      includeResolved: false,
+    });
+  });
+
   it("starts flows with structured blueprint, canvas intent, and existing design inventory", async () => {
     let captured: RuntimeRunResult["state"] | undefined;
     const runtime = {
@@ -907,6 +944,7 @@ describe("MCP facade tools", () => {
     const root = mkProject();
     writeFileSync(join(root, ".env"), "FIGMA_TOKEN=test-token\n");
     let seenToken = "";
+    let requestedNodeIds: string[] = [];
     let patchedFeedback: unknown;
     const runtime = {
       ...makeRuntime(),
@@ -933,7 +971,11 @@ describe("MCP facade tools", () => {
                 id: "comment-1",
                 file_key: "FILE",
                 message: "Move the empty state inside the table region.",
-                client_meta: { node_id: "node-table", ignored: "large" },
+                client_meta: {
+                  node_id: "node-table",
+                  node_offset: { x: 48, y: 72 },
+                  ignored: "large",
+                },
                 resolved_at: null,
                 user: { handle: "Designer", email: "designer@example.com" },
               },
@@ -953,6 +995,28 @@ describe("MCP facade tools", () => {
               },
             ];
           },
+          async getNodes(fileKey, ids) {
+            expect(fileKey).toBe("FILE");
+            requestedNodeIds = ids;
+            return {
+              "node-table": {
+                document: {
+                  id: "node-table",
+                  name: "Mock members table",
+                  type: "FRAME",
+                  absoluteBoundingBox: { x: 100, y: 200, width: 600, height: 400 },
+                  children: [
+                    {
+                      id: "node-empty",
+                      name: "Mock empty state",
+                      type: "INSTANCE",
+                      absoluteBoundingBox: { x: 120, y: 240, width: 300, height: 160 },
+                    },
+                  ],
+                },
+              },
+            };
+          },
         };
       },
     });
@@ -962,17 +1026,22 @@ describe("MCP facade tools", () => {
       runId: "run-1",
     });
     const detail = detailOf<{
-      snapshot: { comments: Record<string, unknown>[]; threads: Record<string, unknown>[] };
+      snapshot: {
+        comments: Record<string, unknown>[];
+        threads: Record<string, unknown>[];
+        nodeMap: { fileKey: string; nodes: Record<string, unknown>[] };
+      };
       run: { runId: string };
     }>(result.content[0]?.text ?? "");
 
     expect(result.isError).toBeFalsy();
     expect(seenToken).toBe("test-token");
+    expect(requestedNodeIds).toEqual(["node-table"]);
     expect(detail.snapshot.comments).toEqual([
       expect.objectContaining({
         id: "comment-1",
         message: "Move the empty state inside the table region.",
-        client_meta: { node_id: "node-table" },
+        client_meta: { node_id: "node-table", node_offset: { x: 48, y: 72 } },
         user: { handle: "Designer" },
       }),
       expect.objectContaining({
@@ -982,11 +1051,27 @@ describe("MCP facade tools", () => {
         client_meta: null,
       }),
     ]);
+    expect(detail.snapshot.nodeMap).toEqual({
+      fileKey: "FILE",
+      nodes: [
+        expect.objectContaining({
+          nodeId: "node-table",
+          nodeName: "Mock members table",
+          bounds: { x: 100, y: 200, width: 600, height: 400 },
+        }),
+        expect.objectContaining({
+          nodeId: "node-empty",
+          nodeName: "Mock empty state",
+          parentNodeId: "node-table",
+          bounds: { x: 120, y: 240, width: 300, height: 160 },
+        }),
+      ],
+    });
     expect(detail.snapshot.threads).toEqual([
       expect.objectContaining({
         threadId: "comment-1",
         rootCommentId: "comment-1",
-        anchorClientMeta: { nodeId: "node-table" },
+        anchorClientMeta: { nodeId: "node-table", nodeOffset: { x: 48, y: 72 } },
         messages: [
           expect.objectContaining({
             commentId: "comment-1",
@@ -1010,6 +1095,13 @@ describe("MCP facade tools", () => {
           expect.objectContaining({ id: "comment-1-reply" }),
         ],
         threads: [expect.objectContaining({ threadId: "comment-1" })],
+        nodeMap: {
+          fileKey: "FILE",
+          nodes: [
+            expect.objectContaining({ nodeId: "node-table" }),
+            expect.objectContaining({ nodeId: "node-empty" }),
+          ],
+        },
       },
     });
   });
