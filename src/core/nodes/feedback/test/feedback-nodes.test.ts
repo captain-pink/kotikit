@@ -76,32 +76,30 @@ describe("feedback graph nodes", () => {
   it("maps comments from the verified node map carried by the snapshot", async () => {
     const output = await runNode("feedback.buildEvidenceMap", {
       feedback: {
-        commentSnapshot: {
-          schemaVersion: "FigmaCommentSnapshot/v1",
+        schemaVersion: "FigmaCommentSnapshot/v1",
+        fileKey: "FILE",
+        comments: [
+          {
+            id: "comment-verified",
+            message: "Adjust this mocked field.",
+            client_meta: { node_id: "frame:1", node_offset: { x: 75, y: 55 } },
+          },
+        ],
+        nodeMap: {
           fileKey: "FILE",
-          comments: [
+          nodes: [
             {
-              id: "comment-verified",
-              message: "Adjust this mocked field.",
-              client_meta: { node_id: "frame:1", node_offset: { x: 75, y: 55 } },
+              nodeId: "frame:1",
+              nodeName: "Mock settings",
+              bounds: { x: 100, y: 200, width: 600, height: 400 },
+            },
+            {
+              nodeId: "child:1",
+              nodeName: "Mock field",
+              parentNodeId: "frame:1",
+              bounds: { x: 160, y: 240, width: 100, height: 50 },
             },
           ],
-          nodeMap: {
-            fileKey: "FILE",
-            nodes: [
-              {
-                nodeId: "frame:1",
-                nodeName: "Mock settings",
-                bounds: { x: 100, y: 200, width: 600, height: 400 },
-              },
-              {
-                nodeId: "child:1",
-                nodeName: "Mock field",
-                parentNodeId: "frame:1",
-                bounds: { x: 160, y: 240, width: 100, height: 50 },
-              },
-            ],
-          },
         },
       },
     });
@@ -120,6 +118,10 @@ describe("feedback graph nodes", () => {
           },
         }),
       ],
+    });
+    expect(recordFrom(output.statePatch?.feedback).commentSnapshot).toMatchObject({
+      schemaVersion: "FigmaCommentSnapshot/v1",
+      fileKey: "FILE",
     });
   });
 
@@ -294,22 +296,65 @@ describe("feedback graph nodes", () => {
       id: "approve-feedback-revisions",
       choices: ["apply-feedback-changes", "skip-feedback-changes"],
     });
+    expect(output.interrupt?.pendingQuestion?.prompt).toContain("assistant");
+    expect(output.interrupt?.pendingQuestion?.prompt).toContain("Figma");
   });
 
-  it("records revision approval answers without extra side effects", async () => {
+  it("hands an approved revision plan back to the assistant in change order", async () => {
     const output = await runNode("feedback.askRevisionApproval", {
       answers: {
-        "approve-feedback-revisions": "skip-feedback-changes",
+        "approve-feedback-revisions": "apply-feedback-changes",
       },
       feedback: {
+        revisionPlanArtifactId: "run-feedback-revision-plan",
         revisionPlan: {
           schemaVersion: "RevisionPlan/v1",
           data: {
             changes: [
               {
-                id: "comment-comment-1",
-                source: "figma-comment",
-                recommendation: "Fix empty state placement.",
+                id: "thread-comment-1",
+                source: "figma-comment-thread",
+                recommendation: "Fix mocked empty state placement.",
+                needsHumanDecision: false,
+              },
+              {
+                id: "thread-comment-2",
+                source: "figma-comment-thread",
+                recommendation: "Adjust mocked helper copy.",
+                needsHumanDecision: false,
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    expect(output.statePatch?.feedback).toMatchObject({
+      approval: "apply-feedback-changes",
+      handoff: {
+        status: "approved-for-agent-apply",
+        revisionPlanArtifactId: "run-feedback-revision-plan",
+        changeIds: ["thread-comment-1", "thread-comment-2"],
+      },
+    });
+    expect(output.interrupt).toBeUndefined();
+  });
+
+  it("records a skipped revision plan without queuing apply work", async () => {
+    const output = await runNode("feedback.askRevisionApproval", {
+      answers: {
+        "approve-feedback-revisions": "skip-feedback-changes",
+      },
+      feedback: {
+        revisionPlanArtifactId: "run-feedback-revision-plan",
+        revisionPlan: {
+          schemaVersion: "RevisionPlan/v1",
+          data: {
+            changes: [
+              {
+                id: "thread-comment-1",
+                source: "figma-comment-thread",
+                recommendation: "Fix mocked empty state placement.",
                 needsHumanDecision: false,
               },
             ],
@@ -320,7 +365,9 @@ describe("feedback graph nodes", () => {
 
     expect(output.statePatch?.feedback).toMatchObject({
       approval: "skip-feedback-changes",
+      handoff: { status: "skipped" },
     });
+    expect(recordFrom(output.statePatch?.feedback).handoff).not.toHaveProperty("changeIds");
     expect(output.interrupt).toBeUndefined();
   });
 });
@@ -344,4 +391,10 @@ function state(patch: Partial<KotikitGraphState>): KotikitGraphState {
     errors: [],
     ...patch,
   };
+}
+
+function recordFrom(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }

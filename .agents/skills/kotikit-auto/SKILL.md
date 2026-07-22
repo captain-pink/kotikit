@@ -142,14 +142,21 @@ Use this path after a generated design exists and the designer asks to review
 Figma comments or make changes from feedback.
 
 1. Use `kotikit_feedback_snapshot` with the Figma URL or file key. If a
-   `review-screen` run is already active, pass its `runId`.
+   `review-screen` run is already active, pass its `runId`. The snapshot keeps
+   verified anchored nodes and direct-child geometry when Figma returns them.
 2. Start `review-screen` with the snapshot as `feedback` when there is no active
    review run.
 3. Read `comment-evidence-map` and `revision-plan` artifacts when they appear.
 4. Explain proposed changes in design language.
 5. Ask before applying revisions.
-6. If approved, apply changes through official Figma MCP in small increments and
-   record metadata with `kotikit_record_figma_apply`.
+6. Inspect `feedbackHandoff` after the answer:
+   - For `approved-for-agent-apply`, read the referenced revision plan and apply
+     its ordered `changeIds` through official Figma MCP in small increments.
+   - For `skipped`, do not change Figma.
+
+A `review-screen` handoff has no active Figma transaction or preflight. Its
+sequence ends after the official Figma edits; `kotikit_record_figma_apply`
+belongs only to a run that is waiting for an active transaction.
 
 Do not post comments, resolve comment threads, or promote feedback into memory
 from the tiny core.

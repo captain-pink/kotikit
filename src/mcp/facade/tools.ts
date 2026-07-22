@@ -35,6 +35,7 @@ import { KotikitError, toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
 import { withKotikitToolSafety } from "../tool-safety.js";
+import { compactFeedbackHandoff } from "./feedback-handoff.js";
 import {
   commentAnchorNodeIds,
   compactCommentNodeMap,
@@ -1558,6 +1559,7 @@ function compactFlow(flow: FlowDefinition): Record<string, unknown> {
 }
 
 function compactRunResult(result: RuntimeRunResult): Record<string, unknown> {
+  const feedbackHandoff = compactFeedbackHandoff(result.state.feedback);
   return {
     runId: result.runId,
     status: result.status,
@@ -1569,6 +1571,7 @@ function compactRunResult(result: RuntimeRunResult): Record<string, unknown> {
     activeFigmaTransaction: result.state.activeFigmaTransaction,
     figmaWritePreflight: result.state.figmaWritePreflight,
     figmaTransactionProgress: transactionProgressFrom(result.state.figmaTransactionPlan),
+    ...(feedbackHandoff === undefined ? {} : { feedbackHandoff }),
     artifacts: result.state.artifacts,
     errors: result.state.errors,
   };

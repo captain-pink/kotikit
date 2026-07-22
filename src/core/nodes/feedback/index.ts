@@ -24,6 +24,14 @@ type FeedbackChange = {
   needsHumanDecision: boolean;
 };
 
+type FeedbackHandoff =
+  | {
+      status: "approved-for-agent-apply";
+      revisionPlanArtifactId?: string;
+      changeIds: string[];
+    }
+  | { status: "skipped" };
+
 const EmptyParamsSchema = z.strictObject({});
 
 export const feedbackNodeDefinitions: NodeDefinition[] = [
@@ -35,7 +43,7 @@ export const feedbackNodeDefinitions: NodeDefinition[] = [
     run: async (input) => {
       const state = graphState(input.state);
       const feedback = recordFrom(state.feedback);
-      const snapshot = recordFrom(feedback.commentSnapshot);
+      const snapshot = commentSnapshotFrom(feedback);
       const fileKey =
         stringField(snapshot, "fileKey") ??
         stringField(recordFrom(state.figmaNodeLedger), "fileKey") ??
@@ -60,7 +68,8 @@ export const feedbackNodeDefinitions: NodeDefinition[] = [
           ],
         },
         mappedAt: nowIso(),
-        includeResolved: booleanField(feedback, "includeResolved"),
+        includeResolved:
+          booleanField(feedback, "includeResolved") ?? booleanField(snapshot, "includeResolved"),
       });
 
       return {
@@ -68,6 +77,7 @@ export const feedbackNodeDefinitions: NodeDefinition[] = [
           commentEvidenceMap,
           feedback: {
             ...feedback,
+            commentSnapshot: snapshot,
             commentEvidenceMap,
           },
         },
@@ -150,22 +160,50 @@ export const feedbackNodeDefinitions: NodeDefinition[] = [
           interrupt: createUserInterrupt({
             id: "approve-feedback-revisions",
             prompt:
-              "Apply the prepared feedback changes to the Figma draft one region/comment at a time?",
+              "Approve this revision plan for the assistant to apply through Figma one change at a time?",
             choices: ["apply-feedback-changes", "skip-feedback-changes"],
           }),
         } satisfies RuntimeNodeOutput;
       }
+      const handoff = feedbackHandoffFrom(answer, feedback, changes);
       return {
         statePatch: {
           feedback: {
             ...feedback,
             approval: answer,
+            ...(handoff === undefined ? {} : { handoff }),
           },
         },
       } satisfies RuntimeNodeOutput;
     },
   }),
 ];
+
+// Accepts both direct snapshot input and the persisted feedback wrapper.
+function commentSnapshotFrom(feedback: Record<string, unknown>): Record<string, unknown> {
+  const wrapped = recordFrom(feedback.commentSnapshot);
+  if (Object.keys(wrapped).length > 0) return wrapped;
+  return stringField(feedback, "schemaVersion") === "FigmaCommentSnapshot/v1" ? feedback : {};
+}
+
+// Turns the designer's explicit choice into the next assistant action.
+function feedbackHandoffFrom(
+  answer: string,
+  feedback: Record<string, unknown>,
+  changes: Record<string, unknown>[]
+): FeedbackHandoff | undefined {
+  if (answer === "skip-feedback-changes") return { status: "skipped" };
+  if (answer !== "apply-feedback-changes") return undefined;
+  const revisionPlanArtifactId = stringField(feedback, "revisionPlanArtifactId");
+  return {
+    status: "approved-for-agent-apply",
+    ...(revisionPlanArtifactId === undefined ? {} : { revisionPlanArtifactId }),
+    changeIds: changes.flatMap((change) => {
+      const changeId = stringField(change, "id");
+      return changeId === undefined ? [] : [changeId];
+    }),
+  };
+}
 
 function commentEvidenceArtifact(state: KotikitGraphState, payload: Artifact["payload"]): Artifact {
   const now = nowIso();

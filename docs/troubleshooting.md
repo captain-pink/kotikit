@@ -100,8 +100,9 @@ Use kotikit to review comments on this draft:
 ```
 
 Keep comments on visible frames or layers inside the kotikit Section. kotikit
-should read a compact comment snapshot, map comments to nodes, and ask before
-applying changes.
+should read a compact comment snapshot, verify anchored nodes, and ask before
+returning an apply-or-skip handoff. The assistant applies an approved plan
+through official Figma tools; the review graph does not apply it itself.
 
 ## The Run Keeps Asking For The Same Evidence
 

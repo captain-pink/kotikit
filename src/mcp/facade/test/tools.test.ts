@@ -1319,6 +1319,50 @@ describe("MCP facade tools", () => {
     expect(detail.status).toBe("done");
   });
 
+  it("exposes an approved feedback handoff in the compact answer result", async () => {
+    const runtime = {
+      ...makeRuntime(),
+      async answerRun(input): Promise<RuntimeRunResult> {
+        expect(input).toEqual({ runId: "run-1", answer: "apply-feedback-changes" });
+        return {
+          runId: "run-1",
+          status: "done",
+          state: {
+            ...makeState("done"),
+            flowId: "review-screen",
+            feedback: {
+              approval: "apply-feedback-changes",
+              handoff: {
+                status: "approved-for-agent-apply",
+                revisionPlanArtifactId: "run-1-revision-plan",
+                changeIds: ["thread-comment-1"],
+              },
+            },
+          },
+        };
+      },
+    } satisfies FacadeRuntime;
+    const registry = makeRegistry();
+    registerFacadeTools(registry, makeCtx(), { runtime });
+
+    const result = await callTool(registry, "kotikit_answer", {
+      runId: "run-1",
+      answer: "apply-feedback-changes",
+    });
+    const detail = detailOf<{
+      status: string;
+      feedbackHandoff: Record<string, unknown>;
+    }>(result.content[0]?.text ?? "");
+
+    expect(result.isError).toBeFalsy();
+    expect(detail.status).toBe("done");
+    expect(detail.feedbackHandoff).toEqual({
+      status: "approved-for-agent-apply",
+      revisionPlanArtifactId: "run-1-revision-plan",
+      changeIds: ["thread-comment-1"],
+    });
+  });
+
   it("records Figma apply metadata into a graph run when runId is supplied", async () => {
     const registry = makeRegistry();
     const runtime = {

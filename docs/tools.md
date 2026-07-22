@@ -131,7 +131,11 @@ targets are ambiguous, kotikit asks one clarification instead of guessing.
 
 Purpose: Resume a run paused for a designer decision.
 Input: `{ runId: string; answer: string }`
-Output: `{ runId; status; pendingQuestion?; artifacts; errors }`
+Output: `{ runId; status; pendingQuestion?; feedbackHandoff?; artifacts; errors }`
+
+For `review-screen`, an approved handoff includes the revision-plan artifact id
+and ordered change ids for the assistant to apply through official Figma tools.
+A skipped handoff confirms that no review changes should be applied.
 
 ### kotikit_continue
 
@@ -189,9 +193,12 @@ them to a `review-screen` run.
 Input: `{ figmaUrl?: string; fileKey?: string; runId?: string; includeResolved?: boolean; limit?: number }`
 Output: `{ snapshot; run? }`, where `snapshot.comments` keeps the compact flat
 Figma records and `snapshot.threads` groups root comments and replies by
-`parent_id`. Reply comments may have `client_meta: null`; kotikit keeps them
-and lets `review-screen` inherit the thread anchor from the nearest positioned
-parent comment when possible.
+`parent_id`. `snapshot.nodeMap` contains only Figma-verified anchored nodes and
+their direct children. `review-screen` can use `node_offset` geometry to select
+the smallest child under a comment while stale or deleted anchors remain
+unmapped. Reply comments may have `client_meta: null`; kotikit keeps them and
+lets `review-screen` inherit the nearest positioned parent target when
+possible.
 
 This tool is read-only for Figma, but it resolves a local Figma token and calls
 Figma, so scaffolded agents should still ask before running it.
