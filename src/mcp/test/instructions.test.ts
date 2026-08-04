@@ -67,6 +67,7 @@ describe("KOTIKIT_MCP_INSTRUCTIONS", () => {
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("natural-language intent");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("Do not invoke it automatically");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("generalized maintainer brief");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("ticket ids");
     expect(KOTIKIT_MCP_INSTRUCTIONS).not.toContain("prepare a kotikit bug report");
   });
 });

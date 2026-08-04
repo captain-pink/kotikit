@@ -354,6 +354,44 @@ describe("FigmaClient", () => {
     ]);
   });
 
+  it("getComments accepts non-scalar order ids as loose metadata", async () => {
+    const fetch = async () =>
+      jsonResponse({
+        comments: [
+          {
+            id: "comment-null-order",
+            file_key: "k1",
+            message: "Keep this comment even when ordering metadata is null.",
+            client_meta: { node_id: "1:2" },
+            order_id: null,
+          },
+          {
+            id: "comment-object-order",
+            file_key: "k1",
+            message: "Keep this comment even when ordering metadata is object-shaped.",
+            client_meta: null,
+            order_id: { position: 2 },
+          },
+        ],
+      });
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      limiter: FAST_LIMITER,
+      backoffOpts: FAST_BACKOFF,
+    });
+
+    const comments = await client.getComments("k1", { asMarkdown: true });
+
+    expect(comments).toEqual([
+      expect.objectContaining({ id: "comment-null-order", order_id: null }),
+      expect.objectContaining({
+        id: "comment-object-order",
+        order_id: { position: 2 },
+      }),
+    ]);
+  });
+
   it("getComments maps 403 to a comment-scope remediation", async () => {
     const fetch = async () => errorResponse(403);
     const client = new FigmaClient({

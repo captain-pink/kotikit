@@ -54,6 +54,21 @@ is available on `PATH`.
 - Do not generate code or scaffold code components. Design-to-code is not part
   of the kotikit core. If asked, offer to create or refine the Figma design.
 
+## Issue And Feature Requests
+
+Use `kotikit_prepare_issue` only when the user wants to share a kotikit bug,
+improvement, or feature request. Turn the situation into a generalized
+maintainer brief: what the user was trying to do, where kotikit struggled, why
+it mattered, and what should be better. Treat this as a generalized maintainer brief,
+not a raw log or workspace dump.
+
+Never include company names, customer data, internal project names, ticket IDs,
+Figma URLs, file keys, node ids, raw paths, tokens, raw config, logs, graph
+state dumps, artifact payloads, or generated screen text. Pass known company,
+customer, project, ticket, file, and feature names in `sensitiveTerms` so
+kotikit can redact them. The tool returns a GitHub issue preview link; the user
+reviews and submits it manually.
+
 ## Setup
 
 1. Call `kotikit_doctor`.

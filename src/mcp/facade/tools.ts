@@ -727,7 +727,7 @@ export function registerFacadeTools(
           type: "array",
           items: { type: "string" },
           description:
-            "Known company, product, customer, user, or project names the assistant already identified for redaction.",
+            "Known company, product, customer, user, project, ticket, file, or feature names the assistant already identified for redaction.",
         },
       },
       required: ["kind", "summary", "userGoal", "desiredBehavior"],

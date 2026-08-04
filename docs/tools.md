@@ -254,10 +254,12 @@ do, where kotikit struggled, why it mattered, and what should be better. Do not
 call the tool automatically after errors.
 
 The generated GitHub issue preview is public-facing. Do not include company
-names, customer data, Figma URLs, file keys, node ids, raw paths, tokens, raw
-config, logs, graph state dumps, artifact payloads, or generated screen text.
-Pass known sensitive names in `sensitiveTerms` so kotikit can redact them from
-the title and body. The user reviews the GitHub page and submits manually.
+names, customer data, internal project names, ticket ids, Figma URLs, file
+keys, node ids, raw paths, tokens, raw config, logs, graph state dumps,
+artifact payloads, or generated screen text. Pass known sensitive names,
+ticket ids, project names, feature names, and file names in `sensitiveTerms` so
+kotikit can redact them from the title and body. The user reviews the GitHub
+page and submits manually.
 
 ## Setup
 
