@@ -86,6 +86,11 @@ describe("assistant plugin wrappers", () => {
       expect(skill).toContain("kotikit:auto");
       expect(skill).toContain("Create the Figma design");
       expect(skill).toContain("kotikit_get_artifact");
+      expect(skill).toContain("kotikit_prepare_issue");
+      expect(skill).toContain("generalized maintainer brief");
+      expect(skill).toContain("ticket IDs");
+      expect(skill).toContain("file keys");
+      expect(skill).toContain("sensitiveTerms");
       expect(skill).not.toContain("kotikit_artifact_get");
       expect(skill).not.toContain("Generate code");
       expect(skill).not.toContain("target React project");

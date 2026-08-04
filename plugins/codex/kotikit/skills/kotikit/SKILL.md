@@ -39,6 +39,13 @@ Use this designer-first skill when the user asks for `kotikit:auto`, a new Figma
 - Keep human approval points clear: literal variable fallbacks and post-design draft component extraction.
 - For comment feedback, read a compact snapshot, let `review-screen` create the
   evidence map and revision plan, then ask before applying changes.
+- For kotikit bug, improvement, or feature requests, call
+  `kotikit_prepare_issue` with a generalized maintainer brief. Never include
+  company names, customer data, internal project names, ticket IDs, Figma URLs,
+  file keys, node ids, raw paths, tokens, raw config, logs, graph state dumps,
+  artifact payloads, or generated screen text. Pass known company, customer,
+  project, ticket, file, and feature names in `sensitiveTerms`; the user
+  reviews and submits the GitHub issue preview manually.
 - Do not post comments, resolve comment threads, or promote design memory from
   the tiny core.
 - Do not expose internal JSON, graph node ids, tool schemas, or local paths unless the user explicitly asks.
@@ -53,3 +60,4 @@ Use this designer-first skill when the user asks for `kotikit:auto`, a new Figma
 - `kotikit_continue`
 - `kotikit_get_artifact`
 - `kotikit_feedback_snapshot`
+- `kotikit_prepare_issue`

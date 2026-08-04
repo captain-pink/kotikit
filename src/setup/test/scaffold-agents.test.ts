@@ -88,6 +88,11 @@ describe("scaffoldAgents", () => {
     expect(skill).toContain("kotikit_start");
     expect(skill).toContain("kotikit_answer");
     expect(skill).toContain("kotikit_get_artifact");
+    expect(skill).toContain("kotikit_prepare_issue");
+    expect(skill).toContain("generalized maintainer brief");
+    expect(skill).toContain("ticket IDs");
+    expect(skill).toContain("file keys");
+    expect(skill).toContain("sensitiveTerms");
     expect(skill).toContain("Claude Code");
     expect(skill).toContain("Codex");
     expect(skill).toContain("Do not generate code or scaffold code components");

@@ -207,6 +207,27 @@ function sanitizeText(value: string, sensitiveTerms: string[], redactions: Set<s
   );
   sanitized = replaceIfChanged(
     sanitized,
+    /\b[A-Z][A-Z0-9]{1,9}-\d{2,}\b/g,
+    "[redacted ticket id]",
+    "internal ticket ids",
+    redactions
+  );
+  sanitized = replaceIfChanged(
+    sanitized,
+    /\b(?=[A-Za-z0-9]*[a-z])(?=[A-Za-z0-9]*[A-Z])(?=[A-Za-z0-9]*\d)[A-Za-z0-9]{16,}\b/g,
+    "[redacted figma file key]",
+    "figma file keys",
+    redactions
+  );
+  sanitized = replaceIfChanged(
+    sanitized,
+    /\b\d{1,6}:\d{1,6}(?::\d{1,6})*\b/g,
+    "[redacted figma node id]",
+    "figma node ids",
+    redactions
+  );
+  sanitized = replaceIfChanged(
+    sanitized,
     /\b(?:(?:figd|ghp|github_pat)[A-Za-z0-9_:-]{6,}|figma[_:-]?(?:token|pat|secret)[A-Za-z0-9_:-]{4,}|(?:tok|token|secret)[_:-][A-Za-z0-9_:-]{8,})\b/gi,
     "[redacted token]",
     "token-like values",

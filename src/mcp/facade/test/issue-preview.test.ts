@@ -98,4 +98,27 @@ describe("buildIssuePreview", () => {
       ])
     );
   });
+
+  it("redacts internal ticket ids and Figma identifiers without assistant-provided terms", () => {
+    const figmaFileKey = "aB1cD2eF3gH4iJ5k6Lm7";
+    const result = buildIssuePreview({
+      kind: "bug",
+      summary: `PAY-4812 feedback snapshot crashes for ${figmaFileKey}`,
+      userGoal: `Review comments for PAY-4812 in Figma file ${figmaFileKey}.`,
+      observedProblem: "The comment reader failed while processing node 123:456.",
+      desiredBehavior:
+        "Prepare a public maintainer report that describes the feedback workflow failure without internal identifiers.",
+      workflowArea: "feedback",
+    });
+
+    const combined = `${result.title}\n${result.bodyPreview}\n${decodeURIComponent(
+      result.githubIssueUrl
+    )}`;
+    expect(combined).not.toContain("PAY-4812");
+    expect(combined).not.toContain(figmaFileKey);
+    expect(combined).not.toContain("123:456");
+    expect(result.redactions).toEqual(
+      expect.arrayContaining(["internal ticket ids", "figma file keys", "figma node ids"])
+    );
+  });
 });
