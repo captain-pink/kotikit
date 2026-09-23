@@ -263,12 +263,13 @@ function statesFrom(state: KotikitGraphState): string[] {
 function blueprintStatesFrom(
   state: KotikitGraphState
 ): NonNullable<NonNullable<KotikitGraphState["screenBlueprint"]>["states"]> | undefined {
-  return (
-    state.screenBlueprint?.states ??
-    (state.flowBlueprint === undefined
-      ? undefined
-      : primaryScreenFromFlowBlueprint(state.flowBlueprint).states)
-  );
+  if (state.flowBlueprint !== undefined) {
+    return primaryScreenFromFlowBlueprint(state.flowBlueprint).states ?? [];
+  }
+  if (state.screenBlueprint !== undefined) {
+    return state.screenBlueprint.states ?? [];
+  }
+  return undefined;
 }
 
 function transactionPlacementsForState(
