@@ -25,7 +25,8 @@
         "name": "Card",
         "key": "card-a",
         "fileKey": "DUP",
-        "path": "components/card.json",
+        "path": "components/card--41e2ea214d725a53d6cd.json",
+        "pageName": "Marketing",
         "variants": [],
         "properties": {}
       },
@@ -33,7 +34,8 @@
         "name": "Card",
         "key": "card-b",
         "fileKey": "DUP",
-        "path": "components/card.json",
+        "path": "components/card--3319e741cf784718bf95.json",
+        "pageName": "Product",
         "variants": [],
         "properties": {}
       }

@@ -6,7 +6,7 @@ import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { initComponentsDb, upsertComponent } from "../../../db/components-db.js";
 import { openDb } from "../../../db/sqlite.js";
 import { nowIso } from "../../../util/ids.js";
-import { componentJsonPath, componentsDbPath } from "../../../util/paths.js";
+import { componentJsonPath, componentsDbPath, manifestPath } from "../../../util/paths.js";
 import type { ToolContext } from "../../context.js";
 import type { ToolRegistry } from "../../server.js";
 import { registerDsSearchTools } from "../ds-search.js";
@@ -30,7 +30,7 @@ function makeCtx(root: string): ToolContext {
 
 function seedDesignSystem(
   root: string,
-  components: { name: string; key: string; fileKey: string }[]
+  components: { name: string; key: string; fileKey: string; path?: string; pageName?: string }[]
 ): void {
   const dbPath = componentsDbPath(root);
   const db = openDb(dbPath);
@@ -38,13 +38,15 @@ function seedDesignSystem(
   for (const c of components) {
     upsertComponent(db, {
       name: c.name,
-      path: `components/${c.name.toLowerCase()}.json`,
+      path: c.path ?? `components/${c.name.toLowerCase()}.json`,
       key: c.key,
       fileKey: c.fileKey,
       props: "",
     });
     // Also write the per-component JSON file
-    const filePath = componentJsonPath(root, c.name.toLowerCase());
+    const filePath = c.path
+      ? join(root, "design-system", c.path)
+      : componentJsonPath(root, c.name.toLowerCase());
     mkdirSync(join(filePath, ".."), { recursive: true });
     writeFileSync(
       filePath,
@@ -53,7 +55,8 @@ function seedDesignSystem(
           name: c.name,
           key: c.key,
           fileKey: c.fileKey,
-          path: `components/${c.name.toLowerCase()}.json`,
+          path: c.path ?? `components/${c.name.toLowerCase()}.json`,
+          ...(c.pageName ? { pageName: c.pageName } : {}),
           variants: [],
           properties: {},
           updatedAt: nowIso(),
@@ -84,6 +87,61 @@ describe("kotikit_ds_search", () => {
     const result = await callTool(registry, "kotikit_ds_search", { query: "but*" });
     expect(result.isError).toBeFalsy();
     expect(result.content[0]?.text).toContain("Button");
+  });
+
+  it("shows source pages and exact paths for same-named search results", async () => {
+    const root = mkTmp();
+    seedDesignSystem(root, [
+      {
+        name: "Card",
+        key: "marketing-card",
+        fileKey: "F1",
+        path: "components/card--marketing.json",
+        pageName: "Marketing",
+      },
+      {
+        name: "Card",
+        key: "product-card",
+        fileKey: "F1",
+        path: "components/card--product.json",
+        pageName: "Product",
+      },
+    ]);
+    const registry = makeRegistry();
+    registerDsSearchTools(registry, makeCtx(root));
+
+    const result = await callTool(registry, "kotikit_ds_search", { query: "Card" });
+    expect(result.content[0]?.text).toContain("Use the exact path");
+    expect(result.content[0]?.text).toContain('"pageName": "Marketing"');
+    expect(result.content[0]?.text).toContain('"pageName": "Product"');
+    expect(result.content[0]?.text).toContain("components/card--marketing.json");
+    expect(result.content[0]?.text).toContain("components/card--product.json");
+  });
+
+  it("shows source file names for same-named components from different files", async () => {
+    const root = mkTmp();
+    seedDesignSystem(root, [
+      { name: "Button", key: "key-a", fileKey: "FA", path: "components/button--a.json" },
+      { name: "Button", key: "key-b", fileKey: "FB", path: "components/button--b.json" },
+    ]);
+    writeFileSync(
+      manifestPath(root),
+      JSON.stringify({
+        version: 1,
+        lastSyncAt: nowIso(),
+        files: [
+          { key: "FA", name: "Core Library", componentCount: 1, iconCount: 0 },
+          { key: "FB", name: "Product Library", componentCount: 1, iconCount: 0 },
+        ],
+        conflicts: [],
+      })
+    );
+    const registry = makeRegistry();
+    registerDsSearchTools(registry, makeCtx(root));
+
+    const result = await callTool(registry, "kotikit_ds_search", { query: "Button" });
+    expect(result.content[0]?.text).toContain('"fileName": "Core Library"');
+    expect(result.content[0]?.text).toContain('"fileName": "Product Library"');
   });
 
   it("returns friendly error when design system is missing", async () => {

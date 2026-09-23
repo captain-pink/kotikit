@@ -42,12 +42,12 @@ export function deleteComponentsByFileKey(db: Database, fileKey: string): void {
 }
 
 /**
- * Insert or replace a component row by name.
+ * Insert or replace a component row by published identity within its source file.
  * FTS5 virtual tables do not support INSERT OR REPLACE, so we DELETE then INSERT.
  * Caller must hold a transaction for atomicity across multiple upserts.
  */
 export function upsertComponent(db: Database, row: ComponentRow): void {
-  db.prepare("DELETE FROM components WHERE name = ?").run(row.name);
+  db.prepare("DELETE FROM components WHERE file_key = ? AND key = ?").run(row.fileKey, row.key);
   db.prepare(`
     INSERT INTO components (name, name_tokens, path, key, file_key, props)
     VALUES (?, ?, ?, ?, ?, ?)

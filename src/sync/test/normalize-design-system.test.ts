@@ -185,6 +185,48 @@ describe("normalizePublishedDesignSystem", () => {
     expect(result.icons).toEqual([]);
   });
 
+  it("keeps the source page for same-named published components", () => {
+    const result = normalizePublishedDesignSystem({
+      fileKey: "F1",
+      publishedComponents: [
+        {
+          key: "marketing-card",
+          node_id: "node-1",
+          name: "Card",
+          containing_frame: { pageName: "Marketing" },
+        },
+        {
+          key: "product-card",
+          node_id: "node-2",
+          name: "Card",
+          containing_frame: { pageName: "Product" },
+        },
+      ],
+      componentSets: [],
+      nodeDetailsById: {},
+    });
+
+    expect(result.components.map((component) => [component.key, component.pageName])).toEqual([
+      ["marketing-card", "Marketing"],
+      ["product-card", "Product"],
+    ]);
+  });
+
+  it("reports different names that share a slug without discarding either component", () => {
+    const result = normalizePublishedDesignSystem({
+      fileKey: "F1",
+      publishedComponents: [
+        { key: "space", node_id: "n1", name: "Button Group" },
+        { key: "hyphen", node_id: "n2", name: "Button-Group" },
+      ],
+      componentSets: [],
+      nodeDetailsById: {},
+    });
+
+    expect(result.components.map((component) => component.key)).toEqual(["space", "hyphen"]);
+    expect(result.warnings.map((warning) => warning.code)).toContain("slug-collision");
+  });
+
   it("classifies decorative Icons pages as icons instead of components", () => {
     const result = normalizePublishedDesignSystem({
       fileKey: "F1",

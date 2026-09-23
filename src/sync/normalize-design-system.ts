@@ -1,10 +1,15 @@
 import type { IconRow } from "../db/icons-db.js";
+import { slugifyComponentName } from "../util/ids.js";
 import { buildComponentJson, type ComponentJson } from "./component-shape.js";
 import type { FigmaComponentSet, FigmaNode, FigmaPublishedComponent } from "./figma-types.js";
 import { detectIconSignal } from "./icon-detect.js";
 
 export interface NormalizeWarning {
-  code: "inferred-variants" | "missing-component-set-metadata" | "duplicate-logical-name";
+  code:
+    | "inferred-variants"
+    | "missing-component-set-metadata"
+    | "duplicate-logical-name"
+    | "slug-collision";
   message: string;
 }
 
@@ -265,6 +270,7 @@ export function normalizePublishedDesignSystem(
       const component = buildComponentJson({
         fileKey: input.fileKey,
         publishedComponent: representative,
+        pageName: pageNameForComponent(representative, pageNameByNodeId),
         ...(componentSet ? { componentSet } : {}),
         ...(nodeDetails ? { nodeDetails } : {}),
       });
@@ -283,14 +289,28 @@ export function normalizePublishedDesignSystem(
 
   const duplicateWarnings = Array.from(new Set(duplicateNames)).map<NormalizeWarning>((name) => ({
     code: "duplicate-logical-name",
-    message: `Multiple logical components normalize to the name ${name}; later files or rows may overwrite earlier ones.`,
+    message: `Multiple published components use the name ${name}; use their keys and paths to distinguish them.`,
   }));
+
+  const namesBySlug = normalized.components.reduce<Map<string, Set<string>>>((acc, component) => {
+    const slug = slugifyComponentName(component.name);
+    const names = acc.get(slug) ?? new Set<string>();
+    names.add(component.name);
+    acc.set(slug, names);
+    return acc;
+  }, new Map());
+  const slugWarnings = Array.from(namesBySlug.entries())
+    .filter(([, names]) => names.size > 1)
+    .map<NormalizeWarning>(([slug]) => ({
+      code: "slug-collision",
+      message: `Different component names share the slug ${slug}; their published keys and paths remain distinct.`,
+    }));
 
   return {
     components: normalized.components,
     icons: normalized.icons,
     nodeIdsForDetails: nodeIdsForGroups(groups),
-    warnings: [...warnings, ...duplicateWarnings],
+    warnings: [...warnings, ...duplicateWarnings, ...slugWarnings],
   };
 }
 

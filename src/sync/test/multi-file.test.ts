@@ -3,8 +3,11 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  getLocalComponent,
+  searchLocalComponents,
+} from "../../core/adapters/design-system/local-index.js";
+import {
   checkpointPath,
-  componentJsonPath,
   manifestPath,
   syncReportPath,
   variablesJsonPath,
@@ -62,7 +65,46 @@ function makeFetch(
 }
 
 describe("syncAllFiles", () => {
-  it("two files publishing Button: only one Button row, conflict recorded, later file wins", async () => {
+  it("keeps components with colliding name slugs readable by their search paths", async () => {
+    const root = mkTmp();
+    const client = new FigmaClient({
+      token: "tkn",
+      fetch: makeFetch({
+        FA: {
+          components: () => ({
+            meta: {
+              components: [
+                { key: "group-space", node_id: "n1", name: "Button Group" },
+                { key: "group-hyphen", node_id: "n2", name: "Button-Group" },
+              ],
+            },
+          }),
+        },
+      }),
+      limiter: createLimiter({ minTime: 0, maxConcurrent: 5 }),
+      backoffOpts: FAST,
+    });
+
+    await syncAllFiles({
+      root,
+      files: [{ key: "FA", name: "FileA" }],
+      client,
+      progress: nullProgressEmitter(),
+    });
+
+    const results = searchLocalComponents(root, "button");
+    expect(results.status).toBe("ready");
+    expect(results.results.map((result) => result.key).sort()).toEqual([
+      "group-hyphen",
+      "group-space",
+    ]);
+    expect(new Set(results.results.map((result) => result.path)).size).toBe(2);
+    expect(
+      results.results.map((result) => getLocalComponent(root, result.path).key).sort()
+    ).toEqual(["group-hyphen", "group-space"]);
+  });
+
+  it("preserves same-named components from two files and records the name conflict", async () => {
     const root = mkTmp();
 
     const fileResponses = {
@@ -119,10 +161,15 @@ describe("syncAllFiles", () => {
     expect(manifest.conflicts[0]?.name).toBe("Button");
     expect(manifest.conflicts[0]?.winnerFileKey).toBe("FB");
 
-    // The button.json reflects the winner
-    const buttonJson = JSON.parse(readFileSync(componentJsonPath(root, "button"), "utf-8"));
-    expect(buttonJson.fileKey).toBe("FB");
-    expect(buttonJson.key).toBe("ckB");
+    const results = searchLocalComponents(root, "Button");
+    expect(results.results.map((result) => [result.fileKey, result.key]).sort()).toEqual([
+      ["FA", "ckA"],
+      ["FB", "ckB"],
+    ]);
+    expect(new Set(results.results.map((result) => result.path)).size).toBe(2);
+    expect(
+      results.results.map((result) => getLocalComponent(root, result.path).key).sort()
+    ).toEqual(["ckA", "ckB"]);
 
     expect(report.conflicts).toHaveLength(1);
   });
