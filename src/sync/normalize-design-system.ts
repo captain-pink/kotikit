@@ -66,8 +66,9 @@ function setRefForComponent(component: FigmaPublishedComponent): ComponentSetRef
 function groupIdForComponent(component: FigmaPublishedComponent): string {
   const setRef = setRefForComponent(component);
   if (setRef?.id) return `set:${setRef.id}`;
-  if (setRef?.name) return `set-name:${setRef.name}`;
-  return `component:${component.node_id}`;
+  // A name-only set reference cannot establish shared identity: unrelated
+  // published sets may have the same display name.
+  return `component:${component.key}`;
 }
 
 function groupPublishedComponents(components: FigmaPublishedComponent[]): ComponentGroup[] {

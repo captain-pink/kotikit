@@ -14,6 +14,7 @@ export interface ComponentSearchResult {
   path: string;
   key: string;
   fileKey: string;
+  nameCount: number;
 }
 
 /** Create the FTS5 components table if it does not exist. */
@@ -66,7 +67,8 @@ export function searchComponents(
 ): ComponentSearchResult[] {
   const rows = db
     .prepare(`
-    SELECT name, path, key, file_key as fileKey
+    SELECT name, path, key, file_key as fileKey,
+      (SELECT COUNT(*) FROM components AS peers WHERE peers.name = components.name) AS nameCount
     FROM components
     WHERE components MATCH ?
     ORDER BY rank

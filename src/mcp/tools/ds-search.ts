@@ -57,14 +57,10 @@ function registerDsSearch(registry: ToolRegistry, ctx: ToolContext): void {
         );
       }
 
-      const nameCounts = result.results.reduce<Map<string, number>>(
-        (counts, component) => counts.set(component.name, (counts.get(component.name) ?? 0) + 1),
-        new Map()
-      );
-      const ambiguous = Array.from(nameCounts.values()).some((count) => count > 1);
+      const ambiguous = result.results.some((component) => component.ambiguous);
       const fileNames = ambiguous ? syncedFileNames(ctx.root) : new Map<string, string>();
       const results = result.results.map((component) => {
-        if ((nameCounts.get(component.name) ?? 0) < 2) return component;
+        if (!component.ambiguous) return component;
         const fileName = fileNames.get(component.fileKey);
         try {
           const pageName = getLocalComponent(ctx.root, component.path).pageName;
