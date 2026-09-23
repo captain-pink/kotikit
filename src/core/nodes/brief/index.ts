@@ -581,8 +581,7 @@ function screenModelFromBlueprint(
       : { expectedContent: blueprint.expectedContent }),
     traits: traitsFromBlueprint(blueprint),
     repeatedPatterns: repeatedPatternsFromBlueprint(blueprint),
-    states:
-      blueprint.states?.map((state) => state.kind).filter((state) => state.trim().length > 0) ?? [],
+    states: blueprint.states?.map((state) => state.name ?? state.kind) ?? [],
     regions: regionsFromBlueprint(blueprint),
     designSystemHints:
       blueprint.designSystemHints ?? designSystemHints(designSystem, requiredUiParts),

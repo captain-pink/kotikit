@@ -121,6 +121,18 @@ export const ScreenBlueprintInputSchema = z
       }
       ids.add(part.id);
     });
+    const stateIds = new Set<string>();
+    blueprint.states?.forEach((state, index) => {
+      if (state.id === undefined) return;
+      if (stateIds.has(state.id)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["states", index, "id"],
+          message: `Duplicate blueprint state id ${state.id}.`,
+        });
+      }
+      stateIds.add(state.id);
+    });
   });
 
 export const FlowBlueprintInputSchema = z

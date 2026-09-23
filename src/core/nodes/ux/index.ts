@@ -80,7 +80,7 @@ export const uxNodeDefinitions: NodeDefinition[] = [
   }),
   node({
     key: "ux.planStateMatrix",
-    stateReads: ["uxEnvelope"],
+    stateReads: ["uxEnvelope", "screenBlueprint", "flowBlueprint"],
     stateWrites: ["stateMatrix"],
     requiredCapabilities: ["ux.plan"],
     run: async (input) => {
@@ -91,9 +91,14 @@ export const uxNodeDefinitions: NodeDefinition[] = [
           "Run ux.buildEnvelope before planning screen states."
         );
       }
+      const blueprint =
+        state.flowBlueprint === undefined
+          ? state.screenBlueprint
+          : primaryScreenFromFlowBlueprint(state.flowBlueprint);
       const stateMatrix = buildStateMatrix({
         envelope: state.uxEnvelope,
         patternPack: selectPatternPack(state.uxEnvelope.screenArchetype),
+        ...(blueprint === undefined ? {} : { requestedStates: blueprint.states ?? [] }),
       });
       return {
         statePatch: { stateMatrix },

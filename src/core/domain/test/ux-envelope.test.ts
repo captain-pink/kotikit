@@ -158,4 +158,77 @@ describe("UX envelope planning", () => {
       ])
     );
   });
+
+  it("keeps distinct blueprint states when their kinds both normalize to custom", () => {
+    const envelope = buildUxEnvelope({
+      userIntent: "Create a mocked order board",
+      explicitBlueprint: true,
+      screen: { title: "Orders", states: ["archived", "pending-review", "filled"] },
+    });
+    const matrix = buildStateMatrix({
+      envelope,
+      requestedStates: [
+        { id: "archived-orders", name: "Archived orders", kind: "archived" },
+        { id: "pending-review", name: "Pending review", kind: "pending-review" },
+        { id: "live-orders", name: "Live orders", kind: "filled" },
+      ],
+    });
+
+    expect(matrix.states.map(({ id, label, kind, copy }) => ({ id, label, kind, copy }))).toEqual([
+      {
+        id: "archived-orders",
+        label: "Archived orders",
+        kind: "custom",
+        copy: { title: "Archived orders" },
+      },
+      {
+        id: "pending-review",
+        label: "Pending review",
+        kind: "custom",
+        copy: { title: "Pending review" },
+      },
+      { id: "live-orders", label: "Live orders", kind: "filled", copy: { title: "Live orders" } },
+    ]);
+  });
+
+  it("does not replace explicit blueprint states with pattern-pack defaults", () => {
+    const envelope = buildUxEnvelope({
+      userIntent: "Create the supplied mocked orders table",
+      explicitBlueprint: true,
+      screen: {
+        title: "Orders",
+        states: ["archived", "filled"],
+        traits: { patternPackIds: ["admin-data-table"] },
+      },
+    });
+    const matrix = buildStateMatrix({
+      envelope,
+      requestedStates: [{ kind: "archived" }, { kind: "filled" }],
+      patternPack: adminDataTablePatternPack,
+    });
+
+    expect(envelope.edgeCases).toEqual(["archived", "filled"]);
+    expect(matrix.states.map((state) => [state.label, state.kind])).toEqual([
+      ["Archived", "custom"],
+      ["Filled", "filled"],
+    ]);
+  });
+
+  it("refuses duplicate explicit state ids instead of silently renaming them", () => {
+    const envelope = buildUxEnvelope({
+      userIntent: "Create a mocked order board",
+      explicitBlueprint: true,
+      screen: { title: "Orders", states: ["review", "approved"] },
+    });
+
+    expect(() =>
+      buildStateMatrix({
+        envelope,
+        requestedStates: [
+          { id: "review", kind: "pending-review" },
+          { id: "review", kind: "approved" },
+        ],
+      })
+    ).toThrow("Duplicate blueprint state id");
+  });
 });

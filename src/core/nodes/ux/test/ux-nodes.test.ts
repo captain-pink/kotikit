@@ -156,6 +156,34 @@ describe("UX graph nodes", () => {
       ]),
     });
   });
+
+  it("plans every named state from a structured screen blueprint", async () => {
+    const screenBlueprint = {
+      schemaVersion: "ScreenBlueprintInput/v1" as const,
+      title: "Orders",
+      requiredUiParts: [{ name: "Orders table" }],
+      states: [
+        { id: "archived-orders", name: "Archived orders", kind: "archived" },
+        { id: "pending-review", name: "Pending review", kind: "pending-review" },
+      ],
+    };
+    const envelopeOutput = await runNode("ux.buildEnvelope", {
+      userIntent: "Create the supplied mocked orders board",
+      screenBlueprint,
+      screen: { title: "Orders", confidence: "explicit", states: ["archived", "pending-review"] },
+    });
+    const output = await runNode("ux.planStateMatrix", {
+      screenBlueprint,
+      uxEnvelope: envelopeOutput.statePatch?.uxEnvelope,
+    });
+
+    expect(
+      output.statePatch?.stateMatrix?.states.map(({ id, label, kind }) => ({ id, label, kind }))
+    ).toEqual([
+      { id: "archived-orders", label: "Archived orders", kind: "custom" },
+      { id: "pending-review", label: "Pending review", kind: "custom" },
+    ]);
+  });
 });
 
 async function runNode(
