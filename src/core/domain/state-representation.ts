@@ -28,7 +28,7 @@ export function buildStateRepresentationContract(input: {
     schemaVersion: "StateRepresentationContract/v1",
     states: input.stateMatrix.states.map((state) => ({
       stateId: state.id,
-      kind: state.kind,
+      kind: state.requestedKind ?? state.kind,
       scope: state.scope,
       representation: representationFor(state.scope),
       replacementBehavior: state.replacementBehavior,

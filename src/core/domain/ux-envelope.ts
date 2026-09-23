@@ -118,19 +118,22 @@ export function buildStateMatrix(input: BuildStateMatrixInput): StateMatrix {
         const baseId =
           requested.id ?? `${slug(state.affectedRegion ?? "primary content")}-${slug(label)}`;
         const id = requested.id ?? uniqueStateId(baseId, usedIds);
-        return { ...state, id, label, copy: { title: label } };
+        return { ...state, id, label, requestedKind: requested.kind, copy: { title: label } };
       }),
     };
   }
 
   const requestedKinds = new Set(input.envelope.edgeCases.map(normalizeStateKind));
+  const matchedStates = patternPack.defaultStates.filter((state) => requestedKinds.has(state.kind));
+  const matchedKinds = new Set(matchedStates.map((state) => state.kind));
   const resolvedStates =
     requestedKinds.size > 0
-      ? Array.from(requestedKinds).map(
-          (kind) =>
-            patternPack.defaultStates.find((state) => state.kind === kind) ??
-            genericState(kind, input.envelope)
-        )
+      ? [
+          ...matchedStates,
+          ...Array.from(requestedKinds)
+            .filter((kind) => !matchedKinds.has(kind))
+            .map((kind) => genericState(kind, input.envelope)),
+        ]
       : patternPack.defaultStates;
 
   return {

@@ -34,13 +34,27 @@ const STANDARD_STATES = ["loading", "empty", "error", "filled"];
 export const draftNodeDefinitions: NodeDefinition[] = [
   node({
     key: "draft.compilePlan",
-    stateReads: ["screen", "uiComposition", "layoutContract", "variableBindingPlan"],
+    stateReads: [
+      "screen",
+      "screenBlueprint",
+      "flowBlueprint",
+      "uiComposition",
+      "layoutContract",
+      "variableBindingPlan",
+    ],
     stateWrites: ["draftPlan"],
     run: async (input) => compileDraft(graphState(input.state), "standard"),
   }),
   node({
     key: "draft.compileHighFidelityDraft",
-    stateReads: ["screen", "uiComposition", "layoutContract", "variableBindingPlan"],
+    stateReads: [
+      "screen",
+      "screenBlueprint",
+      "flowBlueprint",
+      "uiComposition",
+      "layoutContract",
+      "variableBindingPlan",
+    ],
     stateWrites: ["draftPlan"],
     run: async (input) => compileDraft(graphState(input.state), "high"),
   }),
@@ -62,7 +76,15 @@ export const draftNodeDefinitions: NodeDefinition[] = [
   }),
   node({
     key: "draft.buildCanvasPlan",
-    stateReads: ["figmaTarget", "screen", "stateMatrix", "draftComponentPlan", "canvasIntent"],
+    stateReads: [
+      "figmaTarget",
+      "screen",
+      "screenBlueprint",
+      "flowBlueprint",
+      "stateMatrix",
+      "draftComponentPlan",
+      "canvasIntent",
+    ],
     stateWrites: ["canvasPlan"],
     run: async (input) => {
       const state = graphState(input.state);
@@ -227,11 +249,26 @@ function blueprintRequirementsFrom(
 }
 
 function statesFrom(state: KotikitGraphState): string[] {
+  const blueprintStates = blueprintStatesFrom(state);
+  if (blueprintStates !== undefined) {
+    return blueprintStates.map((item) => item.name ?? item.kind);
+  }
   const screen = recordFrom(state.screen);
   const states = unknownArray(screen.states).filter(
     (item): item is string => typeof item === "string"
   );
   return states.length > 0 ? states : STANDARD_STATES;
+}
+
+function blueprintStatesFrom(
+  state: KotikitGraphState
+): NonNullable<NonNullable<KotikitGraphState["screenBlueprint"]>["states"]> | undefined {
+  return (
+    state.screenBlueprint?.states ??
+    (state.flowBlueprint === undefined
+      ? undefined
+      : primaryScreenFromFlowBlueprint(state.flowBlueprint).states)
+  );
 }
 
 function transactionPlacementsForState(
@@ -310,7 +347,16 @@ function canvasStatesFrom(state: KotikitGraphState): { id: string; label: string
     return state.stateMatrix.states.map((matrixState) => ({
       id: matrixState.id,
       label: matrixState.label,
-      kind: matrixState.kind,
+      kind: matrixState.requestedKind ?? matrixState.kind,
+    }));
+  }
+
+  const blueprintStates = blueprintStatesFrom(state);
+  if (blueprintStates !== undefined) {
+    return blueprintStates.map((item) => ({
+      id: item.id ?? slugify(item.name ?? item.kind),
+      label: item.name ?? item.kind,
+      kind: item.kind,
     }));
   }
 

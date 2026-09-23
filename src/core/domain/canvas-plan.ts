@@ -54,6 +54,7 @@ export function buildCanvasPlan(input: {
       id: `state-${state.id}`,
       kind: "screen-state",
       stateId: state.id,
+      stateKind: state.kind,
       label: `${input.screenTitle} - ${state.label}`,
       bounds: {
         x: column * (input.screenSize.width + SCREEN_GAP),
@@ -130,6 +131,7 @@ function buildReplacementCanvasPlan(input: {
       id: `state-${state.id}`,
       kind: "screen-state",
       stateId: state.id,
+      stateKind: state.kind,
       label: `${target.name ?? input.screenTitle} - ${state.label}`,
       bounds: target.bounds,
       parentZoneId: zone.id,
