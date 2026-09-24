@@ -194,9 +194,13 @@ function buildDesignApproach(input: {
     ],
     stateStrategy: lowConfidenceIntent
       ? "Do not plan screen or region states until a validated blueprint explicitly supplies them."
-      : `Create real screen or region states for ${stateSummary}; do not reduce required states to decorative preview cards.`,
+      : input.explicitBlueprint && requestedStates.length === 0
+        ? "The supplied blueprint requests no states; do not add default screen or region states."
+        : `Create real screen or region states for ${stateSummary}; do not reduce required states to decorative preview cards.`,
     layoutStrategy:
-      "Use auto layout, place sibling screen states with clear canvas gaps, and keep navigation, controls, content, and feedback in context-aware regions.",
+      input.explicitBlueprint && requestedStates.length === 0
+        ? "Use auto layout and keep navigation, controls, content, and feedback in context-aware regions."
+        : "Use auto layout, place sibling screen states with clear canvas gaps, and keep navigation, controls, content, and feedback in context-aware regions.",
     designSystemStrategy:
       "Search the local design system first, reuse matching components and variables, and use screen-draft parts only for genuine gaps.",
     iconStrategy:
