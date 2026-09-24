@@ -99,14 +99,13 @@ export const uiCompositionNodeDefinitions: NodeDefinition[] = [
         uiComposition,
         variables: recordArray(designSystem.variables),
         literalFallbackApproved:
-          recordFrom(state.variableBindingPlan).literalFallbackApproved === true ||
           state.answers?.["approve-literal-variable-fallback"] === "approve-draft-only-literals",
       });
       if (result === "needs-literal-approval") {
         const pendingQuestion = {
           id: "approve-literal-variable-fallback",
           prompt:
-            "No usable design variables were found. Approve draft-only literal fallbacks or sync variables first?",
+            "Required semantic design variables were not found. Approve draft-only literal fallbacks or sync variables first?",
           choices: ["sync-variables", "approve-draft-only-literals"],
         };
         return {

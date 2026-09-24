@@ -191,7 +191,7 @@ describe("ui composition graph nodes", () => {
     ]);
   });
 
-  it("uses wrap candidate component refs as existing component coverage", async () => {
+  it("keeps partial wrap candidates as screen draft work", async () => {
     const result = await runNode("ui.buildCompositionContract", {
       screen: { requiredUiParts: ["member table"], repeatedPatterns: ["table"] },
       fitReport: {
@@ -236,8 +236,8 @@ describe("ui composition graph nodes", () => {
     });
 
     expect(result.statePatch?.uiComposition?.parts[0]).toMatchObject({
-      source: "existing-component",
-      componentKey: "table-preview-key",
+      source: "screen-draft",
+      extractionCandidate: true,
     });
   });
 
@@ -547,7 +547,8 @@ describe("ui composition graph nodes", () => {
       designSystem: {
         variables: [
           { kind: "color", name: "color.status.warning.bg", id: "var-status-bg" },
-          { kind: "text", name: "font.body.default", id: "var-body" },
+          { kind: "text", name: "font.timeline.label", id: "var-body" },
+          { kind: "text", name: "font.status.label", id: "var-status-label" },
           { kind: "spacing", name: "space.200", id: "var-space" },
         ],
       },

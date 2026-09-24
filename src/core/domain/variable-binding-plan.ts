@@ -30,7 +30,12 @@ export function buildVariableBindingPlan(input: {
   literalFallbackApproved?: boolean;
   requiredProperties?: BindingProperty[];
 }): VariableBindingPlan | "needs-literal-approval" {
-  const roleBindings = bindingsFromVariableRoles(input.uiComposition.parts, input.variables);
+  const roleBindings = bindingsFromVariableRoles(
+    input.uiComposition.parts,
+    input.variables,
+    input.literalFallbackApproved === true
+  );
+  if (roleBindings === "needs-literal-approval") return roleBindings;
   if (roleBindings !== undefined) {
     return {
       schemaVersion: "VariableBindingPlan/v1",
@@ -68,7 +73,7 @@ export function buildVariableBindingPlan(input: {
               property,
               source: "approved-literal" as const,
               literalValue: "draft-only",
-              approvalRef: "approved-literal-variable-fallback",
+              approvalRef: "approve-literal-variable-fallback",
             };
           }
           return variableBinding(part.id, property, variable);
@@ -100,10 +105,18 @@ export function buildVariableBindingPlan(input: {
 
 function bindingsFromVariableRoles(
   parts: UICompositionContract["parts"],
-  variables: VariableRef[]
-): VariableBindingPlan["bindings"] | undefined {
+  variables: VariableRef[],
+  literalFallbackApproved: boolean
+): VariableBindingPlan["bindings"] | "needs-literal-approval" | undefined {
   const partsWithRoles = parts.filter((part) => (part.variableRoles ?? []).length > 0);
   if (partsWithRoles.length === 0) return undefined;
+
+  const missingRequiredRole = partsWithRoles.some((part) =>
+    (part.variableRoles ?? []).some(
+      (role) => role.optional !== true && variableForRole(role, variables) === undefined
+    )
+  );
+  if (missingRequiredRole && !literalFallbackApproved) return "needs-literal-approval";
 
   return partsWithRoles.flatMap((part) =>
     (part.variableRoles ?? []).flatMap((role) => {
@@ -116,7 +129,7 @@ function bindingsFromVariableRoles(
             property: role.property,
             source: "approved-literal" as const,
             literalValue: "draft-only",
-            approvalRef: "approved-literal-variable-fallback",
+            approvalRef: "approve-literal-variable-fallback",
           },
         ];
       }
@@ -132,13 +145,21 @@ function variableForRole(
   const byProperty = variables.filter(
     (variable) => propertyForVariable(variable) === role.property
   );
-  const semanticTokens = tokensFor(role.semanticRole);
-  return (
-    byProperty.find((variable) => {
-      const nameTokens = tokensFor(variable.name ?? "");
-      return semanticTokens.some((token) => nameTokens.includes(token));
-    }) ?? byProperty[0]
+  const semanticTokens = tokensFor(role.semanticRole).filter(
+    (token) => !["color", "text", "fill", "background", "style", "variable"].includes(token)
   );
+  const matches = byProperty.filter((variable) => {
+    const nameTokens = tokensFor(variable.name ?? "");
+    return semanticTokens.length > 0
+      ? semanticTokens.every((token) => nameTokens.includes(token))
+      : nameTokens.join(" ") === tokensFor(role.semanticRole).join(" ");
+  });
+  if (matches.length === 1) return matches[0];
+  const exact = matches.filter(
+    (variable) =>
+      tokensFor(variable.name ?? "").join(" ") === tokensFor(role.semanticRole).join(" ")
+  );
+  return exact.length === 1 ? exact[0] : undefined;
 }
 
 function variableBinding(

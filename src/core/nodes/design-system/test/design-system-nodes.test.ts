@@ -266,12 +266,14 @@ describe("design-system graph nodes", () => {
     const report = result.statePatch?.fitReport as {
       exactMatches: unknown[];
       substitutes: unknown[];
+      wrapCandidates: unknown[];
       missingComponents: unknown[];
       variableGaps: unknown[];
       repeatedPatterns: unknown[];
     };
 
-    expect(report.exactMatches).toEqual(
+    expect(report.exactMatches).toEqual([]);
+    expect(report.wrapCandidates).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ requestedPart: "primary button", componentKey: "button-key" }),
         expect.objectContaining({ requestedPart: "member table", componentKey: "table-key" }),

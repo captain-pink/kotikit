@@ -73,7 +73,6 @@ export function buildUiCompositionContract(input: {
     const existing = findFit(part.name, [
       ...(input.fitReport?.exactMatches ?? []),
       ...(input.fitReport?.substitutes ?? []),
-      ...(input.fitReport?.wrapCandidates ?? []),
     ]);
     if (existing?.componentKey !== undefined) {
       return {

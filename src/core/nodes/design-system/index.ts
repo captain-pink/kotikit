@@ -537,10 +537,12 @@ function bestComponentForPart(
 function componentFitScore(part: string, componentName: string): number {
   const partTokens = tokenSet(part);
   const componentTokens = tokenSet(componentName);
-  if (componentTokens.some((token) => partTokens.includes(token))) return 100;
-  if (semanticAliasesForPart(part).some((token) => componentTokens.includes(token))) return 95;
-  if (partTokens.includes("table") && componentTokens.includes("data")) return 90;
-  if (partTokens.includes("filter") && componentTokens.includes("toolbar")) return 80;
+  const covered = partTokens.filter((token) => componentTokens.includes(token)).length;
+  if (covered === partTokens.length && covered > 0) return 100;
+  if (covered > 0) return 60 + Math.round((covered / partTokens.length) * 30);
+  if (semanticAliasesForPart(part).some((token) => componentTokens.includes(token))) return 55;
+  if (partTokens.includes("table") && componentTokens.includes("data")) return 50;
+  if (partTokens.includes("filter") && componentTokens.includes("toolbar")) return 50;
   return 0;
 }
 
@@ -555,11 +557,17 @@ function componentCandidateKind(
   if (isCloseRepeatedPatternCandidate(part, componentName, repeatedPatterns)) {
     return "wrap-needed";
   }
-  return "exact";
+  if (partTokens.every((token) => componentTokens.includes(token))) return "exact";
+  return partTokens.some((token) => componentTokens.includes(token)) ? "wrap-needed" : "substitute";
 }
 
 function patternFit(pattern: string, components: LocalComponentRef[]): PatternFit {
-  const component = components.find((candidate) => componentFitScore(pattern, candidate.name) > 0);
+  const component = components
+    .filter((candidate) => componentFitScore(pattern, candidate.name) > 0)
+    .sort(
+      (left, right) =>
+        componentFitScore(pattern, right.name) - componentFitScore(pattern, left.name)
+    )[0];
   if (component === undefined) {
     return {
       pattern,
@@ -567,7 +575,10 @@ function patternFit(pattern: string, components: LocalComponentRef[]): PatternFi
       reason: "No design-system component family covers this repeated pattern.",
     };
   }
-  if (isPartialComponentName(component.name)) {
+  if (
+    isPartialComponentName(component.name) ||
+    !tokenSet(pattern).every((token) => tokenSet(component.name).includes(token))
+  ) {
     return {
       pattern,
       status: "partial",
@@ -756,6 +767,7 @@ function iconMatchesForParts(parts: string[], icons: LocalIconRef[]): IconMatch[
 function bestIconForSemantic(semantic: string, icons: LocalIconRef[]): LocalIconRef | undefined {
   const queries = iconSearchTokens(semantic);
   return icons
+    .filter((icon) => icon.ambiguous !== true)
     .map((icon) => ({
       icon,
       score: tokenSet(icon.name).some((token) => queries.includes(token)) ? 1 : 0,
@@ -970,9 +982,17 @@ function uniqueVariables(variables: LocalVariableRef[]): LocalVariableRef[] {
 function uniqueIcons(icons: LocalIconRef[]): LocalIconRef[] {
   const byKey = new Map<string, LocalIconRef>();
   icons.forEach((icon) => {
-    if (!byKey.has(icon.key)) byKey.set(icon.key, icon);
+    const identity = `${icon.fileKey}:${icon.key}`;
+    if (!byKey.has(identity)) byKey.set(identity, icon);
   });
-  return Array.from(byKey.values());
+  const distinct = Array.from(byKey.values());
+  const nameCounts = new Map<string, number>();
+  distinct.forEach((icon) => {
+    nameCounts.set(icon.name, (nameCounts.get(icon.name) ?? 0) + 1);
+  });
+  return distinct.map((icon) =>
+    (nameCounts.get(icon.name) ?? 0) > 1 ? { ...icon, ambiguous: true } : icon
+  );
 }
 
 function uniqueStrings(values: string[]): string[] {

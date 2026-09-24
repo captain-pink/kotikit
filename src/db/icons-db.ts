@@ -16,6 +16,7 @@ export interface IconSearchResult {
   key: string;
   signal: IconSignal;
   fileKey: string;
+  ambiguous?: true;
   // svg deliberately omitted from search to keep results token-cheap
 }
 
@@ -45,11 +46,11 @@ export function deleteIconsByFileKey(db: Database, fileKey: string): void {
 }
 
 /**
- * Insert or replace an icon row by name.
+ * Insert or replace an icon row by published identity within its source file.
  * Caller must hold a transaction across batches.
  */
 export function upsertIcon(db: Database, row: IconRow): void {
-  db.prepare("DELETE FROM icons WHERE name = ?").run(row.name);
+  db.prepare("DELETE FROM icons WHERE file_key = ? AND key = ?").run(row.fileKey, row.key);
   db.prepare(`
     INSERT INTO icons (name, name_tokens, key, svg, signal, file_key)
     VALUES (?, ?, ?, ?, ?, ?)
@@ -67,21 +68,34 @@ export function searchIcons(
 ): IconSearchResult[] {
   const rows = db
     .prepare(`
-    SELECT name, key, signal, file_key as fileKey
+    SELECT name, key, signal, file_key as fileKey,
+      (SELECT COUNT(*) FROM icons AS peers WHERE peers.name = icons.name) AS nameCount
     FROM icons
     WHERE icons MATCH ?
     ORDER BY rank
     LIMIT ?
   `)
-    .all(queryTerm, limit) as IconSearchResult[];
-  return rows;
+    .all(queryTerm, limit) as (IconSearchResult & { nameCount: number })[];
+  return rows.map(({ nameCount, ...row }) => ({
+    ...row,
+    ...(nameCount > 1 ? { ambiguous: true as const } : {}),
+  }));
 }
 
-/** Read the svg payload for one icon by name. Returns null if missing or no svg stored. */
-export function getIconSvg(db: Database, name: string): string | null {
-  const row = db.prepare("SELECT svg FROM icons WHERE name = ?").get(name) as {
-    svg: string | null;
-  } | null;
-  if (!row) return null;
-  return row.svg;
+/** Read one icon SVG by stable identity; a name alone resolves only if unique. */
+export function getIconSvg(
+  db: Database,
+  name: string,
+  fileKey?: string,
+  key?: string
+): string | null {
+  const rows =
+    fileKey === undefined || key === undefined
+      ? (db.prepare("SELECT svg FROM icons WHERE name = ? LIMIT 2").all(name) as {
+          svg: string | null;
+        }[])
+      : (db
+          .prepare("SELECT svg FROM icons WHERE file_key = ? AND key = ? LIMIT 2")
+          .all(fileKey, key) as { svg: string | null }[]);
+  return rows.length === 1 ? rows[0].svg : null;
 }
