@@ -17,7 +17,6 @@ const safeAutoApprovedTools = [
   "kotikit_ds_search",
   "kotikit_ds_get_component",
   "kotikit_icons_search",
-  "kotikit_get_system_prompt",
   "kotikit_config_status",
 ];
 

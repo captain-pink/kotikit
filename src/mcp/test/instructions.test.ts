@@ -17,8 +17,9 @@ describe("KOTIKIT_MCP_INSTRUCTIONS", () => {
     );
   });
 
-  it("mentions prompt refs and design-system search discipline", () => {
-    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("kotikit_get_system_prompt");
+  it("keeps discovery concise and design-system search disciplined", () => {
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("Ask only for decisions");
+    expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("creates only the primary screen");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("Search first");
     expect(KOTIKIT_MCP_INSTRUCTIONS).toContain("never load whole indexes");
   });

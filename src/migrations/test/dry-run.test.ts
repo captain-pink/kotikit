@@ -4,7 +4,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { writeConfig } from "../../config/load.js";
 import { defaultConfig } from "../../config/schema.js";
-import { newScreenSpec } from "../../spec/schema.js";
 import { formatMigrationDryRunReport, runMigrationDryRun } from "../dry-run.js";
 
 const tmpDirs: string[] = [];
@@ -22,43 +21,37 @@ afterEach(() => {
 });
 
 describe("runMigrationDryRun", () => {
-  it("reports lazy upgrades without modifying older readable artifacts", async () => {
+  it("leaves retired spec files untouched and outside migration counts", async () => {
     const root = mkTmp();
     await writeConfig(root, defaultConfig());
-    const spec = newScreenSpec({ title: "Members", description: "Manage members" });
-    const { schemaVersion: _schemaVersion, ...legacySpec } = spec;
     const specPath = join(root, ".kotikit", "specs", "members", "spec.json");
     mkdirSync(join(root, ".kotikit", "specs", "members"), { recursive: true });
-    writeFileSync(specPath, JSON.stringify(legacySpec, null, 2));
+    writeFileSync(specPath, '{"title":"Members"}');
     const before = readFileSync(specPath, "utf-8");
 
     const report = await runMigrationDryRun(root);
 
     expect(report.ok).toBe(true);
-    expect(report.wouldUpdate).toBe(1);
+    expect(report.wouldUpdate).toBe(0);
     expect(report.blocking).toBe(0);
+    expect(report.inventory.checked).toBe(1);
     expect(readFileSync(specPath, "utf-8")).toBe(before);
   });
 });
 
 describe("formatMigrationDryRunReport", () => {
-  it("prints counts, sample files, and a no-write guarantee", async () => {
+  it("reports only active config and a no-write guarantee", async () => {
     const root = mkTmp();
     await writeConfig(root, defaultConfig());
-    const spec = newScreenSpec({ title: "Legacy", description: "Old shape" });
-    const { schemaVersion: _schemaVersion, ...legacySpec } = spec;
     mkdirSync(join(root, ".kotikit", "specs", "legacy"), { recursive: true });
-    writeFileSync(
-      join(root, ".kotikit", "specs", "legacy", "spec.json"),
-      JSON.stringify(legacySpec, null, 2)
-    );
+    writeFileSync(join(root, ".kotikit", "specs", "legacy", "spec.json"), "{");
 
     const text = formatMigrationDryRunReport(await runMigrationDryRun(root));
 
     expect(text).toContain("kotikit migrate --dry-run: ok");
-    expect(text).toContain("Checked: 2 kotikit JSON artifact(s)");
-    expect(text).toContain("Would update lazily: 1 older readable file(s)");
-    expect(text).toContain(".kotikit/specs/legacy/spec.json");
+    expect(text).toContain("Checked: 1 kotikit JSON artifact(s)");
+    expect(text).toContain("Would update lazily: 0 older readable file(s)");
+    expect(text).not.toContain(".kotikit/specs/legacy/spec.json");
     expect(text).toContain("No files changed.");
   });
 });

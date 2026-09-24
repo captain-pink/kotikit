@@ -42,9 +42,8 @@ grouped here by product area:
 - Local design-system support: `kotikit_sync_ds`,
   `kotikit_sync_plugin_variables`, `kotikit_ds_search`,
   `kotikit_ds_get_component`, and `kotikit_icons_search`.
-- Local plugin bridge and prompt support: `kotikit_bridge_start`,
-  `kotikit_bridge_stop`, `kotikit_bridge_status`, and
-  `kotikit_get_system_prompt`.
+- Local plugin bridge: `kotikit_bridge_start`, `kotikit_bridge_stop`, and
+  `kotikit_bridge_status`.
 
 Design-to-code tools are not registered in the core MCP server. Code planning,
 implementation, scaffold, registry, and code/design audit flows can return
@@ -58,7 +57,7 @@ The server also exposes `KOTIKIT_MCP_INSTRUCTIONS` during MCP initialization.
 These instructions are agent-neutral and front-load the graph facade: choose a
 flow, start it, answer human-in-the-loop prompts, continue when external work
 is complete, read artifacts by id, translate tool JSON into plain language,
-fetch long system prompts by reference, search design-system indexes before
+search design-system indexes before
 reading exact files, keep user-facing errors friendly, and keep kotikit focused
 on design creation.
 
@@ -107,5 +106,5 @@ The bridge transport is opt-in and can be started in two ways. Normal users ask 
 
 - [config](./config.md) — `ToolContext.loadConfig` wraps `loadConfig` from the config module
 - [util](./util.md) — `findProjectRoot` is called at server startup; `bridgeConfigPath` is the bridge config path helper
-- [spec](./spec.md), [sync](./sync.md), [planning](./planning.md), [db](./db.md), [git](./git.md) — module engines are invoked from tool handler functions
+- [sync](./sync.md), [planning](./planning.md), [db](./db.md), [git](./git.md) — module engines are invoked from tool handler functions
 - [tools](../tools.md) — complete MCP tool cheat-sheet

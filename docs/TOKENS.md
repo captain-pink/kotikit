@@ -33,12 +33,10 @@ The project is local-first, but context is still limited. Without discipline,
 an agent can accidentally load:
 
 - full design-system component JSON,
-- repeated system prompts,
 - long design or research reports,
 - stale brainstorm context from previous tasks.
 
-kotikit reduces that risk by keeping long doctrines behind
-`kotikit_get_system_prompt`, returning refs before details where possible,
+kotikit reduces that risk by returning refs before details where possible,
 using SQLite search instead of dumping indexes, storing graph checkpoints and
 artifacts instead of replaying chat history, and paginating expensive responses.
 
@@ -63,14 +61,11 @@ client, so treat these numbers as regression signals, not exact billing data.
 | `kotikit_search_design_system` | 247 | 65 |
 | `kotikit_icons_search` | 138 | 36 |
 | `kotikit_ds_get_component` | 599 | 158 |
-| `kotikit_get_system_prompt` brainstorm | 2,549 | 671 |
 
 ## What To Watch
 
 - Search tools should stay tiny. `kotikit_ds_search` and
   `kotikit_icons_search` are the expected first step before exact detail reads.
-- `kotikit_get_system_prompt` is a one-time session cost per prompt kind. Do
-  not inline long doctrines into every tool response.
 - Graph facade outputs should stay compact. Runs should return ids, pending
   questions, artifact refs, and errors, not the full graph manifest or history.
 - Local variable bridge responses do not normally enter the assistant context.
@@ -81,8 +76,7 @@ client, so treat these numbers as regression signals, not exact billing data.
 
 1. Return search results, refs, paths, and counts before returning full JSON.
 2. Add pagination before a response can grow with project size.
-3. Keep long instructions behind `systemPromptRef` and
-   `kotikit_get_system_prompt`.
+3. Keep tool instructions concise and place run-specific detail in artifacts.
 4. Make expensive expansion opt-in, for example `expand: true`.
 5. Prefer structured summaries over raw file, manifest, or database dumps.
 6. Keep friendly error responses compact.

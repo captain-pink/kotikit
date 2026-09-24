@@ -20,7 +20,7 @@ export function nextActionForRun(
           "kotikit://schemas/flow-blueprint-input",
         ],
         instruction:
-          "Build one validated typed blueprint from the original request and answer this run with it.",
+          "Build one validated typed blueprint from the original request and answer this run with it. For a multi-screen blueprint, choose the primary screen for this run.",
       };
     }
     return {

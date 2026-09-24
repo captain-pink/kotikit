@@ -66,7 +66,7 @@ reach the design-system reuse plan and Figma apply packet.
 
 - Adding a new indexed field to the components table (e.g. `page_name`) — `initComponentsDb` uses `CREATE VIRTUAL TABLE IF NOT EXISTS`, so you must drop and recreate the table in a new migration step; consider versioning `components.db` if the schema needs to evolve in place.
 - Supporting partial-match searches (prefix matching) — add `*` to the query term in `searchComponents`; FTS5 supports `term*` prefix queries natively.
-- Adding a third FTS5 database (e.g. for spec search) — follow the components-db pattern: a single `initXxxDb`, `upsertXxx`, `searchXxx`, and `clearXxx` in their own file; use `openDb` for consistent pragma setup.
+- Adding another FTS5 database — follow the components-db pattern: a single `initXxxDb`, `upsertXxx`, `searchXxx`, and `clearXxx` in their own file; use `openDb` for consistent pragma setup.
 
 ## Related
 

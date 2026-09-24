@@ -1,6 +1,6 @@
 ---
 name: kotikit-auto
-description: Run the kotikit auto workflow with MCP tools. Use when the user says kotikit:auto, run kotikit auto, build a screen with kotikit, sync my Figma design system, create a Figma design, or work on kotikit screen specs.
+description: Run the kotikit auto workflow with MCP tools. Use when the user says kotikit:auto, run kotikit auto, build a screen with kotikit, sync my Figma design system, or create a Figma design.
 ---
 
 # Kotikit Auto
@@ -36,6 +36,9 @@ is available on `PATH`.
   design-system sync.
 - For detailed PRDs, first translate the designer request into a structured
   `screenBlueprint` or `flowBlueprint`; do not rely on `userIntent` alone.
+- A `create-screen` run makes one screen. If a flow blueprint lists several,
+  tell the designer which primary screen this run will make and start separate
+  runs for the others.
 - Use `refine-existing` when the designer asks to modify existing Figma frames,
   selected screens, or a page that already contains screens.
 - For existing Figma pages, pass compact `existingDesignInventory` from the
@@ -101,7 +104,7 @@ reviews and submits it manually.
 7. If the run produces a `design-system-reuse-plan` artifact, read it before
    drafting. Reuse exact design-system components, validate substitutes, and
    compose close candidates directly in the screen. Do not create draft
-   components before the main screen or flow exists.
+   components before the main screen exists.
 8. If the run produces an apply-packet artifact, read it with
    `kotikit_get_artifact`, then call `kotikit_prepare_figma_write` for the active
    transaction. Confirm the returned page and section before using official

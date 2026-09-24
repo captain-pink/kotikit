@@ -56,7 +56,8 @@ const RESOURCE_TEMPLATES: ResourceTemplate[] = [
     uriTemplate: "kotikit://schemas/flow-blueprint-input",
     name: "kotikit-flow-blueprint-input-schema",
     title: "Kotikit Flow Blueprint Input Schema",
-    description: "JSON Schema for flowBlueprint input accepted by kotikit_start.",
+    description:
+      "JSON Schema for flowBlueprint input. A create-screen run makes its primary screen only.",
     mimeType: "application/json",
   },
   {

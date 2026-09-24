@@ -5,7 +5,6 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { writeConfig } from "../config/load.js";
 import { defaultConfig } from "../config/schema.js";
-import { newScreenSpec } from "../spec/schema.js";
 
 const tmpDirs: string[] = [];
 const repoRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
@@ -44,18 +43,14 @@ describe("kotikit CLI", () => {
   it("supports kotikit migrate --dry-run", async () => {
     const root = mkTmp();
     await writeConfig(root, defaultConfig());
-    const spec = newScreenSpec({ title: "Legacy", description: "Old shape" });
-    const { schemaVersion: _schemaVersion, ...legacySpec } = spec;
     mkdirSync(join(root, ".kotikit", "specs", "legacy"), { recursive: true });
-    writeFileSync(
-      join(root, ".kotikit", "specs", "legacy", "spec.json"),
-      JSON.stringify(legacySpec, null, 2)
-    );
+    writeFileSync(join(root, ".kotikit", "specs", "legacy", "spec.json"), "{");
 
     const result = await runCli(root, ["migrate", "--dry-run"]);
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("kotikit migrate --dry-run: ok");
+    expect(result.stdout).toContain("Checked: 1 kotikit JSON artifact(s)");
     expect(result.stdout).toContain("No files changed.");
     expect(result.stderr).toBe("");
   });

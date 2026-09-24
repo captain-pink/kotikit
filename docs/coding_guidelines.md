@@ -94,8 +94,8 @@ designers.
 
 - Keep MCP handlers thin. They should parse inputs, call module engines, and
   format tool results.
-- Put deterministic business logic in modules under `src/spec`, `src/sync`,
-  `src/planning`, `src/db`, or `src/util`.
+- Put deterministic business logic in focused modules under `src/core/domain`,
+  `src/sync`, `src/db`, or `src/util`.
 - Prefer pure planner/formatter functions where possible, then wrap them with
   I/O at the edge.
 - Keep files focused by responsibility. Avoid storing exported types,
@@ -216,8 +216,7 @@ designers.
 - Use SQLite search or registry queries to find candidates, then fetch exact
   files by path.
 - Prefer pagination for potentially large tool responses.
-- Avoid repeated prompt payloads. Use `systemPromptRef` and
-  `kotikit_get_system_prompt` for long doctrines.
+- Keep agent instructions concise; use graph artifacts for run-specific details.
 - Optimize for clear asymptotic behavior before micro-optimizing small code.
 
 ## When Loops Are Acceptable

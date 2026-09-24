@@ -136,7 +136,6 @@ async function main(): Promise<void> {
   rows.push(
     await measure(registry, "kotikit_ds_get_component", { path: "components/button.json" })
   );
-  rows.push(await measure(registry, "kotikit_get_system_prompt", { kind: "brainstorm" }));
 
   // Print table
   const labelWidth = Math.max(...rows.map((r) => r.tool.length), 32);

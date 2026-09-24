@@ -9,15 +9,7 @@ The util module provides the shared foundation that every other module depends o
 **Paths** (`src/util/paths.ts`)
 
 Core kotikit state:
-- `KOTIKIT_DIR` — the string `".kotikit"`, used when constructing paths manually
 - `configPath(root)` — `.kotikit/config.json`
-- `indexPath(root)` — `.kotikit/index.json`
-- `scopeDir(root, scope)` — `.kotikit/specs/<scope>/`
-- `screenSpecPath(root, scope, screenSlug)` — `.kotikit/specs/<scope>/<slug>.spec.json`
-- `singleSpecPath(root, scope)` — `.kotikit/specs/<scope>/spec.json`
-- `flowManifestPath(root, scope)` — `.kotikit/specs/<scope>/flow.json`
-- `designPlanPath(root, scope, screen | null)` — `.kotikit/specs/<scope>/<screen>.design.plan.json`
-- `designApplyLogPath(root, scope, screen | null)` — `.kotikit/specs/<scope>/<screen>.design.apply.log`
 - `bridgeConfigPath(root)` — `.kotikit/bridge.json`
 
 Design system artifacts:
@@ -67,10 +59,7 @@ All path helpers are pure functions that take `root` as their first argument and
 ## Related
 
 - [config](./config.md) — uses `configPath` and `findProjectRoot`
-- [spec](./spec.md) — uses `scopeDir`, `screenSpecPath`, `singleSpecPath`, `flowManifestPath`, `indexPath`
 - [sync](./sync.md) — uses all `design-system/` path helpers and `checkpointPath`
-- [planning](./planning.md) — uses `designPlanPath` and
-  `designApplyLogPath`
 - [db](./db.md) — uses `componentsDbPath` and `iconsDbPath`
 - [mcp](./mcp.md) — uses `findProjectRoot`, `bridgeConfigPath`
 - [git](./git.md) — uses `KotikitError` (re-exported from result)
