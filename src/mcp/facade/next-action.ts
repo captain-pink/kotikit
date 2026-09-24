@@ -12,13 +12,14 @@ export function nextActionForRun(
     if (question?.id === "provide-typed-blueprint") {
       return {
         kind: "provide-blueprint",
-        tool: "kotikit_start",
+        tool: "kotikit_answer",
         runId,
         schemaUris: [
           "kotikit://schemas/screen-blueprint-input",
           "kotikit://schemas/flow-blueprint-input",
         ],
-        instruction: "Build a typed blueprint from the original request and start a new run.",
+        instruction:
+          "Build one validated typed blueprint from the original request and answer this run with it.",
       };
     }
     return {

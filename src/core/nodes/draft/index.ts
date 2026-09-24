@@ -156,7 +156,7 @@ export const draftNodeDefinitions: NodeDefinition[] = [
       const target = ensureDraftTarget(state.figmaTarget);
       const draftPlan = recordFrom(state.draftPlan);
       const blueprintRequirements = blueprintRequirementsFrom(state);
-      const packet = buildFigmaApplyPacket({
+      const builtPacket = buildFigmaApplyPacket({
         target,
         screenTitle: screenTitle(state),
         ...(blueprintRequirements === undefined ? {} : { blueprintRequirements }),
@@ -169,6 +169,10 @@ export const draftNodeDefinitions: NodeDefinition[] = [
         repeatedItems: recordArray(draftPlan.repeatedItems),
         textTransforms: recordArray(draftPlan.textTransforms),
       });
+      const packet: FigmaApplyPacket = {
+        ...builtPacket,
+        requestCoverage: assertRequestCoverage(state, builtPacket),
+      };
       return {
         statePatch: {
           draftPlan: {
@@ -245,6 +249,95 @@ function blueprintRequirementsFrom(
     ...(blueprint.expectedContent === undefined
       ? {}
       : { expectedContent: blueprint.expectedContent }),
+  };
+}
+
+function assertRequestCoverage(
+  state: KotikitGraphState,
+  packet: FigmaApplyPacket
+): NonNullable<FigmaApplyPacket["requestCoverage"]> {
+  const blueprint =
+    state.screenBlueprint ??
+    (state.flowBlueprint === undefined
+      ? undefined
+      : primaryScreenFromFlowBlueprint(state.flowBlueprint));
+  if (blueprint === undefined) {
+    return {
+      status: "covered",
+      requiredUiPartCount: 0,
+      requestedStateCount: 0,
+      expectedContentCount: 0,
+    };
+  }
+
+  const missing: string[] = [];
+  const steps = packet.steps.map(recordFrom);
+  for (const part of blueprint.requiredUiParts) {
+    const planned = packet.uiComposition.parts.find((candidate) =>
+      part.id === undefined ? candidate.name === part.name : candidate.id === part.id
+    );
+    if (planned === undefined || planned.name !== part.name) {
+      missing.push(`UI part ${part.name}`);
+      continue;
+    }
+    if (!steps.some((step) => step.componentName === planned.name)) {
+      missing.push(`draft step for ${part.name}`);
+    }
+  }
+
+  if (blueprint.states !== undefined) {
+    const matrix = state.stateMatrix?.states ?? [];
+    const placements = packet.canvasPlan.placements.filter(
+      (placement) => placement.kind === "screen-state"
+    );
+    const transactions = packet.transactionPlanSummary.transactions.filter(
+      (transaction) =>
+        transaction.kind === "create-screen-state" || transaction.kind === "create-region-state"
+    );
+    const recordedPlacements = new Set(
+      recordArray(recordFrom(state.applyReport).nodes)
+        .map((node) => stringField(node, "placementId"))
+        .filter((id): id is string => id !== undefined)
+    );
+    if (
+      matrix.length !== blueprint.states.length ||
+      placements.length !== blueprint.states.length
+    ) {
+      missing.push("requested state count");
+    }
+    blueprint.states.forEach((requested, index) => {
+      const planned = matrix[index];
+      if (
+        planned === undefined ||
+        (requested.id !== undefined && planned.id !== requested.id) ||
+        planned.label !== (requested.name ?? requested.kind) ||
+        planned.requestedKind !== requested.kind ||
+        placements[index]?.stateId !== planned.id ||
+        (!recordedPlacements.has(placements[index]?.id ?? "") &&
+          !transactions.some((transaction) => transaction.stateId === planned.id))
+      ) {
+        missing.push(`state ${requested.name ?? requested.kind}`);
+      }
+    });
+  }
+
+  if (
+    JSON.stringify(packet.blueprintRequirements?.expectedContent ?? []) !==
+    JSON.stringify(blueprint.expectedContent ?? [])
+  ) {
+    missing.push("expected content");
+  }
+  if (missing.length > 0) {
+    throw new KotikitError(
+      `The Figma apply plan dropped requested details: ${missing.join(", ")}.`,
+      "Repair the composition, state, and content plans before applying this draft."
+    );
+  }
+  return {
+    status: "covered",
+    requiredUiPartCount: blueprint.requiredUiParts.length,
+    requestedStateCount: blueprint.states?.length ?? 0,
+    expectedContentCount: blueprint.expectedContent?.length ?? 0,
   };
 }
 
@@ -390,6 +483,7 @@ function buildApplyPacketArtifact(state: KotikitGraphState, packet: FigmaApplyPa
         ...(packet.blueprintRequirements === undefined
           ? {}
           : { blueprintRequirements: toJson(packet.blueprintRequirements) }),
+        requestCoverage: toJson(packet.requestCoverage),
         targetFileKey: packet.target.fileKey,
         targetPageId: packet.target.pageId,
         targetSectionName: packet.target.section?.name ?? null,

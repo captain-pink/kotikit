@@ -204,13 +204,19 @@ export const briefNodeDefinitions: NodeDefinition[] = [
   node({
     key: "brief.recordAnswer",
     paramsSchema: EmptyParamsSchema,
-    stateReads: ["brief", "pendingQuestion", "userIntent"],
+    stateReads: ["brief", "pendingQuestion", "answers"],
     stateWrites: ["brief"],
     run: async (input) => {
       const state = graphState(input.state);
       const current = briefFrom(state.brief);
       const activeQuestionId = current.activeQuestionId ?? state.pendingQuestion?.id;
-      const answer = intentFromState(state);
+      const answer = activeQuestionId === undefined ? undefined : state.answers?.[activeQuestionId];
+      if (answer === undefined) {
+        throw new KotikitError(
+          "Kotikit could not find the answer to the active brief question.",
+          "Answer the pending question before continuing this run."
+        );
+      }
       const questions = (current.questions?.length ? current.questions : DEFAULT_QUESTIONS).map(
         (question) => (question.id === activeQuestionId ? { ...question, answer } : question)
       );
@@ -273,7 +279,7 @@ export const briefNodeDefinitions: NodeDefinition[] = [
             ...createUserInterrupt({
               id: "provide-typed-blueprint",
               prompt:
-                "Read kotikit://schemas/screen-blueprint-input or kotikit://schemas/flow-blueprint-input, then restart kotikit_start with a validated blueprint containing required UI parts, regions, expected content, and only requested states. Text approval cannot continue this run.",
+                "Read kotikit://schemas/screen-blueprint-input or kotikit://schemas/flow-blueprint-input, then call kotikit_answer on this run with one validated blueprint containing required UI parts, regions, expected content, and only requested states. Text approval cannot continue this run.",
             }),
             resume: "same-node",
           },

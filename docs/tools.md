@@ -134,9 +134,14 @@ targets are ambiguous, kotikit asks one clarification instead of guessing.
 
 ### kotikit_answer
 
-Purpose: Resume a run paused for a designer decision.
-Input: `{ runId: string; answer: string }`
+Purpose: Resume a run paused for a designer decision or repair a low-confidence
+blueprint in the same run.
+Input: `{ runId: string; answer?: string; screenBlueprint?: ScreenBlueprintInput; flowBlueprint?: FlowBlueprintInput }`
 Output: `{ runId; status; nextAction; pendingQuestion?; feedbackHandoff?; artifacts; errors }`
+
+Use `answer` for ordinary questions. When `nextAction.kind` is
+`provide-blueprint`, read the named blueprint schema resource and supply exactly
+one typed blueprint. The run keeps its ID and original intent.
 
 For `review-screen`, an approved handoff includes the revision-plan artifact id
 and ordered change ids for the assistant to apply through official Figma tools.
