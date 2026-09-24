@@ -273,7 +273,7 @@ export const briefNodeDefinitions: NodeDefinition[] = [
             ...createUserInterrupt({
               id: "provide-typed-blueprint",
               prompt:
-                "Restart kotikit_start with a validated screenBlueprint or flowBlueprint containing structured required UI parts, regions, expected content, and only requested states. Text approval cannot continue this run.",
+                "Read kotikit://schemas/screen-blueprint-input or kotikit://schemas/flow-blueprint-input, then restart kotikit_start with a validated blueprint containing required UI parts, regions, expected content, and only requested states. Text approval cannot continue this run.",
             }),
             resume: "same-node",
           },

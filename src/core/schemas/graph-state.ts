@@ -94,6 +94,14 @@ export const KotikitGraphStateSchema = z.strictObject({
   canvasIntent: CanvasIntentInputSchema.optional(),
   existingDesignInventory: ExistingDesignInventoryInputSchema.optional(),
   answers: z.record(z.string(), z.string().min(1)).optional(),
+  runMetrics: z
+    .strictObject({
+      nodeExecutions: z.number().int().nonnegative(),
+      blockedCount: z.number().int().nonnegative(),
+      unexpectedFailureCount: z.number().int().nonnegative(),
+      nodeDurationMs: z.record(z.string(), z.number().int().nonnegative()),
+    })
+    .optional(),
   brief: z.unknown().optional(),
   screen: z.unknown().optional(),
   flowModel: z.unknown().optional(),

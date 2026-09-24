@@ -83,6 +83,9 @@ reviews and submits it manually.
 3. Call `kotikit_start` with the chosen flow, `userIntent`, and a blueprint for
    detailed PRDs. Use `create-screen` for new drafts and `refine-existing` with
    `canvasIntent` plus `existingDesignInventory` for existing Figma targets.
+   Read `kotikit://schemas/screen-blueprint-input` or
+   `kotikit://schemas/flow-blueprint-input` before building a detailed blueprint.
+   Follow the `nextAction` field returned by each run call.
 4. When the run pauses, ask the pending question in plain language and resume
    with `kotikit_answer`.
 5. If the run needs a Figma target, ask for the exact draft page URL and
@@ -98,9 +101,11 @@ reviews and submits it manually.
    compose close candidates directly in the screen. Do not create draft
    components before the main screen or flow exists.
 8. If the run produces an apply-packet artifact, read it with
-   `kotikit_get_artifact`, apply only the active Figma transaction through
-   official Figma MCP tools, read its `evidenceChecklist`, scan the applied root node, then call
-   `kotikit_record_figma_apply` with the `runId`, `transactionId`, node id,
+   `kotikit_get_artifact`, then call `kotikit_prepare_figma_write` for the active
+   transaction. Confirm the returned page and section before using official
+   Figma MCP tools. Apply only that transaction, read its `evidenceChecklist`,
+   scan the applied root node, then call `kotikit_record_figma_apply` with
+   the `runId`, `transactionId`, returned `preflightId`, node id,
    Figma node type, bounds, component refs or componentKey, component source,
    variable refs, required icon refs, auto-layout metadata, and
    `evidenceSnapshot`.
@@ -131,7 +136,7 @@ When applying a kotikit draft in Figma:
 - Take a screenshot of the applied root frame after placing or changing visible
   design-system components. Inspect it for overlap, clipped or mirrored text,
   broken component internals, and layout drift.
-- Record `transactionId`, node id, Figma node type, bounds, component refs or
+- Record `transactionId`, `preflightId`, node id, Figma node type, bounds, component refs or
   componentKey, component source, variable refs, required icon refs,
   auto-layout metadata, `screenshotReviewed: true`, any
   `screenshotFindings`, and `evidenceSnapshot` with `kotikit_record_figma_apply`.
