@@ -174,11 +174,17 @@ Figma comments or make changes from feedback.
 6. Inspect `feedbackHandoff` after the answer:
    - For `approved-for-agent-apply`, read the referenced revision plan and apply
      its ordered `changeIds` through official Figma MCP in small increments.
+     After each change, inspect the visible result and call
+     `kotikit_record_feedback_change` with the change id and its applied,
+     skipped, or blocked status. Applied changes require a Figma node id and
+     screenshot review; skipped and blocked changes require a reason. Resolve
+     blocked changes, then call `kotikit_continue` to finish the run.
    - For `skipped`, do not change Figma.
 
 A `review-screen` handoff has no active Figma transaction or preflight. Its
-sequence ends after the official Figma edits; `kotikit_record_figma_apply`
-belongs only to a run that is waiting for an active transaction.
+run completes only after every approved change has a final receipt.
+`kotikit_record_figma_apply` belongs only to a draft run with an active
+transaction.
 
 Do not post comments, resolve comment threads, or promote feedback into memory
 from the tiny core.

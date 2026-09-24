@@ -6,7 +6,10 @@ import { feedbackNodeDefinitions } from "../index.js";
 type NodeOutput = {
   statePatch?: Partial<KotikitGraphState>;
   artifacts?: Artifact[];
-  interrupt?: { pendingQuestion?: { id: string; prompt: string; choices?: string[] } };
+  interrupt?: {
+    status?: string;
+    pendingQuestion?: { id: string; prompt: string; choices?: string[] };
+  };
 };
 
 describe("feedback graph nodes", () => {
@@ -412,7 +415,7 @@ describe("feedback graph nodes", () => {
         changeIds: ["thread-comment-1", "thread-comment-2"],
       },
     });
-    expect(output.interrupt).toBeUndefined();
+    expect(output.interrupt?.status).toBe("waiting-for-figma");
   });
 
   it("records a skipped revision plan without queuing apply work", async () => {

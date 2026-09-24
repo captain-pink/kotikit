@@ -31,6 +31,7 @@ const KOTIKIT_TOOL_NAMES = [
   "kotikit_bind_figma_target",
   "kotikit_prepare_figma_write",
   "kotikit_feedback_snapshot",
+  "kotikit_record_feedback_change",
   "kotikit_record_figma_apply",
   "kotikit_prepare_issue",
 ] as const;
@@ -79,7 +80,8 @@ const KOTIKIT_TOOL_SAFETY = Object.fromEntries(
       name === "kotikit_doctor" ||
       name === "kotikit_config_get" ||
       name === "kotikit_sync_ds" ||
-      name === "kotikit_feedback_snapshot";
+      name === "kotikit_feedback_snapshot" ||
+      name === "kotikit_record_feedback_change";
     const localSensitiveRead = name === "kotikit_prepare_issue";
     return [
       name,

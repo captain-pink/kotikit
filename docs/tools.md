@@ -147,7 +147,10 @@ one typed blueprint. The run keeps its ID and original intent.
 
 For `review-screen`, an approved handoff includes the revision-plan artifact id
 and ordered change ids for the assistant to apply through official Figma tools.
-A skipped handoff confirms that no review changes should be applied.
+The run waits for a receipt per approved change and reaches `done` only after
+all changes are applied or explicitly skipped. A blocked receipt keeps the run
+open for repair. A skipped handoff confirms that no review changes should be
+applied.
 
 ### kotikit_continue
 
@@ -210,10 +213,21 @@ their direct children. `review-screen` can use `node_offset` geometry to select
 the smallest child under a comment while stale or deleted anchors remain
 unmapped. Reply comments may have `client_meta: null`; kotikit keeps them and
 lets `review-screen` inherit the nearest positioned parent target when
-possible.
+possible. Unexpected fields degrade per comment so readable feedback and
+reply links remain available.
 
 This tool is read-only for Figma, but it resolves a local Figma token and calls
 Figma, so scaffolded agents should still ask before running it.
+
+### kotikit_record_feedback_change
+
+Purpose: Record one approved review change as applied, skipped, or blocked.
+Input: `{ runId: string; changeId: string; status: "applied" | "skipped" | "blocked"; reason?: string; figmaNodeId?: string; screenshotReviewed?: boolean }`
+An applied receipt requires `figmaNodeId` and `screenshotReviewed: true`; Kotikit
+verifies that the visible node exists in the review file through Figma. Skipped
+and blocked receipts require a reason. After every change has an applied or
+skipped receipt, call `kotikit_continue` to complete `review-screen`. Run results
+include compact feedback progress and receipts for review.
 
 ### kotikit_record_figma_apply
 

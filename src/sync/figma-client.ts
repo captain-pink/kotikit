@@ -3,6 +3,7 @@ import { KotikitError } from "../util/result.js";
 import { type BackoffOpts, type RetryableError, withBackoff } from "./backoff.js";
 import {
   type FigmaComment,
+  FigmaCommentSchema,
   FigmaCommentsResponseSchema,
   type FigmaComponentSet,
   FigmaComponentSetsResponseSchema,
@@ -290,7 +291,58 @@ export class FigmaClient {
         `/v1/files/${fileKey}/comments${suffix}`,
         FigmaCommentsResponseSchema
       );
-      return res.comments;
+      return res.comments.flatMap((raw, index) => {
+        if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return [];
+        const comment = raw as Record<string, unknown>;
+        const parsed = FigmaCommentSchema.safeParse(comment);
+        if (parsed.success) return [parsed.data];
+        const user =
+          typeof comment.user === "object" && comment.user !== null && !Array.isArray(comment.user)
+            ? (comment.user as Record<string, unknown>)
+            : {};
+        const clientMeta =
+          typeof comment.client_meta === "object" &&
+          comment.client_meta !== null &&
+          !Array.isArray(comment.client_meta)
+            ? (comment.client_meta as Record<string, unknown>)
+            : {};
+        return [
+          FigmaCommentSchema.parse({
+            id:
+              typeof comment.id === "string" && comment.id.length > 0
+                ? comment.id
+                : `comment-${index + 1}`,
+            file_key: fileKey,
+            ...(typeof comment.parent_id === "string" ? { parent_id: comment.parent_id } : {}),
+            ...(typeof comment.message === "string" ? { message: comment.message } : {}),
+            ...(typeof comment.created_at === "string" ? { created_at: comment.created_at } : {}),
+            ...(typeof comment.resolved_at === "string" || comment.resolved_at === null
+              ? { resolved_at: comment.resolved_at }
+              : {}),
+            user: {
+              ...(typeof user.id === "string" ? { id: user.id } : {}),
+              ...(typeof user.handle === "string" ? { handle: user.handle } : {}),
+            },
+            ...(comment.client_meta === null
+              ? { client_meta: null }
+              : {
+                  client_meta: {
+                    ...(typeof clientMeta.node_id === "string"
+                      ? { node_id: clientMeta.node_id }
+                      : {}),
+                    ...(typeof clientMeta.node_offset === "object" &&
+                    clientMeta.node_offset !== null &&
+                    !Array.isArray(clientMeta.node_offset)
+                      ? { node_offset: clientMeta.node_offset }
+                      : {}),
+                  },
+                }),
+            ...(typeof comment.order_id === "string" || typeof comment.order_id === "number"
+              ? { order_id: comment.order_id }
+              : {}),
+          }),
+        ];
+      });
     } catch (err) {
       throw this.mapError(err, fileKey, "comments");
     }

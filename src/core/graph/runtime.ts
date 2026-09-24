@@ -3,6 +3,7 @@ import { z } from "zod";
 import { nowIso, uuid } from "../../util/ids.js";
 import { KotikitError } from "../../util/result.js";
 import { assertCompactGraphState } from "../domain/context-durability.js";
+import { assertFeedbackReceiptsComplete } from "../domain/feedback-receipts.js";
 import type { ArtifactStore } from "../runs/artifact-store.js";
 import type { CheckpointStore } from "../runs/checkpoint-store.js";
 import type { RunRecord, RunStore } from "../runs/run-store.js";
@@ -154,6 +155,9 @@ export function createGraphRuntime(input: {
           "This run is waiting for an answer before it can continue.",
           "Use kotikit_answer with the designer's answer to resume the flow."
         );
+      }
+      if (run.flowId === "review-screen" && run.status === "waiting-for-figma") {
+        assertFeedbackReceiptsComplete(run.state.feedback);
       }
       return executeRun(run, compiled, input.runStore, input.artifactStore, input.checkpointStore);
     },

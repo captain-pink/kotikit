@@ -215,7 +215,7 @@ const FigmaCommentUserSchema = z
   })
   .passthrough();
 
-const FigmaCommentSchema = z
+export const FigmaCommentSchema = z
   .object({
     id: z.string(),
     file_key: z.string(),
@@ -232,7 +232,7 @@ export type FigmaComment = z.infer<typeof FigmaCommentSchema>;
 
 const FigmaCommentsResponseSchema = z
   .object({
-    comments: z.array(FigmaCommentSchema),
+    comments: z.array(z.unknown()),
   })
   .passthrough();
 
