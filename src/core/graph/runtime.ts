@@ -256,6 +256,7 @@ async function executeRun(
       throw new KotikitError("This flow run points to an unknown node index.");
     }
 
+    const nodeStartedAt = Date.now();
     let output: RuntimeNodeOutput;
     try {
       output = parseRuntimeNodeOutput(
@@ -268,23 +269,35 @@ async function executeRun(
         ).nodeOutput
       );
     } catch (err) {
-      if (
-        err instanceof KotikitError &&
-        node.definition.kind !== "interrupt" &&
-        !isRuntimeProtocolError(err)
-      ) {
-        return blockRunFromNodeError({
-          run,
-          node,
-          err,
-          runStore,
-          checkpointStore,
-        });
-      }
-      throw err;
+      if (err instanceof KotikitError && isRuntimeProtocolError(err)) throw err;
+      const knownError = err instanceof KotikitError;
+      const validationError = err instanceof z.ZodError;
+      return blockRunFromNodeError({
+        run,
+        node,
+        err: knownError
+          ? err
+          : validationError
+            ? new KotikitError(
+                "Kotikit rejected input at a design step.",
+                `Inspect the input for ${err.issues[0]?.path.join(".") || "this step"}, then continue the run.`
+              )
+            : new KotikitError(
+                "Kotikit stopped while executing a design step.",
+                "Keep this run ID and report the failure. Do not retry a Figma write blindly."
+              ),
+        code: knownError || validationError ? "node-blocked" : "node-failed",
+        durationMs: Date.now() - nodeStartedAt,
+        runStore,
+        checkpointStore,
+      });
     }
 
-    const patchedState = { ...run.state, ...output.statePatch };
+    const patchedState = {
+      ...run.state,
+      ...output.statePatch,
+      runMetrics: addRunMetric(run.state.runMetrics, node.id, Date.now() - nodeStartedAt),
+    };
     assertCompactGraphState(patchedState);
 
     if (output.artifacts !== undefined) {
@@ -356,12 +369,14 @@ async function blockRunFromNodeError(input: {
   run: RunRecord;
   node: ResolvedFlowNode;
   err: KotikitError;
+  code: "node-blocked" | "node-failed";
+  durationMs: number;
   runStore: RunStore;
   checkpointStore?: CheckpointStore;
 }): Promise<RuntimeRunResult> {
   const fingerprint = workflowErrorFingerprint(input.node.id, input.err);
   const errors = upsertWorkflowError(input.run.state.errors, {
-    code: "node-blocked",
+    code: input.code,
     message: input.err.userMessage,
     nodeId: input.node.id,
     hint: input.err.hint,
@@ -371,6 +386,12 @@ async function blockRunFromNodeError(input: {
     ...input.run.state,
     status: "blocked" as const,
     errors,
+    runMetrics: addRunMetric(
+      input.run.state.runMetrics,
+      input.node.id,
+      input.durationMs,
+      input.code
+    ),
   };
   assertCompactGraphState(blockedState);
   const blockedRun = await input.runStore.updateRunState(input.run.id, {
@@ -381,6 +402,30 @@ async function blockRunFromNodeError(input: {
   });
   await writeRuntimeCheckpoint(blockedRun, input.checkpointStore);
   return toResult(blockedRun);
+}
+
+function addRunMetric(
+  previous: KotikitGraphState["runMetrics"],
+  nodeId: string,
+  durationMs: number,
+  blockedCode?: "node-blocked" | "node-failed"
+): NonNullable<KotikitGraphState["runMetrics"]> {
+  const metrics = previous ?? {
+    nodeExecutions: 0,
+    blockedCount: 0,
+    unexpectedFailureCount: 0,
+    nodeDurationMs: {},
+  };
+  return {
+    nodeExecutions: metrics.nodeExecutions + 1,
+    blockedCount: metrics.blockedCount + (blockedCode === undefined ? 0 : 1),
+    unexpectedFailureCount:
+      metrics.unexpectedFailureCount + (blockedCode === "node-failed" ? 1 : 0),
+    nodeDurationMs: {
+      ...metrics.nodeDurationMs,
+      [nodeId]: (metrics.nodeDurationMs[nodeId] ?? 0) + Math.max(0, durationMs),
+    },
+  };
 }
 
 function upsertWorkflowError(

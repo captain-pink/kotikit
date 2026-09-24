@@ -30,9 +30,14 @@ Use this designer-first skill when the user asks for `kotikit:auto`, a new Figma
 - Compose the visible screen and real states before asking whether missing parts should be extracted as draft components.
 - Apply Figma drafts through incremental Figma transactions: create exactly one
   screen state or region state per write, place it at the
-  canvas plan bounds, scan the applied root node, record `transactionId`, node
+  canvas plan bounds. Call `kotikit_prepare_figma_write` and confirm the target
+  page and Section before each official Figma write. Scan the applied root node,
+  record `transactionId`, the returned `preflightId`, node
   id, bounds, component refs, variable refs, auto-layout metadata, and
   `evidenceSnapshot`, then continue the run.
+- Follow each run result's `nextAction`. For detailed requests, read the
+  `kotikit://schemas/screen-blueprint-input` or
+  `kotikit://schemas/flow-blueprint-input` MCP resource before starting.
 - Newly created local components do not count as existing design-system reuse.
   Existing DS reuse means a visible instance whose main component key came from
   the pre-run local design-system search result.
@@ -58,6 +63,8 @@ Use this designer-first skill when the user asks for `kotikit:auto`, a new Figma
 - `kotikit_start`
 - `kotikit_answer`
 - `kotikit_continue`
+- `kotikit_prepare_figma_write`
+- `kotikit_record_figma_apply`
 - `kotikit_get_artifact`
 - `kotikit_feedback_snapshot`
 - `kotikit_prepare_issue`

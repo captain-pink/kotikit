@@ -90,7 +90,12 @@ Output: `{ valid: boolean; flow }`
 
 Purpose: Start a graph-backed designer flow.
 Input: `{ flowId: string; input?: { userIntent?: string; screenBlueprint?: object; flowBlueprint?: object; canvasIntent?: object; existingDesignInventory?: object; figmaTarget?: object; designSystem?: object; feedback?: object; project?: { root: string; name?: string } } }`
-Output: `{ runId; status; pendingQuestion?; artifacts; errors }`
+Output: `{ runId; status; nextAction; pendingQuestion?; artifacts; errors; runMetrics? }`
+
+`nextAction` names the next tool or external Figma handoff with the active run,
+transaction, and artifact ids. Follow it instead of inferring a call sequence
+from artifact order. `runMetrics` contains only local node counts, elapsed
+milliseconds, and block counts; it never contains designer content.
 
 For detailed PRDs, assistants should pass `screenBlueprint` or `flowBlueprint`
 instead of relying on plain-language inference. Kotikit preserves blueprint
@@ -131,7 +136,7 @@ targets are ambiguous, kotikit asks one clarification instead of guessing.
 
 Purpose: Resume a run paused for a designer decision.
 Input: `{ runId: string; answer: string }`
-Output: `{ runId; status; pendingQuestion?; feedbackHandoff?; artifacts; errors }`
+Output: `{ runId; status; nextAction; pendingQuestion?; feedbackHandoff?; artifacts; errors }`
 
 For `review-screen`, an approved handoff includes the revision-plan artifact id
 and ordered change ids for the assistant to apply through official Figma tools.
@@ -142,7 +147,7 @@ A skipped handoff confirms that no review changes should be applied.
 Purpose: Continue a run after an external action such as Figma apply metadata
 recording.
 Input: `{ runId: string }`
-Output: `{ runId; status; pendingQuestion?; artifacts; errors }`
+Output: `{ runId; status; nextAction; pendingQuestion?; artifacts; errors }`
 
 ### kotikit_bind_figma_target
 
@@ -206,8 +211,8 @@ Figma, so scaffolded agents should still ask before running it.
 ### kotikit_record_figma_apply
 
 Purpose: Record official Figma MCP apply metadata into the active graph run.
-Input: `{ runId: string; scope: string; stepIndex: number; outcome: "ok" | "warned" | "failed"; transactionId: string; preflightId: string; figmaFileKey?; figmaPageId?; figmaSectionName?; figmaNodeId?; figmaNodeKind?; figmaNodeName?; bounds?; componentRefs?; componentKey?; componentSource?; variableRefs?; iconRefs?; iconKey?; iconPlaceholder?; representation?; autoLayout?; screenshotReviewed?; screenshotFindings?; nodes?; partId?; draftComponentId?; componentName?; dsKey?; variableBindings?; layoutFrames?; repeatedItems?; textTransforms?; evidenceSnapshot? }`
-Output: `{ runId; status; activeFigmaTransaction?; figmaWritePreflight?; figmaTransactionProgress?; pendingQuestion?; artifacts; errors }`
+Input: `{ runId: string; transactionId: string; preflightId: string; figmaFileKey?; figmaPageId?; figmaSectionName?; figmaNodeId?; figmaNodeKind?; figmaNodeName?; bounds?; componentRefs?; componentKey?; componentSource?; variableRefs?; iconRefs?; iconKey?; iconPlaceholder?; representation?; autoLayout?; screenshotReviewed?; screenshotFindings?; nodes?; partId?; draftComponentId?; componentName?; dsKey?; variableBindings?; layoutFrames?; repeatedItems?; textTransforms?; evidenceSnapshot? }`
+Output: `{ runId; status; nextAction; activeFigmaTransaction?; figmaWritePreflight?; figmaTransactionProgress?; pendingQuestion?; artifacts; errors }`
 
 Use this after applying the active incremental Figma transaction. Do not record
 a later transaction before the graph consumes the current metadata. The

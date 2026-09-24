@@ -27,11 +27,10 @@ import type { KotikitGraphState } from "../../core/schemas/graph-state.js";
 import { runKotikitDoctor } from "../../doctor/doctor.js";
 import { type FigmaDraftTarget, FigmaDraftTargetSchema } from "../../figma/draft-target.js";
 import { resolveFigmaDraftTargetFromUrl } from "../../figma/draft-target-resolver.js";
-import { DESIGN_PLAN_STEP_KINDS } from "../../planning/design-plan-schema.js";
 import { FigmaClient } from "../../sync/figma-client.js";
 import { resolveFigmaToken } from "../../sync/figma-token.js";
 import { nowIso, slugify } from "../../util/ids.js";
-import { KotikitError, toolError, toolText } from "../../util/result.js";
+import { formatValidationError, KotikitError, toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
 import { withKotikitToolSafety } from "../tool-safety.js";
@@ -47,6 +46,7 @@ import {
   type IssuePreviewDiagnostics,
   type IssueRunDiagnostics,
 } from "./issue-preview.js";
+import { nextActionForRun } from "./next-action.js";
 
 export const FACADE_TOOL_NAMES = [
   "kotikit_flow_list",
@@ -246,12 +246,12 @@ export function registerFacadeTools(
             screenBlueprint: {
               type: "object",
               description:
-                "Structured one-screen blueprint authored by the assistant from the designer request.",
+                'For detailed requests, read kotikit://schemas/screen-blueprint-input first. Minimum: {"schemaVersion":"ScreenBlueprintInput/v1","id":"screen-id","title":"Screen title","requiredUiParts":[{"name":"main content"}]}. Preserve requested states and content.',
             },
             flowBlueprint: {
               type: "object",
               description:
-                "Structured multi-screen blueprint authored by the assistant from the designer request.",
+                "Structured multi-screen blueprint. Read kotikit://schemas/flow-blueprint-input before constructing it from the designer request.",
             },
             canvasIntent: {
               type: "object",
@@ -332,6 +332,14 @@ export function registerFacadeTools(
         compactRunResult(await runtime.startFlow({ flowId: input.flowId, input: startInput }))
       );
     } catch (err) {
+      if (err instanceof z.ZodError) {
+        return toolError(
+          new KotikitError(
+            formatValidationError(err),
+            "Read kotikit://schemas/screen-blueprint-input or kotikit://schemas/flow-blueprint-input, correct that field, and call kotikit_start again."
+          )
+        );
+      }
       return toolError(err);
     }
   });
@@ -434,7 +442,8 @@ export function registerFacadeTools(
           await runtime.patchRunState({
             runId: input.runId,
             statePatch: { figmaTarget: target },
-          })
+          }),
+          "bound-target"
         )
       );
     } catch (err) {
@@ -470,7 +479,7 @@ export function registerFacadeTools(
       });
       return toolText(`Prepared Figma write ${preflight.transactionId}.`, {
         preflight,
-        run: compactRunResult(result),
+        run: compactRunResult(result, "prepared-write"),
       });
     } catch (err) {
       return toolError(err);
@@ -878,17 +887,6 @@ function figmaApplyInputSchema(): Tool["inputSchema"] {
         type: "string",
         description: "Active kotikit graph run id to patch with apply metadata.",
       },
-      scope: { type: "string", description: "Scope (flow or single-screen) slug." },
-      screen: { type: "string", description: "Screen slug; omit for single-screen specs." },
-      stepIndex: {
-        type: "number",
-        description: "Zero-based index of the design plan step that was applied.",
-      },
-      outcome: {
-        type: "string",
-        enum: ["ok", "warned", "failed"],
-        description: "Result of the official Figma MCP apply.",
-      },
       transactionId: {
         type: "string",
         description: "Active incremental Figma transaction id this metadata records.",
@@ -898,13 +896,6 @@ function figmaApplyInputSchema(): Tool["inputSchema"] {
         description:
           "Figma write preflight id returned by kotikit_prepare_figma_write for this transaction.",
       },
-      note: { type: "string", description: "Optional human-readable note." },
-      stepKind: {
-        type: "string",
-        enum: [...DESIGN_PLAN_STEP_KINDS],
-        description: "Design plan step kind applied in Figma.",
-      },
-      state: { type: "string", description: "Design state affected by the step." },
       componentName: {
         type: "string",
         description: "Component name when the step placed a component.",
@@ -1060,7 +1051,7 @@ function figmaApplyInputSchema(): Tool["inputSchema"] {
           "Compact Figma evidence snapshot collected from the applied root node by the scanner.",
       },
     },
-    required: ["runId", "scope", "stepIndex", "outcome", "transactionId", "preflightId"],
+    required: ["runId", "transactionId", "preflightId"],
   };
 }
 
@@ -1558,7 +1549,10 @@ function compactFlow(flow: FlowDefinition): Record<string, unknown> {
   };
 }
 
-function compactRunResult(result: RuntimeRunResult): Record<string, unknown> {
+function compactRunResult(
+  result: RuntimeRunResult,
+  phase: "normal" | "prepared-write" | "bound-target" = "normal"
+): Record<string, unknown> {
   const feedbackHandoff = compactFeedbackHandoff(result.state.feedback);
   return {
     runId: result.runId,
@@ -1571,6 +1565,20 @@ function compactRunResult(result: RuntimeRunResult): Record<string, unknown> {
     activeFigmaTransaction: result.state.activeFigmaTransaction,
     figmaWritePreflight: result.state.figmaWritePreflight,
     figmaTransactionProgress: transactionProgressFrom(result.state.figmaTransactionPlan),
+    nextAction: nextActionForRun(result, phase),
+    ...(result.state.runMetrics === undefined
+      ? {}
+      : {
+          runMetrics: {
+            nodeExecutions: result.state.runMetrics.nodeExecutions,
+            blockedCount: result.state.runMetrics.blockedCount,
+            unexpectedFailureCount: result.state.runMetrics.unexpectedFailureCount,
+            totalNodeMs: Object.values(result.state.runMetrics.nodeDurationMs).reduce(
+              (total, duration) => total + duration,
+              0
+            ),
+          },
+        }),
     ...(feedbackHandoff === undefined ? {} : { feedbackHandoff }),
     artifacts: result.state.artifacts,
     errors: result.state.errors,

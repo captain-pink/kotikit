@@ -294,14 +294,7 @@ describe("MCP facade tools", () => {
     registerFacadeTools(registry, makeCtx());
     const applyTool = registry.tools.find((tool) => tool.name === "kotikit_record_figma_apply");
 
-    expect(applyTool?.inputSchema.required).toEqual([
-      "runId",
-      "scope",
-      "stepIndex",
-      "outcome",
-      "transactionId",
-      "preflightId",
-    ]);
+    expect(applyTool?.inputSchema.required).toEqual(["runId", "transactionId", "preflightId"]);
     expect(applyTool?.inputSchema.properties).toHaveProperty("figmaNodeId");
     expect(applyTool?.inputSchema.properties).toHaveProperty("runId");
     expect(registry.tools.map((tool) => tool.name)).not.toContain("kotikit_review_figma_target");
