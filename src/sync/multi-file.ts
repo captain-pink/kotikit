@@ -3,14 +3,8 @@ import { dirname } from "node:path";
 import { initComponentsDb, upsertComponent } from "../db/components-db.js";
 import { initIconsDb } from "../db/icons-db.js";
 import { openDb } from "../db/sqlite.js";
-import { nowIso, slugifyComponentName } from "../util/ids.js";
-import {
-  componentJsonPath,
-  componentsDbPath,
-  designSystemDir,
-  iconsDbPath,
-  syncReportPath,
-} from "../util/paths.js";
+import { nowIso } from "../util/ids.js";
+import { componentsDbPath, designSystemDir, iconsDbPath, syncReportPath } from "../util/paths.js";
 import {
   type Checkpoint,
   clearCheckpoint,
@@ -53,8 +47,7 @@ export interface SyncReport {
 }
 
 async function writeComponentJson(root: string, json: ComponentJson): Promise<void> {
-  const slug = slugifyComponentName(json.name);
-  const path = componentJsonPath(root, slug);
+  const path = `${designSystemDir(root)}/${json.path}`;
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(json, null, 2)}\n`, "utf-8");
 }
@@ -67,7 +60,8 @@ async function writeReport(root: string, report: SyncReport): Promise<void> {
 
 /**
  * Sync every configured Figma file into one local design-system snapshot.
- * Order matters: later-listed files override earlier ones on name collision.
+ * Order still determines the legacy winnerFileKey reported for duplicate names.
+ * Every published component keeps its own searchable row and JSON path.
  */
 export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
   const { root, files, client, progress = stderrProgressEmitter } = opts;
@@ -107,7 +101,7 @@ export async function syncAllFiles(opts: SyncAllOpts): Promise<SyncReport> {
   const normalizationDiagnostics: NormalizationDiagnostics[] = [];
   const manifestFiles: SyncReport["files"] = [];
 
-  // Track which names have already been written by an earlier file.
+  // Track duplicate display names for the compatibility conflict report.
   const writtenByName: Map<string, { fileKey: string; key: string }> = new Map();
 
   // Conflict tracker: name → { winnerFileKey, losers }

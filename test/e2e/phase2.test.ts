@@ -17,7 +17,6 @@ import { createLimiter } from "../../src/sync/rate-limit.js";
 
 import {
   checkpointPath,
-  componentJsonPath,
   componentsDbPath,
   iconsDbPath,
   manifestPath,
@@ -235,7 +234,7 @@ describe("Phase 2 E2E — sync + search", () => {
     // Conflict on Button (both files publish it)
     expect(manifest.conflicts.find((c) => c.name === "Button")?.winnerFileKey).toBe("FB");
 
-    // Step 4: ds_search finds Button (only one row)
+    // Step 4: ds_search keeps both published Button components
     const searchResult = await callTool(registry, "kotikit_ds_search", {
       query: "but*",
     });
@@ -246,22 +245,25 @@ describe("Phase 2 E2E — sync + search", () => {
     const detail = parseToolDetail<{
       results: { name: string; path: string; key: string; fileKey: string }[];
     }>(searchResult);
-    const buttonRow = detail.results.find((r) => r.name === "Button");
-    if (buttonRow === undefined) {
-      throw new Error("Expected Button row.");
-    }
-    expect(buttonRow.fileKey).toBe("FB"); // later file wins
+    const buttonRows = detail.results.filter((row) => row.name === "Button");
+    expect(buttonRows.map((row) => [row.fileKey, row.key]).sort()).toEqual([
+      ["FA", "ckA-btn"],
+      ["FB", "ckB-btn"],
+    ]);
+    expect(new Set(buttonRows.map((row) => row.path)).size).toBe(2);
 
     // Step 5: ds_get_component returns the JSON
-    const getResult = await callTool(registry, "kotikit_ds_get_component", {
-      path: buttonRow.path,
-    });
-    expect(getResult.isError).toBeFalsy();
-    expect(getResult.content[0]?.text).toContain("Button");
+    for (const row of buttonRows) {
+      const getResult = await callTool(registry, "kotikit_ds_get_component", { path: row.path });
+      expect(getResult.isError).toBeFalsy();
+      expect(getResult.content[0]?.text).toContain(row.key);
 
-    // Verify on disk
-    const buttonJson = JSON.parse(await readFile(componentJsonPath(tmpDir, "button"), "utf-8"));
-    expect(buttonJson.fileKey).toBe("FB");
+      const buttonJson = JSON.parse(
+        await readFile(join(tmpDir, "design-system", row.path), "utf-8")
+      );
+      expect(buttonJson.fileKey).toBe(row.fileKey);
+      expect(buttonJson.key).toBe(row.key);
+    }
 
     // Step 6: icons_search returns the arrow-right icon, no svg by default
     const iconsResult = await callTool(registry, "kotikit_icons_search", {

@@ -41,7 +41,7 @@ describe("buildComponentJson", () => {
     expect(result.key).toBe("pubkey");
     expect(result.componentSetKey).toBe("setkey");
     expect(result.fileKey).toBe("F1");
-    expect(result.path).toBe("components/button.json");
+    expect(result.path).toMatch(/^components\/button--[a-f0-9]{20}\.json$/);
     expect(result.description).toBe("The primary button");
     expect(result.defaultKey).toBe("defaultvariantid");
     expect(result.thumbnailUrl).toBe("https://figma.example/thumb.png");
@@ -74,7 +74,7 @@ describe("buildComponentJson", () => {
       fileKey: "F1",
       publishedComponent: { key: "k", name: "TextField" },
     });
-    expect(result.path).toBe("components/text-field.json");
+    expect(result.path).toMatch(/^components\/text-field--[a-f0-9]{20}\.json$/);
   });
 
   it("BOOLEAN/TEXT/INSTANCE_SWAP land in properties, VARIANT lands in variants", () => {

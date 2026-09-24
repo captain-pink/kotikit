@@ -88,7 +88,8 @@
         "key": "button-primary-medium",
         "componentSetKey": "button-set-key",
         "fileKey": "FIXTURE",
-        "path": "components/button.json",
+        "path": "components/button--b140372a56a92550d0d0.json",
+        "pageName": "Components",
         "variants": [
           { "propertyName": "Color", "values": ["Primary", "Secondary"] },
           { "propertyName": "Size", "values": ["Small", "Medium"] },
@@ -103,7 +104,8 @@
         "key": "field-enabled",
         "componentSetKey": "field-enabled",
         "fileKey": "FIXTURE",
-        "path": "components/text-field.json",
+        "path": "components/text-field--c2ec227442df9ab08b2b.json",
+        "pageName": "Inputs",
         "variants": [
           { "propertyName": "State", "values": ["Enabled", "Error"] },
           { "propertyName": "Size", "values": ["Medium"] }

@@ -295,7 +295,7 @@ Output: sync summary, manifest updates, and conflict warnings.
 
 Purpose: Search the local component index directly.
 Input: `{ query: string; limit?: number }`
-Output: compact refs with component names, keys, file keys, and paths.
+Output: compact refs with component names, keys, file keys, and exact paths. Same-named results also show available source file and page names; pass the chosen path to `kotikit_ds_get_component`.
 
 ### kotikit_ds_get_component
 

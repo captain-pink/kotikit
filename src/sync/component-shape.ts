@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { nowIso, slugifyComponentName } from "../util/ids.js";
 
@@ -9,6 +10,7 @@ export const ComponentJsonSchema = z.object({
   componentSetKey: z.string().optional(),
   fileKey: z.string(),
   path: z.string(),
+  pageName: z.string().optional(),
   description: z.string().optional(),
   variants: z
     .array(
@@ -83,8 +85,9 @@ export function buildComponentJson(input: {
   publishedComponent: FigmaPublishedComponent;
   componentSet?: FigmaComponentSet;
   nodeDetails?: FigmaNode;
+  pageName?: string;
 }): ComponentJson {
-  const { fileKey, publishedComponent, componentSet, nodeDetails } = input;
+  const { fileKey, publishedComponent, componentSet, nodeDetails, pageName } = input;
 
   // Prefer the component-set name/desc when present, but keep `key` as a concrete
   // published component key so Figma draft generation can import it directly.
@@ -124,13 +127,20 @@ export function buildComponentJson(input: {
   }
 
   const slug = slugifyComponentName(name);
+  const identity = createHash("sha256")
+    .update(fileKey)
+    .update("\0")
+    .update(componentSetKey ?? key)
+    .digest("hex")
+    .slice(0, 20);
 
   const result = {
     name,
     key,
     ...(componentSetKey !== undefined ? { componentSetKey } : {}),
     fileKey,
-    path: `components/${slug}.json`,
+    path: `components/${slug}--${identity}.json`,
+    ...(pageName ? { pageName } : {}),
     ...(description !== undefined ? { description } : {}),
     variants,
     properties,

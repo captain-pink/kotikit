@@ -37,7 +37,9 @@ export type LocalAdapterNeedsSync<T> = {
 
 export type LocalAdapterResult<T> = LocalAdapterReady<T> | LocalAdapterNeedsSync<T>;
 
-export type LocalComponentRef = Pick<ComponentSearchResult, "name" | "path" | "key" | "fileKey">;
+export type LocalComponentRef = Pick<ComponentSearchResult, "name" | "path" | "key" | "fileKey"> & {
+  ambiguous?: true;
+};
 
 export type LocalIconRef = IconSearchResult & {
   svg?: string;
@@ -81,14 +83,32 @@ export function searchLocalComponents(
 
 export function getLocalComponent(root: string, ref: string): ComponentJson {
   assertSafeDesignSystemPath(ref);
+  const dbPath = componentsDbPath(root);
+  if (!existsSync(dbPath)) throw missingComponentRef();
+  const db = new Database(dbPath, { readonly: true });
+  const indexed = (() => {
+    try {
+      return db
+        .prepare("SELECT key, file_key AS fileKey FROM components WHERE path = ? LIMIT 1")
+        .get(ref) as { key: string; fileKey: string } | null;
+    } finally {
+      db.close();
+    }
+  })();
+  if (!indexed) throw missingComponentRef();
   const path = `${designSystemDir(root)}/${ref}`;
   if (!existsSync(path)) {
-    throw new KotikitError(
-      "I could not find that component in the local design-system cache.",
-      "Use kotikit_search_design_system to find a component ref, then read that exact path."
-    );
+    throw missingComponentRef();
   }
-  return ComponentJsonSchema.parse(JSON.parse(readFileSync(path, "utf-8")));
+  const component = ComponentJsonSchema.parse(JSON.parse(readFileSync(path, "utf-8")));
+  if (
+    component.path !== ref ||
+    component.key !== indexed.key ||
+    component.fileKey !== indexed.fileKey
+  ) {
+    throw missingComponentRef();
+  }
+  return component;
 }
 
 export function searchLocalIcons(
@@ -220,7 +240,15 @@ function compactComponentRef(row: ComponentSearchResult): LocalComponentRef {
     path: row.path,
     key: row.key,
     fileKey: row.fileKey,
+    ...(row.nameCount > 1 ? { ambiguous: true } : {}),
   };
+}
+
+function missingComponentRef(): KotikitError {
+  return new KotikitError(
+    "I could not find that component in the local design-system cache.",
+    "Use kotikit_search_design_system to find a component ref, then read that exact path."
+  );
 }
 
 // Quotes arbitrary labels as one FTS5 phrase without changing tokenizer behavior.

@@ -1,8 +1,11 @@
+import { existsSync, readFileSync } from "node:fs";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import {
   getLocalComponent,
   searchLocalComponents,
 } from "../../core/adapters/design-system/local-index.js";
+import { SyncManifestSchema } from "../../sync/manifest.js";
+import { manifestPath } from "../../util/paths.js";
 import { KotikitError, toolError, toolText } from "../../util/result.js";
 import type { ToolContext } from "../context.js";
 import type { ToolRegistry } from "../server.js";
@@ -54,13 +57,42 @@ function registerDsSearch(registry: ToolRegistry, ctx: ToolContext): void {
         );
       }
 
-      return toolText(`Found ${result.results.length} components matching ${query}.`, {
-        results: result.results,
+      const ambiguous = result.results.some((component) => component.ambiguous);
+      const fileNames = ambiguous ? syncedFileNames(ctx.root) : new Map<string, string>();
+      const results = result.results.map((component) => {
+        if (!component.ambiguous) return component;
+        const fileName = fileNames.get(component.fileKey);
+        try {
+          const pageName = getLocalComponent(ctx.root, component.path).pageName;
+          return {
+            ...component,
+            ...(fileName ? { fileName } : {}),
+            ...(pageName ? { pageName } : {}),
+          };
+        } catch {
+          return fileName ? { ...component, fileName } : component;
+        }
       });
+      const summary = ambiguous
+        ? `Found ${results.length} components matching ${query}. Some share a name. Use the exact path to open the intended component.`
+        : `Found ${results.length} components matching ${query}.`;
+      return toolText(summary, { results });
     } catch (err) {
       return toolError(err);
     }
   });
+}
+
+// Read source labels only when same-named results need human-readable context.
+function syncedFileNames(root: string): Map<string, string> {
+  const path = manifestPath(root);
+  if (!existsSync(path)) return new Map();
+  try {
+    const parsed = SyncManifestSchema.safeParse(JSON.parse(readFileSync(path, "utf-8")));
+    return new Map(parsed.success ? parsed.data.files.map((file) => [file.key, file.name]) : []);
+  } catch {
+    return new Map();
+  }
 }
 
 // ─── kotikit_ds_get_component ─────────────────────────────────────────────────

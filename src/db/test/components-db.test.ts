@@ -77,14 +77,21 @@ describe("components-db", () => {
     expect(results.map((r) => r.name).sort()).toEqual(["Button", "Buttonish"]);
   });
 
-  it("upserts by name: second upsert with same name replaces the row", () => {
+  it("preserves distinct published keys with the same name", () => {
     upsertComponent(db, { name: "Button", path: "p1", key: "k1", fileKey: "f1", props: "" });
     upsertComponent(db, { name: "Button", path: "p2", key: "k2", fileKey: "f2", props: "" });
     const results = searchComponents(db, "Button");
-    expect(results).toHaveLength(1);
-    expect(results[0]?.path).toBe("p2");
-    expect(results[0]?.key).toBe("k2");
-    expect(results[0]?.fileKey).toBe("f2");
+    expect(results.map((result) => [result.fileKey, result.key, result.path]).sort()).toEqual([
+      ["f1", "k1", "p1"],
+      ["f2", "k2", "p2"],
+    ]);
+  });
+
+  it("refreshes a published key without duplicating its search row", () => {
+    upsertComponent(db, { name: "Button", path: "p1", key: "k1", fileKey: "f1", props: "" });
+    upsertComponent(db, { name: "Button New", path: "p2", key: "k1", fileKey: "f1", props: "" });
+
+    expect(searchComponents(db, "Button").map((result) => result.path)).toEqual(["p2"]);
   });
 
   it("clearComponents removes all rows", () => {
