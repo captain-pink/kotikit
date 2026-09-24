@@ -113,7 +113,10 @@ This gives teams without Figma branches a practical safety boundary.
 3. **Draft planning**
    Graph nodes turn intent into a compact design approach, then combine local
    design-system evidence, screen-draft structure, icons, and variables into an
-   apply-packet artifact.
+   apply-packet artifact. Exact component reuse requires coverage of every
+   requested name token. Partial matches remain screen-draft work, while
+   required semantic variable roles need a matching local variable or explicit
+   draft-only literal approval.
 
 4. **Official Figma apply**
    The assistant uses the official Figma integration to drain incremental Figma

@@ -126,7 +126,7 @@ export function searchLocalIcons(
       options.includeSvg === true
         ? rows.map((row) => ({
             ...row,
-            svg: getIconSvg(db, row.name) ?? undefined,
+            svg: getIconSvg(db, row.name, row.fileKey, row.key) ?? undefined,
           }))
         : rows;
     return { status: "ready", source: "local-cache", results };

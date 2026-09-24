@@ -108,6 +108,8 @@ truth for reusable components, icons, and variables. Do not rely on open-ended
 Figma design-system search during a run; if local design-system data is
 missing, sync or update the local cache before requesting production-quality
 output.
+Icon search keeps same-name icons from different files and marks ambiguous
+results; use the returned file and icon keys to pick the intended source.
 
 Agents can fetch compact input JSON schemas through MCP resources before
 calling `kotikit_start`:
