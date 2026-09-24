@@ -33,6 +33,7 @@ const unsafePromptedTools = [
   "kotikit_answer",
   "kotikit_bind_figma_target",
   "kotikit_feedback_snapshot",
+  "kotikit_record_feedback_change",
   "kotikit_record_figma_apply",
 ];
 

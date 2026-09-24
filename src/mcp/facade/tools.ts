@@ -2,6 +2,12 @@ import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { ensureDraftTarget } from "../../core/adapters/figma/target.js";
 import { compactFigmaComment, normalizeCommentThreads } from "../../core/domain/comment-threads.js";
+import {
+  compactFeedbackReceipts,
+  type FeedbackReceipt,
+  feedbackReceiptProgress,
+  recordFeedbackReceipt,
+} from "../../core/domain/feedback-receipts.js";
 import { verifyFigmaEvidenceAgainstApplyPacket } from "../../core/domain/figma-evidence.js";
 import {
   assertFigmaMetadataMatchesTarget,
@@ -60,6 +66,7 @@ export const FACADE_TOOL_NAMES = [
   "kotikit_list_artifacts",
   "kotikit_search_design_system",
   "kotikit_feedback_snapshot",
+  "kotikit_record_feedback_change",
   "kotikit_record_figma_apply",
   "kotikit_prepare_issue",
   "kotikit_doctor",
@@ -154,6 +161,15 @@ const FeedbackSnapshotInputSchema = z
   .refine((input) => input.figmaUrl !== undefined || input.fileKey !== undefined, {
     message: "Pass either figmaUrl or fileKey.",
   });
+
+const FeedbackChangeReceiptInputSchema = z.strictObject({
+  runId: z.string().min(1),
+  changeId: z.string().min(1),
+  status: z.enum(["applied", "skipped", "blocked"]),
+  reason: z.string().min(1).max(1_000).optional(),
+  figmaNodeId: z.string().min(1).optional(),
+  screenshotReviewed: z.boolean().optional(),
+});
 
 const IssueWorkflowAreaSchema = z.enum([
   "setup",
@@ -613,14 +629,24 @@ export function registerFacadeTools(
         );
       }
       const comments = (await client.getComments(fileKey, { asMarkdown: true }))
+        .filter(
+          (comment): comment is typeof comment & Record<string, unknown> =>
+            typeof comment === "object" && comment !== null && !Array.isArray(comment)
+        )
         .filter((comment) => input.includeResolved === true || comment.resolved_at == null)
         .slice(0, input.limit ?? 100)
         .map(compactFigmaComment);
       const anchorNodeIds = commentAnchorNodeIds(comments);
-      const commentNodeMap =
-        client.getNodes === undefined || anchorNodeIds.length === 0
-          ? { nodes: [] }
-          : compactCommentNodeMap(await client.getNodes(fileKey, anchorNodeIds));
+      let commentNodeMap: { nodes: ReturnType<typeof compactCommentNodeMap>["nodes"] } = {
+        nodes: [],
+      };
+      if (client.getNodes !== undefined && anchorNodeIds.length > 0) {
+        try {
+          commentNodeMap = compactCommentNodeMap(await client.getNodes(fileKey, anchorNodeIds));
+        } catch {
+          // Keep readable comments and their raw anchors when node lookup is unavailable.
+        }
+      }
       const threads = normalizeCommentThreads(comments);
       const snapshot = {
         schemaVersion: "FigmaCommentSnapshot/v1",
@@ -653,6 +679,117 @@ export function registerFacadeTools(
       }
 
       return toolText(`Fetched ${comments.length} Figma comment(s).`, { snapshot });
+    } catch (err) {
+      return toolError(err);
+    }
+  });
+
+  registerTool(registry, {
+    name: "kotikit_record_feedback_change",
+    description:
+      "Record one approved feedback change after Figma apply and visible review, or explain why it was skipped or blocked.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        runId: { type: "string", description: "Active review-screen run id." },
+        changeId: { type: "string", description: "Change id from the revision-plan artifact." },
+        status: { type: "string", enum: ["applied", "skipped", "blocked"] },
+        reason: { type: "string", description: "Required for skipped or blocked changes." },
+        figmaNodeId: { type: "string", description: "Required for applied changes." },
+        screenshotReviewed: {
+          type: "boolean",
+          description:
+            "Confirm visible review of the changed Figma node; required true for applied changes.",
+        },
+      },
+      required: ["runId", "changeId", "status"],
+    },
+  });
+  registry.handlers.set("kotikit_record_feedback_change", async (args) => {
+    try {
+      const input = FeedbackChangeReceiptInputSchema.parse(args);
+      const runtime = requireRuntime(deps.runtime);
+      const state = await runtime.getRunState(input.runId);
+      if (
+        state.flowId !== "review-screen" ||
+        (state.status !== "waiting-for-figma" && state.status !== "done")
+      ) {
+        throw new KotikitError(
+          "This run is not waiting for approved feedback edits.",
+          "Use the active review-screen run after approving its revision plan."
+        );
+      }
+      if (input.status !== "applied" && input.reason === undefined) {
+        throw new KotikitError(
+          "Skipped and blocked feedback changes need a reason.",
+          "Explain why the approved change could not be applied."
+        );
+      }
+      let receipt: FeedbackReceipt = {
+        changeId: input.changeId,
+        status: input.status,
+        recordedAt: nowIso(),
+        ...(input.reason === undefined ? {} : { reason: input.reason }),
+      };
+      recordFeedbackReceipt(state.feedback, receipt);
+      if (input.status === "applied") {
+        if (input.figmaNodeId === undefined || input.screenshotReviewed !== true) {
+          throw new KotikitError(
+            "An applied feedback change needs a Figma node id and visible screenshot review.",
+            "Inspect the edited node through official Figma MCP before recording its receipt."
+          );
+        }
+        const feedback = recordFrom(state.feedback);
+        const fileKey =
+          stringField(recordFrom(feedback.commentSnapshot), "fileKey") ??
+          stringField(recordFrom(state.commentEvidenceMap), "fileKey") ??
+          stringField(recordFrom(state.figmaNodeLedger), "fileKey");
+        if (fileKey === undefined) {
+          throw new KotikitError(
+            "Kotikit cannot verify the edited Figma node without a file key.",
+            "Attach a Figma comment snapshot or node ledger to this review run."
+          );
+        }
+        const config = await ctx.loadConfig();
+        const token = await resolveFigmaToken(ctx.root, config);
+        if (token === undefined || token === "") {
+          throw new KotikitError(
+            "Kotikit cannot verify the feedback edit without a Figma token.",
+            "Set FIGMA_TOKEN in the project .env file, then record the change again."
+          );
+        }
+        const client = deps.figmaClientFactory?.(token) ?? new FigmaClient({ token });
+        const nodes = await client.getNodes?.(fileKey, [input.figmaNodeId]);
+        const document = recordFrom(nodes?.[input.figmaNodeId]?.document);
+        if (
+          stringField(document, "id") !== input.figmaNodeId ||
+          stringField(document, "type") === undefined ||
+          document.visible === false
+        ) {
+          throw new KotikitError(
+            "Kotikit could not verify the edited Figma node in the review file.",
+            "Check the node id and file, then inspect the visible result before recording it."
+          );
+        }
+        receipt = {
+          ...receipt,
+          figmaFileKey: fileKey,
+          figmaNodeId: input.figmaNodeId,
+          figmaNodeType: stringField(document, "type"),
+          ...(stringField(document, "name") === undefined
+            ? {}
+            : { figmaNodeName: stringField(document, "name") }),
+          screenshotReviewed: true,
+        };
+      }
+      const result = await runtime.patchRunState({
+        runId: input.runId,
+        statePatch: { feedback: recordFeedbackReceipt(state.feedback, receipt) },
+      });
+      return toolText(`Recorded ${input.status} feedback change ${input.changeId}.`, {
+        receipt,
+        run: compactRunResult(result),
+      });
     } catch (err) {
       return toolError(err);
     }
@@ -1592,6 +1729,12 @@ function compactRunResult(
           },
         }),
     ...(feedbackHandoff === undefined ? {} : { feedbackHandoff }),
+    ...(result.state.flowId !== "review-screen"
+      ? {}
+      : {
+          feedbackProgress: feedbackReceiptProgress(result.state.feedback),
+          feedbackReceipts: compactFeedbackReceipts(result.state.feedback),
+        }),
     artifacts: result.state.artifacts,
     errors: result.state.errors,
   };

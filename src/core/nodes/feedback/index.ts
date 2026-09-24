@@ -167,6 +167,12 @@ export const feedbackNodeDefinitions: NodeDefinition[] = [
         } satisfies RuntimeNodeOutput;
       }
       const handoff = feedbackHandoffFrom(answer, feedback, changes);
+      if (answer === "apply-feedback-changes" && handoff === undefined) {
+        throw new KotikitError(
+          "The approved feedback plan has no usable change list.",
+          "Rebuild the revision plan before applying feedback in Figma."
+        );
+      }
       return {
         statePatch: {
           feedback: {
@@ -175,6 +181,9 @@ export const feedbackNodeDefinitions: NodeDefinition[] = [
             ...(handoff === undefined ? {} : { handoff }),
           },
         },
+        ...(answer === "apply-feedback-changes"
+          ? { interrupt: { status: "waiting-for-figma" as const, resume: "next-node" as const } }
+          : {}),
       } satisfies RuntimeNodeOutput;
     },
   }),
