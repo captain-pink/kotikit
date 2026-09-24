@@ -227,7 +227,7 @@ export const briefNodeDefinitions: NodeDefinition[] = [
   node({
     key: "brief.summarizeForApproval",
     paramsSchema: EmptyParamsSchema,
-    stateReads: ["brief", "screen"],
+    stateReads: ["brief", "screen", "screenBlueprint", "flowBlueprint"],
     stateWrites: ["brief"],
     run: async (input) => {
       const state = graphState(input.state);
@@ -236,10 +236,14 @@ export const briefNodeDefinitions: NodeDefinition[] = [
       const title = current.title ?? screen.title ?? "Untitled Screen";
       const intent = current.intent ?? screen.description ?? title;
       const parts = screen.requiredUiParts?.join(", ") || "design-system components";
+      const explicitBlueprint =
+        state.screenBlueprint !== undefined || state.flowBlueprint !== undefined;
       const stateInstruction =
         screen.confidence === "low"
           ? "use no states until a typed blueprint explicitly supplies them"
-          : `cover ${(screen.states?.length ? screen.states : STANDARD_STATES).join(", ")} states`;
+          : explicitBlueprint && !screen.states?.length
+            ? "use no states because none were requested in the blueprint"
+            : `cover ${(screen.states?.length ? screen.states : STANDARD_STATES).join(", ")} states`;
       const approvalSummary = `${title}: ${intent}. Build with ${parts} and ${stateInstruction}.`;
       return {
         statePatch: {
@@ -581,8 +585,7 @@ function screenModelFromBlueprint(
       : { expectedContent: blueprint.expectedContent }),
     traits: traitsFromBlueprint(blueprint),
     repeatedPatterns: repeatedPatternsFromBlueprint(blueprint),
-    states:
-      blueprint.states?.map((state) => state.kind).filter((state) => state.trim().length > 0) ?? [],
+    states: blueprint.states?.map((state) => state.name ?? state.kind) ?? [],
     regions: regionsFromBlueprint(blueprint),
     designSystemHints:
       blueprint.designSystemHints ?? designSystemHints(designSystem, requiredUiParts),

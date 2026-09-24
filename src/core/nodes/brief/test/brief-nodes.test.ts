@@ -211,6 +211,28 @@ describe("brief nodes", () => {
     });
   });
 
+  it("keeps blueprint state names in the screen model", async () => {
+    const result = await runBriefNode(
+      "brief.inferScreenBlueprint",
+      baseState({
+        userIntent: "Create the supplied mocked order board.",
+        screenBlueprint: {
+          schemaVersion: "ScreenBlueprintInput/v1",
+          title: "Orders",
+          requiredUiParts: [{ name: "Orders table" }],
+          states: [
+            { id: "archived-orders", name: "Archived orders", kind: "archived" },
+            { id: "pending-review", name: "Pending review", kind: "pending-review" },
+          ],
+        },
+      })
+    );
+
+    expect(result.statePatch?.screen).toMatchObject({
+      states: ["Archived orders", "Pending review"],
+    });
+  });
+
   it("preserves flow blueprint structure while selecting the primary screen", async () => {
     const result = await runBriefNode(
       "brief.inferScreenBlueprint",

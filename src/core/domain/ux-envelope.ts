@@ -1,4 +1,5 @@
 import type { StateMatrix, UXEnvelope } from "../schemas/artifact.js";
+import type { ScreenBlueprintInput } from "../schemas/blueprint.js";
 import {
   builtInPatternPacks,
   selectPatternPack,
@@ -22,6 +23,7 @@ type BuildUxEnvelopeInput = {
 type BuildStateMatrixInput = {
   envelope: UXEnvelope;
   patternPack?: UXPatternPack;
+  requestedStates?: NonNullable<ScreenBlueprintInput["states"]>;
 };
 
 const FALLBACK_SOURCE_REF = "https://www.nngroup.com/articles/task-analysis/";
@@ -67,7 +69,7 @@ export function buildUxEnvelope(input: BuildUxEnvelopeInput): UXEnvelope {
   const defaults = patternPack.envelopeDefaults ?? createFallbackEnvelopeDefaults(input);
   const requestedStates = uniqueStrings([
     ...(input.screen?.confidence === "low" ? [] : (input.screen?.states ?? [])),
-    ...(defaults.edgeCases ?? []),
+    ...(input.explicitBlueprint ? [] : (defaults.edgeCases ?? [])),
   ]);
 
   return {
@@ -96,20 +98,59 @@ export function buildUxEnvelope(input: BuildUxEnvelopeInput): UXEnvelope {
 /** Create the state matrix from the chosen pattern pack and requested states. */
 export function buildStateMatrix(input: BuildStateMatrixInput): StateMatrix {
   const patternPack = input.patternPack ?? selectPatternPack(input.envelope.screenArchetype);
+  if (input.requestedStates !== undefined) {
+    const explicitIds = input.requestedStates
+      .map((state) => state.id)
+      .filter((id): id is string => id !== undefined);
+    if (new Set(explicitIds).size !== explicitIds.length) {
+      throw new Error("Duplicate blueprint state id in requested states.");
+    }
+    const usedIds = new Set(explicitIds);
+    return {
+      schemaVersion: "StateMatrix/v1",
+      states: input.requestedStates.map((requested) => {
+        const kind = normalizeStateKind(requested.kind);
+        const pattern =
+          patternPack.defaultStates.find((state) => state.kind === kind) ??
+          genericState(kind, input.envelope);
+        const state = stateMatrixStateFromPattern(pattern);
+        const label = requested.name ?? labelForKind(requested.kind);
+        const baseId =
+          requested.id ?? `${slug(state.affectedRegion ?? "primary content")}-${slug(label)}`;
+        const id = requested.id ?? uniqueStateId(baseId, usedIds);
+        return { ...state, id, label, requestedKind: requested.kind, copy: { title: label } };
+      }),
+    };
+  }
+
   const requestedKinds = new Set(input.envelope.edgeCases.map(normalizeStateKind));
-  const states =
-    requestedKinds.size > 0
-      ? patternPack.defaultStates.filter((state) => requestedKinds.has(state.kind))
-      : patternPack.defaultStates;
+  const matchedStates = patternPack.defaultStates.filter((state) => requestedKinds.has(state.kind));
+  const matchedKinds = new Set(matchedStates.map((state) => state.kind));
   const resolvedStates =
-    states.length > 0
-      ? states
-      : Array.from(requestedKinds).map((kind) => genericState(kind, input.envelope));
+    requestedKinds.size > 0
+      ? [
+          ...matchedStates,
+          ...Array.from(requestedKinds)
+            .filter((kind) => !matchedKinds.has(kind))
+            .map((kind) => genericState(kind, input.envelope)),
+        ]
+      : patternPack.defaultStates;
 
   return {
     schemaVersion: "StateMatrix/v1",
     states: resolvedStates.map((state) => stateMatrixStateFromPattern(state)),
   };
+}
+
+function uniqueStateId(baseId: string, usedIds: Set<string>): string {
+  let id = baseId;
+  let suffix = 2;
+  while (usedIds.has(id)) {
+    id = `${baseId}-${suffix}`;
+    suffix += 1;
+  }
+  usedIds.add(id);
+  return id;
 }
 
 function stateMatrixStateFromPattern(state: UXPatternPackState): StateMatrix["states"][number] {

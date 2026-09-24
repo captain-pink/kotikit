@@ -75,6 +75,20 @@ describe("blueprint input schemas", () => {
     ).toThrow("Duplicate blueprint UI part id");
   });
 
+  it("rejects duplicate screen blueprint state ids", () => {
+    expect(() =>
+      ScreenBlueprintInputSchema.parse({
+        schemaVersion: "ScreenBlueprintInput/v1",
+        title: "Mock orders",
+        requiredUiParts: [{ name: "Orders table" }],
+        states: [
+          { id: "review", name: "Pending review", kind: "pending-review" },
+          { id: "review", name: "Reviewed", kind: "reviewed" },
+        ],
+      })
+    ).toThrow("Duplicate blueprint state id");
+  });
+
   it("selects the explicit primary screen from a flow blueprint", () => {
     const flow = FlowBlueprintInputSchema.parse({
       schemaVersion: "FlowBlueprintInput/v1",
