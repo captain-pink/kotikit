@@ -47,6 +47,12 @@ export type FigmaApplyPacket = {
   target: FigmaDraftTarget;
   screenTitle: string;
   blueprintRequirements?: FigmaBlueprintRequirements;
+  requestCoverage?: {
+    status: "covered";
+    requiredUiPartCount: number;
+    requestedStateCount: number;
+    expectedContentCount: number;
+  };
   uiComposition: UICompositionContract;
   layoutContract: LayoutContract;
   variableBindingPlan: VariableBindingPlan;

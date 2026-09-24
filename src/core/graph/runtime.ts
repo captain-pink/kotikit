@@ -13,6 +13,7 @@ import type {
   FlowBlueprintInput,
   ScreenBlueprintInput,
 } from "../schemas/blueprint.js";
+import { FlowBlueprintInputSchema, ScreenBlueprintInputSchema } from "../schemas/blueprint.js";
 import type { FlowDefinition } from "../schemas/flow-definition.js";
 import {
   KOTIKIT_GRAPH_STATE_SCHEMA_VERSION,
@@ -32,7 +33,12 @@ type FlowCatalogInput = FlowDefinition[] | Map<string, FlowDefinition>;
 export type GraphRuntime = {
   startFlow(input: { flowId: string; input: RuntimeStartInput }): Promise<RuntimeRunResult>;
   continueRun(input: { runId: string }): Promise<RuntimeRunResult>;
-  answerRun(input: { runId: string; answer: string }): Promise<RuntimeRunResult>;
+  answerRun(input: {
+    runId: string;
+    answer?: string;
+    screenBlueprint?: ScreenBlueprintInput;
+    flowBlueprint?: FlowBlueprintInput;
+  }): Promise<RuntimeRunResult>;
   patchRunState(input: {
     runId: string;
     statePatch: Partial<KotikitGraphState>;
@@ -151,7 +157,7 @@ export function createGraphRuntime(input: {
       }
       return executeRun(run, compiled, input.runStore, input.artifactStore, input.checkpointStore);
     },
-    async answerRun({ runId, answer }): Promise<RuntimeRunResult> {
+    async answerRun({ runId, answer, screenBlueprint, flowBlueprint }): Promise<RuntimeRunResult> {
       const run = await input.runStore.getRun(runId);
       const compiled = compileRuntimeFlow(getFlow(flowCatalog, run.flowId), input.registry);
       assertGraphHashMatches(run, compiled);
@@ -162,11 +168,49 @@ export function createGraphRuntime(input: {
         );
       }
       const pendingQuestionId = run.state.pendingQuestion?.id;
+      if (pendingQuestionId === "provide-typed-blueprint") {
+        if (
+          answer !== undefined ||
+          (screenBlueprint === undefined) === (flowBlueprint === undefined)
+        ) {
+          throw new KotikitError(
+            "This run needs one typed screen or flow blueprint to continue.",
+            "Read the blueprint schema resource, then answer this run with exactly one validated blueprint."
+          );
+        }
+        const repairedState = stateForBlueprintRepair(
+          run.state,
+          screenBlueprint === undefined
+            ? undefined
+            : ScreenBlueprintInputSchema.parse(screenBlueprint),
+          flowBlueprint === undefined ? undefined : FlowBlueprintInputSchema.parse(flowBlueprint)
+        );
+        assertCompactGraphState(repairedState);
+        const repaired = await input.runStore.updateRunState(runId, {
+          currentNodeId: undefined,
+          nextNodeIndex: 0,
+          status: "running",
+          state: repairedState,
+        });
+        return executeRun(
+          repaired,
+          compiled,
+          input.runStore,
+          input.artifactStore,
+          input.checkpointStore
+        );
+      }
+      if (answer === undefined || screenBlueprint !== undefined || flowBlueprint !== undefined) {
+        throw new KotikitError(
+          "This question needs a plain-language answer, without a blueprint.",
+          "Use kotikit_answer with runId and the selected answer."
+        );
+      }
       const state = {
         ...run.state,
         status: "running" as const,
         pendingQuestion: undefined,
-        userIntent: answer,
+        userIntent: run.state.userIntent ?? answer,
         ...(pendingQuestionId === undefined
           ? {}
           : {
@@ -211,6 +255,52 @@ export function createGraphRuntime(input: {
     async getArtifact(artifactId: string): Promise<Artifact> {
       return input.artifactStore.getArtifact(artifactId);
     },
+  };
+}
+
+function stateForBlueprintRepair(
+  previous: KotikitGraphState,
+  screenBlueprint: ScreenBlueprintInput | undefined,
+  flowBlueprint: FlowBlueprintInput | undefined
+): KotikitGraphState {
+  const selectedScreen =
+    screenBlueprint ??
+    flowBlueprint?.screens.find(
+      (screen) => screen.id === (flowBlueprint.primaryScreenId ?? flowBlueprint.entryScreenId)
+    ) ??
+    flowBlueprint?.screens[0];
+  if (selectedScreen?.confidence === "low") {
+    throw new KotikitError(
+      "The supplied blueprint still marks the primary screen as low confidence.",
+      "Resolve the unclear UI requirements and answer with an explicit or inferred typed blueprint."
+    );
+  }
+  const answers = Object.fromEntries(
+    Object.entries(previous.answers ?? {}).filter(
+      ([id]) => id !== "approve-brief" && id !== "provide-typed-blueprint"
+    )
+  );
+  return {
+    schemaVersion: previous.schemaVersion,
+    runId: previous.runId,
+    flowId: previous.flowId,
+    flowVersion: previous.flowVersion,
+    graphHash: previous.graphHash,
+    status: "running",
+    project: previous.project,
+    userIntent: previous.userIntent,
+    screenBlueprint,
+    flowBlueprint,
+    canvasIntent: previous.canvasIntent,
+    existingDesignInventory: previous.existingDesignInventory,
+    figmaTarget: previous.figmaTarget,
+    figmaDefaults: previous.figmaDefaults,
+    designSystem: previous.designSystem,
+    feedback: previous.feedback,
+    answers,
+    runMetrics: previous.runMetrics,
+    artifacts: [],
+    errors: [],
   };
 }
 

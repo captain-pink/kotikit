@@ -87,7 +87,9 @@ reviews and submits it manually.
    `kotikit://schemas/flow-blueprint-input` before building a detailed blueprint.
    Follow the `nextAction` field returned by each run call.
 4. When the run pauses, ask the pending question in plain language and resume
-   with `kotikit_answer`.
+   with `kotikit_answer`. If `nextAction.kind` is `provide-blueprint`, read the
+   named schema resource and answer that same run with exactly one validated
+   `screenBlueprint` or `flowBlueprint`. Preserve the original request.
 5. If the run needs a Figma target, ask for the exact draft page URL and
    call `kotikit_bind_figma_target` with `pageUrl`. Do not hand-build target
    JSON unless kotikit explicitly asks for a canonical target object.

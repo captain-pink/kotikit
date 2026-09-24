@@ -137,7 +137,7 @@ the generic `unknown` archetype regardless of incidental words such as
 For low-confidence intent, UX artifacts preserve the supplied request, use
 no inferred standard states, and halt at the brief boundary before local
 design-system composition or Figma work. The pending question directs the
-caller to restart `kotikit_start` with a validated `screenBlueprint` or
+caller to answer the same run with a validated `screenBlueprint` or
 `flowBlueprint` containing structured required UI parts, regions, expected
 content, and only requested states. Text approval and quick-lane wording do
 not bypass this boundary. Low-confidence artifacts must not copy actors,
@@ -146,7 +146,10 @@ pack.
 
 For explicit blueprints, the executable Figma apply packet carries the
 validated required UI parts and expected content so the applying assistant can
-preserve visible product requirements.
+preserve visible product requirements. A pre-apply coverage check confirms that
+required parts appear in composition and draft steps, requested states survive
+into the state matrix and Figma transactions, and expected content reaches the
+packet. The original request remains available across clarifying answers.
 
 ## Module References
 

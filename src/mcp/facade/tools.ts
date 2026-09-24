@@ -118,7 +118,9 @@ const RunIdInputSchema = z.strictObject({
 
 const AnswerInputSchema = z.strictObject({
   runId: z.string().min(1),
-  answer: z.string().min(1),
+  answer: z.string().min(1).optional(),
+  screenBlueprint: ScreenBlueprintInputSchema.optional(),
+  flowBlueprint: FlowBlueprintInputSchema.optional(),
 });
 
 const BindFigmaTargetInputSchema = z.strictObject({
@@ -364,14 +366,24 @@ export function registerFacadeTools(
 
   registerTool(registry, {
     name: "kotikit_answer",
-    description: "Answer a human-in-the-loop question and resume the paused kotikit flow.",
+    description: "Answer a paused question or repair its typed blueprint in the same run.",
     inputSchema: {
       type: "object",
       properties: {
         runId: { type: "string", description: "Paused run id." },
-        answer: { type: "string", description: "Designer answer." },
+        answer: { type: "string", description: "Designer answer for a normal question." },
+        screenBlueprint: {
+          type: "object",
+          description:
+            "Validated screen blueprint when nextAction requests one. Read kotikit://schemas/screen-blueprint-input first.",
+        },
+        flowBlueprint: {
+          type: "object",
+          description:
+            "Validated flow blueprint when nextAction requests one. Read kotikit://schemas/flow-blueprint-input first.",
+        },
       },
-      required: ["runId", "answer"],
+      required: ["runId"],
     },
   });
   registry.handlers.set("kotikit_answer", async (args) => {
@@ -380,7 +392,7 @@ export function registerFacadeTools(
       const runtime = requireRuntime(deps.runtime);
       return toolText(
         `Answered run ${input.runId}.`,
-        compactRunResult(await runtime.answerRun({ runId: input.runId, answer: input.answer }))
+        compactRunResult(await runtime.answerRun(input))
       );
     } catch (err) {
       return toolError(err);
