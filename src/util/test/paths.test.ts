@@ -8,14 +8,10 @@ import {
   componentJsonPath,
   componentsDbPath,
   configPath,
-  designApplyLogPath,
-  designPlanPath,
   designSystemDir,
   findProjectRoot,
   iconsDbPath,
   manifestPath,
-  screenSpecPath,
-  singleSpecPath,
   syncReportPath,
   variablesJsonPath,
 } from "../paths";
@@ -34,18 +30,6 @@ afterEach(() => {
 describe("paths", () => {
   it("configPath returns the expected path", () => {
     expect(configPath(tmp)).toBe(`${tmp}/.kotikit/config.json`);
-  });
-
-  it("screenSpecPath returns the expected path", () => {
-    expect(screenSpecPath(tmp, "checkout-flow", "cart")).toBe(
-      `${tmp}/.kotikit/specs/checkout-flow/cart.spec.json`
-    );
-  });
-
-  it("singleSpecPath returns spec.json", () => {
-    expect(singleSpecPath(tmp, "profile-page")).toBe(
-      `${tmp}/.kotikit/specs/profile-page/spec.json`
-    );
   });
 
   it("findProjectRoot returns start dir when no .kotikit exists", () => {
@@ -137,31 +121,7 @@ describe("paths", () => {
     });
   });
 
-  describe("Phase 5 path helpers", () => {
-    it("designPlanPath single-screen", () => {
-      expect(designPlanPath("/p", "profile-page", null)).toBe(
-        "/p/.kotikit/specs/profile-page/design.plan.json"
-      );
-    });
-
-    it("designPlanPath multi-screen", () => {
-      expect(designPlanPath("/p", "checkout-flow", "cart")).toBe(
-        "/p/.kotikit/specs/checkout-flow/cart.design.plan.json"
-      );
-    });
-
-    it("designApplyLogPath single-screen", () => {
-      expect(designApplyLogPath("/p", "profile-page", null)).toBe(
-        "/p/.kotikit/specs/profile-page/design.apply.log"
-      );
-    });
-
-    it("designApplyLogPath multi-screen", () => {
-      expect(designApplyLogPath("/p", "checkout-flow", "cart")).toBe(
-        "/p/.kotikit/specs/checkout-flow/cart.design.apply.log"
-      );
-    });
-
+  describe("bridge path helper", () => {
     it("bridgeConfigPath", () => {
       expect(bridgeConfigPath("/p")).toBe("/p/.kotikit/bridge.json");
     });

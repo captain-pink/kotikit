@@ -34,14 +34,16 @@ The target project owns:
 - `.kotikit/config.json`
 - `.kotikit/runs/*`
 - `.kotikit/artifacts/*`
-- `.kotikit/specs/*`
-- `.kotikit/index.json`
 - `.kotikit/bridge.json` when a bridge is running
 
-Specs, graph runs, and graph artifacts are JSON. Runs persist flow ids, graph
+Graph runs and graph artifacts are JSON. Runs persist flow ids, graph
 hashes, node versions, status, and state; artifacts hold compact contracts such
 as briefs, design approaches, fit reports, apply packets, comment evidence
 maps, revision plans, usage reports, and QA reports.
+
+Older projects may still contain `.kotikit/specs/*` and `.kotikit/index.json`.
+Kotikit leaves these historical files untouched and does not use them for new
+design work.
 
 ### Design-System Indexes
 
@@ -162,11 +164,9 @@ packet. The original request remains available across clarifying answers.
 
 - [modules/config.md](modules/config.md) - `.kotikit/config.json`, defaults,
   and secret resolution.
-- [modules/spec.md](modules/spec.md) - screen specs, flow manifests, and index.
 - [modules/sync.md](modules/sync.md) - Figma sync, normalization, rate limits,
   and checkpoints.
-- [modules/planning.md](modules/planning.md) - design plans, graph draft
-  component planning, and apply metadata.
+- [modules/planning.md](modules/planning.md) - graph draft planning and apply metadata.
 - [modules/mcp.md](modules/mcp.md) - MCP server, tool registry, and bridge.
 - [modules/workflow.md](modules/workflow.md) - removed legacy workflow module
   and graph-runtime replacement notes.

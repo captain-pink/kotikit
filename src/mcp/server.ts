@@ -40,7 +40,6 @@ import { registerDsSearchTools } from "./tools/ds-search.js";
 import { registerIconsSearchTools } from "./tools/icons-search.js";
 import { registerPluginVariableTools } from "./tools/plugin-variables.js";
 import { registerSyncTools } from "./tools/sync.js";
-import { registerSystemPromptTools } from "./tools/system-prompt.js";
 
 /** The return type every tool handler must produce. */
 type ToolResult = {
@@ -111,7 +110,6 @@ export function buildServer(options: { root?: string } = {}): {
   registerDsSearchTools(registry, ctx);
   registerIconsSearchTools(registry, ctx);
   registerSyncTools(registry, ctx);
-  registerSystemPromptTools(registry, ctx);
   registerPluginVariableTools(registry, ctx);
   registerBridgeTools(registry, ctx);
 

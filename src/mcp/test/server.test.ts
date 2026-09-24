@@ -16,7 +16,6 @@ const safeAutoApprovedTools = [
   "kotikit_ds_search",
   "kotikit_ds_get_component",
   "kotikit_icons_search",
-  "kotikit_get_system_prompt",
   "kotikit_config_status",
 ];
 const unsafePromptedTools = [
@@ -92,7 +91,6 @@ describe("MCP server", () => {
       "kotikit_icons_search",
       "kotikit_sync_ds",
       "kotikit_sync_plugin_variables",
-      "kotikit_get_system_prompt",
       "kotikit_bridge_start",
       "kotikit_bridge_stop",
       "kotikit_bridge_status",
@@ -100,6 +98,7 @@ describe("MCP server", () => {
     const expectedTools = [...FACADE_TOOL_NAMES, ...supportTools];
     const registeredNames = registry.tools.map((t) => t.name);
     const removedTools = [
+      "kotikit_get_system_prompt",
       "kotikit_plan_code",
       "kotikit_implement_code_start",
       "kotikit_implement_code_save",

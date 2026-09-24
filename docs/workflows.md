@@ -21,6 +21,10 @@ Expected behavior:
 - Applies incremental Figma changes one screen state at a time.
 - Runs screenshot and evidence checks before completion.
 
+For a request covering several screens, Kotikit makes one screen per
+`create-screen` run. The assistant should name the selected screen and use a
+separate run for each remaining screen.
+
 Good requests are specific about the product job:
 
 ```text

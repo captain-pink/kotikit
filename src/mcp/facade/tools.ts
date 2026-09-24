@@ -26,6 +26,7 @@ import {
   CanvasIntentInputSchema,
   ExistingDesignInventoryInputSchema,
   FlowBlueprintInputSchema,
+  primaryScreenFromFlowBlueprint,
   ScreenBlueprintInputSchema,
 } from "../../core/schemas/blueprint.js";
 import { type FlowDefinition, FlowDefinitionSchema } from "../../core/schemas/flow-definition.js";
@@ -269,7 +270,7 @@ export function registerFacadeTools(
             flowBlueprint: {
               type: "object",
               description:
-                "Structured multi-screen blueprint. Read kotikit://schemas/flow-blueprint-input before constructing it from the designer request.",
+                "Structured multi-screen context. A create-screen run makes only its primary screen; start separate runs for other screens. Read kotikit://schemas/flow-blueprint-input before constructing it.",
             },
             canvasIntent: {
               type: "object",
@@ -396,7 +397,7 @@ export function registerFacadeTools(
         flowBlueprint: {
           type: "object",
           description:
-            "Validated flow blueprint when nextAction requests one. Read kotikit://schemas/flow-blueprint-input first.",
+            "Validated flow blueprint when nextAction requests one. This run makes only its primary screen; use separate runs for other screens. Read kotikit://schemas/flow-blueprint-input first.",
         },
       },
       required: ["runId"],
@@ -1703,6 +1704,10 @@ function compactRunResult(
   phase: "normal" | "prepared-write" | "bound-target" = "normal"
 ): Record<string, unknown> {
   const feedbackHandoff = compactFeedbackHandoff(result.state.feedback);
+  const selectedScreen =
+    result.state.flowId === "create-screen" && result.state.flowBlueprint !== undefined
+      ? primaryScreenFromFlowBlueprint(result.state.flowBlueprint)
+      : undefined;
   return {
     runId: result.runId,
     status: result.status,
@@ -1715,6 +1720,17 @@ function compactRunResult(
     figmaWritePreflight: result.state.figmaWritePreflight,
     figmaTransactionProgress: transactionProgressFrom(result.state.figmaTransactionPlan),
     nextAction: nextActionForRun(result, phase),
+    ...(selectedScreen === undefined
+      ? {}
+      : {
+          screenScope: {
+            title: selectedScreen.title,
+            ...(selectedScreen.id === undefined ? {} : { id: selectedScreen.id }),
+            totalScreensInBlueprint: result.state.flowBlueprint?.screens.length,
+            instruction:
+              "This run creates only this screen. Start separate runs for other screens.",
+          },
+        }),
     ...(result.state.runMetrics === undefined
       ? {}
       : {

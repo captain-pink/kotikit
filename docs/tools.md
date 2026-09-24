@@ -26,7 +26,6 @@ for Codex and Claude Code auto-approves only exact safe local read-only tools:
 - `kotikit_ds_search`
 - `kotikit_ds_get_component`
 - `kotikit_icons_search`
-- `kotikit_get_system_prompt`
 - `kotikit_config_status`
 
 The scaffold does not use wildcard approval rules. Tools that write files,
@@ -90,7 +89,7 @@ Output: `{ valid: boolean; flow }`
 
 Purpose: Start a graph-backed designer flow.
 Input: `{ flowId: string; input?: { userIntent?: string; screenBlueprint?: object; flowBlueprint?: object; canvasIntent?: object; existingDesignInventory?: object; figmaTarget?: object; designSystem?: object; feedback?: object; project?: { root: string; name?: string } } }`
-Output: `{ runId; status; nextAction; pendingQuestion?; artifacts; errors; runMetrics? }`
+Output: `{ runId; status; nextAction; screenScope?; pendingQuestion?; artifacts; errors; runMetrics? }`
 
 `nextAction` names the next tool or external Figma handoff with the active run,
 transaction, and artifact ids. Follow it instead of inferring a call sequence
@@ -98,7 +97,9 @@ from artifact order. `runMetrics` contains only local node counts, elapsed
 milliseconds, and block counts; it never contains designer content.
 
 For detailed PRDs, assistants should pass `screenBlueprint` or `flowBlueprint`
-instead of relying on plain-language inference. Kotikit preserves blueprint
+after reading the matching schema resource, instead of relying on plain-language
+inference. `create-screen` makes only the primary screen from a flow blueprint;
+use separate runs for other screens. Kotikit preserves blueprint
 titles, product domains, screen names, UI parts, regions, repeated patterns,
 and canvas intent. Without a blueprint, fallback inference is intentionally
 limited to short simple prompts.
@@ -342,13 +343,7 @@ variables are unavailable.
 Input: `{ payload: object }`
 Output: imported variable count and conflict details.
 
-## Prompts And Bridge
-
-### kotikit_get_system_prompt
-
-Purpose: Fetch long prompt doctrine by reference.
-Input: `{ kind: "brainstorm" }`
-Output: prompt text.
+## Bridge
 
 ### kotikit_bridge_start
 

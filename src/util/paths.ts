@@ -21,33 +21,6 @@ export const syncReportPath = (root: string): string => `${root}/design-system/.
 
 export const configPath = (root: string): string => `${root}/.kotikit/config.json`;
 
-export const indexPath = (root: string): string => `${root}/.kotikit/index.json`;
-
-export const scopeDir = (root: string, scope: string): string => `${root}/.kotikit/specs/${scope}`;
-
-export const screenSpecPath = (root: string, scope: string, screenSlug: string): string =>
-  `${root}/.kotikit/specs/${scope}/${screenSlug}.spec.json`;
-
-export const singleSpecPath = (root: string, scope: string): string =>
-  `${root}/.kotikit/specs/${scope}/spec.json`;
-
-export const flowManifestPath = (root: string, scope: string): string =>
-  `${root}/.kotikit/specs/${scope}/flow.json`;
-
-/** Path to <screen>.design.plan.json next to the spec.
- *  Single-screen scope (screen === null) → design.plan.json.
- *  Multi-screen → <screen>.design.plan.json. */
-export const designPlanPath = (root: string, scope: string, screen: string | null): string => {
-  const name = screen ? `${screen}.design.plan.json` : "design.plan.json";
-  return `${root}/.kotikit/specs/${scope}/${name}`;
-};
-
-/** Path to the per-screen apply log (JSONL). */
-export const designApplyLogPath = (root: string, scope: string, screen: string | null): string => {
-  const name = screen ? `${screen}.design.apply.log` : "design.apply.log";
-  return `${root}/.kotikit/specs/${scope}/${name}`;
-};
-
 /** Path to the bridge config file written when the bridge starts. */
 export const bridgeConfigPath = (root: string): string => `${root}/.kotikit/bridge.json`;
 

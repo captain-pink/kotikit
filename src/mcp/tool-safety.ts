@@ -11,7 +11,6 @@ export const KOTIKIT_AUTO_APPROVED_TOOL_NAMES = [
   "kotikit_ds_search",
   "kotikit_ds_get_component",
   "kotikit_icons_search",
-  "kotikit_get_system_prompt",
   "kotikit_config_status",
 ] as const;
 

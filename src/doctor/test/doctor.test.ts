@@ -4,7 +4,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { writeConfig } from "../../config/load.js";
 import { defaultConfig } from "../../config/schema.js";
-import { newScreenSpec } from "../../spec/schema.js";
 import { checkpointPath, componentsDbPath, iconsDbPath, manifestPath } from "../../util/paths.js";
 import { formatDoctorReport, runKotikitDoctor } from "../doctor.js";
 
@@ -94,27 +93,18 @@ describe("runKotikitDoctor", () => {
     expect(report.checks.find((check) => check.id === "gates")).toBeUndefined();
   });
 
-  it("warns about legacy readable artifacts without failing doctor", async () => {
+  it("ignores retired spec files during active schema checks", async () => {
     const root = mkTmp();
     await writeConfig(root, defaultConfig());
-    const spec = newScreenSpec({ title: "Legacy", description: "x" });
-    const { schemaVersion: _schemaVersion, ...legacySpec } = spec;
     mkdirSync(join(root, ".kotikit", "specs", "legacy"), { recursive: true });
-    writeFileSync(
-      join(root, ".kotikit", "specs", "legacy", "spec.json"),
-      JSON.stringify(legacySpec, null, 2)
-    );
+    writeFileSync(join(root, ".kotikit", "specs", "legacy", "spec.json"), "{");
 
     const report = await runKotikitDoctor(root);
     const check = report.checks.find((item) => item.id === "schema-versions");
 
     expect(report.ok).toBe(true);
-    expect(check?.status).toBe("warn");
-    expect(check?.message).toContain("1 older kotikit file");
-    expect(check?.hint).toContain("updated automatically when edited");
-    expect(check?.details).toContainEqual(
-      expect.stringContaining(".kotikit/specs/legacy/spec.json")
-    );
+    expect(check?.status).toBe("ok");
+    expect(check?.message).toBe("Versioned kotikit files are current.");
   });
 });
 
